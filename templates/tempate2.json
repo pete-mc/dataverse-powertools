@@ -1,0 +1,14 @@
+{
+  "version": "2",
+  "files": [
+    {
+      "path": "./",
+      "filename": "plugin",
+      "extension": "cs",
+      "version": 1
+    },
+    {
+      "filename": "plugin.1.csproj",
+      "destination": "plugin.csproj"
+    }
+]}
