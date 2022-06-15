@@ -6,6 +6,9 @@ import { buildDeployWorkflow } from "./plugins/buildDeployWorkflow";
 import path = require("path");
 import fs = require("fs");
 import DataversePowertoolsContext from "./DataversePowertoolsContext";
+import { buildWebresources } from "./webresources/buildWebresources";
+import { deployWebresources } from "./webresources/deployWebresources";
+import { generateTypings } from "./webresources/generateTypings";
 
 export function activate(vscodeContext: vscode.ExtensionContext) {
     const context = new DataversePowertoolsContext(vscodeContext);
@@ -13,6 +16,10 @@ export function activate(vscodeContext: vscode.ExtensionContext) {
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.generateEarlyBound", () => generateEarlyBound(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildDeployPlugin", () => buildDeployPlugin(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildDeployWorkflow", () => buildDeployWorkflow(context)));
+
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildWebresources", () => buildWebresources(context)));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.deployWebresources", () => deployWebresources(context)));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.generateTypings", () => generateTypings(context)));
 
     // Extension path example
     let fullFilePath = context.vscode.asAbsolutePath(path.join("templates", "test.txt"));
