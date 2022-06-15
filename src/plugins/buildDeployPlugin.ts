@@ -1,9 +1,11 @@
 import * as vscode from 'vscode';
 import * as cp from "child_process";
+import * as path from 'path';
+import * as fs from 'fs';
 
-export async function buildDeployPlugin(chan: vscode.OutputChannel) {
+export async function buildDeployPlugin(chan: vscode.OutputChannel, context: vscode.ExtensionContext) {
 		vscode.window.showInformationMessage('Building');
-		if (vscode.workspace.workspaceFolders !== undefined) {
+  	if (vscode.workspace.workspaceFolders !== undefined) {
 			const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
 			const connfile = await vscode.workspace.fs.readFile(vscode.Uri.file(workspacePath + "\\connectionstring.txt"));
 			const connString = Buffer.from(connfile).toString('utf8');
