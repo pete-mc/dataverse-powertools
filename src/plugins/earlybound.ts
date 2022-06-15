@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
 import * as cp from "child_process";
-import DataversePowertoolsContext from "../DataversePowertoolsContext";
+import DataversePowerToolsContext from "../DataversePowerToolsContext";
 
-export async function generateEarlyBound(context: DataversePowertoolsContext) {
+export async function generateEarlyBound(context: DataversePowerToolsContext) {
     vscode.window.showInformationMessage("Generating early bound classes from spkl.json");
     if (vscode.workspace.workspaceFolders !== undefined) {
         await vscode.workspace.fs.createDirectory(vscode.Uri.file(vscode.workspace.workspaceFolders[0].uri.fsPath + "\\RWFCore\\generated"));

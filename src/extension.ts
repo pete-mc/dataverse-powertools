@@ -1,17 +1,19 @@
 import * as vscode from "vscode";
 import * as cp from "child_process";
+import path = require("path");
+import fs = require("fs");
+import DataversePowerToolsContext from "./DataversePowerToolsContext";
 import { generateEarlyBound } from "./plugins/earlybound";
 import { buildDeployPlugin } from "./plugins/buildDeployPlugin";
 import { buildDeployWorkflow } from "./plugins/buildDeployWorkflow";
-import path = require("path");
-import fs = require("fs");
-import DataversePowertoolsContext from "./DataversePowertoolsContext";
 import { buildWebresources } from "./webresources/buildWebresources";
 import { deployWebresources } from "./webresources/deployWebresources";
 import { generateTypings } from "./webresources/generateTypings";
 
 export function activate(vscodeContext: vscode.ExtensionContext) {
-    const context = new DataversePowertoolsContext(vscodeContext);
+    const context = new DataversePowerToolsContext(vscodeContext);
+
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.initialiseProject", () => generateEarlyBound(context)));
 
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.generateEarlyBound", () => generateEarlyBound(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildDeployPlugin", () => buildDeployPlugin(context)));

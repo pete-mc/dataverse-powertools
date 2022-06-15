@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
 import * as cp from "child_process";
-import DataversePowertoolsContext from "../DataversePowertoolsContext";
+import DataversePowerToolsContext from "../DataversePowerToolsContext";
 
-export async function buildDeployWorkflow(context: DataversePowertoolsContext) {
+export async function buildDeployWorkflow(context: DataversePowerToolsContext) {
     vscode.window.showInformationMessage("Building");
     if (vscode.workspace.workspaceFolders !== undefined) {
         const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;

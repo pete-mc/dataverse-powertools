@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
 import * as cp from "child_process";
-import DataversePowertoolsContext from "../DataversePowertoolsContext";
+import DataversePowerToolsContext from "../DataversePowerToolsContext";
 
-export async function generateTypings(context: DataversePowertoolsContext) {
+export async function generateTypings(context: DataversePowerToolsContext) {
     vscode.window.showInformationMessage("Generating typings");
     if (vscode.workspace.workspaceFolders !== undefined) {
         const connfile = await vscode.workspace.fs.readFile(vscode.Uri.file(vscode.workspace.workspaceFolders[0].uri.fsPath + "\\connectionstring.txt"));
