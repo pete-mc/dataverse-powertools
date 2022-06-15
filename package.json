@@ -12,7 +12,10 @@
 	"activationEvents": [
 		"onCommand:dataverse-powertools.generateEarlyBound",
 		"onCommand:dataverse-powertools.buildDeployPlugin",
-		"onCommand:dataverse-powertools.buildDeployWorkflow"
+		"onCommand:dataverse-powertools.buildDeployWorkflow",
+		"onCommand:dataverse-powertools.buildWebresources",
+		"onCommand:dataverse-powertools.deployWebresources",
+		"onCommand:dataverse-powertools.generateTypings"
 	],
 	"main": "./dist/extension.js",
 	"contributes": {
@@ -28,6 +31,18 @@
 			{
 				"command": "dataverse-powertools.buildDeployWorkflow",
 				"title": "Dataverse PowerTools: Build and Deploy Workflows"
+			},
+			{
+				"command": "dataverse-powertools.buildWebresources",
+				"title": "Dataverse PowerTools: Build Webresources"
+			},
+			{
+				"command": "dataverse-powertools.deployWebresources",
+				"title": "Dataverse PowerTools: Deploy Webresources"
+			},
+			{
+				"command": "dataverse-powertools.generateTypings",
+				"title": "Dataverse PowerTools: Generate Typings"
 			}
 
 		]
