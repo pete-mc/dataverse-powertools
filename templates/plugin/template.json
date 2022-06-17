@@ -1,0 +1,36 @@
+[
+    {
+        "version": "1",
+        "files": [
+            {
+                "path": "./",
+                "filename": "plugin",
+                "extension": "cs",
+                "version": 1
+            },
+            {
+                "path": "./",
+                "filename": "plugin",
+                "extension": "csproj",
+                "version": 1
+            }
+        ]
+    },
+    {
+        "version": "2",
+        "files": [
+            {
+                "path": "./",
+                "filename": "plugin",
+                "extension": "cs",
+                "version": 2
+            },
+            {
+                "path": "./",
+                "filename": "plugin",
+                "extension": "csproj",
+                "version": 1
+            }
+        ]
+    }
+]
