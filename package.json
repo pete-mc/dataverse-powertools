@@ -12,7 +12,8 @@
 	"activationEvents": [
 		"onCommand:dataverse-powertools.generateEarlyBound",
 		"onCommand:dataverse-powertools.buildDeployPlugin",
-		"onCommand:dataverse-powertools.buildDeployWorkflow"
+		"onCommand:dataverse-powertools.buildDeployWorkflow",
+		"onCommand:dataverse-powertools.restoreDependencies"
 	],
 	"main": "./dist/extension.js",
 	"contributes": {
@@ -28,6 +29,10 @@
 			{
 				"command": "dataverse-powertools.buildDeployWorkflow",
 				"title": "Dataverse PowerTools: Build and Deploy Workflows"
+			},
+			{
+				"command": "dataverse-powertools.restoreDependencies",
+				"title": "Dataverse PowerTools: Restore Dependencies"
 			}
 
 		]
