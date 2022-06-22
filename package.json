@@ -15,11 +15,16 @@
         "onCommand:dataverse-powertools.buildDeployWorkflow",
         "onCommand:dataverse-powertools.buildWebresources",
         "onCommand:dataverse-powertools.deployWebresources",
-        "onCommand:dataverse-powertools.generateTypings"
+        "onCommand:dataverse-powertools.generateTypings",
+        "onCommand:dataverse-powertools.createConnectionString"
     ],
     "main": "./dist/extension.js",
     "contributes": {
         "commands": [
+            {
+                "command": "dataverse-powertools.createConnectionString",
+                "title": "Dataverse PowerTools: Create Connection String"
+            },
             {
                 "command": "dataverse-powertools.initialiseProject",
                 "title": "Dataverse PowerTools: Initialise Project"

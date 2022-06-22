@@ -9,13 +9,13 @@ import { buildDeployWorkflow } from "./plugins/buildDeployWorkflow";
 import { buildWebresources } from "./webresources/buildWebresources";
 import { deployWebresources } from "./webresources/deployWebresources";
 import { generateTypings } from "./webresources/generateTypings";
+import { createConnectionString } from "./general/createConnectionString";
 import { restoreDependencies } from './general/restoreDependencies';
 
 export function activate(vscodeContext: vscode.ExtensionContext) {
     const context = new DataversePowerToolsContext(vscodeContext);
-
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.initialiseProject", () => generateEarlyBound(context)));
-
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createConnectionString", () => createConnectionString(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.generateEarlyBound", () => generateEarlyBound(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildDeployPlugin", () => buildDeployPlugin(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildDeployWorkflow", () => buildDeployWorkflow(context)));
@@ -23,7 +23,7 @@ export function activate(vscodeContext: vscode.ExtensionContext) {
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildWebresources", () => buildWebresources(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.deployWebresources", () => deployWebresources(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.generateTypings", () => generateTypings(context)));
-    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.restoreDependencies", () => restoreDependencies(context)));
+    // context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.restoreDependencies", () => restoreDependencies(context)));
 
     // Extension path example
     let fullFilePath = context.vscode.asAbsolutePath(path.join("templates", "test.txt"));
