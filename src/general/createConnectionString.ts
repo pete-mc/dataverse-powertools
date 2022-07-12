@@ -79,19 +79,28 @@ export async function createConnectionString(context: DataversePowerToolsContext
     const wsedit = new vscode.WorkspaceEdit();
 
     const folderPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-    const filePath = vscode.Uri.file(folderPath + '/connectionstring.txt');
+    const filePath = vscode.Uri.file(folderPath + '/connectionstring2.txt');
     vscode.window.showInformationMessage(filePath.toString());
-    wsedit.createFile(filePath);
-    vscode.workspace.applyEdit(wsedit);
+    //wsedit.createFile(filePath);
+    //vscode.workspace.applyEdit(wsedit);
     let connectionString = 'AuthType=ClientSecret;Url=';
     connectionString += state.organisationUrl += ';ClientId=';
     connectionString += state.applicationId += ';ClientSecret=';
     connectionString += state.clientSecret += ';LoginPrompt=Never';
     const encoder = new TextEncoder();
     const encodedString = encoder.encode(connectionString);
-    vscode.workspace.fs.writeFile(filePath, encodedString);
+		context.projectSettings.connectionString = connectionString;
+    // vscode.workspace.fs.writeFile(filePath, encodedString);
   }
-	window.showInformationMessage(`Creating Application Service '${state.name}'`);
+	// window.showInformationMessage(`Creating Application Service '${state.name}'`);
+}
+
+export async function getSolutionName(context: DataversePowerToolsContext) {
+	const result = await window.showInputBox({ 
+		prompt: 'Type in the Solution Name'
+	});
+	context.projectSettings.solutionName = result;
+	window.showInformationMessage(`Solution: ${result}`);
 }
 
 class InputFlowAction {
