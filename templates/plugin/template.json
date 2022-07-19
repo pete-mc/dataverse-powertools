@@ -20,6 +20,12 @@
                 "displayName":"",
                 "placeholder": ""
             }
+        ],
+        "restoreCommands":[
+            {
+                "command": "",
+                "params": ""
+            }
         ]
     },
     {

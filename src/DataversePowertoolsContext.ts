@@ -59,8 +59,15 @@ export default class DataversePowerToolsContext {
 }
 
 interface ProjectSettings {
-    type?: "plugin" | "webresource" | "pcfcontrol" | "solution";
+    type?:  ProjectTypes;
     templateversion?: number;
     connectionString?: string;
     solutionName?: string;
+}
+
+export enum ProjectTypes {
+    plugin,
+    webresource, 
+    pcfcontrol,
+    solution,
 }
