@@ -21,13 +21,11 @@ export async function setUISettings(context: DataversePowerToolsContext) {
   }
 
   switch (context.projectSettings.type) {
-    case 'plugin':
+    case ProjectTypes.plugin:
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isPlugin', true);
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isWebResource', false);
-    case 'webresource':
+    case ProjectTypes.webresource:
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isPlugin', true);
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isWebResource', false);
-    case 'pcfcontrol':
-
   }
 }
