@@ -8,17 +8,9 @@ export async function restoreDependencies(chan: vscode.OutputChannel) {
 			const connfile = await vscode.workspace.fs.readFile(vscode.Uri.file(workspacePath + "\\connectionstring.txt"));
 			const connString = Buffer.from(connfile).toString('utf8');
 			const codeType = "plugin"; //get environment variable
-
-			try{
-			var blah = cp.execSync("ping asdasd");
-			chan.appendLine(blah.toString());
-			}
-			catch(e){
-				chan.appendLine("Error: " + e);
-			}
 			
 			chan.appendLine("before");
-			//var blah = await CommonRestore(chan, workspacePath);
+			await CommonRestore(chan, workspacePath);
 			switch (codeType) 
 			{
 				case "plugin":
@@ -31,84 +23,113 @@ export async function restoreDependencies(chan: vscode.OutputChannel) {
 		};		
 };
 
-async function CommonRestore(chan: vscode.OutputChannel, workspacePath: string): Promise<number | null> {
-	chan.append("\ndotnet new tool-manifest");
-	var blah = await cp.execFile("dotnet", ["new", "tool-manifest", "--force"], {cwd: workspacePath},
-	async (error, stdout) => {
-		if (error) {
-			vscode.window.showErrorMessage("Error restoring tool-manifest, see output for details.");
-			chan.appendLine(stdout);
-			chan.show();
-		}	else{
-			chan.appendLine(stdout);
-
-			chan.append("\ndotnet tool restore");
-			await cp.execFile("dotnet", ["tool", "restore"], {cwd: workspacePath}
-			,async (error, stdout) => {
-				if (error) {
-					vscode.window.showErrorMessage("Error restoring tool restore, see output for details.");
-					chan.appendLine(stdout);
-					chan.show();
-				}	else{
-					chan.appendLine(stdout);
-
-					chan.append("\ndotnet tool install paket");
-					await cp.execFile("dotnet", ["tool", "install", "paket"], {cwd: workspacePath}
-					,async (error, stdout) => {
-						if (error) {
-							vscode.window.showErrorMessage("Error restoring tool install paket, see output for details.");
-							chan.appendLine(stdout);
-							chan.show();
-						}	else{
-							chan.appendLine(stdout);
-		
-							chan.append("\ndotnet paket install");
-							await cp.execFile("dotnet", ["paket","install"], {cwd: workspacePath}
-							,(error, stdout) => {
-								if (error) {
-									vscode.window.showErrorMessage("Error restoring paket install, see output for details.");
-									chan.appendLine(stdout);
-									chan.show();
-								}	else{
-									chan.appendLine(stdout);
-								}
-							});
-						}
-					});
-				}
-			});
-		}
-	});
+async function CommonRestore(chan: vscode.OutputChannel, workspacePath: string) {
 	
-chan.appendLine("Function complete.");
-return blah.exitCode;
+	try
+	{
+		chan.appendLine("dotnet new tool-manifest");
+		cp.execSync("dotnet new tool-manifest", {cwd: workspacePath});
+		chan.appendLine("dotnet tool restore");
+		cp.execSync("dotnet tool restore", {cwd: workspacePath});
+		chan.appendLine("dotnet tool install paket");
+		cp.execSync("dotnet tool install paket", {cwd: workspacePath});
+		chan.appendLine("dotnet paket install");
+		cp.execSync("dotnet paket install", {cwd: workspacePath});
+	}
+	catch(e)
+	{
+		chan.appendLine("Error: " + e);
+		return;
+	}
+
+	// var blah = await cp.execFile("dotnet", ["new", "tool-manifest", "--force"], {cwd: workspacePath},
+	// async (error, stdout) => {
+	// 	if (error) {
+	// 		vscode.window.showErrorMessage("Error restoring tool-manifest, see output for details.");
+	// 		chan.appendLine(stdout);
+	// 		chan.show();
+	// 	}	else{
+	// 		chan.appendLine(stdout);
+
+	// 		chan.append("\ndotnet tool restore");
+	// 		await cp.execFile("dotnet", ["tool", "restore"], {cwd: workspacePath}
+	// 		,async (error, stdout) => {
+	// 			if (error) {
+	// 				vscode.window.showErrorMessage("Error restoring tool restore, see output for details.");
+	// 				chan.appendLine(stdout);
+	// 				chan.show();
+	// 			}	else{
+	// 				chan.appendLine(stdout);
+
+	// 				chan.append("\ndotnet tool install paket");
+	// 				await cp.execFile("dotnet", ["tool", "install", "paket"], {cwd: workspacePath}
+	// 				,async (error, stdout) => {
+	// 					if (error) {
+	// 						vscode.window.showErrorMessage("Error restoring tool install paket, see output for details.");
+	// 						chan.appendLine(stdout);
+	// 						chan.show();
+	// 					}	else{
+	// 						chan.appendLine(stdout);
+		
+	// 						chan.append("\ndotnet paket install");
+	// 						await cp.execFile("dotnet", ["paket","install"], {cwd: workspacePath}
+	// 						,(error, stdout) => {
+	// 							if (error) {
+	// 								vscode.window.showErrorMessage("Error restoring paket install, see output for details.");
+	// 								chan.appendLine(stdout);
+	// 								chan.show();
+	// 							}	else{
+	// 								chan.appendLine(stdout);
+	// 							}
+	// 						});
+	// 					}
+	// 				});
+	// 			}
+	// 		});
+		// }
+	// });
+	
+// chan.appendLine("Function complete.");
+// return blah.exitCode;
 }
 
 async function PluginRestore(chan: vscode.OutputChannel, workspacePath: string)
 {
-	chan.append("\ndotnet restore");
-	cp.execFile("dotnet", ["restore"], {cwd: workspacePath}
-	,(error, stdout) => {
-		if (error) {
-			vscode.window.showErrorMessage("Error restoring dotnet, see output for details.");
-			chan.appendLine(stdout);
-			chan.show();
-		}	else{
-			chan.appendLine(stdout);
+	try
+	{
+		chan.appendLine("\ndotnet restore");
+		cp.execSync("dotnet restore", {cwd: workspacePath});
+		chan.appendLine("dotnet paket init");
+		cp.execSync("dotnet paket init", {cwd: workspacePath});
+	}
+	catch(e)
+	{
+		chan.appendLine("Error: " + e);
+		chan.show();
+		return;
+	}
+	// cp.execFile("dotnet", ["restore"], {cwd: workspacePath}
+	// ,(error, stdout) => {
+	// 	if (error) {
+	// 		vscode.window.showErrorMessage("Error restoring dotnet, see output for details.");
+	// 		chan.appendLine(stdout);
+	// 		chan.show();
+	// 	}	else{
+	// 		chan.appendLine(stdout);
 
-			chan.append("\ndotnet paket init");
-			cp.execFile("dotnet", ["paket init"], {cwd: workspacePath}
-			,(error, stdout) => {
-				if (error) {
-					vscode.window.showErrorMessage("Error restoring paket init, see output for details.");
-					chan.appendLine(stdout);
-					chan.show();
-				}	else{
-					chan.appendLine(stdout);
-				}
-			});
-		}
-	});
+	// 		chan.append("\ndotnet paket init");
+	// 		cp.execFile("dotnet", ["paket init"], {cwd: workspacePath}
+	// 		,(error, stdout) => {
+	// 			if (error) {
+	// 				vscode.window.showErrorMessage("Error restoring paket init, see output for details.");
+	// 				chan.appendLine(stdout);
+	// 				chan.show();
+	// 			}	else{
+	// 				chan.appendLine(stdout);
+	// 			}
+	// 		});
+	// 	}
+	// });
 
 }
 

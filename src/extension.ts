@@ -12,7 +12,7 @@ import { deployWebresources } from "./webresources/deployWebresources";
 import { generateTypings } from "./webresources/generateTypings";
 import { createConnectionString } from "./general/createConnectionString";
 import { restoreDependencies } from './general/restoreDependencies';
-import { initialiseWebresources } from "./webresources/initialiseWebresources";
+//import { initialiseWebresources } from "./webresources/initialiseWebresources";
 import { initialiseProject } from "./general/initialiseProject";
 
 export async function activate(vscodeContext: vscode.ExtensionContext) {
@@ -21,7 +21,7 @@ export async function activate(vscodeContext: vscode.ExtensionContext) {
     await cs.setUISettings(context);
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.initialiseProject", () => initialiseProject(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createConnectionString", () => createConnectionString(context)));
-    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.initialiseWebresources", () => initialiseWebresources(context)));
+    //context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.initialiseWebresources", () => initialiseWebresources(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.generateEarlyBound", () => generateEarlyBound(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildDeployPlugin", () => buildDeployPlugin(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildDeployWorkflow", () => buildDeployWorkflow(context)));
