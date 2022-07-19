@@ -66,8 +66,9 @@ interface ProjectSettings {
 }
 
 export enum ProjectTypes {
-    plugin,
-    webresource, 
-    pcfcontrol,
-    solution,
+    plugin = "plugin",
+    webresource = "webresource", 
+    pcffield = "pcffield",
+    pcfdataset = "pcfdataset",
+    solution = "solution",
 }
