@@ -48,10 +48,6 @@
     "viewsWelcome": [
       {
         "view": "nodeDependencies",
-        "contents": "${userHome}" 
-      },
-      {
-        "view": "nodeDependencies",
         "contents": "\n[Initialise Project](command:dataverse-powertools.initialiseProject)",
         "when": "!dataverse-powertools.showLoaded"
       },

@@ -14,9 +14,14 @@ export async function readProject(context: DataversePowerToolsContext) {
 }
 
 export async function setUISettings(context: DataversePowerToolsContext) {
+  let myStatusBarItem: vscode.StatusBarItem;
   if (context.connectionString == '' || context.connectionString == null) {
     vscode.commands.executeCommand('setContext', 'dataverse-powertools.showLoaded', false);
   } else {
+    const splitUri = context.connectionString.split(';');
+    myStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+    myStatusBarItem.text = splitUri[1].replace('Url=', '');
+    myStatusBarItem.show();
     vscode.commands.executeCommand('setContext', 'dataverse-powertools.showLoaded', true);
   }
 
