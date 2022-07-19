@@ -97,19 +97,19 @@
             {
                 "path": [],
                 "filename": "webpack.common",
-                "extension": ".json",
+                "extension": ".js",
                 "version": 1
             },
             {
                 "path": [],
                 "filename": "webpack.dev",
-                "extension": ".json",
+                "extension": ".js",
                 "version": 1
             },
             {
                 "path": [],
                 "filename": "webpack.prod",
-                "extension": ".json",
+                "extension": ".js",
                 "version": 1
             },
             {

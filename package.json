@@ -20,7 +20,9 @@
     "onCommand:dataverse-powertools.createConnectionString",
     "onCommand:dataverse-powertools.initialiseWebresources",
     "onCommand:dataverse-powertools.initialiseProject",
-    "onCommand:dataverse-powertools.readProject"
+    "onCommand:dataverse-powertools.readProject",
+    "onCommand:dataverse-powertools.generateTemplate",
+    "onCommand:dataverse-powertools.restoreDepencies"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -117,6 +119,14 @@
       {
         "command": "dataverse-powertools.generateTypings",
         "title": "Dataverse PowerTools: Generate Typings"
+      },
+      {
+        "command": "dataverse-powertools.generateTemplate",
+        "title": "Dataverse PowerTools: Generate Template"
+      },
+      {
+        "command": "dataverse-powertools.restoreDepencies",
+        "title": "Dataverse PowerTools: Restore Depencies"
       }
     ]
   },
