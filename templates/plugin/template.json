@@ -1,6 +1,6 @@
 [
     {
-        "version": "1",
+        "version": 1,
         "files": [
             {
                 "path": "./",
@@ -17,11 +17,11 @@
         ],
         "placeholders": [
             {
-                "displayName":"",
+                "displayName": "",
                 "placeholder": ""
             }
         ],
-        "restoreCommands":[
+        "restoreCommands": [
             {
                 "command": "",
                 "params": ""
@@ -29,7 +29,7 @@
         ]
     },
     {
-        "version": "2",
+        "version": 2,
         "files": [
             {
                 "path": "./",
