@@ -7,7 +7,8 @@ export default class DataversePowerToolsContext {
     vscode: vscode.ExtensionContext;
     channel: vscode.OutputChannel;
     projectSettings: ProjectSettings = {};
-    connectionString: any;
+    connectionString: string = "";
+    template?: PowertoolsTemplate;
 
     private settingsFilename: string = "dataverse-powertools.json";
 
@@ -32,7 +33,7 @@ export default class DataversePowerToolsContext {
             const filePath = vscode.workspace.workspaceFolders[0].uri.fsPath + "\\" + this.settingsFilename;
             await this.readFileAsync(filePath).then((data: any) => {
                 this.projectSettings = JSON.parse(data);
-                this.connectionString = this.projectSettings.connectionString;
+                this.connectionString = this.connectionString;
                 vscode.window.showInformationMessage('Connected');
             }).catch((err) => {
                 this.channel.appendLine(`Error reading settings file: ${err}`);
@@ -73,7 +74,6 @@ export default class DataversePowerToolsContext {
 interface ProjectSettings {
     type?:  ProjectTypes;
     templateversion?: number;
-    connectionString?: string;
     solutionName?: string;
 }
 
@@ -83,4 +83,29 @@ export enum ProjectTypes {
     pcffield = "pcffield",
     pcfdataset = "pcfdataset",
     solution = "solution",
+
+}
+interface PowertoolsTemplate {
+
+    version: number;
+    files?: File[];
+    placeholders?: Placeholder[];
+    restoreCommands?: RestoreCommand[];
+
+}
+interface File {   
+    path: string;
+    filename: string;
+    extension: string;
+    version: number;
+}
+
+interface Placeholder {
+    displayName: string;
+    placeholder: string;
+}
+
+interface RestoreCommand {
+    command: string;
+    params: string;
 }
