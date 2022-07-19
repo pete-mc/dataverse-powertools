@@ -6,8 +6,6 @@ export async function buildDeployWorkflow(context: DataversePowerToolsContext) {
     vscode.window.showInformationMessage("Building");
     if (vscode.workspace.workspaceFolders !== undefined) {
         const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-        const connfile = await vscode.workspace.fs.readFile(vscode.Uri.file(workspacePath + "\\connectionstring.txt"));
-        const connString = Buffer.from(connfile).toString("utf8");
         cp.execFile("dotnet", ["build"], { cwd: workspacePath }, (error, stdout) => {
             if (error) {
                 vscode.window.showErrorMessage("Error building Workflows, see output for details.");
@@ -15,10 +13,10 @@ export async function buildDeployWorkflow(context: DataversePowerToolsContext) {
                 context.channel.show();
             } else {
                 context.channel.appendLine(stdout);
-                vscode.window.showInformationMessage("Deploying to Dataverse");
+                vscode.window.showInformationMessage("Built and Deploying to Dataverse");
                 cp.execFile(
                     workspacePath + "\\packages\\spkl\\tools\\spkl.exe",
-                    ["workflow", "./RWFCore/spkl.json", connString],
+                    ["workflow", "./" + context.projectSettings.solutionName + "/spkl.json", context.connectionString],
                     {
                         cwd: workspacePath,
                     },

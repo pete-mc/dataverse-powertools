@@ -1,84 +1,144 @@
 {
-    "name": "dataverse-powertools",
-    "displayName": "Dataverse PowerTools",
-    "description": "",
-    "version": "0.0.1",
-    "engines": {
-        "vscode": "^1.66.0"
+  "name": "dataverse-powertools",
+  "displayName": "Dataverse PowerTools",
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.66.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "*",
+    "onCommand:dataverse-powertools.generateEarlyBound",
+    "onCommand:dataverse-powertools.buildDeployPlugin",
+    "onCommand:dataverse-powertools.buildDeployWorkflow",
+    "onCommand:dataverse-powertools.buildWebresources",
+    "onCommand:dataverse-powertools.deployWebresources",
+    "onCommand:dataverse-powertools.generateTypings",
+    "onCommand:dataverse-powertools.createConnectionString",
+    "onCommand:dataverse-powertools.initialiseWebresources",
+    "onCommand:dataverse-powertools.initialiseProject",
+    "onCommand:dataverse-powertools.readProject"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "dataverse-powertools",
+          "title": "Dataverse Tools",
+          "icon": "media/logo.svg"
+        }
+      ]
     },
-    "categories": [
-        "Other"
+		"views": {
+			"dataverse-powertools": [
+				{
+					"id": "nodeDependencies",
+					"name": "Node Dependencies",
+					"icon": "media/dep.svg",
+					"contextualTitle": "Package Explorer"
+				}
+			],
+			"explorer": [
+			]
+		},
+    "viewsWelcome": [
+      {
+        "view": "nodeDependencies",
+        "contents": "\n[Initialise Project](command:dataverse-powertools.initialiseProject)"
+      },
+      {
+        "view": "nodeDependencies",
+        "contents": "\n[Generate Connection String](command:dataverse-powertools.createConnectionString)"
+      },
+      {
+        "view": "nodeDependencies",
+        "contents": "\n[Build Web Resources](command:dataverse-powertools.buildWebresources)"
+      },
+      {
+        "view": "nodeDependencies",
+        "contents": "\n[Build & Deploy Web Resources](command:dataverse-powertools.deployWebresources)"
+      },
+      {
+        "view": "nodeDependencies",
+        "contents": "\n[Generate Typings](command:dataverse-powertools.generateTypings)"
+      },
+      {
+        "view": "nodeDependencies",
+        "contents": "\n[Generate Early Bound](command:dataverse-powertools.generateEarlyBound)"
+      }
     ],
-    "activationEvents": [
-        "onCommand:dataverse-powertools.generateEarlyBound",
-        "onCommand:dataverse-powertools.buildDeployPlugin",
-        "onCommand:dataverse-powertools.buildDeployWorkflow",
-        "onCommand:dataverse-powertools.buildWebresources",
-        "onCommand:dataverse-powertools.deployWebresources",
-        "onCommand:dataverse-powertools.generateTypings"
-    ],
-    "main": "./dist/extension.js",
-    "contributes": {
-        "commands": [
-            {
-                "command": "dataverse-powertools.initialiseProject",
-                "title": "Dataverse PowerTools: Initialise Project"
-            },
-            {
-                "command": "dataverse-powertools.generateEarlyBound",
-                "title": "Dataverse PowerTools: Generate Early Bound"
-            },
-            {
-                "command": "dataverse-powertools.buildDeployPlugin",
-                "title": "Dataverse PowerTools: Build and Deploy Plugins"
-            },
-            {
-                "command": "dataverse-powertools.buildDeployWorkflow",
-                "title": "Dataverse PowerTools: Build and Deploy Workflows"
-            },
-            {
-                "command": "dataverse-powertools.buildWebresources",
-                "title": "Dataverse PowerTools: Build Webresources"
-            },
-            {
-                "command": "dataverse-powertools.deployWebresources",
-                "title": "Dataverse PowerTools: Deploy Webresources"
-            },
-            {
-                "command": "dataverse-powertools.generateTypings",
-                "title": "Dataverse PowerTools: Generate Typings"
-            }
-        ]
-    },
-    "scripts": {
-        "vscode:prepublish": "npm run package",
-        "compile": "webpack",
-        "watch": "webpack --watch",
-        "package": "webpack --mode production --devtool hidden-source-map",
-        "compile-tests": "tsc -p . --outDir out",
-        "watch-tests": "tsc -p . -w --outDir out",
-        "pretest": "npm run compile-tests && npm run compile && npm run lint",
-        "lint": "eslint src --ext ts",
-        "test": "node ./out/test/runTest.js"
-    },
-    "devDependencies": {
-        "@types/fs-extra": "^9.0.13",
-        "@types/glob": "^7.2.0",
-        "@types/mocha": "^9.1.0",
-        "@types/node": "14.x",
-        "@types/vscode": "^1.66.0",
-        "@typescript-eslint/eslint-plugin": "^5.16.0",
-        "@typescript-eslint/parser": "^5.16.0",
-        "@vscode/test-electron": "^2.1.3",
-        "eslint": "^8.11.0",
-        "glob": "^7.2.0",
-        "mocha": "^9.2.2",
-        "ts-loader": "^9.2.8",
-        "typescript": "^4.5.5",
-        "webpack": "^5.70.0",
-        "webpack-cli": "^4.9.2"
-    },
-    "dependencies": {
-        "fs-extra": "^10.1.0"
-    }
+    "commands": [
+      {
+        "command": "dataverse-powertools.createConnectionString",
+        "title": "Dataverse PowerTools: Create Connection String"
+      },
+      {
+        "command": "dataverse-powertools.initialiseWebresources",
+        "title": "Dataverse PowerTools: Initialise Web Resources"
+      },
+      {
+        "command": "dataverse-powertools.initialiseProject",
+        "title": "Dataverse PowerTools: Initialise Project"
+      },
+      {
+        "command": "dataverse-powertools.generateEarlyBound",
+        "title": "Dataverse PowerTools: Generate Early Bound"
+      },
+      {
+        "command": "dataverse-powertools.buildDeployPlugin",
+        "title": "Dataverse PowerTools: Build and Deploy Plugins"
+      },
+      {
+        "command": "dataverse-powertools.buildDeployWorkflow",
+        "title": "Dataverse PowerTools: Build and Deploy Workflows"
+      },
+      {
+        "command": "dataverse-powertools.buildWebresources",
+        "title": "Dataverse PowerTools: Build Webresources"
+      },
+      {
+        "command": "dataverse-powertools.deployWebresources",
+        "title": "Dataverse PowerTools: Build and Deploy Webresources"
+      },
+      {
+        "command": "dataverse-powertools.generateTypings",
+        "title": "Dataverse PowerTools: Generate Typings"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^9.0.13",
+    "@types/glob": "^7.2.0",
+    "@types/mocha": "^9.1.0",
+    "@types/node": "14.x",
+    "@types/vscode": "^1.66.0",
+    "@typescript-eslint/eslint-plugin": "^5.16.0",
+    "@typescript-eslint/parser": "^5.16.0",
+    "@vscode/test-electron": "^2.1.3",
+    "eslint": "^8.11.0",
+    "glob": "^7.2.0",
+    "mocha": "^9.2.2",
+    "ts-loader": "^9.2.8",
+    "typescript": "^4.5.5",
+    "webpack": "^5.70.0",
+    "webpack-cli": "^4.9.2"
+  },
+  "dependencies": {
+    "fs-extra": "^10.1.0"
+  }
 }
