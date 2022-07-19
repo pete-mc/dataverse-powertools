@@ -107,5 +107,5 @@ interface Placeholder {
 
 interface RestoreCommand {
     command: string;
-    params: string;
+    params: string[];
 }

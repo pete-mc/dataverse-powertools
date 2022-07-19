@@ -24,7 +24,7 @@
         "restoreCommands": [
             {
                 "command": "",
-                "params": ""
+                "params": [""]
             }
         ]
     },
