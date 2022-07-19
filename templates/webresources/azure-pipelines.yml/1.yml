@@ -1,0 +1,61 @@
+
+trigger:
+- '*'
+
+pool:
+  vmImage: 'windows-latest'
+
+steps:
+- checkout: self
+
+- task: Npm@1
+  inputs:
+    command: 'install'
+
+- task: PowerShell@2
+  inputs:
+    targetType: 'inline'
+    script: 'npm install -g typescript; npm install -g jest; npm install -g webpack; npm install -g webpack-cli'
+  displayName: 'Install NPM globals'
+
+- task: PowerShell@2
+  inputs:
+    targetType: 'inline'
+    script: 'dotnet new tool-manifest; dotnet tool install paket; dotnet tool restore; dotnet paket install; npm install'
+  displayName: 'Restore Dependencies'
+
+- task: PowerShell@2
+  inputs:
+    targetType: 'inline'
+    script: '$conn = ${env:OPENCONNECTIONSTRING} -replace ";" , "`r`n" | ConvertFrom-StringData; $sol = (get-content .\spkl.json | ConvertFrom-Json).webresources[0].solution; & .\packages\Delegate.XrmDefinitelyTyped\content\XrmDefinitelyTyped\XrmDefinitelyTyped.exe "/url:$($conn.Url)/XRMServices/2011/Organization.svc" /out:typings\XRM /solutions:$($sol) /mfaAppId:$($conn.ClientId) /mfaReturnUrl:$($conn.Url) /mfaClientSecret:$($conn.ClientSecret) /jsLib:bin/cld_dependencies /method:ClientSecret /web:$($sol)Web /rest:$($sol)Rest\'
+  displayName: 'Generate Typings'
+
+- task: PowerShell@2
+  inputs:
+    targetType: 'inline'
+    script: 'jest --coverage --coverageReporters=cobertura --reporters=jest-junit'
+  displayName: 'Run Test Coverage'
+
+- task: PowerShell@2
+  inputs:
+    targetType: 'inline'
+    script: 'webpack --config webpack.prod.js'
+  displayName: 'Build'
+
+- task: PublishTestResults@2
+  inputs:
+    testResultsFormat: 'JUnit'
+    testResultsFiles: '**/junit.xml'
+
+- task: PublishCodeCoverageResults@1
+  inputs:
+    codeCoverageTool: 'Cobertura'
+    summaryFileLocation: '$(System.DefaultWorkingDirectory)/coverage/cobertura-coverage.xml'
+
+- task: PublishPipelineArtifact@1
+  displayName: 'Publish solution packages to artifact'
+  inputs:
+    targetPath: '$(Build.SourcesDirectory)\bin'
+    artifact: 'Release Build'
+    publishLocation: 'pipeline'
+
