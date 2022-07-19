@@ -30,16 +30,28 @@ export default class DataversePowerToolsContext {
     async readSettings() {
         if (vscode.workspace.workspaceFolders !== undefined) {
             const filePath = vscode.workspace.workspaceFolders[0].uri.fsPath + "\\" + this.settingsFilename;
-            fs.readFile(filePath, "utf8", (err, data) => {
-                if (err) {
-                    this.channel.appendLine(`Error reading settings file: ${err}`);
-                } else {
-                    this.projectSettings = JSON.parse(data);
-                    this.connectionString = this.projectSettings.connectionString;
-                    vscode.window.showInformationMessage('Connected');
-                }
-            });
+            await this.readFileAsync(filePath).then((data: any) => {
+                this.projectSettings = JSON.parse(data);
+                this.connectionString = this.projectSettings.connectionString;
+                vscode.window.showInformationMessage('Connected');
+            }).catch((err) => {
+                this.channel.appendLine(`Error reading settings file: ${err}`);
+            })
+            // await fs.readFile(filePath, "utf8", (err, data) => {
+            //     if (err) {
+            //         this.channel.appendLine(`Error reading settings file: ${err}`);
+            //     } else {
+            //         this.projectSettings = JSON.parse(data);
+            //         this.connectionString = this.projectSettings.connectionString;
+            //         vscode.window.showInformationMessage('Connected');
+            //     }
+            // });
         }
+    }
+
+    async readFileAsync(filePath: string) {
+        const data = await fs.promises.readFile(filePath);
+        return data;
     }
 
     async readConnectionString() {

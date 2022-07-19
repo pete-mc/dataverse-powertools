@@ -48,27 +48,37 @@
     "viewsWelcome": [
       {
         "view": "nodeDependencies",
-        "contents": "\n[Initialise Project](command:dataverse-powertools.initialiseProject)"
+        "contents": "${userHome}" 
       },
       {
         "view": "nodeDependencies",
-        "contents": "\n[Generate Connection String](command:dataverse-powertools.createConnectionString)"
+        "contents": "\n[Initialise Project](command:dataverse-powertools.initialiseProject)",
+        "when": "!dataverse-powertools.showLoaded"
       },
       {
         "view": "nodeDependencies",
-        "contents": "\n[Build Web Resources](command:dataverse-powertools.buildWebresources)"
+        "contents": "\n[Build Web Resources](command:dataverse-powertools.buildWebresources)",
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
       },
       {
         "view": "nodeDependencies",
-        "contents": "\n[Build & Deploy Web Resources](command:dataverse-powertools.deployWebresources)"
+        "contents": "\n[Build & Deploy Web Resources](command:dataverse-powertools.deployWebresources)",
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
       },
       {
         "view": "nodeDependencies",
-        "contents": "\n[Generate Typings](command:dataverse-powertools.generateTypings)"
+        "contents": "\n[Generate Typings](command:dataverse-powertools.generateTypings)",
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
       },
       {
         "view": "nodeDependencies",
-        "contents": "\n[Generate Early Bound](command:dataverse-powertools.generateEarlyBound)"
+        "contents": "\n[Build and Deploy Plugins](command:dataverse-powertools.buildDeployPlugin)",
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
+        "view": "nodeDependencies",
+        "contents": "\n[Generate Early Bound](command:dataverse-powertools.generateEarlyBound)",
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       }
     ],
     "commands": [

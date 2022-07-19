@@ -15,9 +15,10 @@ import { restoreDependencies } from './general/restoreDependencies';
 import { initialiseWebresources } from "./webresources/initialiseWebresources";
 import { initialiseProject } from "./general/initialiseProject";
 
-export function activate(vscodeContext: vscode.ExtensionContext) {
+export async function activate(vscodeContext: vscode.ExtensionContext) {
     const context = new DataversePowerToolsContext(vscodeContext);
-    cs.readProject(context);
+    await cs.readProject(context);
+    await cs.setUISettings(context);
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.initialiseProject", () => initialiseProject(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createConnectionString", () => createConnectionString(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.initialiseWebresources", () => initialiseWebresources(context)));
