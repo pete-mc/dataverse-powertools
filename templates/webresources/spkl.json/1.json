@@ -1,0 +1,10 @@
+{
+  "webresources": [
+    {
+      "profile": "default,debug,release",
+      "root": "bin",
+      "solution": "SOLUTIONNAME",
+      "autodetect": "yes"
+    }
+  ]
+}
