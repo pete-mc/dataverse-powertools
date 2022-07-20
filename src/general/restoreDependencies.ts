@@ -10,8 +10,8 @@ export async function restoreDependencies(context: DataversePowerToolsContext) {
 		if (vscode.workspace.workspaceFolders !== undefined && context.template !== undefined) {
 			const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
 			const template = context.template;
-			template.restoreCommands?.every((c)=>{
-				const {error, stdout} = execFile(c.command, c.params, { cwd: workspacePath,  });
+			template.restoreCommands?.every(async (c)=>{
+				const {error, stdout} = await execFile(c.command, c.params, { cwd: workspacePath,  });
     		if (error) {
 						vscode.window.showErrorMessage("Error running " + c.command + " " + c.params.join(" "));
 						context.channel.appendLine(stdout);
