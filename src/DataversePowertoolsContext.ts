@@ -85,7 +85,7 @@ export enum ProjectTypes {
     solution = "solution",
 
 }
-interface PowertoolsTemplate {
+export interface PowertoolsTemplate {
 
     version: number;
     files?: File[];
@@ -94,7 +94,7 @@ interface PowertoolsTemplate {
 
 }
 interface File {   
-    path: string;
+    path: string[];
     filename: string;
     extension: string;
     version: number;

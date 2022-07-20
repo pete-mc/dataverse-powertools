@@ -89,7 +89,7 @@ export async function createConnectionString(context: DataversePowerToolsContext
     connectionString += state.clientSecret += ';LoginPrompt=Never';
     const encoder = new TextEncoder();
     const encodedString = encoder.encode(connectionString);
-		context.projectSettings.connectionString = connectionString;
+		context.connectionString = connectionString;
     // vscode.workspace.fs.writeFile(filePath, encodedString);
   }
 	// window.showInformationMessage(`Creating Application Service '${state.name}'`);

@@ -4,8 +4,6 @@
 !.vscode/launch.json
 !.vscode/extensions.json
 *.code-workspace
-
-
 node_modules
 packages
 paket-files

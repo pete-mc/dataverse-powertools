@@ -1,105 +1,131 @@
 [
     {
         "version": 1,
+        "restoreCommands": [
+            {
+                "command": "dotnet",
+                "params": ["new", "tool-manifest"]
+            },
+            {
+                "command": "dotnet",
+                "params": ["tool", "install", "paket"]
+            },
+            {
+                "command": "dotnet",
+                "params": ["tool", "restore"]
+            },
+            {
+                "command": "dotnet",
+                "params": ["paket", "install"]
+            },
+            {
+                "command": "npm",
+                "params": ["install"]
+            }
+        ],
         "placeholders": [
             {
-                "displayName": "",
-                "placeholder": ""
+                "displayName": "What is the schema name of the solution?",
+                "placeholder": "SOLUTIONNAME"
+            },
+            {
+                "displayName": "What is the solution prefix? This is also used as the namespace and library.js prefix.",
+                "placeholder": "SOLUTIONPREFIX"
             }
         ],
         "files": [
             {
-                "path": "",
+                "path": [],
                 "filename": ".eslintrc",
                 "extension": ".json",
                 "version": 1
             },
             {
-                "path": "",
+                "path": [],
                 "filename": "",
                 "extension": ".gitignore",
                 "version": 1
             },
             {
-                "path": "",
+                "path": [],
                 "filename": ".prettierrc",
                 "extension": ".json",
                 "version": 1
             },
             {
-                "path": "",
+                "path": [],
                 "filename": "azure-pipelines",
                 "extension": ".yml",
                 "version": 1
             },
             {
-                "path": "",
+                "path": [],
                 "filename": "jest.config",
                 "extension": ".js",
                 "version": 1
             },
             {
-                "path": "",
+                "path": [],
                 "filename": "package",
                 "extension": ".json",
                 "version": 1
             },
             {
-                "path": "",
+                "path": [],
                 "filename": "paket",
                 "extension": ".dependencies",
                 "version": 1
             },
             {
-                "path": "",
+                "path": [],
                 "filename": "README",
                 "extension": ".md",
                 "version": 1
             },
             {
-                "path": "",
+                "path": [],
                 "filename": "spkl",
                 "extension": ".json",
                 "version": 1
             },
             {
-                "path": "",
+                "path": [],
                 "filename": "tsconfig",
                 "extension": ".json",
                 "version": 1
             },
             {
-                "path": "",
+                "path": [],
                 "filename": "webpack.common",
-                "extension": ".json",
+                "extension": ".js",
                 "version": 1
             },
             {
-                "path": "",
+                "path": [],
                 "filename": "webpack.dev",
-                "extension": ".json",
+                "extension": ".js",
                 "version": 1
             },
             {
-                "path": "",
+                "path": [],
                 "filename": "webpack.prod",
-                "extension": ".json",
+                "extension": ".js",
                 "version": 1
             },
             {
-                "path": "src",
+                "path": ["src"],
                 "filename": "account",
                 "extension": ".ts",
                 "version": 1
             },
             {
-                "path": "src",
+                "path": ["src"],
                 "filename": "library",
                 "extension": ".ts",
                 "version": 1
             },
             {
-                "path": "src/__tests__",
+                "path": ["src", "__tests__"],
                 "filename": "sample.test",
                 "extension": ".ts",
                 "version": 1
