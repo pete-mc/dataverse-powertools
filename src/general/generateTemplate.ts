@@ -12,10 +12,10 @@ export async function generateTemplate(context: DataversePowerToolsContext) {
         var templates = JSON.parse(fs.readFileSync(fullFilePath + "\\template.json", "utf8")) as Array<PowertoolsTemplate>;
         var templateToCopy = {} as PowertoolsTemplate;
         for (const t of templates) {
-            if(t.version === context.projectSettings.templateversion)
+            if (t.version === context.projectSettings.templateversion)
             {
                 templateToCopy = t;
-                return false;
+                break;
             }
         }
         vscode.window.showInformationMessage("Generating template version: " + templateToCopy.version.toString());
