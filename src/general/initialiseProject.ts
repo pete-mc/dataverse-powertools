@@ -1,12 +1,14 @@
 import * as vscode from "vscode";
-import DataversePowerToolsContext, { ProjectTypes } from "../DataversePowerToolsContext";
+import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes } from "../DataversePowerToolsContext";
+import path = require("path");
+import fs = require("fs");
 
 export async function initialiseProject(context: DataversePowerToolsContext) {
-    // Settings file test
-    context.projectSettings.type = ProjectTypes.plugin;
-    context.projectSettings.templateversion = 1;
-    // context.projectSettings.connectionString = "my connection string";
-    context.createSettings();
+  // Settings file test
+  context.projectSettings.type = ProjectTypes.plugin;
+  context.projectSettings.templateversion = 1;
+  // context.projectSettings.connectionString = "my connection string";
+  context.createSettings();
 }
 
 export async function readProject(context: DataversePowerToolsContext) {
@@ -32,5 +34,19 @@ export async function setUISettings(context: DataversePowerToolsContext) {
     case ProjectTypes.webresource:
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isPlugin', false);
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isWebResource', true);
+      if (context.projectSettings.type && context.projectSettings.templateversion && vscode.workspace.workspaceFolders) {
+        if (vscode.workspace.workspaceFolders !== undefined && context.projectSettings.templateversion && vscode.workspace.workspaceFolders) {
+          var fullFilePath = context.vscode.asAbsolutePath(path.join("templates", context.projectSettings.type));
+          var templates = JSON.parse(fs.readFileSync(fullFilePath + "\\template.json", "utf8")) as Array<PowertoolsTemplate>;
+          context.template = templates[0];
+            // for (const t of templates) {
+            //   if (t.version === context.projectSettings.templateversion) {
+            //     // templateToCopy = t;
+            //     break;
+            //   }
+            // }
+        }
+      }
   }
 }
+
