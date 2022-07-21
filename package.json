@@ -22,7 +22,7 @@
     "onCommand:dataverse-powertools.initialiseProject",
     "onCommand:dataverse-powertools.readProject",
     "onCommand:dataverse-powertools.generateTemplate",
-    "onCommand:dataverse-powertools.restoreDepencies"
+    "onCommand:dataverse-powertools.restoreDependencies"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -35,18 +35,17 @@
         }
       ]
     },
-		"views": {
-			"dataverse-powertools": [
-				{
-					"id": "nodeDependencies",
-					"name": "Node Dependencies",
-					"icon": "media/dep.svg",
-					"contextualTitle": "Package Explorer"
-				}
-			],
-			"explorer": [
-			]
-		},
+    "views": {
+      "dataverse-powertools": [
+        {
+          "id": "nodeDependencies",
+          "name": "Node Dependencies",
+          "icon": "media/dep.svg",
+          "contextualTitle": "Package Explorer"
+        }
+      ],
+      "explorer": []
+    },
     "viewsWelcome": [
       {
         "view": "nodeDependencies",
@@ -77,6 +76,11 @@
         "view": "nodeDependencies",
         "contents": "\n[Generate Early Bound](command:dataverse-powertools.generateEarlyBound)",
         "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
+        "view": "nodeDependencies",
+        "contents": "\n[Restore Dependencies](command:dataverse-powertools.restoreDependencies)",
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
       }
     ],
     "commands": [
@@ -121,8 +125,8 @@
         "title": "Dataverse PowerTools: Generate Template"
       },
       {
-        "command": "dataverse-powertools.restoreDepencies",
-        "title": "Dataverse PowerTools: Restore Depencies"
+        "command": "dataverse-powertools.restoreDependencies",
+        "title": "Dataverse PowerTools: Restore Dependencies"
       }
     ]
   },
