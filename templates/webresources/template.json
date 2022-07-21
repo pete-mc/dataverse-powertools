@@ -3,24 +3,19 @@
         "version": 1,
         "restoreCommands": [
             {
-                "command": "dotnet",
-                "params": ["new", "tool-manifest"]
+                "command": "dotnet new tool-manifest"
             },
             {
-                "command": "dotnet",
-                "params": ["tool", "install", "paket"]
+                "command": "dotnet tool install paket"
             },
             {
-                "command": "dotnet",
-                "params": ["tool", "restore"]
+                "command": "dotnet tool restore"
             },
             {
-                "command": "dotnet",
-                "params": ["paket", "install"]
+                "command": "dotnet paket install"
             },
             {
-                "command": "npm",
-                "params": ["install"]
+                "command": "npm install"
             }
         ],
         "placeholders": [

@@ -1,7 +1,9 @@
 import * as vscode from "vscode";
-import * as cs from "./general/createConnectionString";
+import * as connectionStringManager from "./general/createConnectionString";
 import path = require("path");
 import fs = require("fs");
+import { generateTemplate } from "./general/generateTemplate";
+import { readProject, setUISettings } from "./general/initialiseProject";
 
 export default class DataversePowerToolsContext {
     vscode: vscode.ExtensionContext;
@@ -33,7 +35,7 @@ export default class DataversePowerToolsContext {
             const filePath = vscode.workspace.workspaceFolders[0].uri.fsPath + "\\" + this.settingsFilename;
             await this.readFileAsync(filePath).then((data: any) => {
                 this.projectSettings = JSON.parse(data);
-                this.connectionString = this.connectionString;
+                this.connectionString = this.projectSettings.connectionString || '';
                 vscode.window.showInformationMessage('Connected');
             }).catch((err) => {
                 this.channel.appendLine(`Error reading settings file: ${err}`);
@@ -64,10 +66,13 @@ export default class DataversePowerToolsContext {
     }
 
     async createSettings() {
-        await cs.getSolutionName(this);
-        await cs.createConnectionString(this);
-
-        this.writeSettings();
+        await connectionStringManager.getProjectType(this);
+        await connectionStringManager.getSolutionName(this);
+        await connectionStringManager.createConnectionString(this);
+        await generateTemplate(this);
+        await this.writeSettings();
+        await readProject(this);
+        await setUISettings(this);
     }
 }
 
@@ -75,11 +80,12 @@ interface ProjectSettings {
     type?:  ProjectTypes;
     templateversion?: number;
     solutionName?: string;
+    connectionString?: string;
 }
 
 export enum ProjectTypes {
     plugin = "plugin",
-    webresource = "webresource", 
+    webresource = "webresources", 
     pcffield = "pcffield",
     pcfdataset = "pcfdataset",
     solution = "solution",
@@ -90,8 +96,8 @@ export interface PowertoolsTemplate {
     version: number;
     files?: File[];
     placeholders?: Placeholder[];
+    
     restoreCommands?: RestoreCommand[];
-
 }
 interface File {   
     path: string[];
