@@ -1,0 +1,8 @@
+bin
+paket-files
+obj
+connectionstring.txt
+Log*.txt
+generated
+packages
+.config
