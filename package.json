@@ -13,6 +13,7 @@
     "*",
     "onCommand:dataverse-powertools.generateEarlyBound",
     "onCommand:dataverse-powertools.buildDeployPlugin",
+    "onCommand:dataverse-powertools.buildPlugin",
     "onCommand:dataverse-powertools.buildDeployWorkflow",
     "onCommand:dataverse-powertools.buildWebresources",
     "onCommand:dataverse-powertools.deployWebresources",
@@ -74,13 +75,18 @@
       },
       {
         "view": "nodeDependencies",
+        "contents": "\n[Build Plugins](command:dataverse-powertools.buildPlugin)",
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
+        "view": "nodeDependencies",
         "contents": "\n[Generate Early Bound](command:dataverse-powertools.generateEarlyBound)",
         "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
         "view": "nodeDependencies",
         "contents": "\n[Restore Dependencies](command:dataverse-powertools.restoreDependencies)",
-        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
+        "when": "dataverse-powertools.showLoaded"
       }
     ],
     "commands": [
@@ -105,6 +111,10 @@
         "title": "Dataverse PowerTools: Build and Deploy Plugins"
       },
       {
+        "command": "dataverse-powertools.buildPlugin",
+        "title": "Dataverse PowerTools: Build and Deploy Plugins"
+      },
+      {
         "command": "dataverse-powertools.buildDeployWorkflow",
         "title": "Dataverse PowerTools: Build and Deploy Workflows"
       },
@@ -121,8 +131,8 @@
         "title": "Dataverse PowerTools: Generate Typings"
       },
       {
-        "command": "dataverse-powertools.generateTemplate",
-        "title": "Dataverse PowerTools: Generate Template"
+        "command": "dataverse-powertools.generateTemplates",
+        "title": "Dataverse PowerTools: Generate Web Web Resources Template"
       },
       {
         "command": "dataverse-powertools.restoreDependencies",

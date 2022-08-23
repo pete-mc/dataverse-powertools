@@ -5,7 +5,7 @@ import DataversePowerToolsContext from "../DataversePowerToolsContext";
 export async function generateEarlyBound(context: DataversePowerToolsContext) {
     vscode.window.showInformationMessage("Generating early bound classes from spkl.json");
     if (vscode.workspace.workspaceFolders !== undefined) {
-        const solutionName = context.projectSettings.solutionName;
+        const solutionName = "plugins_src"
         const spklFile = await vscode.workspace.fs.readFile(vscode.Uri.file(vscode.workspace.workspaceFolders[0].uri.fsPath + "\\" + solutionName +"\\spkl.json"));
         await vscode.workspace.fs.createDirectory(vscode.Uri.file(vscode.workspace.workspaceFolders[0].uri.fsPath + "\\" + solutionName + "\\generated"));
         await vscode.workspace.fs.createDirectory(vscode.Uri.file(vscode.workspace.workspaceFolders[0].uri.fsPath + "\\logs"));

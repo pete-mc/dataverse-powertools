@@ -11,61 +11,67 @@
       {
         "path": [],
         "filename": "azure-pipelines",
-        "extension": "yml",
+        "extension": ".yml",
         "version": 1
       },
       {
         "path": [],
         "filename": "nuget",
-        "extension": "config",
+        "extension": ".config",
         "version": 1
       },
       {
         "path": [],
         "filename": "paket",
-        "extension": "dependencies",
+        "extension": ".dependencies",
         "version": 1
       },
       {
         "path": [],
         "filename": "README",
-        "extension": "md",
+        "extension": ".md",
         "version": 1
       },
       {
-        "path": ["src"],
+        "path": ["plugins_src"],
         "filename": "plugin",
-        "extension": "cs",
+        "extension": ".cs",
         "version": 1
       },
       {
         "path": [],
-        "filename": "plugin",
-        "extension": "csproj",
+        "filename": "Plugin",
+        "extension": ".sln",
         "version": 1
       },
       {
-        "path": ["src"],
+        "path": ["plugins_src"],
         "filename": "spkl",
-        "extension": "json",
+        "extension": ".json",
         "version": 1
       },
       {
-        "path": ["src"],
+        "path": ["plugins_src"],
         "filename": "Clade",
-        "extension": "snk",
+        "extension": ".snk",
         "version": 1
       },
       {
-        "path": ["tests"],
-        "filename": "tests",
-        "extension": "csproj",
+        "path": ["plugins_src"],
+        "filename": "plugins_src",
+        "extension": ".csproj",
         "version": 1
       },
       {
-        "path": ["tests"],
-        "filename": "tests",
-        "extension": "cs",
+        "path": ["plugins_srctest"],
+        "filename": "plugins_test",
+        "extension": ".cs",
+        "version": 1
+      },
+      {
+        "path": ["plugins_srctest"],
+        "filename": "plugins_srctest",
+        "extension": ".csproj",
         "version": 1
       }
     ],
@@ -81,10 +87,19 @@
     ],
     "restoreCommands": [
       {
-        "command": "",
-        "params": [
-          ""
-        ]
+          "command": "dotnet new tool-manifest"
+      },
+      {
+          "command": "dotnet tool install paket"
+      },
+      {
+          "command": "dotnet tool restore"
+      },
+      {
+          "command": "dotnet paket install"
+      },
+      {
+          "command": "npm install"
       }
     ]
   }

@@ -2,8 +2,9 @@ import * as vscode from "vscode";
 import * as connectionStringManager from "./general/createConnectionString";
 import path = require("path");
 import fs = require("fs");
-import { generateTemplate } from "./general/generateTemplate";
 import { readProject, setUISettings } from "./general/initialiseProject";
+import { generateTemplates } from "./general/generateTemplates";
+import { restoreDependencies } from "./general/restoreDependencies";
 
 export default class DataversePowerToolsContext {
     vscode: vscode.ExtensionContext;
@@ -30,12 +31,13 @@ export default class DataversePowerToolsContext {
         }
     }
 
-    async readSettings() {
+    async readSettings(context: any) {
         if (vscode.workspace.workspaceFolders !== undefined) {
             const filePath = vscode.workspace.workspaceFolders[0].uri.fsPath + "\\" + this.settingsFilename;
             await this.readFileAsync(filePath).then((data: any) => {
                 this.projectSettings = JSON.parse(data);
                 this.connectionString = this.projectSettings.connectionString || '';
+                context.projectSettings = this.projectSettings;
                 vscode.window.showInformationMessage('Connected');
             }).catch((err) => {
                 this.channel.appendLine(`Error reading settings file: ${err}`);
@@ -67,12 +69,13 @@ export default class DataversePowerToolsContext {
 
     async createSettings() {
         await connectionStringManager.getProjectType(this);
-        await connectionStringManager.getSolutionName(this);
+        // await connectionStringManager.getSolutionName(this);
         await connectionStringManager.createConnectionString(this);
-        await generateTemplate(this);
+        await generateTemplates(this);
         await this.writeSettings();
         await readProject(this);
         await setUISettings(this);
+        await restoreDependencies(this);
     }
 }
 

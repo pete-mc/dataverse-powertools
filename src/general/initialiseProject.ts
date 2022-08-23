@@ -12,7 +12,7 @@ export async function initialiseProject(context: DataversePowerToolsContext) {
 }
 
 export async function readProject(context: DataversePowerToolsContext) {
-  await context.readSettings();
+  await context.readSettings(context);
 }
 
 export async function setUISettings(context: DataversePowerToolsContext) {
@@ -31,6 +31,7 @@ export async function setUISettings(context: DataversePowerToolsContext) {
     case ProjectTypes.plugin:
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isPlugin', true);
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isWebResource', false);
+      break;
     case ProjectTypes.webresource:
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isPlugin', false);
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isWebResource', true);
@@ -47,6 +48,7 @@ export async function setUISettings(context: DataversePowerToolsContext) {
             // }
         }
       }
+      break;
   }
 }
 

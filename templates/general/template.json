@@ -1,0 +1,22 @@
+[
+  {
+    "version": 1,
+    "restoreCommands": [
+      {
+          "command": "dotnet new tool-manifest"
+      },
+      {
+          "command": "dotnet tool install paket"
+      },
+      {
+          "command": "dotnet tool restore"
+      },
+      {
+          "command": "dotnet paket install"
+      },
+      {
+          "command": "npm install"
+      }
+    ]
+  }
+]

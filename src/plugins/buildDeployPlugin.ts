@@ -19,7 +19,7 @@ export async function buildDeployPlugin(context: DataversePowerToolsContext) {
                 vscode.window.showInformationMessage("Deploying Now");
                 cp.execFile(
                     workspacePath + "\\packages\\spkl\\tools\\spkl.exe",
-                    ["plugins", "./" + context.projectSettings.solutionName + "/spkl.json", context.connectionString],
+                    ["plugins", "./plugins_src/spkl.json", context.connectionString],
                     {
                         cwd: workspacePath,
                     },

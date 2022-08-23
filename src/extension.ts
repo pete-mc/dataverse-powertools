@@ -14,7 +14,7 @@ import { createConnectionString } from "./general/createConnectionString";
 import { restoreDependencies } from './general/restoreDependencies';
 //import { initialiseWebresources } from "./webresources/initialiseWebresources";
 import { initialiseProject } from "./general/initialiseProject";
-import { generateTemplate } from "./general/generateTemplate";
+import { buildPlugin } from "./plugins/buildPlugin";
 
 export async function activate(vscodeContext: vscode.ExtensionContext) {
     const context = new DataversePowerToolsContext(vscodeContext);
@@ -25,12 +25,13 @@ export async function activate(vscodeContext: vscode.ExtensionContext) {
     //context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.initialiseWebresources", () => initialiseWebresources(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.generateEarlyBound", () => generateEarlyBound(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildDeployPlugin", () => buildDeployPlugin(context)));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildPlugin", () => buildPlugin(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildDeployWorkflow", () => buildDeployWorkflow(context)));
 
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildWebresources", () => buildWebresources(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.deployWebresources", () => deployWebresources(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.generateTypings", () => generateTypings(context)));
-    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.generateTemplate", () => generateTemplate(context)));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.generateTemplate", () => generateTemplates(context)));
 
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.restoreDependencies", () => restoreDependencies(context)));
 
@@ -42,3 +43,7 @@ export async function activate(vscodeContext: vscode.ExtensionContext) {
 
 // this method is called when your extension is deactivated
 export function deactivate() {}
+function generateTemplates(context: DataversePowerToolsContext): any {
+    throw new Error("Function not implemented.");
+}
+
