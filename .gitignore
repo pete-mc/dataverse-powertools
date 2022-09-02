@@ -3,3 +3,7 @@ dist
 node_modules
 .vscode-test/
 *.vsix
+.vs/
+templates/plugin/plugin.csproj/obj/
+templates/plugin/plugins_src.csproj/obj/
+templates/plugin/plugins_srctest.csproj/obj/
