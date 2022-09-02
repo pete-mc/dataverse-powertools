@@ -24,19 +24,21 @@ export async function createConnectionString(context: DataversePowerToolsContext
 
   async function inputURL(input: MultiStepInput, state: Partial<State>) {
     state.organisationUrl = await input.showInputBox({
+      ignoreFocusOut: true,
       title,
       step: 1,
       totalSteps: 3,
       value: typeof state.organisationUrl === 'string' ? state.organisationUrl : '',
       prompt: 'Type in the Organisation URl',
       validate: validateNameIsUnique,
-      shouldResume: shouldResume
+      shouldResume: shouldResume,
     });
     return (input: MultiStepInput) => inputApplicationId(input, state);
   }
 
   async function inputApplicationId(input: MultiStepInput, state: Partial<State>) {
     state.applicationId = await input.showInputBox({
+      ignoreFocusOut: true,
       title,
       step: 2,
       totalSteps: 3,
@@ -50,6 +52,7 @@ export async function createConnectionString(context: DataversePowerToolsContext
 
   async function inputClientSecret(input: MultiStepInput, state: Partial<State>) {
     state.clientSecret = await input.showInputBox({
+      ignoreFocusOut: true,
       title,
       step: 3,
       totalSteps: 3,
@@ -112,6 +115,7 @@ export async function getProjectType(context: DataversePowerToolsContext) {
 
 export async function getSolutionName(context: DataversePowerToolsContext) {
   const result = await window.showInputBox({
+    ignoreFocusOut: true,
     prompt: 'Type in the Solution Name'
   });
   context.projectSettings.solutionName = result;
@@ -191,6 +195,7 @@ class MultiStepInput {
     try {
       return await new Promise<T | (P extends { buttons: (infer I)[] } ? I : never)>((resolve, reject) => {
         const input = window.createQuickPick<T>();
+        input.ignoreFocusOut = true;
         input.title = title;
         input.step = step;
         input.totalSteps = totalSteps;
@@ -235,6 +240,7 @@ class MultiStepInput {
     try {
       return await new Promise<string | (P extends { buttons: (infer I)[] } ? I : never)>((resolve, reject) => {
         const input = window.createInputBox();
+        input.ignoreFocusOut = true;
         input.title = title;
         input.step = step;
         input.totalSteps = totalSteps;
