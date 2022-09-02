@@ -73,6 +73,7 @@ export default class DataversePowerToolsContext {
         await connectionStringManager.createConnectionString(this);
         await generateTemplates(this);
         await this.writeSettings();
+        await this.readSettings(this);
         await readProject(this);
         await setUISettings(this);
         await restoreDependencies(this);
