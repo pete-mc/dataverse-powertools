@@ -27,6 +27,57 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "menus": {
+      "explorer/context": [
+        {
+          "submenu": "dataverse-powertools.buildPlugin"
+        },
+        {
+          "submenu": "dataverse-powertools.buildWebresources"
+        }
+      ],
+      "dataverse-powertools.buildPlugin": [
+        {
+          "command": "dataverse-powertools.buildPlugin",
+          "alt": "dataverse-powertools.buildPlugin",
+          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+        },
+        {
+          "command": "dataverse-powertools.buildDeployPlugin",
+          "alt": "dataverse-powertools.buildDeployPlugin",
+          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+        },
+        {
+          "command": "dataverse-powertools.generateEarlyBound",
+          "alt": "dataverse-powertools.generateEarlyBound",
+          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+        }
+      ],
+      "dataverse-powertools.buildWebresources": [
+        {
+          "command": "dataverse-powertools.buildWebresources",
+          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
+        },
+        {
+          "command": "dataverse-powertools.deployWebresources",
+          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
+        },
+        {
+          "command": "dataverse-powertools.generateTypings",
+          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
+        }
+      ]
+    },
+    "submenus": [
+      {
+        "id": "dataverse-powertools.buildPlugin",
+        "label": "Plugin Actions"
+      },
+      {
+        "id": "dataverse-powertools.buildWebresources",
+        "label": "Web Resources Actions"
+      }
+    ],
     "viewsContainers": {
       "activitybar": [
         {
@@ -112,7 +163,7 @@
       },
       {
         "command": "dataverse-powertools.buildPlugin",
-        "title": "Dataverse PowerTools: Build and Deploy Plugins"
+        "title": "Dataverse PowerTools: Build Plugins"
       },
       {
         "command": "dataverse-powertools.buildDeployWorkflow",
