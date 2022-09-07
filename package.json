@@ -1,7 +1,8 @@
 {
   "name": "dataverse-powertools",
   "displayName": "Dataverse PowerTools",
-  "description": "",
+  "description": "Tools to help build and manage Dataverse and Dynamics 365 CE projects",
+  "publisher": "dataversepowertools",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.66.0"
