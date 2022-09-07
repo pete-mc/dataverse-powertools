@@ -18,16 +18,6 @@
                 "command": "npm install"
             }
         ],
-        "placeholders": [
-            {
-                "displayName": "What is the schema name of the solution?",
-                "placeholder": "SOLUTIONNAME"
-            },
-            {
-                "displayName": "What is the solution prefix? This is also used as the namespace and library.js prefix.",
-                "placeholder": "SOLUTIONPREFIX"
-            }
-        ],
         "files": [
             {
                 "path": [],
@@ -108,21 +98,21 @@
                 "version": 1
             },
             {
-                "path": ["src"],
+                "path": ["webresources_src"],
                 "filename": "account",
-                "extension": ".ts",
+                "extension": ".tstemplate",
                 "version": 1
             },
             {
-                "path": ["src"],
+                "path": ["webresources_src"],
                 "filename": "library",
-                "extension": ".ts",
+                "extension": ".tstemplate",
                 "version": 1
             },
             {
-                "path": ["src", "__tests__"],
+                "path": ["webresources_src", "__tests__"],
                 "filename": "sample.test",
-                "extension": ".ts",
+                "extension": ".tstemplate",
                 "version": 1
             }
         ]

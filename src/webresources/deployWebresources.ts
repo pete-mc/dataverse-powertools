@@ -8,8 +8,6 @@ export async function deployWebresources(context: DataversePowerToolsContext) {
     vscode.window.showInformationMessage("Building");
     if (vscode.workspace.workspaceFolders !== undefined) {
         const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-        const connfile = await vscode.workspace.fs.readFile(vscode.Uri.file(workspacePath + "\\connectionstring.txt"));
-        const connString = Buffer.from(connfile).toString("utf8");
         cp.exec("webpack --config webpack.dev.js", { cwd: workspacePath }, (error, stdout) => {
             if (error) {
                 vscode.window.showErrorMessage("Error building webresources, see output for details.");
@@ -21,7 +19,7 @@ export async function deployWebresources(context: DataversePowerToolsContext) {
                 vscode.window.showInformationMessage("Building Complete, Deploying...");
                 cp.execFile(
                     workspacePath + "\\packages\\spkl\\tools\\spkl.exe",
-                    ["webresources", "./spkl.json", connString],
+                    ["webresources", "./spkl.json", context.projectSettings.connectionString || ''],
                     {
                         cwd: workspacePath,
                     },

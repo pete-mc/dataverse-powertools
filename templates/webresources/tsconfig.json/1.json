@@ -5,7 +5,7 @@
         "moduleResolution": "node",
         "lib": ["es2015", "dom"],
         "outDir": "webresources",
-        "rootDir": "src",
+        "rootDir": "webresources_src",
         "removeComments": true,
         "strict": true,
         "alwaysStrict": true,

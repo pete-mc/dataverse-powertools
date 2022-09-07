@@ -3,7 +3,7 @@
     {
       "profile": "default,debug,release",
       "root": "bin",
-      "solution": "SOLUTIONNAME",
+      "solution": "SOLUTIONPLACEHOLDER",
       "autodetect": "yes"
     }
   ]

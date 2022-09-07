@@ -1,5 +1,5 @@
 module.exports = {
-    entry: "./src/library.ts",
+    entry: "./webresources_src/library.ts",
     module: {
         rules: [
             {
