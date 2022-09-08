@@ -3,12 +3,12 @@
     {
       "profile": "default,debug",
       "assemblypath": "bin\\Debug\\net471",
-      "solution": "src_plugins"
+      "solution": "SOLUTIONPLACEHOLDER"
     },
     {
       "profile": "release,release",
       "assemblypath": "bin\\Release\\net471",
-      "solution": "src_plugins"
+      "solution": "SOLUTIONPLACEHOLDER"
     }
   ],
   "earlyboundtypes": [
@@ -20,7 +20,7 @@
       "generateGlobalOptionsets": true,
       "filename": "generated\\EarlyBoundTypes.cs",
       "oneTypePerFile": false,
-      "classNamespace": "src_plugins",
+      "classNamespace": "PluginSRC",
       "serviceContextName": "XrmSvc"
     }
   ]

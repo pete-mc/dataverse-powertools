@@ -33,9 +33,35 @@
         "version": 1
       },
       {
-        "path": ["plugins_src"],
-        "filename": "plugin",
+        "path": [
+          "plugins_src"
+        ],
+        "filename": "Plugin",
         "extension": ".cs",
+        "version": 1
+      },
+      {
+        "path": [
+          "plugins_src"
+        ],
+        "filename": "CrmPluginRegistrationAttribute.generated",
+        "extension": ".cs",
+        "version": 1
+      },
+      {
+        "path": [
+          "plugins_src"
+        ],
+        "filename": "sn.exe",
+        "extension": ".config",
+        "version": 1
+      },
+      {
+        "path": [
+          "plugins_src"
+        ],
+        "filename": "sn",
+        "extension": ".exe",
         "version": 1
       },
       {
@@ -45,31 +71,41 @@
         "version": 1
       },
       {
-        "path": ["plugins_src"],
+        "path": [
+          "plugins_src"
+        ],
         "filename": "spkl",
         "extension": ".json",
         "version": 1
       },
       {
-        "path": ["plugins_src"],
+        "path": [
+          "plugins_src"
+        ],
         "filename": "Clade",
         "extension": ".snk",
         "version": 1
       },
       {
-        "path": ["plugins_src"],
+        "path": [
+          "plugins_src"
+        ],
         "filename": "plugins_src",
         "extension": ".csproj",
         "version": 1
       },
       {
-        "path": ["plugins_srctest"],
+        "path": [
+          "plugins_srctest"
+        ],
         "filename": "plugins_test",
         "extension": ".cs",
         "version": 1
       },
       {
-        "path": ["plugins_srctest"],
+        "path": [
+          "plugins_srctest"
+        ],
         "filename": "plugins_srctest",
         "extension": ".csproj",
         "version": 1
@@ -87,19 +123,19 @@
     ],
     "restoreCommands": [
       {
-          "command": "dotnet new tool-manifest"
+        "command": "dotnet new tool-manifest"
       },
       {
-          "command": "dotnet tool install paket"
+        "command": "dotnet tool install paket"
       },
       {
-          "command": "dotnet tool restore"
+        "command": "dotnet tool restore"
       },
       {
-          "command": "dotnet paket install"
+        "command": "dotnet paket install"
       },
       {
-          "command": "npm install"
+        "command": "sn -k Plugin.snk"
       }
     ]
   }

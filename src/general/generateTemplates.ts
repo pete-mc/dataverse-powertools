@@ -16,17 +16,31 @@ export async function generateTemplates(context: DataversePowerToolsContext) {
       }
     }
     vscode.window.showInformationMessage("Generating template version: " + templateToCopy.version.toString());
-    if (templateToCopy && templateToCopy.placeholders) {
+    if (templateToCopy) {
       let placeholders = [] as templatePlaceholder[];
-      for (const p of templateToCopy.placeholders) {
-        placeholders.push({
-          placeholder: p.placeholder, value: await vscode.window.showInputBox({
-            prompt: p.displayName
-          }) as string
-        });
-      }
+      // for (const p of templateToCopy.placeholders) {
+      //   placeholders.push({
+      //     placeholder: p.placeholder, value: await vscode.window.showInputBox({
+      //       prompt: p.displayName
+      //     }) as string
+      //   });
+      // }
       templateToCopy.files?.every(async (f) => {
+        var extension = '';
+        if (f.extension == '.tstemplate') {
+          extension = '.ts';
+        } else {
+          extension = f.extension;
+        }
         var data = fs.readFileSync(fullFilePath + "\\" + f.filename + f.extension + "\\" + context.projectSettings.templateversion + f.extension, "utf8");
+
+        if (f.filename === 'template' || f.filename === 'webpack.common')  {
+          data = data.replace(/\SOLUTIONPREFIX/g, context.projectSettings.prefix || 'SOLUTIONPLACEHOLDER')
+        }
+
+        if (f.filename == 'spkl') {
+          data = data.replace(/\SOLUTIONPLACEHOLDER/g, context.projectSettings.solutionName || 'SOLUTIONPLACEHOLDER')
+        }
         for (const p of placeholders) {
           //data = data.replace(new RegExp(p.placeholder, "g"), p.value);
         }
@@ -34,7 +48,7 @@ export async function generateTemplates(context: DataversePowerToolsContext) {
           const folderPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
           const destPath = f.path;
           destPath.unshift(folderPath);
-          destPath.push(f.filename + f.extension);
+          destPath.push(f.filename + extension);
           console.log(vscode.Uri.file(path.join(...destPath)), Buffer.from(data, "utf8"));
           await vscode.workspace.fs.writeFile(vscode.Uri.file(path.join(...destPath)), Buffer.from(data, "utf8"));
         }

@@ -7,9 +7,9 @@ using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Query;
 using Xunit;
 
-namespace plugins_test.Tests
+namespace PluginSRC.Tests
 {
-    public class CLASSNAMETests
+    public class PluginTest
     {
         // Write tests here
 

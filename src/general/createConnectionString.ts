@@ -12,6 +12,8 @@ export async function createConnectionString(context: DataversePowerToolsContext
     totalSteps: number;
     name: string;
     clientSecret: string;
+    solutionName: string;
+    prefix: string;
   }
 
   const title = 'Creating the Credentials';
@@ -27,7 +29,7 @@ export async function createConnectionString(context: DataversePowerToolsContext
       ignoreFocusOut: true,
       title,
       step: 1,
-      totalSteps: 3,
+      totalSteps: 5,
       value: typeof state.organisationUrl === 'string' ? state.organisationUrl : '',
       prompt: 'Type in the Organisation URl',
       validate: validateNameIsUnique,
@@ -41,7 +43,7 @@ export async function createConnectionString(context: DataversePowerToolsContext
       ignoreFocusOut: true,
       title,
       step: 2,
-      totalSteps: 3,
+      totalSteps: 5,
       value: state.applicationId || '',
       prompt: 'Type in the Application ID',
       validate: validateNameIsUnique,
@@ -55,13 +57,43 @@ export async function createConnectionString(context: DataversePowerToolsContext
       ignoreFocusOut: true,
       title,
       step: 3,
-      totalSteps: 3,
+      totalSteps: 5,
       value: state.clientSecret || '',
       prompt: 'Type in the Client Secret',
       validate: validateNameIsUnique,
       shouldResume: shouldResume
     });
+    return (input: MultiStepInput) => inputSolutionName(input, state);
   }
+
+  async function inputSolutionName(input: MultiStepInput, state: Partial<State>) {
+    state.solutionName = await input.showInputBox({
+      ignoreFocusOut: true,
+      title,
+      step: 4,
+      totalSteps: 5,
+      value: state.solutionName || '',
+      prompt: 'What is the schema name of the solution?',
+      validate: validateNameIsUnique,
+      shouldResume: shouldResume
+    });
+    return (input: MultiStepInput) => inputPrefix(input, state);
+  }
+
+  async function inputPrefix(input: MultiStepInput, state: Partial<State>) {
+    state.prefix = await input.showInputBox({
+      ignoreFocusOut: true,
+      title,
+      step: 5,
+      totalSteps: 5,
+      value: state.prefix || '',
+      prompt: 'What is the solution prefix? This is also used as the namespace and library.js prefix.',
+      validate: validateNameIsUnique,
+      shouldResume: shouldResume
+    });
+  }
+
+
 
   function shouldResume() {
     // Could show a notification with the option to resume.
@@ -93,6 +125,8 @@ export async function createConnectionString(context: DataversePowerToolsContext
     const encoder = new TextEncoder();
     const encodedString = encoder.encode(connectionString);
     context.projectSettings.connectionString = connectionString;
+    context.projectSettings.prefix = state.prefix;
+    context.projectSettings.solutionName = state.solutionName;
     // vscode.workspace.fs.writeFile(filePath, encodedString);
   }
   // window.showInformationMessage(`Creating Application Service '${state.name}'`);

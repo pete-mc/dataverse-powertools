@@ -85,6 +85,7 @@ interface ProjectSettings {
     templateversion?: number;
     solutionName?: string;
     connectionString?: string;
+    prefix?: string;
 }
 
 export enum ProjectTypes {
