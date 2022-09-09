@@ -4,7 +4,7 @@ import * as cs from "./general/initialiseProject";
 import path = require("path");
 import fs = require("fs");
 import DataversePowerToolsContext from "./DataversePowerToolsContext";
-import { generateEarlyBound } from "./plugins/earlybound";
+import { createSNKKey, generateEarlyBound } from "./plugins/earlybound";
 import { buildDeployPlugin } from "./plugins/buildDeployPlugin";
 import { buildDeployWorkflow } from "./plugins/buildDeployWorkflow";
 import { buildWebresources } from "./webresources/buildWebresources";
@@ -34,6 +34,7 @@ export async function activate(vscodeContext: vscode.ExtensionContext) {
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.generateTemplate", () => generateTemplates(context)));
 
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.restoreDependencies", () => restoreDependencies(context)));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createSNKKey", () => createSNKKey(context)));
 
     // Extension path example
     let fullFilePath = context.vscode.asAbsolutePath(path.join("templates", "test.txt"));

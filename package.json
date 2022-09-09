@@ -3,7 +3,7 @@
   "displayName": "Dataverse PowerTools",
   "description": "Tools to help build and manage Dataverse and Dynamics 365 CE projects",
   "publisher": "dataversepowertools",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "engines": {
     "vscode": "^1.66.0"
   },
@@ -24,7 +24,8 @@
     "onCommand:dataverse-powertools.initialiseProject",
     "onCommand:dataverse-powertools.readProject",
     "onCommand:dataverse-powertools.generateTemplate",
-    "onCommand:dataverse-powertools.restoreDependencies"
+    "onCommand:dataverse-powertools.restoreDependencies",
+    "onCommand:dataverse-powertools.createSNKKey"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -189,6 +190,10 @@
       {
         "command": "dataverse-powertools.restoreDependencies",
         "title": "Dataverse PowerTools: Restore Dependencies"
+      },
+      {
+        "command": "dataverse-powertools.createSNKKey",
+        "title": "Dataverse PowerTools: Create SNK Key"
       }
     ]
   },

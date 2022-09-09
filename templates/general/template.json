@@ -13,9 +13,6 @@
       },
       {
           "command": "dotnet paket install"
-      },
-      {
-          "command": "npm install"
       }
     ]
   }

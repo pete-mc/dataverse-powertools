@@ -5,6 +5,8 @@ import fs = require("fs");
 import { readProject, setUISettings } from "./general/initialiseProject";
 import { generateTemplates } from "./general/generateTemplates";
 import { restoreDependencies } from "./general/restoreDependencies";
+import { createSNKKey, generateEarlyBound } from "./plugins/earlybound";
+import { buildPlugin } from "./plugins/buildPlugin";
 
 export default class DataversePowerToolsContext {
     vscode: vscode.ExtensionContext;
@@ -77,6 +79,9 @@ export default class DataversePowerToolsContext {
         await readProject(this);
         await setUISettings(this);
         await restoreDependencies(this);
+        await createSNKKey(this);
+        await generateEarlyBound(this);
+        await buildPlugin(this);
     }
 }
 

@@ -49,22 +49,6 @@
         "version": 1
       },
       {
-        "path": [
-          "plugins_src"
-        ],
-        "filename": "sn.exe",
-        "extension": ".config",
-        "version": 1
-      },
-      {
-        "path": [
-          "plugins_src"
-        ],
-        "filename": "sn",
-        "extension": ".exe",
-        "version": 1
-      },
-      {
         "path": [],
         "filename": "Plugin",
         "extension": ".sln",
@@ -133,9 +117,6 @@
       },
       {
         "command": "dotnet paket install"
-      },
-      {
-        "command": "sn -k Plugin.snk"
       }
     ]
   }
