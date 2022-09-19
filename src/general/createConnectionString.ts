@@ -1,5 +1,7 @@
 import { TextEncoder } from "util";
 import * as vscode from "vscode";
+import * as cp from "child_process";
+import path = require("path");
 import { QuickPickItem, window, Disposable, CancellationToken, QuickInputButton, QuickInput, ExtensionContext, QuickInputButtons, Range, TextEdit } from 'vscode';
 import DataversePowerToolsContext, { ProjectTypes } from "../DataversePowerToolsContext";
 
@@ -14,6 +16,7 @@ export async function createConnectionString(context: DataversePowerToolsContext
     clientSecret: string;
     solutionName: string;
     prefix: string;
+    createCredential: boolean;
   }
 
   const title = 'Creating the Credentials';
@@ -39,31 +42,106 @@ export async function createConnectionString(context: DataversePowerToolsContext
   }
 
   async function inputApplicationId(input: MultiStepInput, state: Partial<State>) {
-    state.applicationId = await input.showInputBox({
-      ignoreFocusOut: true,
-      title,
-      step: 2,
-      totalSteps: 5,
-      value: state.applicationId || '',
-      prompt: 'Type in the Application ID',
-      validate: validateNameIsUnique,
-      shouldResume: shouldResume
-    });
-    return (input: MultiStepInput) => inputClientSecret(input, state);
+    if (vscode.workspace.workspaceFolders !== undefined) {
+      const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+      var fullFilePath = context.vscode.asAbsolutePath(path.join("templates"));
+      const util = require('util');
+      const execSync = require("child_process").execSync;
+      // const exec = util.promisify(require('child_process').execFile);
+      // const promise = execSync(
+      //   workspacePath + "\\WindowsCredentialManager.exe",
+      //   ["Get-Credentials", state.organisationUrl || '', "username"]
+      // );
+      let command = "\"" + fullFilePath + "\\WindowsCredentialManager.exe\" Get-Credentials " + state.organisationUrl || '';
+      command += ' username';
+      const result = execSync(command);
+      // var child2 = require('child_process').execSync(workspacePath + "\\WindowsCredentialManager.exe Get-Credentials " + state.organisationUrl || '' + " username")
+      // const child = promise.child;
+      // const { stdout, stderr } = promise;
+      const credentialResult = result.toString("utf-8");
+      if (credentialResult === '') {
+        state.createCredential = true;
+        state.applicationId = await input.showInputBox({
+          ignoreFocusOut: true,
+          title,
+          step: 2,
+          totalSteps: 5,
+          value: state.applicationId || '',
+          prompt: 'Type in the Application ID',
+          validate: validateNameIsUnique,
+          shouldResume: shouldResume
+        });
+        return (input: MultiStepInput) => inputClientSecret(input, state);
+      } else {
+        return (input: MultiStepInput) => inputClientSecret(input, state);
+      }
+
+      // await cp.execFile(workspacePath + "\\WindowsCredentialManager.exe",
+      //   ["Get-Credentials", state.organisationUrl || '', "username"],
+      //   async (error, stdout) => {
+      //     if (error) {
+      //       return getApplicationId(input, state);
+      //     } else {
+      //       if (stdout === '') {
+      //         state.applicationId = await input.showInputBox({
+      //           ignoreFocusOut: true,
+      //           title,
+      //           step: 2,
+      //           totalSteps: 5,
+      //           value: state.applicationId || '',
+      //           prompt: 'Type in the Application ID',
+      //           validate: validateNameIsUnique,
+      //           shouldResume: shouldResume
+      //         });
+      //         return (input: MultiStepInput) => inputClientSecret(input, state);
+      //       } else {
+      //         return (input: MultiStepInput) => inputClientSecret(input, state);
+      //       }
+      //     }
+      //   }
+      // );
+
+      // state.applicationId = await input.showInputBox({
+      //   ignoreFocusOut: true,
+      //   title,
+      //   step: 2,
+      //   totalSteps: 5,
+      //   value: state.applicationId || '',
+      //   prompt: 'Type in the Application ID',
+      //   validate: validateNameIsUnique,
+      //   shouldResume: shouldResume
+      // });
+      // return (input: MultiStepInput) => inputClientSecret(input, state);
+    }
   }
 
   async function inputClientSecret(input: MultiStepInput, state: Partial<State>) {
-    state.clientSecret = await input.showInputBox({
-      ignoreFocusOut: true,
-      title,
-      step: 3,
-      totalSteps: 5,
-      value: state.clientSecret || '',
-      prompt: 'Type in the Client Secret',
-      validate: validateNameIsUnique,
-      shouldResume: shouldResume
-    });
-    return (input: MultiStepInput) => inputSolutionName(input, state);
+    if (vscode.workspace.workspaceFolders !== undefined) {
+      const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+      const util = require('util');
+      const execSync = require("child_process").execSync;
+      var fullFilePath = context.vscode.asAbsolutePath(path.join("templates"));
+      let command = "\"" + fullFilePath + "\\WindowsCredentialManager.exe\" Get-Credentials " + state.organisationUrl || '';
+      command += ' username';
+      const result = execSync(command);
+      const credentialResult = result.toString("utf-8");
+      if (credentialResult === '') {
+        state.createCredential = true;
+        state.clientSecret = await input.showInputBox({
+          ignoreFocusOut: true,
+          title,
+          step: 3,
+          totalSteps: 5,
+          value: state.clientSecret || '',
+          prompt: 'Type in the Client Secret',
+          validate: validateNameIsUnique,
+          shouldResume: shouldResume
+        });
+        return (input: MultiStepInput) => inputSolutionName(input, state);
+      } else {
+        return (input: MultiStepInput) => inputSolutionName(input, state);
+      }
+    }
   }
 
   async function inputSolutionName(input: MultiStepInput, state: Partial<State>) {
@@ -118,15 +196,30 @@ export async function createConnectionString(context: DataversePowerToolsContext
     vscode.window.showInformationMessage(filePath.toString());
     //wsedit.createFile(filePath);
     //vscode.workspace.applyEdit(wsedit);
-    let connectionString = 'AuthType=ClientSecret;Url=';
-    connectionString += state.organisationUrl += ';ClientId=';
-    connectionString += state.applicationId += ';ClientSecret=';
-    connectionString += state.clientSecret += ';LoginPrompt=Never';
-    const encoder = new TextEncoder();
-    const encodedString = encoder.encode(connectionString);
-    context.projectSettings.connectionString = connectionString;
+    let connectionString = 'AuthType=ClientSecret;LoginPrompt=Never;Url=';
+    let credentialManagerString = '';
+    connectionString += state.organisationUrl + ";";
+    if (state.createCredential) {
+      var fullFilePath = context.vscode.asAbsolutePath(path.join("templates"));
+      await cp.execFile(fullFilePath + "\\WindowsCredentialManager.exe",
+        ["New-Credential", state.organisationUrl || '', state.applicationId, state.clientSecret],
+        async (error, stdout) => {
+          if (error) {
+          } else {
+          }
+        }
+      );
+      connectionString += 'ClientId=';
+      connectionString += state.applicationId += ';ClientSecret=';
+      connectionString += state.clientSecret;
+    } else {
+      credentialManagerString += context.getCredentialsFromManager(context, state.organisationUrl);
+      connectionString += credentialManagerString;
+    }
+
     context.projectSettings.prefix = state.prefix;
     context.projectSettings.solutionName = state.solutionName;
+    context.projectSettings.connectionString = connectionString;
     // vscode.workspace.fs.writeFile(filePath, encodedString);
   }
   // window.showInformationMessage(`Creating Application Service '${state.name}'`);

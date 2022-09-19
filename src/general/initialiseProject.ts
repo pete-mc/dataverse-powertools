@@ -22,7 +22,7 @@ export async function setUISettings(context: DataversePowerToolsContext) {
   } else {
     const splitUri = context.connectionString.split(';');
     myStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-    myStatusBarItem.text = splitUri[1].replace('Url=', '');
+    myStatusBarItem.text = splitUri[2].replace('Url=', '');
     myStatusBarItem.show();
     vscode.commands.executeCommand('setContext', 'dataverse-powertools.showLoaded', true);
   }
