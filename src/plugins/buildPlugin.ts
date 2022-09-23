@@ -1,9 +1,7 @@
+import { rejects } from "assert";
+import { resolve } from "path";
 import * as vscode from "vscode";
-import * as cp from "child_process";
-import * as path from "path";
-import * as fs from "fs";
 import DataversePowerToolsContext from "../DataversePowerToolsContext";
-import { chdir } from "process";
 
 export async function buildPlugin(context: DataversePowerToolsContext) {
   await vscode.window.withProgress({
@@ -45,6 +43,8 @@ export async function buildPluginExecution(context: DataversePowerToolsContext) 
         vscode.window.showInformationMessage("Building Plugin Successful.");
         context.channel.appendLine(data);
         context.channel.show();
+      } else {
+        return stdout;
       }
       //vscode.window.showErrorMessage("Error building plugins, see output for details.");
     });
@@ -53,15 +53,12 @@ export async function buildPluginExecution(context: DataversePowerToolsContext) 
       vscode.window.showErrorMessage("Error building plugins, see output for details.");
     });
 
-    child.error.on('data', function (data: any) {
-      vscode.window.showErrorMessage("Error building plugins, see output for details.");
+    child.on('close', function (code: any) {
+      //const test = code;
+      //vscode.window.showInformationMessage("Plugin has been built.");
     });
-    // child.on('close', function (code: any) {
-    //   const test = code;
-    //   vscode.window.showInformationMessage("Plugin has been built.");
-    // });
 
     // i.e. can then await for promisified exec call to complete
-    const { error, stdout, stderr } = await promise;
+    const { stdout, stderr } = await promise;
   }
 }

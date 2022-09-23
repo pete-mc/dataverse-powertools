@@ -43,21 +43,11 @@ export async function createConnectionString(context: DataversePowerToolsContext
 
   async function inputApplicationId(input: MultiStepInput, state: Partial<State>) {
     if (vscode.workspace.workspaceFolders !== undefined) {
-      const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
       var fullFilePath = context.vscode.asAbsolutePath(path.join("templates"));
-      const util = require('util');
       const execSync = require("child_process").execSync;
-      // const exec = util.promisify(require('child_process').execFile);
-      // const promise = execSync(
-      //   workspacePath + "\\WindowsCredentialManager.exe",
-      //   ["Get-Credentials", state.organisationUrl || '', "username"]
-      // );
       let command = "\"" + fullFilePath + "\\WindowsCredentialManager.exe\" Get-Credentials " + state.organisationUrl || '';
       command += ' username';
       const result = execSync(command);
-      // var child2 = require('child_process').execSync(workspacePath + "\\WindowsCredentialManager.exe Get-Credentials " + state.organisationUrl || '' + " username")
-      // const child = promise.child;
-      // const { stdout, stderr } = promise;
       const credentialResult = result.toString("utf-8");
       if (credentialResult === '') {
         state.createCredential = true;
@@ -75,43 +65,6 @@ export async function createConnectionString(context: DataversePowerToolsContext
       } else {
         return (input: MultiStepInput) => inputClientSecret(input, state);
       }
-
-      // await cp.execFile(workspacePath + "\\WindowsCredentialManager.exe",
-      //   ["Get-Credentials", state.organisationUrl || '', "username"],
-      //   async (error, stdout) => {
-      //     if (error) {
-      //       return getApplicationId(input, state);
-      //     } else {
-      //       if (stdout === '') {
-      //         state.applicationId = await input.showInputBox({
-      //           ignoreFocusOut: true,
-      //           title,
-      //           step: 2,
-      //           totalSteps: 5,
-      //           value: state.applicationId || '',
-      //           prompt: 'Type in the Application ID',
-      //           validate: validateNameIsUnique,
-      //           shouldResume: shouldResume
-      //         });
-      //         return (input: MultiStepInput) => inputClientSecret(input, state);
-      //       } else {
-      //         return (input: MultiStepInput) => inputClientSecret(input, state);
-      //       }
-      //     }
-      //   }
-      // );
-
-      // state.applicationId = await input.showInputBox({
-      //   ignoreFocusOut: true,
-      //   title,
-      //   step: 2,
-      //   totalSteps: 5,
-      //   value: state.applicationId || '',
-      //   prompt: 'Type in the Application ID',
-      //   validate: validateNameIsUnique,
-      //   shouldResume: shouldResume
-      // });
-      // return (input: MultiStepInput) => inputClientSecret(input, state);
     }
   }
 

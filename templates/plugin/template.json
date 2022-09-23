@@ -44,6 +44,14 @@
         "path": [
           "plugins_src"
         ],
+        "filename": "Workflow",
+        "extension": ".cs",
+        "version": 1
+      },
+      {
+        "path": [
+          "plugins_src"
+        ],
         "filename": "CrmPluginRegistrationAttribute.generated",
         "extension": ".cs",
         "version": 1

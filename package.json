@@ -24,6 +24,8 @@
     "onCommand:dataverse-powertools.initialiseProject",
     "onCommand:dataverse-powertools.readProject",
     "onCommand:dataverse-powertools.generateTemplate",
+    "onCommand:dataverse-powertools.createPluginClass",
+    "onCommand:dataverse-powertools.createWorkflowClass",
     "onCommand:dataverse-powertools.restoreDependencies",
     "onCommand:dataverse-powertools.createSNKKey"
   ],
@@ -52,6 +54,16 @@
         {
           "command": "dataverse-powertools.generateEarlyBound",
           "alt": "dataverse-powertools.generateEarlyBound",
+          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+        },
+        {
+          "command": "dataverse-powertools.createPluginClass",
+          "alt": "dataverse-powertools.createPluginClass",
+          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+        },
+        {
+          "command": "dataverse-powertools.createWorkflowClass",
+          "alt": "dataverse-powertools.createWorkflowClass",
           "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
         }
       ],
@@ -138,6 +150,16 @@
       },
       {
         "view": "nodeDependencies",
+        "contents": "\n[Create Plugin Class](command:dataverse-powertools.createPluginClass)",
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
+        "view": "nodeDependencies",
+        "contents": "\n[Create Workflow Class](command:dataverse-powertools.createWorkflowClass)",
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
+        "view": "nodeDependencies",
         "contents": "\n[Restore Dependencies](command:dataverse-powertools.restoreDependencies)",
         "when": "dataverse-powertools.showLoaded"
       }
@@ -185,7 +207,15 @@
       },
       {
         "command": "dataverse-powertools.generateTemplates",
-        "title": "Dataverse PowerTools: Generate Web Web Resources Template"
+        "title": "Dataverse PowerTools: Generate Templates"
+      },
+      {
+        "command": "dataverse-powertools.createPluginClass",
+        "title": "Dataverse PowerTools: Create Plugin Class"
+      },
+      {
+        "command": "dataverse-powertools.createWorkflowClass",
+        "title": "Dataverse PowerTools: Create Workflow Class"
       },
       {
         "command": "dataverse-powertools.restoreDependencies",
