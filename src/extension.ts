@@ -16,6 +16,9 @@ import { restoreDependencies } from './general/restoreDependencies';
 import { initialiseProject } from "./general/initialiseProject";
 import { buildPlugin } from "./plugins/buildPlugin";
 import { createPluginClass, createWorkflowClass } from "./general/generateTemplates";
+import { extractSolution } from "./solution/extractSolution";
+import { packSolution } from "./solution/packSolution";
+import { deploySolution } from "./solution/deploySolution";
 
 export async function activate(vscodeContext: vscode.ExtensionContext) {
     const context = new DataversePowerToolsContext(vscodeContext);
@@ -38,6 +41,9 @@ export async function activate(vscodeContext: vscode.ExtensionContext) {
 
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.restoreDependencies", () => restoreDependencies(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createSNKKey", () => createSNKKey(context)));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.extractSolution", () => extractSolution(context)));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.packSolution", () => packSolution(context)));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.deploySolution", () => deploySolution(context)));
 
     // Extension path example
     let fullFilePath = context.vscode.asAbsolutePath(path.join("templates", "test.txt"));

@@ -12,6 +12,8 @@ export async function restoreDependencies(context: DataversePowerToolsContext) {
   var fullFilePath = '';
   if (context.projectSettings.type === 'webresources') {
     fullFilePath = context.vscode.asAbsolutePath(path.join("templates", 'webresources'));
+  } else {
+    fullFilePath = context.vscode.asAbsolutePath(path.join("templates", 'general'));
   }
   var templates = JSON.parse(fs.readFileSync(fullFilePath + "\\template.json", "utf8")) as Array<PowertoolsTemplate>;
   var templateToCopy = {} as PowertoolsTemplate;

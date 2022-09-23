@@ -31,10 +31,12 @@ export async function setUISettings(context: DataversePowerToolsContext) {
     case ProjectTypes.plugin:
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isPlugin', true);
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isWebResource', false);
+      vscode.commands.executeCommand('setContext', 'dataverse-powertools.isSolution', false);
       break;
     case ProjectTypes.webresource:
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isPlugin', false);
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isWebResource', true);
+      vscode.commands.executeCommand('setContext', 'dataverse-powertools.isSolution', false);
       if (context.projectSettings.type && context.projectSettings.templateversion && vscode.workspace.workspaceFolders) {
         if (vscode.workspace.workspaceFolders !== undefined && context.projectSettings.templateversion && vscode.workspace.workspaceFolders) {
           var fullFilePath = context.vscode.asAbsolutePath(path.join("templates", context.projectSettings.type));
@@ -49,6 +51,10 @@ export async function setUISettings(context: DataversePowerToolsContext) {
         }
       }
       break;
+    case ProjectTypes.solution:
+      vscode.commands.executeCommand('setContext', 'dataverse-powertools.isPlugin', false);
+      vscode.commands.executeCommand('setContext', 'dataverse-powertools.isWebResource', false);
+      vscode.commands.executeCommand('setContext', 'dataverse-powertools.isSolution', true);
   }
 }
 

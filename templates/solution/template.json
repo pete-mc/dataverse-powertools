@@ -1,0 +1,61 @@
+[
+  {
+    "version": 1,
+    "files": [
+      {
+        "path": [],
+        "filename": "",
+        "extension": ".gitignore",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": "azure-pipelines",
+        "extension": ".yml",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": "nuget",
+        "extension": ".config",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": "paket",
+        "extension": ".dependencies",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": "spkl",
+        "extension": ".json",
+        "version": 1
+      }
+    ],
+    "placeholders": [
+      {
+        "displayName": "What is the schema name of the solution?",
+        "placeholder": "SOLUTIONNAME"
+      },
+      {
+        "displayName": "What is the solution prefix? This is also used as the namespace and library.js prefix.",
+        "placeholder": "SOLUTIONPREFIX"
+      }
+    ],
+    "restoreCommands": [
+      {
+        "command": "dotnet new tool-manifest"
+      },
+      {
+        "command": "dotnet tool install paket"
+      },
+      {
+        "command": "dotnet tool restore"
+      },
+      {
+        "command": "dotnet paket install"
+      }
+    ]
+  }
+]

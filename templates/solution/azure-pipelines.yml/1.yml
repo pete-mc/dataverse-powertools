@@ -1,0 +1,115 @@
+# Install https://marketplace.visualstudio.com/items?itemName=microsoft-IsvExpTools.PowerPlatform-BuildTools to
+# your organization in order to setup the service connection and use the PowerPlatform components below
+
+# Provide contribute privilege to the build service on the repository
+
+trigger:
+- main
+
+pool:
+  vmImage: 'windows-latest'
+
+# Setup CRMConnectionStrings group in the Pipeline library with DevConnection storing the
+# DEV connection string as a secret at minimum (another variable in the group for each
+# environment will benefit downstream pipelines)
+variables:
+  - group: CRMConnectionStrings
+  - name: SourceBranch
+    value: $[replace(variables['Build.SourceBranch'], 'refs/heads/', '')]    
+  - name: SCRIPTSPATH
+    value: scripts
+  - name: VERSIONNO
+    value: $[format('1.1.{0}', variables['Build.BuildNumber'])]
+
+steps:
+- checkout: self
+  persistCredentials: true
+  
+- task: PowerShell@2
+  displayName: 'Install CRM PowerShell Modules'
+  inputs:
+    filePath: '$(SCRIPTSPATH)\InstallCRMModules.ps1'
+
+- task: PowerShell@2
+  displayName: 'Update Solution Version No'
+  inputs:
+    filePath: '$(SCRIPTSPATH)\UpdateVersionNo.ps1'
+  env:
+    CRMCONNECTIONSTRING: $(DevConnection)
+    VERSIONNO: $(VERSIONNO)
+
+- task: PowerShell@2
+  displayName: 'Export Solution'
+  inputs:
+    filePath: '$(SCRIPTSPATH)\ExportSolution.ps1'
+  env:
+    CRMCONNECTIONSTRING: $(DevConnection)
+
+- pwsh: |
+   write-host "commit all changes"
+   git config user.email "hosted.agent@dev.azure.com"
+   git config user.name "Azure Pipeline"
+   git checkout $(SourceBranch) --
+   git add --all
+   git commit -m "Update solution version to $env:VERSIONNO [skip ci]"
+   write-host "push code to repo"
+   git push origin $(SourceBranch)
+  displayName: "Commit to Git repo"
+
+# Download artifacts from other pipelines (enable as required)
+
+# Optional - copy latest release build of plugin library
+# ---Assemblies---
+# - task: DownloadBuildArtifacts@1
+#   inputs:
+#     buildType: 'specific'
+#     project: '1407c1c9-c57d-4eca-91fe-a8960ddc47ec'
+#     pipeline: '69'
+#     buildVersionToDownload: 'latestFromBranch'
+#     branchName: 'refs/heads/master'
+#     downloadType: 'specific'
+#     itemPattern: 'Release Build/*.dll'
+#     downloadPath: '$(System.ArtifactDirectory)'
+
+# Optional - copy latest release build of plugin library
+# - task: CopyFiles@2
+#   displayName: Copy Plugin Assembly to plugin folder
+#   inputs:
+#     SourceFolder: '$(System.ArtifactDirectory)/Release Build'
+#     Contents: 'PLUGINLIBRARY.dll'
+#     TargetFolder: '$(Build.SourcesDirectory)\SOLUTIONNAME\PATH_TO\PLUGINLIBRARY-GUID'
+#     OverWrite: true
+
+# Build CDS solution
+- task: PowerPlatformToolInstaller@2
+  displayName: 'Install Power Platform Build Tools'
+  inputs:
+    DefaultVersion: true
+
+- task: PowerPlatformPackSolution@2
+  displayName: 'Pack solution'
+  inputs:
+    SolutionSourceFolder: '$(Build.SourcesDirectory)\SOLUTIONNAME'
+    SolutionOutputFile: '$(Pipeline.Workspace)\solutions\solution_managed.zip'
+    SolutionType: 'Managed'
+
+- task: PowerPlatformPackSolution@2
+  displayName: 'Pack solution'
+  inputs:
+    SolutionSourceFolder: '$(Build.SourcesDirectory)\SOLUTIONNAME'
+    SolutionOutputFile: '$(Pipeline.Workspace)\solutions\solution_unmanaged.zip'
+
+# Perform solution check. Create Power Platform service connection to the dev environment
+- task: PowerPlatformChecker@2
+  inputs:
+    PowerPlatformSPN: 'DEVENV'
+    FilesToAnalyze: '$(Pipeline.Workspace)\solutions\solution_unmanaged.zip'
+    RuleSet: '0ad12346-e108-40b8-a956-9a8f95ea18c9'
+    ErrorLevel: 'CriticalIssueCount'
+
+- task: PublishPipelineArtifact@1
+  displayName: 'Publish solution packages to artifact'
+  inputs:
+    targetPath: '$(Pipeline.Workspace)\solutions'
+    artifact: 'Solution Packages'
+    publishLocation: 'pipeline'

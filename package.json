@@ -27,7 +27,10 @@
     "onCommand:dataverse-powertools.createPluginClass",
     "onCommand:dataverse-powertools.createWorkflowClass",
     "onCommand:dataverse-powertools.restoreDependencies",
-    "onCommand:dataverse-powertools.createSNKKey"
+    "onCommand:dataverse-powertools.createSNKKey",
+    "onCommand:dataverse-powertools.extractSolution",
+    "onCommand:dataverse-powertools.packSolution",
+    "onCommand:dataverse-powertools.deploySolution"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -38,6 +41,9 @@
         },
         {
           "submenu": "dataverse-powertools.buildWebresources"
+        },
+        {
+          "submenu": "dataverse-powertools.extractSolution"
         }
       ],
       "dataverse-powertools.buildPlugin": [
@@ -80,6 +86,20 @@
           "command": "dataverse-powertools.generateTypings",
           "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
         }
+      ],
+      "dataverse-powertools.extractSolution": [
+        {
+          "command": "dataverse-powertools.extractSolution",
+          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isSolution"
+        },
+        {
+          "command": "dataverse-powertools.packSolution",
+          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isSolution"
+        },
+        {
+          "command": "dataverse-powertools.deploySolution",
+          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isSolution"
+        }
       ]
     },
     "submenus": [
@@ -90,6 +110,10 @@
       {
         "id": "dataverse-powertools.buildWebresources",
         "label": "Web Resources Actions"
+      },
+      {
+        "id": "dataverse-powertools.extractSolution",
+        "label": "Solution Actions"
       }
     ],
     "viewsContainers": {
@@ -162,6 +186,21 @@
         "view": "nodeDependencies",
         "contents": "\n[Restore Dependencies](command:dataverse-powertools.restoreDependencies)",
         "when": "dataverse-powertools.showLoaded"
+      },
+      {
+        "view": "nodeDependencies",
+        "contents": "\n[Extract Solution](command:dataverse-powertools.extractSolution)",
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isSolution"
+      },
+      {
+        "view": "nodeDependencies",
+        "contents": "\n[Extract Solution](command:dataverse-powertools.packSolution)",
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isSolution"
+      },
+      {
+        "view": "nodeDependencies",
+        "contents": "\n[Deploy Solution](command:dataverse-powertools.deploySolution)",
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isSolution"
       }
     ],
     "commands": [
@@ -224,6 +263,18 @@
       {
         "command": "dataverse-powertools.createSNKKey",
         "title": "Dataverse PowerTools: Create SNK Key"
+      },
+      {
+        "command": "dataverse-powertools.extractSolution",
+        "title": "Dataverse PowerTools: Extract Solution"
+      },
+      {
+        "command": "dataverse-powertools.packSolution",
+        "title": "Dataverse PowerTools: Pack Solution"
+      },
+      {
+        "command": "dataverse-powertools.deploySolution",
+        "title": "Dataverse PowerTools: Deploy Solution"
       }
     ]
   },
