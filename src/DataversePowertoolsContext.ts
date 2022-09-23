@@ -76,7 +76,7 @@ export default class DataversePowerToolsContext {
       const username = resultUsername.toString("Utf-8");
       const password = resultPassword.toString("Utf-8");
       return "ClientId=" + username + ";" + "ClientSecret=" + password + ";"
-      // context.connectionString += "ClientId=" + username + ";"
+      // context.connectionString += "ClientId=" + username + ";
       // context.connectionString += "ClientSecret=" + password + ";"
     }
   }
@@ -104,9 +104,11 @@ export default class DataversePowerToolsContext {
     await readProject(this);
     await setUISettings(this);
     await restoreDependencies(this);
-    await createSNKKey(this);
-    await generateEarlyBound(this);
-    await buildPlugin(this);
+    if (this.projectSettings.type == 'plugin') {
+      await createSNKKey(this);
+      await generateEarlyBound(this);
+      await buildPlugin(this);
+    }
   }
 }
 

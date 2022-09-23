@@ -21,12 +21,12 @@ export async function generateTypingsExecution(context: DataversePowerToolsConte
     const promise = exec(
       vscode.workspace.workspaceFolders[0].uri.fsPath + ".\\packages\\Delegate.XrmDefinitelyTyped\\content\\XrmDefinitelyTyped\\XrmDefinitelyTyped.exe",
       [
-        `/url:${context.connectionString.split(";")[1].replace("Url=", "")}/XRMServices/2011/Organization.svc`,
+        `/url:${context.connectionString.split(";")[2].replace("Url=", "")}/XRMServices/2011/Organization.svc`,
         `/out:typings\\XRM`,
         `/solutions:${spkl.webresources[0].solution}`,
-        `/mfaAppId:${context.connectionString.split(";")[2].replace("ClientId=", "")}`,
-        `/mfaReturnUrl:${context.connectionString.split(";")[1].replace("Url=", "")}`,
-        `/mfaClientSecret:${context.connectionString.split(";")[3].replace("ClientSecret=", "")}`,
+        `/mfaAppId:${context.connectionString.split(";")[3].replace("ClientId=", "")}`,
+        `/mfaReturnUrl:${context.connectionString.split(";")[2].replace("Url=", "")}`,
+        `/mfaClientSecret:${context.connectionString.split(";")[4].replace("ClientSecret=", "")}`,
         `/jsLib:bin/cld_dependencies`,
         `/method:ClientSecret`,
         `/web:${spkl.webresources[0].solution}Web`,
