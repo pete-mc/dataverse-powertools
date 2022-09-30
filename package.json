@@ -3,7 +3,7 @@
   "displayName": "Dataverse PowerTools",
   "description": "Tools to help build and manage Dataverse and Dynamics 365 CE projects",
   "publisher": "dataversepowertools",
-  "version": "0.0.3",
+  "version": "0.0.7",
   "engines": {
     "vscode": "^1.66.0"
   },
@@ -194,7 +194,7 @@
       },
       {
         "view": "nodeDependencies",
-        "contents": "\n[Extract Solution](command:dataverse-powertools.packSolution)",
+        "contents": "\n[Pack Solution](command:dataverse-powertools.packSolution)",
         "when": "dataverse-powertools.showLoaded && dataverse-powertools.isSolution"
       },
       {

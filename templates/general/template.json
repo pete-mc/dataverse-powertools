@@ -3,7 +3,7 @@
     "version": 1,
     "restoreCommands": [
       {
-          "command": "dotnet new tool-manifest"
+          "command": "dotnet new tool-manifest --force"
       },
       {
           "command": "dotnet tool install paket"

@@ -45,6 +45,8 @@ export async function createConnectionString(context: DataversePowerToolsContext
     if (vscode.workspace.workspaceFolders !== undefined) {
       var fullFilePath = context.vscode.asAbsolutePath(path.join("templates"));
       const execSync = require("child_process").execSync;
+      // We utilise the Windows Credential Manager, thus it checks if the username/organisation URL already exists.
+      // If it does, it skips all steps that involve the secret/application ID
       let command = "\"" + fullFilePath + "\\WindowsCredentialManager.exe\" Get-Credentials " + state.organisationUrl || '';
       command += ' username';
       const result = execSync(command);
@@ -147,8 +149,6 @@ export async function createConnectionString(context: DataversePowerToolsContext
     const folderPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
     const filePath = vscode.Uri.file(folderPath + '/connectionstring2.txt');
     vscode.window.showInformationMessage(filePath.toString());
-    //wsedit.createFile(filePath);
-    //vscode.workspace.applyEdit(wsedit);
     let connectionString = 'AuthType=ClientSecret;LoginPrompt=Never;Url=';
     let credentialManagerString = '';
     connectionString += state.organisationUrl + ";";
@@ -158,6 +158,8 @@ export async function createConnectionString(context: DataversePowerToolsContext
         ["New-Credential", state.organisationUrl || '', state.applicationId, state.clientSecret],
         async (error, stdout) => {
           if (error) {
+            context.channel.appendLine(error.message);
+            context.channel.show();
           } else {
           }
         }

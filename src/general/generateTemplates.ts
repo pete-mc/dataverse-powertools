@@ -19,26 +19,19 @@ export async function generateTemplates(context: DataversePowerToolsContext) {
     vscode.window.showInformationMessage("Generating template version: " + templateToCopy.version.toString());
     if (templateToCopy) {
       let placeholders = [] as templatePlaceholder[];
-      // for (const p of templateToCopy.placeholders) {
-      //   placeholders.push({
-      //     placeholder: p.placeholder, value: await vscode.window.showInputBox({
-      //       prompt: p.displayName
-      //     }) as string
-      //   });
-      // }
       templateToCopy.files?.every(async (f) => {
         var extension = '';
+
+        // This is done because the .ts files do not copy into the published extension thus we overwrite it when actually copying from extension into the code
         if (f.extension == '.tstemplate') {
           extension = '.ts';
         } else {
           extension = f.extension;
         }
         var data = fs.readFileSync(fullFilePath + "\\" + f.filename + f.extension + "\\" + context.projectSettings.templateversion + f.extension, "utf8");
-
         if (f.filename === 'template' || f.filename === 'webpack.common')  {
           data = data.replace(/\SOLUTIONPREFIX/g, context.projectSettings.prefix || 'SOLUTIONPLACEHOLDER')
         }
-
         if (f.filename == 'spkl') {
           data = data.replace(/\SOLUTIONPLACEHOLDER/g, context.projectSettings.solutionName || 'SOLUTIONPLACEHOLDER')
         }

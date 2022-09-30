@@ -40,11 +40,17 @@ export default class DataversePowerToolsContext {
   async readSettings(context: DataversePowerToolsContext) {
     if (vscode.workspace.workspaceFolders !== undefined) {
       const filePath = vscode.workspace.workspaceFolders[0].uri.fsPath + "\\" + this.settingsFilename;
-      await this.readFileAsync(filePath).then((data: any) => {
+      await this.readFileAsync(filePath).then(async (data: any) => {
         this.projectSettings = JSON.parse(data);
         this.connectionString = this.projectSettings.connectionString || '';
         const name = context.connectionString.substring(context.connectionString.indexOf("Url=") + 4, context.connectionString.length - 1);
-        context.connectionString += this.getCredentialsFromManager(this, name);
+        const credentialString = this.getCredentialsFromManager(this, name);
+        if (credentialString === '') {
+          await connectionStringManager.createConnectionString(this);
+          context.connectionString = this.projectSettings.connectionString || '';
+        } else {
+          context.connectionString += credentialString;
+        }
         context.projectSettings = this.projectSettings;
         vscode.window.showInformationMessage('Connected');
       }).catch((err) => {
@@ -75,9 +81,11 @@ export default class DataversePowerToolsContext {
 
       const username = resultUsername.toString("Utf-8");
       const password = resultPassword.toString("Utf-8");
-      return "ClientId=" + username + ";" + "ClientSecret=" + password + ";"
-      // context.connectionString += "ClientId=" + username + ";
-      // context.connectionString += "ClientSecret=" + password + ";"
+      if (username === '' && password === '') {
+        return ''
+      } else {
+        return "ClientId=" + username + ";" + "ClientSecret=" + password + ";"
+      }
     }
   }
 

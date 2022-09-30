@@ -27,8 +27,10 @@ export async function createSNKKey(context: DataversePowerToolsContext) {
       ["-k", localPath + "\\Plugin.snk"],
       (error, stdout) => {
         if (error) {
-          vscode.window.showErrorMessage("Error creating earlyboud types, see output for details.");
+          vscode.window.showErrorMessage("Error creating SNK Key.");
+          context.channel.appendLine(error.message);
           context.channel.appendLine(stdout);
+          context.channel.appendLine("Error Creating SNK Key");
           vscode.window.showErrorMessage(error.message);
           context.channel.show();
         } else {

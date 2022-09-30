@@ -9,22 +9,30 @@ export async function buildWebresources(context: DataversePowerToolsContext) {
     location: vscode.ProgressLocation.Notification,
     title: "Building Resources...",
   }, async () => {
-    await buildWebresourcesExec(context);
+    const test = await buildWebresourcesExec(context);
+    console.log(test);
   });
 }
 
 export async function buildWebresourcesExec(context: DataversePowerToolsContext) {
   const util = require('util');
   const exec = util.promisify(require('child_process').exec);
+  let error = false;
   if (vscode.workspace.workspaceFolders !== undefined) {
     const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
     const promise = exec("webpack --config webpack.dev.js", { cwd: workspacePath });
     const child = promise.child; 
     child.stderr.on('data', function(data: any) {
       vscode.window.showInformationMessage("Error building webresources, see output for details.");
+      error = true;
+      context.channel.appendLine(data);
+      context.channel.show();
     });
     child.on('close', function(code: any) {
-      vscode.window.showInformationMessage("Building Complete");
+      if (!error) {
+        vscode.window.showInformationMessage("Building Complete");
+        return 'success';
+      }
     });
     
     const { stdout, stderr } = await promise;

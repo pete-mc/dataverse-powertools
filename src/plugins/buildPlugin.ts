@@ -8,7 +8,8 @@ export async function buildPlugin(context: DataversePowerToolsContext) {
     location: vscode.ProgressLocation.Notification,
     title: "Building Plugin...",
   }, async () => {
-    await buildPluginExecution(context);
+    const test = await buildPluginExecution(context);
+    console.log(test);
     // return new Promise(resolve => setTimeout(resolve, 5000))
     // await testAsyncFunction();
   });
@@ -54,6 +55,7 @@ export async function buildPluginExecution(context: DataversePowerToolsContext) 
     });
 
     child.on('close', function (code: any) {
+      return 'success';
       //const test = code;
       //vscode.window.showInformationMessage("Plugin has been built.");
     });
