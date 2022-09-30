@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "WindowsCredentialManager": {
+      "commandName": "Project",
+      "commandLineArgs": "Get-Credentials TestFromApps"
+    }
+  }
+}

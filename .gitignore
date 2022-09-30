@@ -7,3 +7,5 @@ node_modules
 templates/plugin/plugin.csproj/obj/
 templates/plugin/plugins_src.csproj/obj/
 templates/plugin/plugins_srctest.csproj/obj/
+WindowsCredentialManager/bin/
+WindowsCredentialManager/obj/
