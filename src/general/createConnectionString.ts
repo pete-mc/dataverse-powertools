@@ -2,6 +2,7 @@ import { TextEncoder } from "util";
 import * as vscode from "vscode";
 import * as cp from "child_process";
 import path = require("path");
+import fetch from 'node-fetch';
 import { QuickPickItem, window, Disposable, CancellationToken, QuickInputButton, QuickInput, ExtensionContext, QuickInputButtons, Range, TextEdit } from 'vscode';
 import DataversePowerToolsContext, { ProjectTypes } from "../DataversePowerToolsContext";
 
@@ -10,6 +11,7 @@ export async function createConnectionString(context: DataversePowerToolsContext
     title: string;
     step: number;
     organisationUrl: string;
+    tenantId: string;
     applicationId: string;
     totalSteps: number;
     name: string;
@@ -32,9 +34,23 @@ export async function createConnectionString(context: DataversePowerToolsContext
       ignoreFocusOut: true,
       title,
       step: 1,
-      totalSteps: 5,
-      value: typeof state.organisationUrl === 'string' ? state.organisationUrl : '',
+      totalSteps: 6,
+      value: typeof state.organisationUrl === 'string' ? state.organisationUrl.replace(/\/+$/, '') : '',
       prompt: 'Type in the Organisation URl',
+      validate: validateNameIsUnique,
+      shouldResume: shouldResume,
+    });
+    return (input: MultiStepInput) => inputTenantId(input, state);
+  }
+
+  async function inputTenantId(input: MultiStepInput, state: Partial<State>) {
+    state.tenantId = await input.showInputBox({
+      ignoreFocusOut: true,
+      title,
+      step: 2,
+      totalSteps: 6,
+      value: typeof state.tenantId === 'string' ? state.tenantId.replace(/\/+$/, '') : '',
+      prompt: 'Type in the Tenant Id',
       validate: validateNameIsUnique,
       shouldResume: shouldResume,
     });
@@ -47,7 +63,11 @@ export async function createConnectionString(context: DataversePowerToolsContext
       const execSync = require("child_process").execSync;
       // We utilise the Windows Credential Manager, thus it checks if the username/organisation URL already exists.
       // If it does, it skips all steps that involve the secret/application ID
-      let command = "\"" + fullFilePath + "\\WindowsCredentialManager.exe\" Get-Credentials " + state.organisationUrl || '';
+      let organisationUrl = '';
+      if (state.organisationUrl != null && state.organisationUrl !== '') {
+        organisationUrl = state.organisationUrl.replace(/\/+$/, '');
+      }
+      let command = "\"" + fullFilePath + "\\WindowsCredentialManager.exe\" Get-Credentials " + organisationUrl || '';
       command += ' username';
       const result = execSync(command);
       const credentialResult = result.toString("utf-8");
@@ -56,8 +76,8 @@ export async function createConnectionString(context: DataversePowerToolsContext
         state.applicationId = await input.showInputBox({
           ignoreFocusOut: true,
           title,
-          step: 2,
-          totalSteps: 5,
+          step: 3,
+          totalSteps: 6,
           value: state.applicationId || '',
           prompt: 'Type in the Application ID',
           validate: validateNameIsUnique,
@@ -65,6 +85,7 @@ export async function createConnectionString(context: DataversePowerToolsContext
         });
         return (input: MultiStepInput) => inputClientSecret(input, state);
       } else {
+        state.applicationId = credentialResult;
         return (input: MultiStepInput) => inputClientSecret(input, state);
       }
     }
@@ -77,7 +98,7 @@ export async function createConnectionString(context: DataversePowerToolsContext
       const execSync = require("child_process").execSync;
       var fullFilePath = context.vscode.asAbsolutePath(path.join("templates"));
       let command = "\"" + fullFilePath + "\\WindowsCredentialManager.exe\" Get-Credentials " + state.organisationUrl || '';
-      command += ' username';
+      command += ' password';
       const result = execSync(command);
       const credentialResult = result.toString("utf-8");
       if (credentialResult === '') {
@@ -85,8 +106,8 @@ export async function createConnectionString(context: DataversePowerToolsContext
         state.clientSecret = await input.showInputBox({
           ignoreFocusOut: true,
           title,
-          step: 3,
-          totalSteps: 5,
+          step: 4,
+          totalSteps: 6,
           value: state.clientSecret || '',
           prompt: 'Type in the Client Secret',
           validate: validateNameIsUnique,
@@ -94,36 +115,115 @@ export async function createConnectionString(context: DataversePowerToolsContext
         });
         return (input: MultiStepInput) => inputSolutionName(input, state);
       } else {
+        state.clientSecret = credentialResult;
         return (input: MultiStepInput) => inputSolutionName(input, state);
       }
     }
   }
 
   async function inputSolutionName(input: MultiStepInput, state: Partial<State>) {
-    state.solutionName = await input.showInputBox({
-      ignoreFocusOut: true,
-      title,
-      step: 4,
-      totalSteps: 5,
-      value: state.solutionName || '',
-      prompt: 'What is the schema name of the solution?',
-      validate: validateNameIsUnique,
-      shouldResume: shouldResume
+    const tokenUrl = 'https://login.microsoftonline.com/' + state.tenantId +'/oauth2/token';
+    const params = new URLSearchParams();
+    params.append('grant_type', 'client_credentials');
+    params.append('client_id', state.applicationId || '');
+    params.append('client_secret', state.clientSecret || '');
+    params.append('resource', state.organisationUrl || '');
+    
+    const tokenRequestBody: any = {
+      'grant_type': 'client_credentials',
+      'client_id': state.applicationId || '',
+      'client_secret': state.clientSecret || '',
+      'resource': state.organisationUrl || '',
+    };
+
+    let formBody = [];
+    for (var property in tokenRequestBody) {
+      var encodedKey = encodeURIComponent(property);
+      var encodedValue = encodeURIComponent(tokenRequestBody[property]);
+      formBody.push(encodedKey + "=" + encodedValue);
+    }
+    const formBodyString = formBody.join("&");
+
+    const tokenResponse = await fetch(tokenUrl, {
+      method: 'post',
+      body: formBodyString,
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'}
     });
+
+    const data: any = await tokenResponse.json();
+
+    if (data != null && data['access_token'] != null) {
+      const options = {
+        'method': 'GET',
+        'headers': {
+          'Authorization': 'Bearer ' + data['access_token']
+        }
+      }
+      const response = await fetch(state.organisationUrl + '/api/data/v9.0/solutions', options);
+      const body: any = await response.json();
+      if (body != null && body['value'] != null) {
+        let arrayOfSolutions = body['value'];
+        arrayOfSolutions = arrayOfSolutions.filter((x: any) => x['ismanaged'] === false).sort((a: any, b: any) => (a['uniquename'] > b['uniquename']) ? 1 : -1);
+        let quickPickArray = [];
+        for (const solution of arrayOfSolutions) {
+          quickPickArray.push({ label: solution['uniquename'], target: solution['uniquename'] });
+        }
+        const result = await window.showQuickPick(
+          quickPickArray,
+          { placeHolder: 'Select a CRM/Dynamics Solution.' }
+        );
+        state.solutionName = result?.target;
+        var selectedSolution = arrayOfSolutions.find((x: any) => x['uniquename'] === state.solutionName);
+        if (selectedSolution != null) {
+          const publisherId = selectedSolution['_publisherid_value'];
+          const publishserResponse = await fetch(state.organisationUrl + '/api/data/v9.0/publishers', options);
+          const publisherBody: any = await publishserResponse.json();
+          if (publisherBody['value'] != null) {
+            const publisher = publisherBody['value'].find((x: any) => x['publisherid'] === publisherId);
+            state.prefix = publisher['customizationprefix'];
+          } 
+        }
+        window.showInformationMessage(`Solution Selected: ${result?.label}`);
+      } else {
+        state.solutionName = await input.showInputBox({
+          ignoreFocusOut: true,
+          title,
+          step: 5,
+          totalSteps: 6,
+          value: state.solutionName || '',
+          prompt: 'What is the schema name of the solution?',
+          validate: validateNameIsUnique,
+          shouldResume: shouldResume
+        });
+      }
+    } else {
+      state.solutionName = await input.showInputBox({
+        ignoreFocusOut: true,
+        title,
+        step: 5,
+        totalSteps: 6,
+        value: state.solutionName || '',
+        prompt: 'What is the schema name of the solution?',
+        validate: validateNameIsUnique,
+        shouldResume: shouldResume
+      });
+    }
     return (input: MultiStepInput) => inputPrefix(input, state);
   }
 
   async function inputPrefix(input: MultiStepInput, state: Partial<State>) {
-    state.prefix = await input.showInputBox({
-      ignoreFocusOut: true,
-      title,
-      step: 5,
-      totalSteps: 5,
-      value: state.prefix || '',
-      prompt: 'What is the solution prefix? This is also used as the namespace and library.js prefix.',
-      validate: validateNameIsUnique,
-      shouldResume: shouldResume
-    });
+    if (state.prefix == null || state.prefix === '') {
+      state.prefix = await input.showInputBox({
+        ignoreFocusOut: true,
+        title,
+        step: 6,
+        totalSteps: 6,
+        value: state.prefix || '',
+        prompt: 'What is the solution prefix? This is also used as the namespace and library.js prefix.',
+        validate: validateNameIsUnique,
+        shouldResume: shouldResume
+      });
+    }
   }
 
 
@@ -173,6 +273,7 @@ export async function createConnectionString(context: DataversePowerToolsContext
     }
 
     context.projectSettings.prefix = state.prefix;
+    context.projectSettings.tenantId = state.tenantId;
     context.projectSettings.solutionName = state.solutionName;
     context.projectSettings.connectionString = connectionString;
     // vscode.workspace.fs.writeFile(filePath, encodedString);
@@ -187,7 +288,8 @@ export async function getProjectType(context: DataversePowerToolsContext) {
       { label: 'Web Resources', description: 'Web Resources', target: ProjectTypes.webresource },
       { label: 'PCF Field', description: 'PCF Field', target: ProjectTypes.pcffield },
       { label: 'PCF Data Set', description: 'PCF Data Set', target: ProjectTypes.pcfdataset },
-      { label: 'Solution', description: 'Solution', target: ProjectTypes.solution }
+      { label: 'Solution', description: 'Solution', target: ProjectTypes.solution },
+      { label: 'Portal', description: 'Portal', target: ProjectTypes.portal },
     ],
     { placeHolder: 'Select a Project Type.' }
   );
