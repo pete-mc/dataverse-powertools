@@ -1,6 +1,30 @@
-export class Account {
+export class ClassName {
   static async OnLoad(executionContext: Xrm.ExecutionContext<unknown, unknown>): Promise<void> {
-    const form = <Form.account.Main.Account>executionContext.getFormContext();
-    console.log(form.ui.setFormNotification("loaded", "INFO", "demoid"));
+    const form = <Form.TableName.Main.FormName>executionContext.getFormContext();
+    console.log(form.ui.setFormNotification("Loaded", "INFO", "demoid"));
+
+    this.BindEvents(form);
+    this.OnLoadLogic(form);
+
+    switch (form.ui.getFormType().valueOf()) {
+      case Xrm.FormType.Create:
+        break;
+      case Xrm.FormType.Update:
+        break;
+      default:
+        break;
+    }
+  }
+  static Test(executionContext: Xrm.ExecutionContext<unknown, unknown>): void {
+    throw new Error("not Implemented");
+  }
+  static async OnLoadLogic(form: Form.TableName.Main.FormName) {
+    throw new Error("not Implemented");
+  }
+  static async BindEvents(form: Form.TableName.Main.FormName) {
+    throw new Error("not Implemented");
+  }
+  static async OnSave(executionContext: Xrm.ExecutionContext<any, any>) {
+    throw new Error("not Implemented");
   }
 }

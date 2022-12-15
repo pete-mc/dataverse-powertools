@@ -7,7 +7,7 @@ using Microsoft.Xrm.Sdk.Workflow;
 
 namespace PluginSRC
 {
-    public class WorkflowTest : CodeActivity
+    public class Workflow : CodeActivity
     {
         [RequiredArgument]
         [Input("Contact")]

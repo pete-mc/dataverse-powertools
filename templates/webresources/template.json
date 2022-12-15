@@ -12,6 +12,9 @@
                 "command": "dotnet tool restore"
             },
             {
+                "command": "dotnet paket init"
+            },
+            {
                 "command": "dotnet paket install"
             },
             {
