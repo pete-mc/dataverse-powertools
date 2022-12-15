@@ -3,7 +3,7 @@
   "displayName": "Dataverse PowerTools",
   "description": "Tools to help build and manage Dataverse and Dynamics 365 CE projects",
   "publisher": "dataversepowertools",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "engines": {
     "vscode": "^1.66.0"
   },
@@ -30,7 +30,10 @@
     "onCommand:dataverse-powertools.createSNKKey",
     "onCommand:dataverse-powertools.extractSolution",
     "onCommand:dataverse-powertools.packSolution",
-    "onCommand:dataverse-powertools.deploySolution"
+    "onCommand:dataverse-powertools.deploySolution",
+    "onCommand:dataverse-powertools.createWebResourceClass",
+    "onCommand:dataverse-powertools.connectPortal",
+    "onCommand:dataverse-powertools.downloadPortal"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -85,6 +88,11 @@
         {
           "command": "dataverse-powertools.generateTypings",
           "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
+        },
+        {
+          "command": "dataverse-powertools.createWebResourceClass",
+          "alt": "dataverse-powertools.createWebResourceClass",
+          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
         }
       ],
       "dataverse-powertools.extractSolution": [
@@ -99,6 +107,12 @@
         {
           "command": "dataverse-powertools.deploySolution",
           "when": "dataverse-powertools.showLoaded && dataverse-powertools.isSolution"
+        }
+      ],
+      "dataverse-powertools.buildPortal": [
+        {
+          "command": "dataverse-powertools.buildWebresources",
+          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPortal"
         }
       ]
     },
@@ -201,6 +215,11 @@
         "view": "nodeDependencies",
         "contents": "\n[Deploy Solution](command:dataverse-powertools.deploySolution)",
         "when": "dataverse-powertools.showLoaded && dataverse-powertools.isSolution"
+      },
+      {
+        "view": "nodeDependencies",
+        "contents": "\n[Create Web Resource Class](command:dataverse-powertools.createWebResourceClass)",
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
       }
     ],
     "commands": [
@@ -275,6 +294,18 @@
       {
         "command": "dataverse-powertools.deploySolution",
         "title": "Dataverse PowerTools: Deploy Solution"
+      },
+      {
+        "command": "dataverse-powertools.createWebResourceClass",
+        "title": "Dataverse PowerTools: Create Web Resource Class"
+      },
+      {
+        "command": "dataverse-powertools.connectPortal",
+        "title": "Dataverse PowerTools: Connect Portal"
+      },
+      {
+        "command": "dataverse-powertools.downloadPortal",
+        "title": "Dataverse PowerTools: Download Portal"
       }
     ]
   },
@@ -307,6 +338,7 @@
     "webpack-cli": "^4.9.2"
   },
   "dependencies": {
-    "fs-extra": "^10.1.0"
+    "fs-extra": "^10.1.0",
+    "node-fetch": "^3.2.10"
   }
 }

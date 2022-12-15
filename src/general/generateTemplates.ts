@@ -52,11 +52,15 @@ export async function generateTemplates(context: DataversePowerToolsContext) {
 }
 
 export async function createPluginClass(context: DataversePowerToolsContext) {
-  createClassFile(context, 'Plugin');
+  createClassFileWithName(context, 'Plugin');
 }
 
 export async function createWorkflowClass(context: DataversePowerToolsContext) {
-  createClassFile(context, 'Workflow');
+  createClassFileWithName(context, 'Workflow');
+}
+
+export async function createWebResourceClass(context: DataversePowerToolsContext) {
+  createClassFileWithName(context, 'account');
 }
 
 export async function createClassFile(context: DataversePowerToolsContext, type: string) {
@@ -80,6 +84,48 @@ export async function createClassFile(context: DataversePowerToolsContext, type:
             const destPath = pluginTemplate.path;
             destPath.unshift(folderPath);
             destPath.push(pluginTemplate.filename + pluginTemplate.extension);
+            console.log(vscode.Uri.file(path.join(...destPath)), Buffer.from(data, "utf8"));
+            await vscode.workspace.fs.writeFile(vscode.Uri.file(path.join(...destPath)), Buffer.from(data, "utf8"));
+          }
+        }
+      }
+    }
+  }
+}
+
+export async function createClassFileWithName(context: DataversePowerToolsContext, type: string) {
+  const name = await vscode.window.showInputBox({prompt: "Enter in the name of the class file"});
+  if (context.projectSettings.type && context.projectSettings.templateversion && vscode.workspace.workspaceFolders) {
+    var fullFilePath = context.vscode.asAbsolutePath(path.join("templates", context.projectSettings.type));
+    var templates = JSON.parse(fs.readFileSync(fullFilePath + "\\template.json", "utf8")) as Array<PowertoolsTemplate>;
+    var templateToCopy = {} as PowertoolsTemplate;
+    for (const t of templates) {
+      if (t.version === context.projectSettings.templateversion) {
+        templateToCopy = t;
+        break;
+      }
+    }
+    if (templateToCopy) {
+      if (templateToCopy != null && templateToCopy.files != null) {
+        const pluginTemplate = templateToCopy.files.find(x => x.filename == type);
+        if (pluginTemplate != null) {
+          var data = fs.readFileSync(fullFilePath + "\\" + pluginTemplate.filename + pluginTemplate.extension + "\\" + context.projectSettings.templateversion + pluginTemplate.extension, "utf8");
+          if (vscode.workspace.workspaceFolders) {
+            const folderPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+            const destPath = pluginTemplate.path;
+            destPath.unshift(folderPath);
+            let fileExtension = pluginTemplate.extension;
+            let fileName = pluginTemplate.filename;
+            if (pluginTemplate.extension === '.tstemplate') {
+              fileExtension = '.ts';
+            }
+
+            if (name != null && name !== '') {
+              fileName = name;
+              data = data.replace('Plugin :', name + ' :');
+              data = data.replace('Workflow :', name + ' :');
+            }
+            destPath.push(fileName + fileExtension);
             console.log(vscode.Uri.file(path.join(...destPath)), Buffer.from(data, "utf8"));
             await vscode.workspace.fs.writeFile(vscode.Uri.file(path.join(...destPath)), Buffer.from(data, "utf8"));
           }

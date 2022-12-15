@@ -15,10 +15,11 @@ import { restoreDependencies } from './general/restoreDependencies';
 //import { initialiseWebresources } from "./webresources/initialiseWebresources";
 import { initialiseProject } from "./general/initialiseProject";
 import { buildPlugin } from "./plugins/buildPlugin";
-import { createPluginClass, createWorkflowClass } from "./general/generateTemplates";
+import { createPluginClass, createWebResourceClass, createWorkflowClass } from "./general/generateTemplates";
 import { extractSolution } from "./solution/extractSolution";
 import { packSolution } from "./solution/packSolution";
 import { deploySolution } from "./solution/deploySolution";
+import { connectPortal, downloadPortal } from "./portals/connectPortal";
 
 export async function activate(vscodeContext: vscode.ExtensionContext) {
     const context = new DataversePowerToolsContext(vscodeContext);
@@ -44,6 +45,9 @@ export async function activate(vscodeContext: vscode.ExtensionContext) {
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.extractSolution", () => extractSolution(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.packSolution", () => packSolution(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.deploySolution", () => deploySolution(context)));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createWebResourceClass", () => createWebResourceClass(context)));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.connectPortal", () => connectPortal(context, 'connect')));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.downloadPortal", () => connectPortal(context, 'download')));
 
     // Extension path example
     let fullFilePath = context.vscode.asAbsolutePath(path.join("templates", "test.txt"));
