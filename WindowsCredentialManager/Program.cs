@@ -13,7 +13,7 @@ namespace WindowsCredentialManager
             {
                 if (args[0] == "New-Credential")
                 {
-                    string target = args[1];
+                    string target = args[1].TrimEnd(new[] { '/' });
                     string username = args[2];
                     string password = args[3];
                     CredWrite(target, username, password);
@@ -21,7 +21,7 @@ namespace WindowsCredentialManager
             } 
             else if (args.Length == 3 && args[0] == "Get-Credentials" && args[2] == "password")
             {
-                var retrievedCredential = CredRead(args[1]);
+                var retrievedCredential = CredRead(args[1].TrimEnd(new[] { '/' }));
                 if (retrievedCredential.Password != null)
                 {
                     Console.Write(retrievedCredential.Password);
@@ -29,7 +29,7 @@ namespace WindowsCredentialManager
             }
             else if (args.Length == 3 && args[0] == "Get-Credentials" && args[2] == "username")
             {
-                var retrievedCredential = CredRead(args[1]);
+                var retrievedCredential = CredRead(args[1].TrimEnd(new[] { '/' }));
                 if (retrievedCredential.UserName != null)
                 {
                     Console.Write(retrievedCredential.UserName);

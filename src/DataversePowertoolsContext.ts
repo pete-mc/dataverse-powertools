@@ -43,7 +43,8 @@ export default class DataversePowerToolsContext {
       await this.readFileAsync(filePath).then(async (data: any) => {
         this.projectSettings = JSON.parse(data);
         this.connectionString = this.projectSettings.connectionString || '';
-        const name = context.connectionString.substring(context.connectionString.indexOf("Url=") + 4, context.connectionString.length - 1);
+        let name = context.connectionString.substring(context.connectionString.indexOf("Url=") + 4, context.connectionString.length - 1);
+        name = name.replace(/\/+$/, '');
         const credentialString = this.getCredentialsFromManager(this, name);
         if (credentialString === '') {
           await connectionStringManager.createConnectionString(this);
@@ -123,6 +124,7 @@ export default class DataversePowerToolsContext {
 interface ProjectSettings {
   type?: ProjectTypes;
   templateversion?: number;
+  tenantId?: string;
   solutionName?: string;
   connectionString?: string;
   prefix?: string;
@@ -134,7 +136,7 @@ export enum ProjectTypes {
   pcffield = "pcffield",
   pcfdataset = "pcfdataset",
   solution = "solution",
-
+  portal = "portal"
 }
 export interface PowertoolsTemplate {
 
