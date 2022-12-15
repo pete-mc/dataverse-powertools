@@ -1,0 +1,5 @@
+NUGET
+  remote: https://api.nuget.org/v3/index.json
+    Microsoft.CrmSdk.CoreTools (9.1.0.92)
+    spkl (1.0.640)
+      Microsoft.CrmSdk.CoreTools (>= 9.1.0.79)

@@ -1,0 +1,91 @@
+[
+  {
+    "version": 1,
+    "files": [
+      {
+        "path": [],
+        "filename": "tsconfig",
+        "extension": ".json",
+        "version": 1
+      },
+      {
+        "path": [
+          "build"
+        ],
+        "filename": "portalpublish",
+        "extension": ".cmd",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": "paket",
+        "extension": ".dependencies",
+        "version": 1
+      },
+      {
+        "path": [
+          "scripts", "compiledjs", "Definition"
+        ],
+        "filename": "JqueryValidatorStub",
+        "extension": ".js",
+        "version": 1
+      },
+      {
+        "path": [
+          "scripts", "compiledjs", "Definition"
+        ],
+        "filename": "JqueryValidatorStub",
+        "extension": ".js.map",
+        "version": 1
+      },
+      {
+        "path": [
+          "scripts", "compiledjs", "Definition"
+        ],
+        "filename": "Validator",
+        "extension": ".js",
+        "version": 1
+      },
+      {
+        "path": [
+          "scripts", "compiledjs", "Definition"
+        ],
+        "filename": "Validator",
+        "extension": ".js.map",
+        "version": 1
+      },
+      {
+        "path": [
+          "scripts", "compiledjs", "FormAPIWrapper"
+        ],
+        "filename": "FormAPIWrapper",
+        "extension": ".js",
+        "version": 1
+      },
+      {
+        "path": [
+          "scripts", "compiledjs", "FormAPIWrapper"
+        ],
+        "filename": "FormAPIWrapper",
+        "extension": ".js.map",
+        "version": 1
+      },
+      {
+        "path": [
+          "scripts", "Definition"
+        ],
+        "filename": "JqueryValidatorStub",
+        "extension": ".ts",
+        "version": 1
+      },
+      {
+        "path": [
+          "scripts", "Definition"
+        ],
+        "filename": "Validator",
+        "extension": ".ts",
+        "version": 1
+      }
+    ]
+  }
+]
