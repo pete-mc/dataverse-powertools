@@ -16,10 +16,3 @@ Code will auto populate with the attributes/views etc.
 2. The file will end up called cld_library.js. In the DEV version, it will contain the code that will allow debugging as the .ts file
 3. In Dynamics, add in the library.js file. Each function will be called by prefix.Class.FunctionName. Pass execution context.
 
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 0.0.0.1
-
-Initial release

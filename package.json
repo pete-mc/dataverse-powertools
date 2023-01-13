@@ -3,15 +3,19 @@
   "displayName": "Dataverse PowerTools",
   "description": "Tools to help build and manage Dataverse and Dynamics 365 CE projects",
   "publisher": "dataversepowertools",
-  "version": "0.0.8",
+  "icon": "media/logo_new.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pete-mc/dataverse-powertools"
+  },
+  "version": "0.0.11",
   "engines": {
     "vscode": "^1.66.0"
   },
   "categories": [
     "Other"
   ],
-  "activationEvents": [
-    "*",
+  "activationEvents": [    
     "onCommand:dataverse-powertools.generateEarlyBound",
     "onCommand:dataverse-powertools.buildDeployPlugin",
     "onCommand:dataverse-powertools.buildPlugin",
@@ -135,7 +139,7 @@
         {
           "id": "dataverse-powertools",
           "title": "Dataverse Tools",
-          "icon": "media/logo.svg"
+          "icon": "media/logo_new.svg"
         }
       ]
     },
