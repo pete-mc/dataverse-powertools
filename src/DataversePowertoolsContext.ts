@@ -128,6 +128,7 @@ interface ProjectSettings {
   solutionName?: string;
   connectionString?: string;
   prefix?: string;
+  controlName?: string;
 }
 
 export enum ProjectTypes {

@@ -35,6 +35,13 @@ export async function generateTemplates(context: DataversePowerToolsContext) {
         if (f.filename == 'spkl') {
           data = data.replace(/\SOLUTIONPLACEHOLDER/g, context.projectSettings.solutionName || 'SOLUTIONPLACEHOLDER')
         }
+        if (Object.values(f.path).findIndex(x => x=='CONTROLNAME') != -1) {
+          f.path[Object.values(f.path).findIndex(x => x=='CONTROLNAME')] = context.projectSettings.controlName || '';
+        }
+        if (f.filename.includes('CONTROLNAME')) {
+          const newName = f.filename.replace('CONTROLNAME', context.projectSettings.controlName || '');
+          f.filename = newName;
+        }
         for (const p of placeholders) {
           //data = data.replace(new RegExp(p.placeholder, "g"), p.value);
         }

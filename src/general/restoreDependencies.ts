@@ -13,6 +13,8 @@ export async function restoreDependencies(context: DataversePowerToolsContext) {
   var fullFilePath = '';
   if (context.projectSettings.type === 'webresources') {
     fullFilePath = context.vscode.asAbsolutePath(path.join("templates", 'webresources'));
+  } else if (context.projectSettings.type === ProjectTypes.pcfdataset) {
+    fullFilePath = context.vscode.asAbsolutePath(path.join("templates", ProjectTypes.pcfdataset));
   } else {
     fullFilePath = context.vscode.asAbsolutePath(path.join("templates", 'general'));
   }

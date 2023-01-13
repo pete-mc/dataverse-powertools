@@ -1,0 +1,186 @@
+[
+  {
+    "version": 1,
+    "restoreCommands": [
+      {
+          "command": "npm install"
+      },
+      {
+          "command": "npm run refreshTypes"
+      },
+      {
+          "command": "npm install -D @types/jest @types/react-beautiful-dnd @types/xrm eslint-config-prettier eslint-plugin-prettier eslint-plugin-react jest prettier ts-jest uuid jest-junit"
+      },
+      {
+          "command": "npm install @uifabric/icons @fluentui/react interactjs mobx mobx-react moment pcf-react react react-dom "
+      },
+      {
+          "command": "npm install pcf-scripts pcf-start jest typescript -g"
+      }
+  ],
+    "files": [
+      {
+        "path": ["CONTROLNAME"],
+        "filename": "ControlManifest.Input",
+        "extension": ".xml",
+        "version": 1
+      },
+      {
+        "path": ["CONTROLNAME"],
+        "filename": "index",
+        "extension": ".tstemplate",
+        "version": 1
+      },
+      {
+        "path": ["CONTROLNAME", "css"],
+        "filename": "control",
+        "extension": ".css",
+        "version": 1
+      },
+      {
+        "path": ["CONTROLNAME", "typings"],
+        "filename": "ComponentFrameworkExt.d",
+        "extension": ".tstemplate",
+        "version": 1
+      },
+      {
+        "path": ["CONTROLNAME", "typings"],
+        "filename": "XrmExt.d",
+        "extension": ".tstemplate",
+        "version": 1
+      },
+      {
+        "path": ["CONTROLNAME", "typings"],
+        "filename": "XrmExt.d",
+        "extension": ".tstemplate",
+        "version": 1
+      },
+      {
+        "path": ["CONTROLNAME", "viewmodels"],
+        "filename": "CdsService",
+        "extension": ".tstemplate",
+        "version": 1
+      },
+      {
+        "path": ["CONTROLNAME", "viewmodels"],
+        "filename": "context",
+        "extension": ".tstemplate",
+        "version": 1
+      },
+      {
+        "path": ["CONTROLNAME", "viewmodels"],
+        "filename": "DATASETITEM",
+        "extension": ".tstemplate",
+        "version": 1
+      },
+      {
+        "path": ["CONTROLNAME", "viewmodels"],
+        "filename": "ViewModel",
+        "extension": ".tstemplate",
+        "version": 1
+      },
+      {
+        "path": ["CONTROLNAME", "viewmodels", "__tests__"],
+        "filename": "onDataChanged.test",
+        "extension": ".tstemplate",
+        "version": 1
+      },
+      {
+        "path": ["CONTROLNAME", "components"],
+        "filename": "Header",
+        "extension": ".tsx",
+        "version": 1
+      },
+      {
+        "path": ["CONTROLNAME", "components"],
+        "filename": "DatasetComponent",
+        "extension": ".tsx",
+        "version": 1
+      },
+      {
+        "path": ["CONTROLNAME", "components"],
+        "filename": "DefaultGrid",
+        "extension": ".tsx",
+        "version": 1
+      },
+      {
+        "path": ["CONTROLNAME", "components"],
+        "filename": "Paging",
+        "extension": ".tsx",
+        "version": 1
+      },
+      {
+        "path": ["CONTROLNAME", "components"],
+        "filename": "CONTROLNAME",
+        "extension": ".tsx",
+        "version": 1
+      },
+      {
+        "path": ["CONTROLNAME", "components"],
+        "filename": "CONTROLNAMEAPP",
+        "extension": ".tsx",
+        "version": 1
+      },
+      {
+        "path": ["CONTROLNAME", "components", "pcf-fluent-ui"],
+        "filename": "DateInput",
+        "extension": ".tsx",
+        "version": 1
+      },
+      {
+        "path": ["CONTROLNAME", "components", "pcf-fluent-ui"],
+        "filename": "NumberInput",
+        "extension": ".tsx",
+        "version": 1
+      },
+      {
+        "path": ["CONTROLNAME", "components", "pcf-fluent-ui"],
+        "filename": "OptionSetInput",
+        "extension": ".tsx",
+        "version": 1
+      },
+      {
+        "path": ["CONTROLNAME", "components", "pcf-fluent-ui"],
+        "filename": "TextInput",
+        "extension": ".tsx",
+        "version": 1
+      },
+      {
+        "path": ["CONTROLNAME", "components", "pcf-fluent-ui"],
+        "filename": "TimeInput",
+        "extension": ".tsx",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": ".eslintrc",
+        "extension": ".json",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": ".prettierrc",
+        "extension": ".json",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": "jest.config",
+        "extension": ".js",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": "package",
+        "extension": ".json",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": "pcfconfig",
+        "extension": ".json",
+        "version": 1
+      }
+    ]
+  }
+]

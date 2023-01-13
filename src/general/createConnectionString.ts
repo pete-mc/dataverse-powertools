@@ -18,6 +18,7 @@ export async function createConnectionString(context: DataversePowerToolsContext
     clientSecret: string;
     solutionName: string;
     prefix: string;
+    controlName: string;
     createCredential: boolean;
   }
 
@@ -184,6 +185,9 @@ export async function createConnectionString(context: DataversePowerToolsContext
           } 
         }
         window.showInformationMessage(`Solution Selected: ${result?.label}`);
+        if (context.projectSettings.type == ProjectTypes.pcfdataset) {
+          return (input: MultiStepInput) => inputControlName(input, state);
+        }
       } else {
         state.solutionName = await input.showInputBox({
           ignoreFocusOut: true,
@@ -220,6 +224,21 @@ export async function createConnectionString(context: DataversePowerToolsContext
         totalSteps: 6,
         value: state.prefix || '',
         prompt: 'What is the solution prefix? This is also used as the namespace and library.js prefix.',
+        validate: validateNameIsUnique,
+        shouldResume: shouldResume
+      });
+    }
+  }
+
+  async function inputControlName(input: MultiStepInput, state: Partial<State>) {
+    if (state.controlName == null || state.controlName === '') {
+      state.controlName = await input.showInputBox({
+        ignoreFocusOut: true,
+        title,
+        step: 7,
+        totalSteps: 7,
+        value: state.controlName || '',
+        prompt: 'What is the control name of this PCF Control?',
         validate: validateNameIsUnique,
         shouldResume: shouldResume
       });
@@ -276,6 +295,7 @@ export async function createConnectionString(context: DataversePowerToolsContext
     context.projectSettings.tenantId = state.tenantId;
     context.projectSettings.solutionName = state.solutionName;
     context.projectSettings.connectionString = connectionString;
+    context.projectSettings.controlName = state.controlName;
     // vscode.workspace.fs.writeFile(filePath, encodedString);
   }
   // window.showInformationMessage(`Creating Application Service '${state.name}'`);

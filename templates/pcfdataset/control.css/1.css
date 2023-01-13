@@ -1,0 +1,20 @@
+.sticky {
+  position: sticky;
+  top: 0;
+  z-index: 90;
+}
+
+div[id^="ViewSelector"]{
+  z-index: 100;
+}
+#__flyoutRootNode .flexbox {
+  z-index: 100;
+}
+
+div[id^="DialogContainer"]{
+  z-index: 100;
+}
+
+#tbxMenu {
+  z-index: 100;
+}

@@ -63,6 +63,8 @@ export async function setUISettings(context: DataversePowerToolsContext) {
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isWebResource', false);
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isSolution', false);
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isPortal', true);
+    case ProjectTypes.pcfdataset:
+      vscode.commands.executeCommand('setContext', 'dataverse-powertools.isPlugin', false);
   }
 }
 
