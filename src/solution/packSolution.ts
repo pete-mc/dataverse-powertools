@@ -33,13 +33,11 @@ export async function packSolutionExec(context: DataversePowerToolsContext) {
       context.channel.show();
     });
 
-    child.stderr.on('data', function(data: any) {
+    child.stderr.on('data', function(_data: any) {
       vscode.window.showInformationMessage("Error deploying plugins, see output for details.");
     });
 
-    child.on('close', function (code: any) {
-      //const test = code;
-      //vscode.window.showInformationMessage("Solution has been extracted.");
+    child.on('close', function (_code: any) {
     });
 
     const { error, stdout, stderr } = await promise;

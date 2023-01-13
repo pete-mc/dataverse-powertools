@@ -1,5 +1,3 @@
-import { rejects } from "assert";
-import { resolve } from "path";
 import * as vscode from "vscode";
 import * as cp from "child_process";
 import DataversePowerToolsContext from "../DataversePowerToolsContext";
@@ -11,8 +9,6 @@ export async function connectPortal(context: DataversePowerToolsContext, command
     title: "Connecting Portal...",
   }, async () => {
     await getPACLocation(context, command);
-    // return new Promise(resolve => setTimeout(resolve, 5000))
-    // await testAsyncFunction();
   });
 }
 
@@ -21,9 +17,7 @@ export async function getPACLocation(context: DataversePowerToolsContext, comman
   const exec = util.promisify(require('child_process').exec);
   if (vscode.workspace.workspaceFolders !== undefined) {
     const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-    // const promise = exec("pac", ["auth list"]);
-    // const wherePromise = exec('C:\\Windows\\System32\\where.exe "pac.exe"');
-    // const command = 'C:\\Users\\NelsonZhou\\AppData\\Local\\Microsoft\\PowerAppsCLI\\pac.cmd paportal download -id d78574f9-20c3-4dcc-8d8d-85cf5b7ac141 -p "' + workspacePath + '"';
+
     const whereCommand = 'where pac';
     const wherePromise = exec(whereCommand);
 
@@ -32,19 +26,18 @@ export async function getPACLocation(context: DataversePowerToolsContext, comman
 
     whereChild.stdout.on('data', function (data: any) {
       const location = data.replace("\r\n", "");
-      if (location != null && location !== '') {
+      if (location !== null && location !== '') {
         connectPortalExec(context, location, command);
       }
     });
 
-    // data.replace(/\s\s+/g, ' ').split(' ').findIndex(x => x == 'https://bradnamsscrim365staging.crm6.dynamics.com/') - 1;
 
     whereChild.stderr.on('data', function (data: any) {
       context.channel.appendLine(data);
       context.channel.show();
     });
 
-    whereChild.on('close', function (code: any) {
+    whereChild.on('close', function (_code: any) {
       return 'success';
     });
 
@@ -53,7 +46,7 @@ export async function getPACLocation(context: DataversePowerToolsContext, comman
   }
 }
 
-export async function createPACConnection(context: DataversePowerToolsContext, pacLocation: string, command: string) {
+export async function createPACConnection(context: DataversePowerToolsContext, _pacLocation: string, command: string) {
   const util = require('util');
   const exec = util.promisify(require('child_process').exec);
   if (vscode.workspace.workspaceFolders !== undefined) {
@@ -64,10 +57,9 @@ export async function createPACConnection(context: DataversePowerToolsContext, p
           context.channel.appendLine(error.message);
           context.channel.show();
         } else {
-          if (stdout != null && stdout !== '') {
+          if (stdout !== null && stdout !== '') {
             context.channel.appendLine(stdout);
             context.channel.show();
-            // connectPortalExec(context, pacLocation, command);
           }
         }
       }
@@ -75,12 +67,11 @@ export async function createPACConnection(context: DataversePowerToolsContext, p
   }
 }
 
-export async function connectPortalExec(context: DataversePowerToolsContext, pacLocation: string, command: string) {
+export async function connectPortalExec(context: DataversePowerToolsContext, pacLocation: string, _command: string) {
   const util = require('util');
   const exec = util.promisify(require('child_process').exec);
   if (vscode.workspace.workspaceFolders !== undefined) {
     const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-    // const promise = exec("pac", ["auth list"]);
     const authlistCommand = pacLocation + ' auth list';
     cp.exec(authlistCommand,
       (error, stdout) => {
@@ -89,16 +80,16 @@ export async function connectPortalExec(context: DataversePowerToolsContext, pac
           context.channel.appendLine(error.message);
           context.channel.show();
         } else {
-          if (stdout != null && stdout !== '') {
+          if (stdout !== null && stdout !== '') {
             let connectionStringSplit = context.connectionString.substring(context.connectionString.indexOf("Url=") + 4, context.connectionString.length - 1);
             let name = connectionStringSplit.split(';')[0];
-            const arrayOfString = stdout.replace(/\s\s+/g, ' ').split(' ')
+            const arrayOfString = stdout.replace(/\s\s+/g, ' ').split(' ');
             const indexOfName = arrayOfString.findIndex(x => x.includes(name)) - 1;
             const nameOfPortal = arrayOfString[indexOfName];
             context.channel.appendLine(nameOfPortal);
             context.channel.show();
             context.channel.appendLine(stdout);
-            if (nameOfPortal == null) {
+            if (nameOfPortal === null) {
               vscode.window.showErrorMessage("Error finding matching portal.");
               createPACConnection(context, pacLocation, "pac auth create --url " + name);
             } else {
@@ -108,8 +99,6 @@ export async function connectPortalExec(context: DataversePowerToolsContext, pac
         }
       }
     );
-    // const wherePromise = exec('C:\\Windows\\System32\\where.exe "pac.exe"');
-    // const command = 'C:\\Users\\NelsonZhou\\AppData\\Local\\Microsoft\\PowerAppsCLI\\pac.cmd paportal download -id d78574f9-20c3-4dcc-8d8d-85cf5b7ac141 -p "' + workspacePath + '"';
   }
 }
 
@@ -118,7 +107,6 @@ export async function selectEnvironment(context: DataversePowerToolsContext, pac
   const exec = util.promisify(require('child_process').exec);
   if (vscode.workspace.workspaceFolders !== undefined) {
     const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-    // const promise = exec("pac", ["auth list"]);
     const authlistCommand = pacLocation + ' auth select -n ' + name;
     cp.exec(authlistCommand,
       (error, stdout) => {
@@ -127,11 +115,11 @@ export async function selectEnvironment(context: DataversePowerToolsContext, pac
           context.channel.appendLine(error.message);
           context.channel.show();
         } else {
-          if (stdout != null && stdout !== '') {
+          if (stdout !== null && stdout !== '') {
             let connectionStringSplit = context.connectionString.substring(context.connectionString.indexOf("Url=") + 4, context.connectionString.length - 1);
             let name = connectionStringSplit.split(';')[0];
-            const arrayOfString = stdout.replace(/\s\s+/g, ' ').split(' ')
-            const indexOfName = arrayOfString.findIndex(x => x == name) - 1;
+            const arrayOfString = stdout.replace(/\s\s+/g, ' ').split(' ');
+            const indexOfName = arrayOfString.findIndex(x => x === name) - 1;
             const nameOfPortal = arrayOfString[indexOfName];
             context.channel.appendLine(nameOfPortal);
             context.channel.show();
@@ -143,7 +131,7 @@ export async function selectEnvironment(context: DataversePowerToolsContext, pac
                   context.channel.appendLine(error.message);
                   context.channel.show();
                 } else {
-                  if (stdout != null && stdout !== '') {
+                  if (stdout !== null && stdout !== '') {
                     context.channel.appendLine(nameOfPortal);
                     context.channel.show();
                     context.channel.appendLine(stdout);
@@ -156,8 +144,6 @@ export async function selectEnvironment(context: DataversePowerToolsContext, pac
         }
       }
     );
-    // const wherePromise = exec('C:\\Windows\\System32\\where.exe "pac.exe"');
-    // const command = 'C:\\Users\\NelsonZhou\\AppData\\Local\\Microsoft\\PowerAppsCLI\\pac.cmd paportal download -id d78574f9-20c3-4dcc-8d8d-85cf5b7ac141 -p "' + workspacePath + '"';
   }
 }
 
@@ -166,7 +152,6 @@ export async function downloadPortal(context: DataversePowerToolsContext, pacLoc
   const exec = util.promisify(require('child_process').exec);
   if (vscode.workspace.workspaceFolders !== undefined) {
     const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-    // const promise = exec("pac", ["auth list"]);
     const authlistCommand = pacLocation + ' paportal list';
     cp.exec(authlistCommand,
       async (error, stdout) => {
@@ -175,7 +160,7 @@ export async function downloadPortal(context: DataversePowerToolsContext, pacLoc
           context.channel.appendLine(error.message);
           context.channel.show();
         } else {
-          if (stdout != null && stdout !== '') {
+          if (stdout !== null && stdout !== '') {
             const arrayOfString = stdout.replace(/\s\s+/g, '\r').split('\r');
             const indexBeforeInformation = arrayOfString.findIndex(x => x === 'Friendly Name') + 1;
             let quickPickArray = [];
@@ -196,7 +181,7 @@ export async function downloadPortal(context: DataversePowerToolsContext, pacLoc
                     context.channel.appendLine(error.message);
                     context.channel.show();
                   } else {
-                    if (stdout != null && stdout !== '') {
+                    if (stdout !== null && stdout !== '') {
                       context.channel.appendLine(stdout);
                       context.channel.show();
                     }
@@ -210,7 +195,5 @@ export async function downloadPortal(context: DataversePowerToolsContext, pacLoc
         }
       }
     );
-    // const wherePromise = exec('C:\\Windows\\System32\\where.exe "pac.exe"');
-    // const command = 'C:\\Users\\NelsonZhou\\AppData\\Local\\Microsoft\\PowerAppsCLI\\pac.cmd paportal download -id d78574f9-20c3-4dcc-8d8d-85cf5b7ac141 -p "' + workspacePath + '"';
   }
 }

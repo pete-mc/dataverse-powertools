@@ -50,7 +50,6 @@ export async function restoreDepedencyExec(command: string, workspacePath: strin
   const util = require('util');
   const exec = util.promisify(require('child_process').exec);
   if (vscode.workspace.workspaceFolders !== undefined) {
-    const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
     const promise = exec(command, { cwd: workspacePath });
     const child = promise.child;
 
@@ -75,7 +74,7 @@ export async function restoreDepedencyExec(command: string, workspacePath: strin
       context.channel.show();
     });
 
-    child.on('close', function (code: any) {
+    child.on('close', function (_code: any) {
       return 'success';
     });
 

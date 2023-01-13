@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import DataversePowerToolsContext, { PowertoolsTemplate } from "../DataversePowerToolsContext";
 import path = require("path");
 import fs = require("fs");
-import { create } from 'domain';
 
 export async function generateTemplates(context: DataversePowerToolsContext) {
   vscode.window.showInformationMessage("Generating");
@@ -18,32 +17,29 @@ export async function generateTemplates(context: DataversePowerToolsContext) {
     }
     vscode.window.showInformationMessage("Generating template version: " + templateToCopy.version.toString());
     if (templateToCopy) {
-      let placeholders = [] as templatePlaceholder[];
+      let placeholders = [] as TemplatePlaceholder[];
       templateToCopy.files?.every(async (f) => {
         var extension = '';
 
         // This is done because the .ts files do not copy into the published extension thus we overwrite it when actually copying from extension into the code
-        if (f.extension == '.tstemplate') {
+        if (f.extension === '.tstemplate') {
           extension = '.ts';
         } else {
           extension = f.extension;
         }
         var data = fs.readFileSync(fullFilePath + "\\" + f.filename + f.extension + "\\" + context.projectSettings.templateversion + f.extension, "utf8");
         if (f.filename === 'template' || f.filename === 'webpack.common')  {
-          data = data.replace(/\SOLUTIONPREFIX/g, context.projectSettings.prefix || 'SOLUTIONPLACEHOLDER')
+          data = data.replace(/\SOLUTIONPREFIX/g, context.projectSettings.prefix || 'SOLUTIONPLACEHOLDER');
         }
-        if (f.filename == 'spkl') {
-          data = data.replace(/\SOLUTIONPLACEHOLDER/g, context.projectSettings.solutionName || 'SOLUTIONPLACEHOLDER')
+        if (f.filename === 'spkl') {
+          data = data.replace(/\SOLUTIONPLACEHOLDER/g, context.projectSettings.solutionName || 'SOLUTIONPLACEHOLDER');
         }
-        if (Object.values(f.path).findIndex(x => x=='CONTROLNAME') != -1) {
-          f.path[Object.values(f.path).findIndex(x => x=='CONTROLNAME')] = context.projectSettings.controlName || '';
+        if (Object.values(f.path).findIndex(x => x==='CONTROLNAME') !== -1) {
+          f.path[Object.values(f.path).findIndex(x => x==='CONTROLNAME')] = context.projectSettings.controlName || '';
         }
         if (f.filename.includes('CONTROLNAME')) {
           const newName = f.filename.replace('CONTROLNAME', context.projectSettings.controlName || '');
           f.filename = newName;
-        }
-        for (const p of placeholders) {
-          //data = data.replace(new RegExp(p.placeholder, "g"), p.value);
         }
         if (vscode.workspace.workspaceFolders) {
           const folderPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
@@ -82,9 +78,9 @@ export async function createClassFile(context: DataversePowerToolsContext, type:
       }
     }
     if (templateToCopy && templateToCopy.placeholders) {
-      if (templateToCopy != null && templateToCopy.files != null) {
-        const pluginTemplate = templateToCopy.files.find(x => x.filename == type);
-        if (pluginTemplate != null) {
+      if (templateToCopy !== undefined && templateToCopy.files !== undefined) {
+        const pluginTemplate = templateToCopy.files.find(x => x.filename === type);
+        if (pluginTemplate !== undefined) {
           var data = fs.readFileSync(fullFilePath + "\\" + pluginTemplate.filename + pluginTemplate.extension + "\\" + context.projectSettings.templateversion + pluginTemplate.extension, "utf8");
           if (vscode.workspace.workspaceFolders) {
             const folderPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
@@ -113,9 +109,9 @@ export async function createClassFileWithName(context: DataversePowerToolsContex
       }
     }
     if (templateToCopy) {
-      if (templateToCopy != null && templateToCopy.files != null) {
-        const pluginTemplate = templateToCopy.files.find(x => x.filename == type);
-        if (pluginTemplate != null) {
+      if (templateToCopy !== undefined && templateToCopy.files !== undefined) {
+        const pluginTemplate = templateToCopy.files.find(x => x.filename === type);
+        if (pluginTemplate !== undefined) {
           var data = fs.readFileSync(fullFilePath + "\\" + pluginTemplate.filename + pluginTemplate.extension + "\\" + context.projectSettings.templateversion + pluginTemplate.extension, "utf8");
           if (vscode.workspace.workspaceFolders) {
             const folderPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
@@ -127,7 +123,7 @@ export async function createClassFileWithName(context: DataversePowerToolsContex
               fileExtension = '.ts';
             }
 
-            if (name != null && name !== '') {
+            if (name !== undefined && name !== '') {
               fileName = name;
               data = data.replace('Plugin :', name + ' :');
               data = data.replace('Workflow :', name + ' :');
@@ -142,7 +138,7 @@ export async function createClassFileWithName(context: DataversePowerToolsContex
   }
 }
 
-interface templatePlaceholder {
+interface TemplatePlaceholder {
   placeholder: string;
   value: string;
 }

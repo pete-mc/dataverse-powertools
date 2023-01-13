@@ -1,5 +1,4 @@
 import * as vscode from "vscode";
-import * as cp from "child_process";
 import DataversePowerToolsContext from "../DataversePowerToolsContext";
 
 export async function generateTypings(context: DataversePowerToolsContext) {
@@ -41,10 +40,10 @@ export async function generateTypingsExecution(context: DataversePowerToolsConte
       child.stdout.on('data', function (data: any) {
         console.log('stdout: ' + data);
       });
-      child.stderr.on('data', function(data: any) {
+      child.stderr.on('data', function(_data: any) {
         vscode.window.showInformationMessage("Error creating types, see output for details.");
       });
-      child.on('close', function(code: any) {
+      child.on('close', function(_code: any) {
         vscode.window.showInformationMessage("Typings have been generated.");
       });
       
@@ -56,20 +55,5 @@ export async function generateTypingsExecution(context: DataversePowerToolsConte
       context.channel.show();
       console.log(error);
     }
-    // cp.execFile(
-    //   ,
-    //   (error, stdout) => {
-    //     if (error) {
-    //       vscode.window.showErrorMessage("Error creating types, see output for details.");
-    //       vscode.window.showErrorMessage(stdout);
-    //       vscode.window.showErrorMessage(error.message);
-    //       context.channel.appendLine(stdout);
-    //       context.channel.show();
-    //     } else {
-    //       context.channel.appendLine(stdout);
-    //       vscode.window.showInformationMessage("Types have been generated.");
-    //     }
-    //   }
-    // );
   }
 }

@@ -7,7 +7,6 @@ export async function initialiseProject(context: DataversePowerToolsContext) {
   // Settings file test
   context.projectSettings.type = ProjectTypes.plugin;
   context.projectSettings.templateversion = 1;
-  // context.projectSettings.connectionString = "my connection string";
   context.createSettings();
 }
 
@@ -17,7 +16,7 @@ export async function readProject(context: DataversePowerToolsContext) {
 
 export async function setUISettings(context: DataversePowerToolsContext) {
   let myStatusBarItem: vscode.StatusBarItem;
-  if (context.projectSettings?.connectionString == '' || context.projectSettings?.connectionString == null) {
+  if (context.projectSettings?.connectionString === '' || context.projectSettings?.connectionString === null) {
     vscode.commands.executeCommand('setContext', 'dataverse-powertools.showLoaded', false);
   } else {
     const splitUri = context.connectionString.split(';');
@@ -44,12 +43,6 @@ export async function setUISettings(context: DataversePowerToolsContext) {
           var fullFilePath = context.vscode.asAbsolutePath(path.join("templates", context.projectSettings.type));
           var templates = JSON.parse(fs.readFileSync(fullFilePath + "\\template.json", "utf8")) as Array<PowertoolsTemplate>;
           context.template = templates[0];
-            // for (const t of templates) {
-            //   if (t.version === context.projectSettings.templateversion) {
-            //     // templateToCopy = t;
-            //     break;
-            //   }
-            // }
         }
       }
       break;
@@ -58,11 +51,13 @@ export async function setUISettings(context: DataversePowerToolsContext) {
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isWebResource', false);
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isSolution', true);
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isPortal', false);
+      break;
     case ProjectTypes.portal:
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isPlugin', false);
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isWebResource', false);
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isSolution', false);
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isPortal', true);
+      break;
     case ProjectTypes.pcfdataset:
       vscode.commands.executeCommand('setContext', 'dataverse-powertools.isPlugin', false);
   }

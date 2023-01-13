@@ -1,5 +1,4 @@
 import * as vscode from "vscode";
-import * as cp from "child_process";
 import * as cs from "./general/initialiseProject";
 import path = require("path");
 import fs = require("fs");
@@ -12,7 +11,6 @@ import { deployWebresources } from "./webresources/deployWebresources";
 import { generateTypings } from "./webresources/generateTypings";
 import { createConnectionString } from "./general/createConnectionString";
 import { restoreDependencies } from './general/restoreDependencies';
-//import { initialiseWebresources } from "./webresources/initialiseWebresources";
 import { initialiseProject } from "./general/initialiseProject";
 import { buildPlugin } from "./plugins/buildPlugin";
 import { createPluginClass, createWebResourceClass, createWorkflowClass } from "./general/generateTemplates";
@@ -27,7 +25,6 @@ export async function activate(vscodeContext: vscode.ExtensionContext) {
     await cs.setUISettings(context);
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.initialiseProject", () => initialiseProject(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createConnectionString", () => createConnectionString(context)));
-    //context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.initialiseWebresources", () => initialiseWebresources(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.generateEarlyBound", () => generateEarlyBound(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildDeployPlugin", () => buildDeployPlugin(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildPlugin", () => buildPlugin(context)));
@@ -57,7 +54,7 @@ export async function activate(vscodeContext: vscode.ExtensionContext) {
 
 // this method is called when your extension is deactivated
 export function deactivate() {}
-function generateTemplates(context: DataversePowerToolsContext): any {
+function generateTemplates(_context: DataversePowerToolsContext): any {
     throw new Error("Function not implemented.");
 }
 

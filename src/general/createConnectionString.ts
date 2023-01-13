@@ -1,10 +1,10 @@
-import { TextEncoder } from "util";
 import * as vscode from "vscode";
 import * as cp from "child_process";
 import path = require("path");
 import fetch from 'node-fetch';
-import { QuickPickItem, window, Disposable, CancellationToken, QuickInputButton, QuickInput, ExtensionContext, QuickInputButtons, Range, TextEdit } from 'vscode';
+import { QuickPickItem, window, Disposable,  QuickInputButton, QuickInput,  QuickInputButtons} from 'vscode';
 import DataversePowerToolsContext, { ProjectTypes } from "../DataversePowerToolsContext";
+import { error } from "console";
 
 export async function createConnectionString(context: DataversePowerToolsContext) {
   interface State {
@@ -65,7 +65,7 @@ export async function createConnectionString(context: DataversePowerToolsContext
       // We utilise the Windows Credential Manager, thus it checks if the username/organisation URL already exists.
       // If it does, it skips all steps that involve the secret/application ID
       let organisationUrl = '';
-      if (state.organisationUrl != null && state.organisationUrl !== '') {
+      if (state.organisationUrl !== undefined && state.organisationUrl !== '') {
         organisationUrl = state.organisationUrl.replace(/\/+$/, '');
       }
       let command = "\"" + fullFilePath + "\\WindowsCredentialManager.exe\" Get-Credentials " + organisationUrl || '';
@@ -90,6 +90,7 @@ export async function createConnectionString(context: DataversePowerToolsContext
         return (input: MultiStepInput) => inputClientSecret(input, state);
       }
     }
+    return error("No workspace loaded");
   }
 
   async function inputClientSecret(input: MultiStepInput, state: Partial<State>) {
@@ -120,6 +121,7 @@ export async function createConnectionString(context: DataversePowerToolsContext
         return (input: MultiStepInput) => inputSolutionName(input, state);
       }
     }
+    return error("No workspace loaded");
   }
 
   async function inputSolutionName(input: MultiStepInput, state: Partial<State>) {
@@ -131,8 +133,11 @@ export async function createConnectionString(context: DataversePowerToolsContext
     params.append('resource', state.organisationUrl || '');
     
     const tokenRequestBody: any = {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
       'grant_type': 'client_credentials',
+      // eslint-disable-next-line @typescript-eslint/naming-convention
       'client_id': state.applicationId || '',
+      // eslint-disable-next-line @typescript-eslint/naming-convention
       'client_secret': state.clientSecret || '',
       'resource': state.organisationUrl || '',
     };
@@ -148,21 +153,23 @@ export async function createConnectionString(context: DataversePowerToolsContext
     const tokenResponse = await fetch(tokenUrl, {
       method: 'post',
       body: formBodyString,
+      // eslint-disable-next-line @typescript-eslint/naming-convention
       headers: {'Content-Type': 'application/x-www-form-urlencoded'}
     });
 
     const data: any = await tokenResponse.json();
 
-    if (data != null && data['access_token'] != null) {
+    if (data !== null && data['access_token'] !== null) {
       const options = {
         'method': 'GET',
         'headers': {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           'Authorization': 'Bearer ' + data['access_token']
         }
-      }
+      };
       const response = await fetch(state.organisationUrl + '/api/data/v9.0/solutions', options);
       const body: any = await response.json();
-      if (body != null && body['value'] != null) {
+      if (body !== null && body['value'] !== null) {
         let arrayOfSolutions = body['value'];
         arrayOfSolutions = arrayOfSolutions.filter((x: any) => x['ismanaged'] === false).sort((a: any, b: any) => (a['uniquename'] > b['uniquename']) ? 1 : -1);
         let quickPickArray = [];
@@ -175,17 +182,17 @@ export async function createConnectionString(context: DataversePowerToolsContext
         );
         state.solutionName = result?.target;
         var selectedSolution = arrayOfSolutions.find((x: any) => x['uniquename'] === state.solutionName);
-        if (selectedSolution != null) {
+        if (selectedSolution !== null) {
           const publisherId = selectedSolution['_publisherid_value'];
           const publishserResponse = await fetch(state.organisationUrl + '/api/data/v9.0/publishers', options);
           const publisherBody: any = await publishserResponse.json();
-          if (publisherBody['value'] != null) {
+          if (publisherBody['value'] !== null) {
             const publisher = publisherBody['value'].find((x: any) => x['publisherid'] === publisherId);
             state.prefix = publisher['customizationprefix'];
           } 
         }
         window.showInformationMessage(`Solution Selected: ${result?.label}`);
-        if (context.projectSettings.type == ProjectTypes.pcfdataset) {
+        if (context.projectSettings.type === ProjectTypes.pcfdataset) {
           return (input: MultiStepInput) => inputControlName(input, state);
         }
       } else {
@@ -216,7 +223,7 @@ export async function createConnectionString(context: DataversePowerToolsContext
   }
 
   async function inputPrefix(input: MultiStepInput, state: Partial<State>) {
-    if (state.prefix == null || state.prefix === '') {
+    if (state.prefix === null || state.prefix === '') {
       state.prefix = await input.showInputBox({
         ignoreFocusOut: true,
         title,
@@ -231,7 +238,7 @@ export async function createConnectionString(context: DataversePowerToolsContext
   }
 
   async function inputControlName(input: MultiStepInput, state: Partial<State>) {
-    if (state.controlName == null || state.controlName === '') {
+    if (state.controlName === null || state.controlName === '') {
       state.controlName = await input.showInputBox({
         ignoreFocusOut: true,
         title,
@@ -249,7 +256,7 @@ export async function createConnectionString(context: DataversePowerToolsContext
 
   function shouldResume() {
     // Could show a notification with the option to resume.
-    return new Promise<boolean>((resolve, reject) => {
+    return new Promise<boolean>((_resolve, _reject) => {
       // noop
     });
   }
@@ -275,7 +282,7 @@ export async function createConnectionString(context: DataversePowerToolsContext
       var fullFilePath = context.vscode.asAbsolutePath(path.join("templates"));
       await cp.execFile(fullFilePath + "\\WindowsCredentialManager.exe",
         ["New-Credential", state.organisationUrl || '', state.applicationId, state.clientSecret],
-        async (error, stdout) => {
+        async (error, _stdout) => {
           if (error) {
             context.channel.appendLine(error.message);
             context.channel.show();
@@ -296,9 +303,7 @@ export async function createConnectionString(context: DataversePowerToolsContext
     context.projectSettings.solutionName = state.solutionName;
     context.projectSettings.connectionString = connectionString;
     context.projectSettings.controlName = state.controlName;
-    // vscode.workspace.fs.writeFile(filePath, encodedString);
   }
-  // window.showInformationMessage(`Creating Application Service '${state.name}'`);
 }
 
 export async function getProjectType(context: DataversePowerToolsContext) {
@@ -358,7 +363,7 @@ interface InputBoxParameters {
 
 class MultiStepInput {
 
-  static async run<T>(start: InputStep) {
+  static async run(start: InputStep) {
     const input = new MultiStepInput();
     return input.stepThrough(start);
   }
@@ -366,7 +371,7 @@ class MultiStepInput {
   private current?: QuickInput;
   private steps: InputStep[] = [];
 
-  private async stepThrough<T>(start: InputStep) {
+  private async stepThrough(start: InputStep) {
     let step: InputStep | void = start;
     while (step) {
       this.steps.push(step);

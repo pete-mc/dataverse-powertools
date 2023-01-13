@@ -34,12 +34,11 @@ export async function extractSolutionExec(context: DataversePowerToolsContext) {
       context.channel.show();
     });
 
-    child.stderr.on('data', function(data: any) {
+    child.stderr.on('data', function(_data: any) {
       vscode.window.showInformationMessage("Error deploying plugins, see output for details.");
     });
 
-    child.on('close', function (code: any) {
-      //const test = code;
+    child.on('close', function (_code: any) {
       vscode.window.showInformationMessage("Solution has been extracted.");
     });
 

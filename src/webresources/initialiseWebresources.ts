@@ -4,6 +4,6 @@ import * as path from "path";
 import * as fs from "fs";
 import DataversePowerToolsContext from "../DataversePowerToolsContext";
 
-export async function initialiseWebresources(context: DataversePowerToolsContext) {
+export async function initialiseWebresources(_context: DataversePowerToolsContext) {
 
 }

@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import * as cp from "child_process";
 import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes } from "../DataversePowerToolsContext";
 import path = require("path");
 import fs = require("fs");
@@ -23,7 +22,7 @@ export async function generatePluginTemplate(context: DataversePowerToolsContext
     }, async () => {
 
       if (templateToCopy && templateToCopy.placeholders) {
-        let placeholders = [] as templatePlaceholder[];
+        let placeholders = [] as TemplatePlaceholder[];
         for (const p of templateToCopy.placeholders) {
           placeholders.push({
             placeholder: p.placeholder, value: await vscode.window.showInputBox({
@@ -46,14 +45,12 @@ export async function generatePluginTemplate(context: DataversePowerToolsContext
           }
         });
       }
-      // await runFile(context, solutionName);
-      // return new Promise(resolve => setTimeout(resolve, 5000))
-      // await testAsyncFunction();
+
     });
   }
 }
 
-interface templatePlaceholder {
+interface TemplatePlaceholder {
   placeholder: string;
   value: string;
 }
