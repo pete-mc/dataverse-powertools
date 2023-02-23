@@ -21,7 +21,7 @@ In summary, this tool is an all-in-one solution that streamlines the development
 Developers can create web resources such as HTML, TypeScript (JavaScript), and CSS files using templates and advanced features like syntax highlighting, code snippets, and code completion. They can also test their web resources locally using a built-in web server, and deploy them to the Power Platform directly from within the editor.
 
 Once the project is initialised for web resources, you will see these buttons from the Dataverse Tools extension tab:
-<img src="Webresources.png" width="280" height="290"/>
+<img src="media\Webresources.png" width="280" height="290"/>
  
 -	Restore Dependencies (should be done on project initialisation) -> this should be implemented the first time using the project to connect to Dynamics
 -	Create Web Resource Class -> this creates a new typescript (.ts) class with a built-in template for updating Dynamics 365 app forms
@@ -34,7 +34,7 @@ Other notes – test cases can be created to test code on the Dynamics app forms
 For plugin development, the tool provides a robust set of templates and code snippets to speed up the development process. It also includes a debugger to help developers identify and fix issues quickly. The tool can deploy plugins to the Power Platform and manage their registration and versioning.
 
 Once the project is initialised for plugins, you will see these buttons from the Dataverse Tools extension tab:
-<img src="Plugins.png" width="280" height="290"/>
+<img src="media\Plugins.png" width="280" height="290"/>
  
 -	Restore Dependencies (should be done on project initialisation) -> this should be implemented the first time using the project to connect to Dynamics
 -	Generate Early Bound -> updates the fields on each table found when you code. This should be applied for any changes in the Dynamics app solution
