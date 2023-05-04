@@ -1,8 +1,6 @@
-# Dataverse Powertools README
+# Dataverse Powertools
 
-
-
-Please see the list of prerequisites that need to be downloaded for this tool: 
+[See system requirements for this tool in the wiki.](https://github.com/pete-mc/dataverse-powertools/wiki/Requirements)
 
 Dataverse Powertools contains tools and templates to assist with the development of Dataverse and Dynamics 365 projects. It enables developers to perform various actions such as:
 
