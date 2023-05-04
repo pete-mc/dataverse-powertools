@@ -2,7 +2,7 @@
   "profiles": {
     "WindowsCredentialManager": {
       "commandName": "Project",
-      "commandLineArgs": "Get-Credentials https://bradnamsscrim365staging.crm6.dynamics.com/ username"
+      "commandLineArgs": "Get-Credentials https://xxx.crmx.dynamics.com/ username"
     }
   }
 }
