@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import DataversePowerToolsContext from "../DataversePowerToolsContext";
+import DataversePowerToolsContext from "../context";
 
 export async function extractSolution(context: DataversePowerToolsContext) {
   vscode.window.showInformationMessage("Extracting Solution");

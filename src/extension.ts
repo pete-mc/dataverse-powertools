@@ -2,14 +2,14 @@ import * as vscode from "vscode";
 import * as cs from "./general/initialiseProject";
 import path = require("path");
 import fs = require("fs");
-import DataversePowerToolsContext from "./DataversePowerToolsContext";
+import DataversePowerToolsContext from "./context";
 import { createSNKKey, generateEarlyBound } from "./plugins/earlybound";
 import { buildDeployPlugin } from "./plugins/buildDeployPlugin";
 import { buildDeployWorkflow } from "./plugins/buildDeployWorkflow";
 import { buildWebresources } from "./webresources/buildWebresources";
 import { deployWebresources } from "./webresources/deployWebresources";
 import { generateTypings } from "./webresources/generateTypings";
-import { createConnectionString } from "./general/createConnectionString";
+import { createServicePrincipalString } from "./general/connectionManager";
 import { restoreDependencies } from './general/restoreDependencies';
 import { initialiseProject } from "./general/initialiseProject";
 import { buildPlugin } from "./plugins/buildPlugin";
@@ -24,7 +24,7 @@ export async function activate(vscodeContext: vscode.ExtensionContext) {
     await cs.readProject(context);
     await cs.setUISettings(context);
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.initialiseProject", () => initialiseProject(context)));
-    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createConnectionString", () => createConnectionString(context)));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createConnectionString", () => createServicePrincipalString(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.generateEarlyBound", () => generateEarlyBound(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildDeployPlugin", () => buildDeployPlugin(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildPlugin", () => buildPlugin(context)));
@@ -47,7 +47,7 @@ export async function activate(vscodeContext: vscode.ExtensionContext) {
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.downloadPortal", () => connectPortal(context, 'download')));
 
     // Extension path example
-    let fullFilePath = context.vscode.asAbsolutePath(path.join("templates", "test.txt"));
+    let fullFilePath = context.vscode.asAbsolutePath(path.join("templates", "logo.txt"));
     let data = fs.readFileSync(fullFilePath, "utf8");
     context.channel.appendLine(data);
 }

@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import DataversePowerToolsContext from "../DataversePowerToolsContext";
+import DataversePowerToolsContext from "../context";
 
 export async function deployWebresources(context: DataversePowerToolsContext) {
   await vscode.window.withProgress({

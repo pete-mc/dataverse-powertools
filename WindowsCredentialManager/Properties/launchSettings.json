@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "WindowsCredentialManager": {
-      "commandName": "Project",
-      "commandLineArgs": "Get-Credentials https://xxx.crmx.dynamics.com/ username"
-    }
-  }
-}

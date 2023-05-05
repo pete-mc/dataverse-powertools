@@ -8,36 +8,16 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.0.11",
+  "version": "0.0.12",
   "engines": {
-    "vscode": "^1.66.0"
+    "vscode": "^1.75.0"
   },
   "categories": [
     "Other"
   ],
   "activationEvents": [    
-    "onCommand:dataverse-powertools.generateEarlyBound",
-    "onCommand:dataverse-powertools.buildDeployPlugin",
-    "onCommand:dataverse-powertools.buildPlugin",
-    "onCommand:dataverse-powertools.buildDeployWorkflow",
-    "onCommand:dataverse-powertools.buildWebresources",
-    "onCommand:dataverse-powertools.deployWebresources",
-    "onCommand:dataverse-powertools.generateTypings",
-    "onCommand:dataverse-powertools.createConnectionString",
-    "onCommand:dataverse-powertools.initialiseWebresources",
-    "onCommand:dataverse-powertools.initialiseProject",
     "onCommand:dataverse-powertools.readProject",
-    "onCommand:dataverse-powertools.generateTemplate",
-    "onCommand:dataverse-powertools.createPluginClass",
-    "onCommand:dataverse-powertools.createWorkflowClass",
-    "onCommand:dataverse-powertools.restoreDependencies",
-    "onCommand:dataverse-powertools.createSNKKey",
-    "onCommand:dataverse-powertools.extractSolution",
-    "onCommand:dataverse-powertools.packSolution",
-    "onCommand:dataverse-powertools.deploySolution",
-    "onCommand:dataverse-powertools.createWebResourceClass",
-    "onCommand:dataverse-powertools.connectPortal",
-    "onCommand:dataverse-powertools.downloadPortal"
+    "onCommand:dataverse-powertools.generateTemplate"
   ],
   "main": "./dist/extension.js",
   "contributes": {

@@ -1,12 +1,19 @@
-import * as vscode from "vscode";
-import * as cp from "child_process";
-import path = require("path");
 import fetch from 'node-fetch';
-import { QuickPickItem, window, Disposable,  QuickInputButton, QuickInput,  QuickInputButtons} from 'vscode';
-import DataversePowerToolsContext, { ProjectTypes } from "../DataversePowerToolsContext";
-import { error } from "console";
+import { QuickPickItem, window, Disposable,  QuickInputButton, QuickInput,  QuickInputButtons, workspace} from 'vscode';
+import DataversePowerToolsContext, { ProjectTypes } from "../context";
 
-export async function createConnectionString(context: DataversePowerToolsContext) {
+
+export async function getServicePrincipalString(context: DataversePowerToolsContext, name: string): Promise<string> {
+  const servicePrincipal = await context.vscode.secrets.get(name);
+  return servicePrincipal === undefined ? "" : servicePrincipal; 
+}
+
+export async function saveServicePrincipalString(context: DataversePowerToolsContext, name: string, clientId: string, clientSecret: string): Promise<void> {
+  const value = "ClientId=" + clientId + ";" + "ClientSecret=" + clientSecret + ";";
+  await context.vscode.secrets.store(name,value);
+}
+
+export async function createServicePrincipalString(context: DataversePowerToolsContext) {
   interface State {
     title: string;
     step: number;
@@ -59,52 +66,32 @@ export async function createConnectionString(context: DataversePowerToolsContext
   }
 
   async function inputApplicationId(input: MultiStepInput, state: Partial<State>) {
-    if (vscode.workspace.workspaceFolders !== undefined) {
-      var fullFilePath = context.vscode.asAbsolutePath(path.join("templates"));
-      const execSync = require("child_process").execSync;
-      // We utilise the Windows Credential Manager, thus it checks if the username/organisation URL already exists.
-      // If it does, it skips all steps that involve the secret/application ID
-      let organisationUrl = '';
-      if (state.organisationUrl !== undefined && state.organisationUrl !== '') {
-        organisationUrl = state.organisationUrl.replace(/\/+$/, '');
-      }
-      let command = "\"" + fullFilePath + "\\WindowsCredentialManager.exe\" Get-Credentials " + organisationUrl || '';
-      command += ' username';
-      const result = execSync(command);
-      const credentialResult = result.toString("utf-8");
-      if (credentialResult === '') {
-        state.createCredential = true;
-        state.applicationId = await input.showInputBox({
-          ignoreFocusOut: true,
-          title,
-          step: 3,
-          totalSteps: 6,
-          value: state.applicationId || '',
-          prompt: 'Type in the Application ID',
-          validate: validateNameIsUnique,
-          shouldResume: shouldResume
-        });
-        return (input: MultiStepInput) => inputClientSecret(input, state);
-      } else {
-        state.applicationId = credentialResult;
-        return (input: MultiStepInput) => inputClientSecret(input, state);
-      }
+    let organisationUrl = '';
+    if (state.organisationUrl !== undefined && state.organisationUrl !== '') {
+      organisationUrl = state.organisationUrl.replace(/\/+$/, '');
     }
-    return error("No workspace loaded");
+    const credentialResult = await context.vscode.secrets.get(organisationUrl);
+    if (credentialResult === undefined) {
+      state.createCredential = true;
+      state.applicationId = await input.showInputBox({
+        ignoreFocusOut: true,
+        title,
+        step: 3,
+        totalSteps: 6,
+        value: state.applicationId || '',
+        prompt: 'Type in the Application ID',
+        validate: validateNameIsUnique,
+        shouldResume: shouldResume
+      });
+      return (input: MultiStepInput) => inputClientSecret(input, state);
+    } else {
+      state.applicationId = credentialResult.split(";")[0].replace("ClientId=","");
+      state.clientSecret = credentialResult.split(";")[1].replace("ClientSecret=","");
+      return (input: MultiStepInput) => inputSolutionName(input, state);
+    }
   }
 
   async function inputClientSecret(input: MultiStepInput, state: Partial<State>) {
-    if (vscode.workspace.workspaceFolders !== undefined) {
-      const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-      const util = require('util');
-      const execSync = require("child_process").execSync;
-      var fullFilePath = context.vscode.asAbsolutePath(path.join("templates"));
-      let command = "\"" + fullFilePath + "\\WindowsCredentialManager.exe\" Get-Credentials " + state.organisationUrl || '';
-      command += ' password';
-      const result = execSync(command);
-      const credentialResult = result.toString("utf-8");
-      if (credentialResult === '') {
-        state.createCredential = true;
         state.clientSecret = await input.showInputBox({
           ignoreFocusOut: true,
           title,
@@ -116,12 +103,6 @@ export async function createConnectionString(context: DataversePowerToolsContext
           shouldResume: shouldResume
         });
         return (input: MultiStepInput) => inputSolutionName(input, state);
-      } else {
-        state.clientSecret = credentialResult;
-        return (input: MultiStepInput) => inputSolutionName(input, state);
-      }
-    }
-    return error("No workspace loaded");
   }
 
   async function inputSolutionName(input: MultiStepInput, state: Partial<State>) {
@@ -268,42 +249,23 @@ export async function createConnectionString(context: DataversePowerToolsContext
   }
 
   const state = await collectInputs();
-
-  if (vscode.workspace.workspaceFolders !== undefined) {
-    const wsedit = new vscode.WorkspaceEdit();
-
-    const folderPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-    const filePath = vscode.Uri.file(folderPath + '/connectionstring2.txt');
-    vscode.window.showInformationMessage(filePath.toString());
-    let connectionString = 'AuthType=ClientSecret;LoginPrompt=Never;Url=';
-    let credentialManagerString = '';
-    connectionString += state.organisationUrl + ";";
-    if (state.createCredential) {
-      var fullFilePath = context.vscode.asAbsolutePath(path.join("templates"));
-      await cp.execFile(fullFilePath + "\\WindowsCredentialManager.exe",
-        ["New-Credential", state.organisationUrl || '', state.applicationId, state.clientSecret],
-        async (error, _stdout) => {
-          if (error) {
-            context.channel.appendLine(error.message);
-            context.channel.show();
-          } else {
-          }
-        }
-      );
-      connectionString += 'ClientId=';
-      connectionString += state.applicationId += ';ClientSecret=';
-      connectionString += state.clientSecret;
-    } else {
-      credentialManagerString += context.getCredentialsFromManager(context, state.organisationUrl);
-      connectionString += credentialManagerString;
-    }
-
-    context.projectSettings.prefix = state.prefix;
-    context.projectSettings.tenantId = state.tenantId;
-    context.projectSettings.solutionName = state.solutionName;
-    context.projectSettings.connectionString = connectionString;
-    context.projectSettings.controlName = state.controlName;
+  let connectionString = 'AuthType=ClientSecret;LoginPrompt=Never;Url=';
+  let credentialManagerString = '';
+  connectionString += state.organisationUrl + ";";
+  if (state.createCredential) {
+    await saveServicePrincipalString(context, state.organisationUrl, state.applicationId, state.clientSecret);
+    connectionString += 'ClientId=';
+    connectionString += state.applicationId += ';ClientSecret=';
+    connectionString += state.clientSecret;
+  } else {
+    credentialManagerString += getServicePrincipalString(context, state.organisationUrl);
+    connectionString += credentialManagerString;
   }
+  context.projectSettings.prefix = state.prefix;
+  context.projectSettings.tenantId = state.tenantId;
+  context.projectSettings.solutionName = state.solutionName;
+  context.projectSettings.connectionString = connectionString;
+  context.projectSettings.controlName = state.controlName;
 }
 
 export async function getProjectType(context: DataversePowerToolsContext) {

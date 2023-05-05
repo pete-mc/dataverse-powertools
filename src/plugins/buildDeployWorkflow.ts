@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as cp from "child_process";
-import DataversePowerToolsContext from "../DataversePowerToolsContext";
+import DataversePowerToolsContext from "../context";
 
 export async function buildDeployWorkflow(context: DataversePowerToolsContext) {
   vscode.window.showInformationMessage("Building");

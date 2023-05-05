@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as cp from "child_process";
-import DataversePowerToolsContext, { PowertoolsTemplate } from "../DataversePowerToolsContext";
+import DataversePowerToolsContext, { PowertoolsTemplate } from "../context";
 import path = require("path");
 import fs = require("fs");
 

@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes } from "../DataversePowerToolsContext";
+import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes } from "../context";
 import path = require("path");
 import fs = require("fs");
 
@@ -16,10 +16,10 @@ export async function readProject(context: DataversePowerToolsContext) {
 
 export async function setUISettings(context: DataversePowerToolsContext) {
   let myStatusBarItem: vscode.StatusBarItem;
-  if (context.projectSettings?.connectionString === '' || context.projectSettings?.connectionString === null) {
+  if (context.projectSettings?.connectionString === undefined || context.projectSettings?.connectionString === '' || context.projectSettings?.connectionString === null) {
     vscode.commands.executeCommand('setContext', 'dataverse-powertools.showLoaded', false);
   } else {
-    const splitUri = context.connectionString.split(';');
+    const splitUri = context.projectSettings.connectionString.split(';');
     myStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     myStatusBarItem.text = splitUri[2].replace('Url=', '');
     myStatusBarItem.show();

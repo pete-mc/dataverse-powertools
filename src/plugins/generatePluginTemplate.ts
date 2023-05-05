@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes } from "../DataversePowerToolsContext";
+import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes } from "../context";
 import path = require("path");
 import fs = require("fs");
 

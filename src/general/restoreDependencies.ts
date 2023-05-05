@@ -3,7 +3,7 @@ import * as cp from "child_process";
 import path = require("path");
 import fs = require("fs");
 
-import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes } from '../DataversePowertoolsContext';
+import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes } from '../context';
 import { resolve } from 'path';
 
 export async function restoreDependencies(context: DataversePowerToolsContext) {

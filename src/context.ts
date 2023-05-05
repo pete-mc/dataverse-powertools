@@ -1,12 +1,11 @@
 import * as vscode from "vscode";
-import * as connectionStringManager from "./general/createConnectionString";
-import path = require("path");
 import fs = require("fs");
 import { readProject, setUISettings } from "./general/initialiseProject";
 import { generateTemplates } from "./general/generateTemplates";
 import { restoreDependencies } from "./general/restoreDependencies";
 import { createSNKKey, generateEarlyBound } from "./plugins/earlybound";
 import { buildPlugin } from "./plugins/buildPlugin";
+import { createServicePrincipalString, getServicePrincipalString, getProjectType } from "./general/connectionManager";
 
 export default class DataversePowerToolsContext {
   vscode: vscode.ExtensionContext;
@@ -44,9 +43,9 @@ export default class DataversePowerToolsContext {
         this.connectionString = this.projectSettings.connectionString || '';
         let name = context.connectionString.substring(context.connectionString.indexOf("Url=") + 4, context.connectionString.length - 1);
         name = name.replace(/\/+$/, '');
-        const credentialString = this.getCredentialsFromManager(this, name);
+         const credentialString = await getServicePrincipalString(this, name);
         if (credentialString === '') {
-          await connectionStringManager.createConnectionString(this);
+          await createServicePrincipalString(this);
           context.connectionString = this.projectSettings.connectionString || '';
         } else {
           context.connectionString += credentialString;
@@ -59,43 +58,14 @@ export default class DataversePowerToolsContext {
     }
   }
 
-  getCredentialsFromManager(context: DataversePowerToolsContext, name: string) {
-    if (vscode.workspace.workspaceFolders !== undefined && vscode.workspace.workspaceFolders) {
-      const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-      var fullFilePath = context.vscode.asAbsolutePath(path.join("templates"));
-      const execSync = require("child_process").execSync;
-      const generalCommand = "\"" + fullFilePath + "\\WindowsCredentialManager.exe\" Get-Credentials " + name;
-      const userNameCommand = generalCommand + ' username';
-      const passwordCommand = generalCommand + ' password';
-      const resultUsername = execSync(userNameCommand);
-      const resultPassword = execSync(passwordCommand);
-
-      const username = resultUsername.toString("Utf-8");
-      const password = resultPassword.toString("Utf-8");
-      if (username === '' && password === '') {
-        return '';
-      } 
-      return "ClientId=" + username + ";" + "ClientSecret=" + password + ";";
-    }
-    return "";
-  }
-
   async readFileAsync(filePath: string) {
     const data = await fs.promises.readFile(filePath);
     return data;
   }
 
-  async readConnectionString() {
-    if (vscode.workspace.workspaceFolders !== undefined) {
-      const connfile = await vscode.workspace.fs.readFile(vscode.Uri.file(vscode.workspace.workspaceFolders[0].uri.fsPath + "\\connectionstring.txt"));
-      const test2 = Buffer.from(connfile).toString("utf8");
-      this.connectionString = Buffer.from(connfile).toString("utf8");
-    }
-  }
-
-  async createSettings() {
-    await connectionStringManager.getProjectType(this);
-    await connectionStringManager.createConnectionString(this);
+ async createSettings() {
+    await getProjectType(this);
+    await createServicePrincipalString(this);
     await generateTemplates(this);
     await this.writeSettings();
     await this.readSettings(this);
