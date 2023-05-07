@@ -44,11 +44,11 @@ Once the project is initialised for plugins, you will see these buttons from the
 ## PCF Fields/Dataset:
 
 With PCF controls, developers can create custom controls for PowerApps and Dynamics 365 using modern web technologies like React, Angular, and TypeScript. The tool provides templates and advanced features for PCF control development, including debugging, packaging, and deployment to the Power Platform.
-Once the project is initialised for pcf fields or datasets, you will see these buttons from the Dataverse Tools extension tab:
+<!-- Once the project is initialised for pcf fields or datasets, you will see these buttons from the Dataverse Tools extension tab: -->
 
 ## Portals:
 
 The tool also provides features for managing Portals, including creating and managing Portal assets such as templates, content snippets, and web pages. It also includes advanced features for customizing and extending the Portal's functionality using HTML, CSS, TypeScript, Angular and more coding languages.
-Once the project is initialised for portals, you will see these buttons from the Dataverse Tools extension tab:
+<!-- Once the project is initialised for portals, you will see these buttons from the Dataverse Tools extension tab: -->
 
 
