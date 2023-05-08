@@ -27,7 +27,7 @@ export async function generateTypingsExecution(context: DataversePowerToolsConte
           `/mfaAppId:${context.connectionString.split(";")[3].replace("ClientId=", "")}`,
           `/mfaReturnUrl:${context.connectionString.split(";")[2].replace("Url=", "")}`,
           `/mfaClientSecret:${context.connectionString.split(";")[4].replace("ClientSecret=", "")}`,
-          `/jsLib:bin/cld_dependencies`,
+          `/jsLib:bin/${context.projectSettings.prefix}_dependencies`,
           `/method:ClientSecret`,
           `/web:${spkl.webresources[0].solution}Web`,
           `/rest:${spkl.webresources[0].solution}Rest`,

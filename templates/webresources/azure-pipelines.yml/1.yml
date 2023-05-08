@@ -27,7 +27,7 @@ steps:
 - task: PowerShell@2
   inputs:
     targetType: 'inline'
-    script: '$conn = ${env:OPENCONNECTIONSTRING} -replace ";" , "`r`n" | ConvertFrom-StringData; $sol = (get-content .\spkl.json | ConvertFrom-Json).webresources[0].solution; & .\packages\Delegate.XrmDefinitelyTyped\content\XrmDefinitelyTyped\XrmDefinitelyTyped.exe "/url:$($conn.Url)/XRMServices/2011/Organization.svc" /out:typings\XRM /solutions:$($sol) /mfaAppId:$($conn.ClientId) /mfaReturnUrl:$($conn.Url) /mfaClientSecret:$($conn.ClientSecret) /jsLib:bin/cld_dependencies /method:ClientSecret /web:$($sol)Web /rest:$($sol)Rest\'
+    script: '$conn = ${env:OPENCONNECTIONSTRING} -replace ";" , "`r`n" | ConvertFrom-StringData; $sol = (get-content .\spkl.json | ConvertFrom-Json).webresources[0].solution; & .\packages\Delegate.XrmDefinitelyTyped\content\XrmDefinitelyTyped\XrmDefinitelyTyped.exe "/url:$($conn.Url)/XRMServices/2011/Organization.svc" /out:typings\XRM /solutions:$($sol) /mfaAppId:$($conn.ClientId) /mfaReturnUrl:$($conn.Url) /mfaClientSecret:$($conn.ClientSecret) /jsLib:bin/SOLUTIONPREFIX_dependencies /method:ClientSecret /web:$($sol)Web /rest:$($sol)Rest\'
   displayName: 'Generate Typings'
 
 - task: PowerShell@2
