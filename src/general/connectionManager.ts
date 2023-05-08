@@ -11,6 +11,7 @@ export async function getServicePrincipalString(context: DataversePowerToolsCont
 export async function saveServicePrincipalString(context: DataversePowerToolsContext, name: string, clientId: string, clientSecret: string): Promise<void> {
   const value = "ClientId=" + clientId + ";" + "ClientSecret=" + clientSecret + ";";
   await context.vscode.secrets.store(name,value);
+  context.channel.appendLine("Settings Saved!");
 }
 
 export async function createServicePrincipalString(context: DataversePowerToolsContext) {
@@ -87,6 +88,7 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
     } else {
       state.applicationId = credentialResult.split(";")[0].replace("ClientId=","");
       state.clientSecret = credentialResult.split(";")[1].replace("ClientSecret=","");
+      
       return (input: MultiStepInput) => inputSolutionName(input, state);
     }
   }
@@ -250,16 +252,15 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
 
   const state = await collectInputs();
   let connectionString = 'AuthType=ClientSecret;LoginPrompt=Never;Url=';
-  let credentialManagerString = '';
   connectionString += state.organisationUrl + ";";
+  context.connectionString = connectionString;
   if (state.createCredential) {
     await saveServicePrincipalString(context, state.organisationUrl, state.applicationId, state.clientSecret);
     connectionString += 'ClientId=';
     connectionString += state.applicationId += ';ClientSecret=';
     connectionString += state.clientSecret;
   } else {
-    credentialManagerString += getServicePrincipalString(context, state.organisationUrl);
-    connectionString += credentialManagerString;
+    connectionString += await getServicePrincipalString(context, state.organisationUrl);
   }
   context.projectSettings.prefix = state.prefix;
   context.projectSettings.tenantId = state.tenantId;
