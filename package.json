@@ -8,14 +8,14 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.1.3",
+  "version": "0.1.4",
   "engines": {
     "vscode": "^1.75.0"
   },
   "categories": [
     "Other"
   ],
-  "activationEvents": [    
+  "activationEvents": [
     "onCommand:dataverse-powertools.readProject",
     "onCommand:dataverse-powertools.generateTemplate"
   ],
@@ -314,6 +314,7 @@
     "@typescript-eslint/eslint-plugin": "^5.16.0",
     "@typescript-eslint/parser": "^5.16.0",
     "@vscode/test-electron": "^2.1.3",
+    "@vscode/vsce": "^2.19.0",
     "eslint": "^8.11.0",
     "glob": "^7.2.0",
     "mocha": "^9.2.2",

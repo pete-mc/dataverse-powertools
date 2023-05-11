@@ -14,6 +14,9 @@ It provides a user-friendly interface in the Visual Studio Code editor, allowing
 
 In summary, this tool is an all-in-one solution that streamlines the development process and helps developers to efficiently build and manage Dynamics 365 and Power Platform solutions in Visual Studio Code.
 
+## Solutions
+This extension allows for the download, extraction, source control, build and release of dataverse solutions using Azure DevOps Pipelines.  [Wiki Page.](https://github.com/pete-mc/dataverse-powertools/wiki/Solutions)
+
 ## Webresources:
 
 Developers can create web resources such as HTML, TypeScript (JavaScript), and CSS files using templates and advanced features like syntax highlighting, code snippets, and code completion. They can also test their web resources locally using a built-in web server, and deploy them to the Power Platform directly from within the editor.
