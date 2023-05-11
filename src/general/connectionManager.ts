@@ -108,6 +108,7 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
   }
 
   async function inputSolutionName(input: MultiStepInput, state: Partial<State>) {
+    try {
     const tokenUrl = 'https://login.microsoftonline.com/' + state.tenantId +'/oauth2/token';
     const params = new URLSearchParams();
     params.append('grant_type', 'client_credentials');
@@ -202,6 +203,20 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
         shouldResume: shouldResume
       });
     }
+  }
+  catch{
+    context.channel.appendLine("Error connecting to dataverse, reverting to manaul solution entry")
+    state.solutionName = await input.showInputBox({
+      ignoreFocusOut: true,
+      title,
+      step: 5,
+      totalSteps: 6,
+      value: state.solutionName || '',
+      prompt: 'What is the schema name of the solution?',
+      validate: validateNameIsUnique,
+      shouldResume: shouldResume
+    });
+  }
     return (input: MultiStepInput) => inputPrefix(input, state);
   }
 
