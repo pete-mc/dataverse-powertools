@@ -102,7 +102,7 @@
             },
             {
                 "path": ["webresources_src"],
-                "filename": "account",
+                "filename": "class",
                 "extension": ".tstemplate",
                 "version": 1
             },

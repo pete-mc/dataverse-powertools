@@ -2,22 +2,18 @@ import * as vscode from 'vscode';
 import * as cp from "child_process";
 import path = require("path");
 import fs = require("fs");
-
 import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes } from '../context';
-import { resolve } from 'path';
+
 
 export async function restoreDependencies(context: DataversePowerToolsContext) {
+  if (!context.projectSettings.type) {
+    vscode.window.showErrorMessage("No Template Found; Try reloading extension again");
+    return;
+  }
   const util = require('util');
   const execFile = util.promisify(cp.exec);
   vscode.window.showInformationMessage('Restoring dependencies...');
-  var fullFilePath = '';
-  if (context.projectSettings.type === 'webresources') {
-    fullFilePath = context.vscode.asAbsolutePath(path.join("templates", 'webresources'));
-  } else if (context.projectSettings.type === ProjectTypes.pcfdataset) {
-    fullFilePath = context.vscode.asAbsolutePath(path.join("templates", ProjectTypes.pcfdataset));
-  } else {
-    fullFilePath = context.vscode.asAbsolutePath(path.join("templates", 'general'));
-  }
+  var fullFilePath = context.vscode.asAbsolutePath(path.join("templates", context.projectSettings.type));
   var templates = JSON.parse(fs.readFileSync(fullFilePath + "\\template.json", "utf8")) as Array<PowertoolsTemplate>;
   var templateToCopy = {} as PowertoolsTemplate;
   for (const t of templates) {

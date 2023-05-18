@@ -1,7 +1,15 @@
 import fetch from 'node-fetch';
-import { QuickPickItem, window, Disposable,  QuickInputButton, QuickInput,  QuickInputButtons, workspace} from 'vscode';
+import { window} from 'vscode';
 import DataversePowerToolsContext, { ProjectTypes } from "../context";
+import { MultiStepInput } from './inputControls';
 
+export async function updateConnectionString(context: DataversePowerToolsContext){
+  let connectionString = await createServicePrincipalString(context, true);
+  await context.writeSettings();
+  await context.readSettings(context);
+  context.statusBar.text = connectionString.split(';')[2].replace('Url=', '') ?? "";
+  context.statusBar.show();
+}
 
 export async function getServicePrincipalString(context: DataversePowerToolsContext, name: string): Promise<string> {
   const servicePrincipal = await context.vscode.secrets.get(name);
@@ -14,22 +22,7 @@ export async function saveServicePrincipalString(context: DataversePowerToolsCon
   context.channel.appendLine("Settings Saved!");
 }
 
-export async function createServicePrincipalString(context: DataversePowerToolsContext) {
-  interface State {
-    title: string;
-    step: number;
-    organisationUrl: string;
-    tenantId: string;
-    applicationId: string;
-    totalSteps: number;
-    name: string;
-    clientSecret: string;
-    solutionName: string;
-    prefix: string;
-    controlName: string;
-    createCredential: boolean;
-  }
-
+export async function createServicePrincipalString(context: DataversePowerToolsContext, update?: boolean): Promise<string>{
   const title = 'Creating the Credentials';
 
   async function collectInputs() {
@@ -53,17 +46,31 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
   }
 
   async function inputTenantId(input: MultiStepInput, state: Partial<State>) {
-    state.tenantId = await input.showInputBox({
-      ignoreFocusOut: true,
-      title,
-      step: 2,
-      totalSteps: 6,
-      value: typeof state.tenantId === 'string' ? state.tenantId.replace(/\/+$/, '') : '',
-      prompt: 'Type in the Tenant Id',
-      validate: validateNameIsUnique,
-      shouldResume: shouldResume,
-    });
-    return (input: MultiStepInput) => inputApplicationId(input, state);
+    let organisationUrl = '';
+    if (state.organisationUrl !== undefined && state.organisationUrl !== '') {
+      organisationUrl = state.organisationUrl.replace(/\/+$/, '');
+    }
+    const credentialResult = await context.vscode.secrets.get(organisationUrl);
+    if (credentialResult === undefined || !context.projectSettings.tenantId || update) {
+      state.tenantId = await input.showInputBox({
+        ignoreFocusOut: true,
+        title,
+        step: 2,
+        totalSteps: 6,
+        value: typeof state.tenantId === 'string' ? state.tenantId.replace(/\/+$/, '') : '',
+        prompt: 'Type in the Tenant Id',
+        validate: validateNameIsUnique,
+        shouldResume: shouldResume,
+      });
+      return (input: MultiStepInput) => inputApplicationId(input, state);
+    }
+    else {
+      state.tenantId = context.projectSettings.tenantId;
+      state.applicationId = credentialResult.split(";")[0].replace("ClientId=","");
+      state.clientSecret = credentialResult.split(";")[1].replace("ClientSecret=","");
+      //if (state.solutionName) { return; };     
+      return (input: MultiStepInput) => inputSolutionName(input, state);
+    }
   }
 
   async function inputApplicationId(input: MultiStepInput, state: Partial<State>) {
@@ -71,8 +78,6 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
     if (state.organisationUrl !== undefined && state.organisationUrl !== '') {
       organisationUrl = state.organisationUrl.replace(/\/+$/, '');
     }
-    const credentialResult = await context.vscode.secrets.get(organisationUrl);
-    if (credentialResult === undefined) {
       state.createCredential = true;
       state.applicationId = await input.showInputBox({
         ignoreFocusOut: true,
@@ -85,12 +90,6 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
         shouldResume: shouldResume
       });
       return (input: MultiStepInput) => inputClientSecret(input, state);
-    } else {
-      state.applicationId = credentialResult.split(";")[0].replace("ClientId=","");
-      state.clientSecret = credentialResult.split(";")[1].replace("ClientSecret=","");
-      
-      return (input: MultiStepInput) => inputSolutionName(input, state);
-    }
   }
 
   async function inputClientSecret(input: MultiStepInput, state: Partial<State>) {
@@ -108,6 +107,7 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
   }
 
   async function inputSolutionName(input: MultiStepInput, state: Partial<State>) {
+    if (update) {return;}
     try {
     const tokenUrl = 'https://login.microsoftonline.com/' + state.tenantId +'/oauth2/token';
     const params = new URLSearchParams();
@@ -205,7 +205,7 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
     }
   }
   catch{
-    context.channel.appendLine("Error connecting to dataverse, reverting to manaul solution entry")
+    context.channel.appendLine("Error connecting to dataverse, reverting to manaul solution entry");
     state.solutionName = await input.showInputBox({
       ignoreFocusOut: true,
       title,
@@ -249,9 +249,6 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
       });
     }
   }
-
-
-
   function shouldResume() {
     // Could show a notification with the option to resume.
     return new Promise<boolean>((_resolve, _reject) => {
@@ -282,6 +279,7 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
   context.projectSettings.solutionName = state.solutionName;
   context.projectSettings.connectionString = connectionString;
   context.projectSettings.controlName = state.controlName;
+  return connectionString;
 }
 
 export async function getProjectType(context: DataversePowerToolsContext) {
@@ -297,6 +295,14 @@ export async function getProjectType(context: DataversePowerToolsContext) {
     { placeHolder: 'Select a Project Type.' }
   );
   context.projectSettings.type = result?.target;
+  switch (context.projectSettings.type) {
+    case ProjectTypes.solution:
+      context.projectSettings.templateversion  = 1.1;
+      break;
+  default:
+      context.projectSettings.templateversion  = 1;
+      break;
+  }
   window.showInformationMessage(`Project Type: ${result?.label}`);
 }
 
@@ -309,176 +315,20 @@ export async function getSolutionName(context: DataversePowerToolsContext) {
   window.showInformationMessage(`Solution: ${result}`);
 }
 
-class InputFlowAction {
-  static back = new InputFlowAction();
-  static cancel = new InputFlowAction();
-  static resume = new InputFlowAction();
-}
 
-type InputStep = (input: MultiStepInput) => Thenable<InputStep | void>;
 
-interface QuickPickParameters<T extends QuickPickItem> {
+interface State {
   title: string;
   step: number;
+  organisationUrl: string;
+  tenantId: string;
+  applicationId: string;
   totalSteps: number;
-  items: T[];
-  activeItem?: T;
-  placeholder: string;
-  buttons?: QuickInputButton[];
-  shouldResume: () => Thenable<boolean>;
+  name: string;
+  clientSecret: string;
+  solutionName: string;
+  prefix: string;
+  controlName: string;
+  createCredential: boolean;
 }
 
-interface InputBoxParameters {
-  title: string;
-  step: number;
-  totalSteps: number;
-  value: string;
-  prompt: string;
-  validate: (value: string) => Promise<string | undefined>;
-  buttons?: QuickInputButton[];
-  shouldResume: () => Thenable<boolean>;
-}
-
-class MultiStepInput {
-
-  static async run(start: InputStep) {
-    const input = new MultiStepInput();
-    return input.stepThrough(start);
-  }
-
-  private current?: QuickInput;
-  private steps: InputStep[] = [];
-
-  private async stepThrough(start: InputStep) {
-    let step: InputStep | void = start;
-    while (step) {
-      this.steps.push(step);
-      if (this.current) {
-        this.current.enabled = false;
-        this.current.busy = true;
-      }
-      try {
-        step = await step(this);
-      } catch (err) {
-        if (err === InputFlowAction.back) {
-          this.steps.pop();
-          step = this.steps.pop();
-        } else if (err === InputFlowAction.resume) {
-          step = this.steps.pop();
-        } else if (err === InputFlowAction.cancel) {
-          step = undefined;
-        } else {
-          throw err;
-        }
-      }
-    }
-    if (this.current) {
-      this.current.dispose();
-    }
-  }
-
-  async showQuickPick<T extends QuickPickItem, P extends QuickPickParameters<T>>({ title, step, totalSteps, items, activeItem, placeholder, buttons, shouldResume }: P) {
-    const disposables: Disposable[] = [];
-    try {
-      return await new Promise<T | (P extends { buttons: (infer I)[] } ? I : never)>((resolve, reject) => {
-        const input = window.createQuickPick<T>();
-        input.ignoreFocusOut = true;
-        input.title = title;
-        input.step = step;
-        input.totalSteps = totalSteps;
-        input.placeholder = placeholder;
-        input.items = items;
-        if (activeItem) {
-          input.activeItems = [activeItem];
-        }
-        input.buttons = [
-          ...(this.steps.length > 1 ? [QuickInputButtons.Back] : []),
-          ...(buttons || [])
-        ];
-        disposables.push(
-          input.onDidTriggerButton(item => {
-            if (item === QuickInputButtons.Back) {
-              reject(InputFlowAction.back);
-            } else {
-              resolve(<any>item);
-            }
-          }),
-          input.onDidChangeSelection(items => resolve(items[0])),
-          input.onDidHide(() => {
-            (async () => {
-              reject(shouldResume && await shouldResume() ? InputFlowAction.resume : InputFlowAction.cancel);
-            })()
-              .catch(reject);
-          })
-        );
-        if (this.current) {
-          this.current.dispose();
-        }
-        this.current = input;
-        this.current.show();
-      });
-    } finally {
-      disposables.forEach(d => d.dispose());
-    }
-  }
-
-  async showInputBox<P extends InputBoxParameters>({ title, step, totalSteps, value, prompt, validate, buttons, shouldResume }: P) {
-    const disposables: Disposable[] = [];
-    try {
-      return await new Promise<string | (P extends { buttons: (infer I)[] } ? I : never)>((resolve, reject) => {
-        const input = window.createInputBox();
-        input.ignoreFocusOut = true;
-        input.title = title;
-        input.step = step;
-        input.totalSteps = totalSteps;
-        input.value = value || '';
-        input.prompt = prompt;
-        input.buttons = [
-          ...(this.steps.length > 1 ? [QuickInputButtons.Back] : []),
-          ...(buttons || [])
-        ];
-        let validating = validate('');
-        disposables.push(
-          input.onDidTriggerButton(item => {
-            if (item === QuickInputButtons.Back) {
-              reject(InputFlowAction.back);
-            } else {
-              resolve(<any>item);
-            }
-          }),
-          input.onDidAccept(async () => {
-            const value = input.value;
-            input.enabled = false;
-            input.busy = true;
-            if (!(await validate(value))) {
-              resolve(value);
-            }
-            input.enabled = true;
-            input.busy = false;
-          }),
-          input.onDidChangeValue(async text => {
-            const current = validate(text);
-            validating = current;
-            const validationMessage = await current;
-            if (current === validating) {
-              input.validationMessage = validationMessage;
-            }
-          }),
-          input.onDidHide(() => {
-            (async () => {
-              reject(shouldResume && await shouldResume() ? InputFlowAction.resume : InputFlowAction.cancel);
-            })()
-              .catch(reject);
-          })
-        );
-        if (this.current) {
-          this.current.dispose();
-        }
-        this.current = input;
-        this.current.show();
-      });
-    } finally {
-      disposables.forEach(d => d.dispose());
-    }
-  }
-}

@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import fs = require("fs");
-import { readProject, setUISettings } from "./general/initialiseProject";
+import { setUISettings } from "./general/initialiseProject";
 import { generateTemplates } from "./general/generateTemplates";
 import { restoreDependencies } from "./general/restoreDependencies";
 import { createSNKKey, generateEarlyBound } from "./plugins/earlybound";
@@ -8,17 +8,26 @@ import { buildPlugin } from "./plugins/buildPlugin";
 import { createServicePrincipalString, getServicePrincipalString, getProjectType } from "./general/connectionManager";
 
 export default class DataversePowerToolsContext {
-  vscode: vscode.ExtensionContext;
-  channel: vscode.OutputChannel;
-  projectSettings: ProjectSettings = {};
-  connectionString: string = "";
-  template?: PowertoolsTemplate;
-
+  public vscode: vscode.ExtensionContext;
+  public channel: vscode.OutputChannel;
+  public projectSettings: ProjectSettings = {};
+  public connectionString: string = "";
+  public template?: PowertoolsTemplate;
   private settingsFilename: string = "dataverse-powertools.json";
+  public statusBar: vscode.StatusBarItem;
 
   constructor(vscodeContext: vscode.ExtensionContext) {
     this.vscode = vscodeContext;
     this.channel = vscode.window.createOutputChannel("dataverse-powertools");
+    this.statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+    this.statusBar.tooltip = "Dataverse PowerTools";
+    this.statusBar.command = "dataverse-powertools.openSettings";
+  }
+
+  async openSettings(){
+    //open dataverse-powertools view
+    //vscode.window.createTreeView("dataversePowerToolsMenu", );
+    await vscode.commands.executeCommand("dataversePowerToolsMenu.focus");
   }
 
   async writeSettings() {
@@ -51,7 +60,6 @@ export default class DataversePowerToolsContext {
           context.connectionString += credentialString;
         }
         context.projectSettings = this.projectSettings;
-        vscode.window.showInformationMessage('Connected');
       }).catch((err) => {
         this.channel.appendLine(`Error reading settings file: ${err}`);
       });
@@ -63,13 +71,12 @@ export default class DataversePowerToolsContext {
     return data;
   }
 
- async createSettings() {
+ async initialiseProject() {
     await getProjectType(this);
     await createServicePrincipalString(this);
     await generateTemplates(this);
     await this.writeSettings();
     await this.readSettings(this);
-    await readProject(this);
     await setUISettings(this);
     await restoreDependencies(this);
     if (this.projectSettings.type === 'plugin') {

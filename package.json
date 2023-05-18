@@ -1,14 +1,15 @@
 {
   "name": "dataverse-powertools",
   "displayName": "Dataverse PowerTools",
-  "description": "Tools to help build and manage Dataverse and Dynamics 365 CE projects",
+  "description": "Tools to help build and manage Dataverse, CDS, Power Platform, PowerApps, and Dynamics 365 CE projects",
   "publisher": "dataversepowertools",
   "icon": "media/logo_new.png",
+  "pricing": "Free",
   "repository": {
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.1.4",
+  "version": "0.1.5",
   "engines": {
     "vscode": "^1.75.0"
   },
@@ -17,7 +18,8 @@
   ],
   "activationEvents": [
     "onCommand:dataverse-powertools.readProject",
-    "onCommand:dataverse-powertools.generateTemplate"
+    "onCommand:dataverse-powertools.generateTemplate",
+    "workspaceContains:**/dataverse-powertools.json"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -27,10 +29,17 @@
           "submenu": "dataverse-powertools.buildPlugin"
         },
         {
-          "submenu": "dataverse-powertools.buildWebresources"
+          "submenu": "dataverse-powertools.extractSolution"
         },
         {
-          "submenu": "dataverse-powertools.extractSolution"
+          "command": "dataverse-powertools.createWebResourceClass",
+          "group": "navigation@9",
+          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
+        },
+        {
+          "command": "dataverse-powertools.createWebResourceTest",
+          "group": "navigation@10",
+          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
         }
       ],
       "dataverse-powertools.buildPlugin": [
@@ -58,25 +67,6 @@
           "command": "dataverse-powertools.createWorkflowClass",
           "alt": "dataverse-powertools.createWorkflowClass",
           "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
-        }
-      ],
-      "dataverse-powertools.buildWebresources": [
-        {
-          "command": "dataverse-powertools.buildWebresources",
-          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
-        },
-        {
-          "command": "dataverse-powertools.deployWebresources",
-          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
-        },
-        {
-          "command": "dataverse-powertools.generateTypings",
-          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
-        },
-        {
-          "command": "dataverse-powertools.createWebResourceClass",
-          "alt": "dataverse-powertools.createWebResourceClass",
-          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
         }
       ],
       "dataverse-powertools.extractSolution": [
@@ -107,7 +97,7 @@
       },
       {
         "id": "dataverse-powertools.buildWebresources",
-        "label": "Web Resources Actions"
+        "label": "Dateverse PowerTools"
       },
       {
         "id": "dataverse-powertools.extractSolution",
@@ -118,7 +108,7 @@
       "activitybar": [
         {
           "id": "dataverse-powertools",
-          "title": "Dataverse Tools",
+          "title": "Dataverse PowerTools",
           "icon": "media/logo_new.svg"
         }
       ]
@@ -126,8 +116,8 @@
     "views": {
       "dataverse-powertools": [
         {
-          "id": "nodeDependencies",
-          "name": "Node Dependencies",
+          "id": "dataversePowerToolsMenu",
+          "name": "Menu",
           "icon": "media/dep.svg",
           "contextualTitle": "Package Explorer"
         }
@@ -136,160 +126,133 @@
     },
     "viewsWelcome": [
       {
-        "view": "nodeDependencies",
-        "contents": "\n[Initialise Project](command:dataverse-powertools.initialiseProject)",
+        "view": "dataversePowerToolsMenu",
+        "contents": "Dataverse PowerTools \n[Initialise Project](command:dataverse-powertools.initialiseProject)",
         "when": "!dataverse-powertools.showLoaded"
       },
       {
-        "view": "nodeDependencies",
-        "contents": "\n[Build Web Resources](command:dataverse-powertools.buildWebresources)",
+        "view": "dataversePowerToolsMenu",
+        "contents": "Plugin Menu\n[Build and Deploy Plugins](command:dataverse-powertools.buildDeployPlugin)\n[Build Plugins](command:dataverse-powertools.buildPlugin)\n[Generate Early Bound](command:dataverse-powertools.generateEarlyBound)\n[Create Plugin Class](command:dataverse-powertools.createPluginClass)\n[Create Workflow Class](command:dataverse-powertools.createWorkflowClass)",
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
+        "view": "dataversePowerToolsMenu",
+        "contents": "Solution Menu\n[Extract Solution](command:dataverse-powertools.extractSolution)\n[Pack Solution](command:dataverse-powertools.packSolution)\n[Deploy Solution](command:dataverse-powertools.deploySolution)",
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isSolution"
+      },
+      {
+        "view": "dataversePowerToolsMenu",
+        "contents": "Webresource Menu\n[Create New Class](command:dataverse-powertools.createWebResourceClass)\n[Create New Test](command:dataverse-powertools.createWebResourceTest)\n[Build Web Resources](command:dataverse-powertools.buildWebresources)\n[Build & Deploy Web Resources](command:dataverse-powertools.deployWebresources)\n[Generate Typings](command:dataverse-powertools.generateTypings)",
         "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
       },
       {
-        "view": "nodeDependencies",
-        "contents": "\n[Build & Deploy Web Resources](command:dataverse-powertools.deployWebresources)",
-        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
-      },
-      {
-        "view": "nodeDependencies",
-        "contents": "\n[Generate Typings](command:dataverse-powertools.generateTypings)",
-        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
-      },
-      {
-        "view": "nodeDependencies",
-        "contents": "\n[Build and Deploy Plugins](command:dataverse-powertools.buildDeployPlugin)",
-        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
-      },
-      {
-        "view": "nodeDependencies",
-        "contents": "\n[Build Plugins](command:dataverse-powertools.buildPlugin)",
-        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
-      },
-      {
-        "view": "nodeDependencies",
-        "contents": "\n[Generate Early Bound](command:dataverse-powertools.generateEarlyBound)",
-        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
-      },
-      {
-        "view": "nodeDependencies",
-        "contents": "\n[Create Plugin Class](command:dataverse-powertools.createPluginClass)",
-        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
-      },
-      {
-        "view": "nodeDependencies",
-        "contents": "\n[Create Workflow Class](command:dataverse-powertools.createWorkflowClass)",
-        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
-      },
-      {
-        "view": "nodeDependencies",
-        "contents": "\n[Restore Dependencies](command:dataverse-powertools.restoreDependencies)",
+        "view": "dataversePowerToolsMenu",
+        "contents": "Local Settings Menu\n[Restore Dependencies](command:dataverse-powertools.restoreDependencies)\n[Update Connection String](command:dataverse-powertools.updateConnectionString)",
         "when": "dataverse-powertools.showLoaded"
-      },
-      {
-        "view": "nodeDependencies",
-        "contents": "\n[Extract Solution](command:dataverse-powertools.extractSolution)",
-        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isSolution"
-      },
-      {
-        "view": "nodeDependencies",
-        "contents": "\n[Pack Solution](command:dataverse-powertools.packSolution)",
-        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isSolution"
-      },
-      {
-        "view": "nodeDependencies",
-        "contents": "\n[Deploy Solution](command:dataverse-powertools.deploySolution)",
-        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isSolution"
-      },
-      {
-        "view": "nodeDependencies",
-        "contents": "\n[Create Web Resource Class](command:dataverse-powertools.createWebResourceClass)",
-        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
       }
     ],
     "commands": [
       {
-        "command": "dataverse-powertools.createConnectionString",
-        "title": "Dataverse PowerTools: Create Connection String"
+        "command": "dataverse-powertools.createWebResourceTest",
+        "title": "Dataverse PowerTools: Create New Test",
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
       },
       {
-        "command": "dataverse-powertools.initialiseWebresources",
-        "title": "Dataverse PowerTools: Initialise Web Resources"
+        "command": "dataverse-powertools.updateConnectionString",
+        "title": "Dataverse PowerTools: Update Connection String",
+        "enablement": "dataverse-powertools.showLoaded"
       },
       {
         "command": "dataverse-powertools.initialiseProject",
-        "title": "Dataverse PowerTools: Initialise Project"
+        "title": "Dataverse PowerTools: Initialise Project",
+        "enablement": "!dataverse-powertools.showLoaded"
       },
       {
         "command": "dataverse-powertools.generateEarlyBound",
-        "title": "Dataverse PowerTools: Generate Early Bound"
+        "title": "Dataverse PowerTools: Generate Early Bound",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
         "command": "dataverse-powertools.buildDeployPlugin",
-        "title": "Dataverse PowerTools: Build and Deploy Plugins"
+        "title": "Dataverse PowerTools: Build and Deploy Plugins",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
         "command": "dataverse-powertools.buildPlugin",
-        "title": "Dataverse PowerTools: Build Plugins"
+        "title": "Dataverse PowerTools: Build Plugins",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
         "command": "dataverse-powertools.buildDeployWorkflow",
-        "title": "Dataverse PowerTools: Build and Deploy Workflows"
+        "title": "Dataverse PowerTools: Build and Deploy Workflows",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
         "command": "dataverse-powertools.buildWebresources",
-        "title": "Dataverse PowerTools: Build Webresources"
+        "title": "Dataverse PowerTools: Build Webresources",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
       },
       {
         "command": "dataverse-powertools.deployWebresources",
-        "title": "Dataverse PowerTools: Build and Deploy Webresources"
+        "title": "Dataverse PowerTools: Build and Deploy Webresources",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
       },
       {
         "command": "dataverse-powertools.generateTypings",
-        "title": "Dataverse PowerTools: Generate Typings"
-      },
-      {
-        "command": "dataverse-powertools.generateTemplates",
-        "title": "Dataverse PowerTools: Generate Templates"
+        "title": "Dataverse PowerTools: Generate Typings",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
       },
       {
         "command": "dataverse-powertools.createPluginClass",
-        "title": "Dataverse PowerTools: Create Plugin Class"
+        "title": "Dataverse PowerTools: Create Plugin Class",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
         "command": "dataverse-powertools.createWorkflowClass",
-        "title": "Dataverse PowerTools: Create Workflow Class"
+        "title": "Dataverse PowerTools: Create Workflow Class",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
         "command": "dataverse-powertools.restoreDependencies",
-        "title": "Dataverse PowerTools: Restore Dependencies"
+        "title": "Dataverse PowerTools: Restore Dependencies",
+        "enablement": "dataverse-powertools.showLoaded"
       },
       {
         "command": "dataverse-powertools.createSNKKey",
-        "title": "Dataverse PowerTools: Create SNK Key"
+        "title": "Dataverse PowerTools: Create SNK Key",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
         "command": "dataverse-powertools.extractSolution",
-        "title": "Dataverse PowerTools: Extract Solution"
+        "title": "Dataverse PowerTools: Extract Solution",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isSolution"
       },
       {
         "command": "dataverse-powertools.packSolution",
-        "title": "Dataverse PowerTools: Pack Solution"
+        "title": "Dataverse PowerTools: Pack Solution",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isSolution",
+        "category": "Dataverse PowerTools",
+        "icon": "media/logo_new.svg"
       },
       {
         "command": "dataverse-powertools.deploySolution",
-        "title": "Dataverse PowerTools: Deploy Solution"
+        "title": "Dataverse PowerTools: Deploy Solution",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isSolution"
       },
       {
         "command": "dataverse-powertools.createWebResourceClass",
-        "title": "Dataverse PowerTools: Create Web Resource Class"
+        "title": "Dataverse PowerTools: Create Web Resource Class",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
       },
       {
         "command": "dataverse-powertools.connectPortal",
-        "title": "Dataverse PowerTools: Connect Portal"
+        "title": "Dataverse PowerTools: Connect Portal",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPortal"
       },
       {
         "command": "dataverse-powertools.downloadPortal",
-        "title": "Dataverse PowerTools: Download Portal"
+        "title": "Dataverse PowerTools: Download Portal",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPortal"
       }
     ]
   },

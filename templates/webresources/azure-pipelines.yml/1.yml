@@ -2,6 +2,9 @@
 trigger:
 - '*'
 
+variables:
+- group: DevEnv
+
 pool:
   vmImage: 'windows-latest'
 
@@ -25,6 +28,8 @@ steps:
   displayName: 'Restore Dependencies'
 
 - task: PowerShell@2
+  env:
+    CRMCONNECTIONSTRING: $(ConnectionString)
   inputs:
     targetType: 'inline'
     script: '$conn = ${env:OPENCONNECTIONSTRING} -replace ";" , "`r`n" | ConvertFrom-StringData; $sol = (get-content .\spkl.json | ConvertFrom-Json).webresources[0].solution; & .\packages\Delegate.XrmDefinitelyTyped\content\XrmDefinitelyTyped\XrmDefinitelyTyped.exe "/url:$($conn.Url)/XRMServices/2011/Organization.svc" /out:typings\XRM /solutions:$($sol) /mfaAppId:$($conn.ClientId) /mfaReturnUrl:$($conn.Url) /mfaClientSecret:$($conn.ClientSecret) /jsLib:bin/SOLUTIONPREFIX_dependencies /method:ClientSecret /web:$($sol)Web /rest:$($sol)Rest\'

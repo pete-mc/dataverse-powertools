@@ -1,0 +1,46 @@
+# Install https://marketplace.visualstudio.com/items?itemName=microsoft-IsvExpTools.PowerPlatform-BuildTools to
+# your organization in order to setup the service connection and use the PowerPlatform components below
+
+trigger:
+- main
+
+pool:
+  vmImage: 'windows-latest'
+
+steps:
+- checkout: self
+
+# Build CDS solution
+- task: PowerPlatformToolInstaller@2
+  displayName: 'Install Power Platform Build Tools'
+  inputs:
+    DefaultVersion: true
+
+- task: PowerPlatformPackSolution@2
+  displayName: 'Pack solution'
+  inputs:
+    SolutionSourceFolder: '$(Build.SourcesDirectory)\SOLUTIONPLACEHOLDER'
+    SolutionOutputFile: '$(Pipeline.Workspace)\solutions\solution_managed.zip'
+    SolutionType: 'Managed'
+
+- task: PowerPlatformPackSolution@2
+  displayName: 'Pack solution'
+  inputs:
+    SolutionSourceFolder: '$(Build.SourcesDirectory)\SOLUTIONPLACEHOLDER'
+    SolutionOutputFile: '$(Pipeline.Workspace)\solutions\solution_unmanaged.zip'
+
+# Perform solution check. Create Power Platform service connection to the dev environment
+- task: PowerPlatformChecker@2
+  inputs:
+    authenticationType: 'PowerPlatformSPN'
+    PowerPlatformSPN: 'DEVENV'
+    FilesToAnalyze: '$(Pipeline.Workspace)\solutions\solution_unmanaged.zip'
+    RuleSet: '0ad12346-e108-40b8-a956-9a8f95ea18c9'
+    ErrorLevel: 'CriticalIssueCount'
+
+- task: PublishPipelineArtifact@1
+  displayName: 'Publish solution packages to artifact'
+  inputs:
+    targetPath: '$(Pipeline.Workspace)\solutions'
+    artifact: 'Solution Packages'
+    publishLocation: 'pipeline'

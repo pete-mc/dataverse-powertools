@@ -5,26 +5,26 @@ export class ClassName {
 
     this.BindEvents(form);
     this.OnLoadLogic(form);
+  }
 
+  static async OnLoadLogic(form: Form.TableName.Main.FormName) {
     switch (form.ui.getFormType().valueOf()) {
       case Xrm.FormType.Create:
+        // Add logic to run on new records
         break;
       case Xrm.FormType.Update:
-        break;
-      default:
+        // Add logic to run on existing records
         break;
     }
+    // add OnLoad logic here
   }
-  static Test(executionContext: Xrm.ExecutionContext<unknown, unknown>): void {
-    throw new Error("not Implemented");
-  }
-  static async OnLoadLogic(form: Form.TableName.Main.FormName) {
-    throw new Error("not Implemented");
-  }
+
   static async BindEvents(form: Form.TableName.Main.FormName) {
-    throw new Error("not Implemented");
+    form.data.entity.addOnSave(() => this.OnSave(form));
+    //Add Bind events here
   }
-  static async OnSave(executionContext: Xrm.ExecutionContext<any, any>) {
-    throw new Error("not Implemented");
+
+  static async OnSave(executionContext: Form.TableName.Main.FormName) {
+    //Add On Save logic here
   }
 }

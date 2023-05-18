@@ -9,52 +9,55 @@ import { buildDeployWorkflow } from "./plugins/buildDeployWorkflow";
 import { buildWebresources } from "./webresources/buildWebresources";
 import { deployWebresources } from "./webresources/deployWebresources";
 import { generateTypings } from "./webresources/generateTypings";
-import { createServicePrincipalString } from "./general/connectionManager";
+import { createServicePrincipalString, updateConnectionString } from "./general/connectionManager";
 import { restoreDependencies } from './general/restoreDependencies';
-import { initialiseProject } from "./general/initialiseProject";
 import { buildPlugin } from "./plugins/buildPlugin";
-import { createPluginClass, createWebResourceClass, createWorkflowClass } from "./general/generateTemplates";
+import { createPluginClass, createWorkflowClass } from "./general/generateTemplates";
 import { extractSolution } from "./solution/extractSolution";
 import { packSolution } from "./solution/packSolution";
 import { deploySolution } from "./solution/deploySolution";
-import { connectPortal, downloadPortal } from "./portals/connectPortal";
+import { connectPortal } from "./portals/connectPortal";
+import { createWebResourceClass, createWebResourceTest } from "./webresources/createWebresourceClass";
 
 export async function activate(vscodeContext: vscode.ExtensionContext) {
     const context = new DataversePowerToolsContext(vscodeContext);
-    await cs.readProject(context);
+    context.channel.appendLine(fs.readFileSync(context.vscode.asAbsolutePath(path.join("templates", "logo.txt")), "utf8"));
+    context.channel.appendLine(`version: ${vscodeContext.extension.packageJSON.version}`);
+
+    await context.readSettings(context);
     await cs.setUISettings(context);
-    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.initialiseProject", () => initialiseProject(context)));
+//#region General
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.initialiseProject", () => context.initialiseProject()));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createConnectionString", () => createServicePrincipalString(context)));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.restoreDependencies", () => restoreDependencies(context)));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.updateConnectionString", () => updateConnectionString(context)));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.openSettings", () => context.openSettings()));
+//#endregion
+//#region Plugins
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.generateEarlyBound", () => generateEarlyBound(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildDeployPlugin", () => buildDeployPlugin(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildPlugin", () => buildPlugin(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildDeployWorkflow", () => buildDeployWorkflow(context)));
-
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createPluginClass", () => createPluginClass(context)));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createWorkflowClass", () => createWorkflowClass(context)));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createSNKKey", () => createSNKKey(context)));
+//#endregion
+//#region webresources
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildWebresources", () => buildWebresources(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.deployWebresources", () => deployWebresources(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.generateTypings", () => generateTypings(context)));
-    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.generateTemplate", () => generateTemplates(context)));
-    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createPluginClass", () => createPluginClass(context)));
-    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createWorkflowClass", () => createWorkflowClass(context)));
-
-    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.restoreDependencies", () => restoreDependencies(context)));
-    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createSNKKey", () => createSNKKey(context)));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createWebResourceClass", () => createWebResourceClass(context)));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createWebResourceTest", () => createWebResourceTest(context)));
+//#endregion
+//#region Solution
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.extractSolution", () => extractSolution(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.packSolution", () => packSolution(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.deploySolution", () => deploySolution(context)));
-    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createWebResourceClass", () => createWebResourceClass(context)));
+//#endregion
+//#region Portals
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.connectPortal", () => connectPortal(context, 'connect')));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.downloadPortal", () => connectPortal(context, 'download')));
+//#endregion
 
-    // Extension path example
-    let fullFilePath = context.vscode.asAbsolutePath(path.join("templates", "logo.txt"));
-    let data = fs.readFileSync(fullFilePath, "utf8");
-    context.channel.appendLine(data);
-}
-
-// this method is called when your extension is deactivated
-export function deactivate() {}
-function generateTemplates(_context: DataversePowerToolsContext): any {
-    throw new Error("Function not implemented.");
 }
 
