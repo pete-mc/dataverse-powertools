@@ -4,7 +4,7 @@ import { setUISettings } from "./general/initialiseProject";
 import { generateTemplates } from "./general/generateTemplates";
 import { restoreDependencies } from "./general/restoreDependencies";
 import { createSNKKey, generateEarlyBound } from "./plugins/earlybound";
-import { buildPlugin } from "./plugins/buildPlugin";
+import { buildProject } from "./plugins/buildPlugin";
 import { createServicePrincipalString, getServicePrincipalString, getProjectType } from "./general/connectionManager";
 
 export default class DataversePowerToolsContext {
@@ -24,9 +24,7 @@ export default class DataversePowerToolsContext {
     this.statusBar.command = "dataverse-powertools.openSettings";
   }
 
-  async openSettings(){
-    //open dataverse-powertools view
-    //vscode.window.createTreeView("dataversePowerToolsMenu", );
+  async openSettings() {
     await vscode.commands.executeCommand("dataversePowerToolsMenu.focus");
   }
 
@@ -34,8 +32,7 @@ export default class DataversePowerToolsContext {
     if (vscode.workspace.workspaceFolders !== undefined) {
       const filePath = vscode.workspace.workspaceFolders[0].uri.fsPath + "\\" + this.settingsFilename;
       let toWrite = JSON.parse(JSON.stringify(this.projectSettings));
-      toWrite.connectionString = 
-        toWrite.connectionString?.substring(0, toWrite.connectionString?.indexOf('ClientId'));
+      toWrite.connectionString = toWrite.connectionString?.substring(0, toWrite.connectionString?.indexOf("ClientId"));
       fs.writeFile(filePath, JSON.stringify(toWrite), (err) => {
         if (err) {
           this.channel.appendLine(`Error writing settings file: ${err}`);
@@ -47,22 +44,24 @@ export default class DataversePowerToolsContext {
   async readSettings(context: DataversePowerToolsContext) {
     if (vscode.workspace.workspaceFolders !== undefined) {
       const filePath = vscode.workspace.workspaceFolders[0].uri.fsPath + "\\" + this.settingsFilename;
-      await this.readFileAsync(filePath).then(async (data: any) => {
-        this.projectSettings = JSON.parse(data);
-        this.connectionString = this.projectSettings.connectionString || '';
-        let name = context.connectionString.substring(context.connectionString.indexOf("Url=") + 4, context.connectionString.length - 1);
-        name = name.replace(/\/+$/, '');
-         const credentialString = await getServicePrincipalString(this, name);
-        if (credentialString === '') {
-          await createServicePrincipalString(this);
-          context.connectionString = this.projectSettings.connectionString || '';
-        } else {
-          context.connectionString += credentialString;
-        }
-        context.projectSettings = this.projectSettings;
-      }).catch((err) => {
-        this.channel.appendLine(`Error reading settings file: ${err}`);
-      });
+      await this.readFileAsync(filePath)
+        .then(async (data: any) => {
+          this.projectSettings = JSON.parse(data);
+          this.connectionString = this.projectSettings.connectionString || "";
+          let name = context.connectionString.substring(context.connectionString.indexOf("Url=") + 4, context.connectionString.length - 1);
+          name = name.replace(/\/+$/, "");
+          const credentialString = await getServicePrincipalString(this, name);
+          if (credentialString === "") {
+            await createServicePrincipalString(this);
+            context.connectionString = this.projectSettings.connectionString || "";
+          } else {
+            context.connectionString += credentialString;
+          }
+          context.projectSettings = this.projectSettings;
+        })
+        .catch((err) => {
+          this.channel.appendLine(`Error reading settings file: ${err}`);
+        });
     }
   }
 
@@ -71,7 +70,7 @@ export default class DataversePowerToolsContext {
     return data;
   }
 
- async initialiseProject() {
+  async initialiseProject() {
     await getProjectType(this);
     await createServicePrincipalString(this);
     await generateTemplates(this);
@@ -79,10 +78,10 @@ export default class DataversePowerToolsContext {
     await this.readSettings(this);
     await setUISettings(this);
     await restoreDependencies(this);
-    if (this.projectSettings.type === 'plugin') {
+    if (this.projectSettings.type === "plugin") {
       await createSNKKey(this);
       await generateEarlyBound(this);
-      await buildPlugin(this);
+      await buildProject(this);
     }
   }
 }
@@ -103,10 +102,9 @@ export enum ProjectTypes {
   pcffield = "pcffield",
   pcfdataset = "pcfdataset",
   solution = "solution",
-  portal = "portal"
+  portal = "portal",
 }
 export interface PowertoolsTemplate {
-
   version: number;
   files?: File[];
   placeholders?: Placeholder[];

@@ -5,8 +5,9 @@
     <AssemblyOriginatorKeyFile>Plugin.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.CrmSdk.CoreAssemblies" Version="9.0.2.45" />
-    <PackageReference Include="Microsoft.CrmSdk.Workflow" Version="9.0.2.45" />
+    <PackageReference Include="Microsoft.CrmSdk.CoreAssemblies" Version="9.0.2.49" />
+    <PackageReference Include="Microsoft.CrmSdk.Workflow" Version="9.0.2.49" />
+    <PackageReference Include="Microsoft.CrmSdk.CoreTools" Version="9.1.0.79" />
     <PackageReference Include="spkl" Version="1.0.640" />
   </ItemGroup>
 </Project>

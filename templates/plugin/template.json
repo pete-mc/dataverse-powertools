@@ -36,7 +36,7 @@
         "path": [
           "plugins_src"
         ],
-        "filename": "Plugin",
+        "filename": "sampleClass",
         "extension": ".cs",
         "version": 1
       },
@@ -44,7 +44,7 @@
         "path": [
           "plugins_src"
         ],
-        "filename": "Workflow",
+        "filename": "sampleWorkflow",
         "extension": ".cs",
         "version": 1
       },

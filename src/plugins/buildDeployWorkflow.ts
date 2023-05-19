@@ -16,7 +16,7 @@ export async function buildDeployWorkflow(context: DataversePowerToolsContext) {
         vscode.window.showInformationMessage("Built and Deploying to Dataverse");
         cp.execFile(
           workspacePath + "\\packages\\spkl\\tools\\spkl.exe",
-          ["workflow", "./" + context.projectSettings.solutionName + "/spkl.json", context.connectionString],
+          ["workflow", "./plugins_src/spkl.json", context.connectionString],
           {
             cwd: workspacePath,
           },
@@ -29,7 +29,7 @@ export async function buildDeployWorkflow(context: DataversePowerToolsContext) {
               context.channel.appendLine(stdout);
               vscode.window.showInformationMessage("Workflow Deployed");
             }
-          }
+          },
         );
       }
     });

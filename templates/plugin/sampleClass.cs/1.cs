@@ -7,7 +7,7 @@ namespace PluginSRC
     // Sample attributes
     // [CrmPluginRegistration(MessageNameEnum.Create, "contact", StageEnum.PostOperation, ExecutionModeEnum.Synchronous, "", "PluginSRC - CLASSNAME - contact Create", 1, IsolationModeEnum.Sandbox, Id = "90705ddd-1442-4403-8cb6-48807e2ecaf7")]
     // [CrmPluginRegistration(MessageNameEnum.Update, "contact", StageEnum.PostOperation, ExecutionModeEnum.Synchronous, "firstname", "PluginSRC - CLASSNAME - contact Update", 1, IsolationModeEnum.Sandbox, Id = "7b205b03-620f-4a9d-aa15-736f6e0e38ae")]
-    public class Plugin : IPlugin
+    public class ClassName : IPlugin
     {
         public void Execute(IServiceProvider serviceProvider)
         {

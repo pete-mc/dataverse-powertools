@@ -2,18 +2,21 @@ import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
 
 export async function generateTypings(context: DataversePowerToolsContext) {
-  await vscode.window.withProgress({
-    location: vscode.ProgressLocation.Notification,
-    title: "Generating Typings...",
-  }, async () => {
-    await generateTypingsExecution(context);
-  });  
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: "Generating Typings...",
+    },
+    async () => {
+      await generateTypingsExecution(context);
+    },
+  );
 }
 
 export async function generateTypingsExecution(context: DataversePowerToolsContext) {
   if (vscode.workspace.workspaceFolders !== undefined) {
-    const util = require('util');
-    const exec = util.promisify(require('child_process').execFile);
+    const util = require("util");
+    const exec = util.promisify(require("child_process").execFile);
     const spklFile = await vscode.workspace.fs.readFile(vscode.Uri.file(vscode.workspace.workspaceFolders[0].uri.fsPath + "\\spkl.json"));
     const spklString = Buffer.from(spklFile).toString("utf8");
     const spkl = JSON.parse(spklString);
@@ -34,19 +37,19 @@ export async function generateTypingsExecution(context: DataversePowerToolsConte
         ],
         {
           cwd: vscode.workspace.workspaceFolders[0].uri.fsPath,
-        }
+        },
       );
-      const child = promise.child; 
-      child.stdout.on('data', function (data: any) {
-        console.log('stdout: ' + data);
+      const child = promise.child;
+      child.stdout.on("data", function (data: any) {
+        console.log("stdout: " + data);
       });
-      child.stderr.on('data', function(_data: any) {
+      child.stderr.on("data", function (_data: any) {
         vscode.window.showInformationMessage("Error creating types, see output for details.");
       });
-      child.on('close', function(_code: any) {
+      child.on("close", function (_code: any) {
         vscode.window.showInformationMessage("Typings have been generated.");
       });
-      
+
       // i.e. can then await for promisified exec call to complete
       const { stdout, stderr } = await promise;
     } catch (error: any) {
