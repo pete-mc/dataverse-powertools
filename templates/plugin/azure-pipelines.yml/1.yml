@@ -1,0 +1,60 @@
+trigger:
+- '*'
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+- group: DevEnv
+  
+steps:
+- task: PowerShell@2
+  displayName: Restore dependencies
+  inputs:
+    targetType: 'inline'
+    script: 'dotnet restore; dotnet new tool-manifest; dotnet tool install paket; dotnet tool restore; dotnet paket init; dotnet paket install'
+
+- task: PowerShell@2
+  displayName: Generate earlybound
+  env:
+    CRMCONNECTIONSTRING: $(ConnectionString)
+  inputs:
+    targetType: 'inline'
+    script: 'md ./plugins_src/generated -ErrorAction SilentlyContinue; & ./packages/spkl/tools/spkl.exe earlybound ./plugins_src/spkl.json ${env:CRMCONNECTIONSTRING}'
+    
+- task: PowerShell@2
+  displayName: Build Solution
+  inputs:
+    targetType: 'inline'
+    script: 'dotnet build -c Release -p:version=1.0.0.0'
+
+- task: PowerShell@2
+  displayName: Stage artifacts
+  inputs:
+    targetType: 'inline'
+    script: 'dotnet publish -c Release --no-build -o:$(Build.ArtifactStagingDirectory)'
+
+- task: PowerShell@2
+  displayName: Run tests
+  inputs:
+    targetType: 'inline'
+    script: 'dotnet test ./plugins_srctest/plugins_srctest.csproj -l:trx --collect:"XPlat Code Coverage" -- RunConfiguration.DisableAppDomain=true'
+
+- task: PublishTestResults@2
+  displayName: Publish tests
+  inputs:
+    testResultsFormat: 'VSTest'
+    testResultsFiles: '**/*.trx'
+
+- task: PublishCodeCoverageResults@1
+  displayName: Publish code coverage
+  inputs:
+    codeCoverageTool: Cobertura
+    summaryFileLocation: '**/coverage.cobertura.xml'
+
+- task: PublishBuildArtifacts@1
+  displayName: Publish artifacts
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)/plugins_src.dll'
+    ArtifactName: 'Release Build'
+    publishLocation: 'Container'

@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using Microsoft.Xrm.Sdk;
 namespace PluginSRC
 {
-    // Sample attributes
-    // [CrmPluginRegistration(MessageNameEnum.Create, "contact", StageEnum.PostOperation, ExecutionModeEnum.Synchronous, "", "PluginSRC - CLASSNAME - contact Create", 1, IsolationModeEnum.Sandbox, Id = "90705ddd-1442-4403-8cb6-48807e2ecaf7")]
-    // [CrmPluginRegistration(MessageNameEnum.Update, "contact", StageEnum.PostOperation, ExecutionModeEnum.Synchronous, "firstname", "PluginSRC - CLASSNAME - contact Update", 1, IsolationModeEnum.Sandbox, Id = "7b205b03-620f-4a9d-aa15-736f6e0e38ae")]
+    // Sample decroation, this will register the below step as part of the publish. Decorations can be added manually or via the Add Plugin Decoration command.
+    // They must appear above the class declaration and must be uncommented. A unique GUID is required for each decoration, the builtin command will do this for you.
+    // [CrmPluginRegistration(MessageNameEnum.Create, "contact", StageEnum.PostOperation, ExecutionModeEnum.Synchronous, "", "PluginSRC - ClassName - Create", 1, IsolationModeEnum.Sandbox, Id = "90705ddd-1442-4403-8cb6-48807e2ecaf7")]
     public class ClassName : IPlugin
     {
         public void Execute(IServiceProvider serviceProvider)

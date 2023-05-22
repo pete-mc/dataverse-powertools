@@ -7,6 +7,7 @@ using Microsoft.Xrm.Sdk.Workflow;
 
 namespace PluginSRC
 {
+    //[CrmPluginRegistration("WorkflowActivity","ClassName", "Workflow Description", "Workflow Group Name", IsolationModeEnum.Sandbox)]
     public class ClassName : CodeActivity
     {
         [RequiredArgument]
@@ -24,7 +25,7 @@ namespace PluginSRC
             using (var userServiceContext = new XrmSvc(userService))
             using (var systemServiceContext = new XrmSvc(systemService))
             {
-               
+               // Do stuff
             }
         }
     }
