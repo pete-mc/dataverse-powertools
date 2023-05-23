@@ -1,5 +1,116 @@
 [
   {
+    "version": 2,
+    "files": [
+      {
+        "path": [],
+        "filename": "",
+        "extension": ".gitignore",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": "azure-pipelines",
+        "extension": ".yml",
+        "version": 2
+      },
+      {
+        "path": [],
+        "filename": "nuget",
+        "extension": ".config",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": "paket",
+        "extension": ".dependencies",
+        "version": 1
+      },
+      {
+        "path": [
+          "PROJECTNAMESPACE"
+        ],
+        "filename": "sampleClass",
+        "extension": ".cs",
+        "version": 2
+      },
+      {
+        "path": [
+          "PROJECTNAMESPACE"
+        ],
+        "filename": "sampleWorkflow",
+        "extension": ".cs",
+        "version": 2
+      },
+      {
+        "path": [
+          "PROJECTNAMESPACE"
+        ],
+        "filename": "CrmPluginRegistrationAttribute.generated",
+        "extension": ".cs",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": "Plugin",
+        "extension": ".sln",
+        "version": 2
+      },
+      {
+        "path": [
+          "PROJECTNAMESPACE"
+        ],
+        "filename": "spkl",
+        "extension": ".json",
+        "version": 2
+      },
+      {
+        "path": [
+          "PROJECTNAMESPACE"
+        ],
+        "filename": "PROJECTNAMESPACE",
+        "extension": ".csproj",
+        "version": 2
+      },
+      {
+        "path": [
+          "PROJECTNAMESPACE_tests"
+        ],
+        "filename": "sampleTest",
+        "extension": ".cs",
+        "version": 2
+      },
+      {
+        "path": [
+          "PROJECTNAMESPACE_tests"
+        ],
+        "filename": "PROJECTNAMESPACE_tests",
+        "extension": ".csproj",
+        "version": 2
+      }
+    ],
+    "placeholders": [
+      {
+        "displayName": "What is the project name/namespace you wish to use?",
+        "placeholder": "PROJECTNAMESPACE"
+      }
+    ],
+    "restoreCommands": [
+      {
+        "command": "dotnet new tool-manifest --force"
+      },
+      {
+        "command": "dotnet tool install paket"
+      },
+      {
+        "command": "dotnet tool restore"
+      },
+      {
+        "command": "dotnet paket install"
+      }
+    ]
+  },
+  {
     "version": 1,
     "files": [
       {
@@ -24,12 +135,6 @@
         "path": [],
         "filename": "paket",
         "extension": ".dependencies",
-        "version": 1
-      },
-      {
-        "path": [],
-        "filename": "README",
-        "extension": ".md",
         "version": 1
       },
       {
@@ -95,16 +200,7 @@
         "version": 1
       }
     ],
-    "placeholders": [
-      {
-        "displayName": "What is the schema name of the solution?",
-        "placeholder": "SOLUTIONNAME"
-      },
-      {
-        "displayName": "What is the solution prefix? This is also used as the namespace and library.js prefix.",
-        "placeholder": "SOLUTIONPREFIX"
-      }
-    ],
+    "placeholders": [],
     "restoreCommands": [
       {
         "command": "dotnet new tool-manifest --force"

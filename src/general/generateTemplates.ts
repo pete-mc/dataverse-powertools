@@ -1,7 +1,33 @@
 import * as vscode from "vscode";
-import DataversePowerToolsContext, { PowertoolsTemplate } from "../context";
+import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes, TemplatePlaceholder } from "../context";
 import path = require("path");
 import fs = require("fs");
+import { createServicePrincipalString, getProjectType } from "./connectionManager";
+import { setUISettings } from "./initialiseExtension";
+import { restoreDependencies } from "./restoreDependencies";
+import { createSNKKey, generateEarlyBound } from "../plugins/earlybound";
+import { buildProject } from "../plugins/buildPlugin";
+import { generateTypings } from "../webresources/generateTypings";
+
+export async function initialiseProject(context: DataversePowerToolsContext) {
+  await getProjectType(context);
+  await createServicePrincipalString(context);
+  await generateTemplates(context);
+  await context.writeSettings();
+  await context.readSettings(context);
+  await setUISettings(context);
+  await restoreDependencies(context);
+  switch (context.projectSettings.type) {
+    case ProjectTypes.plugin:
+      await createSNKKey(context);
+      await generateEarlyBound(context);
+      await buildProject(context);
+      break;
+    case ProjectTypes.webresource:
+      await generateTypings(context);
+      break;
+  }
+}
 
 export async function generateTemplates(context: DataversePowerToolsContext) {
   //inital system checks
@@ -18,26 +44,37 @@ export async function generateTemplates(context: DataversePowerToolsContext) {
   }
   vscode.window.showInformationMessage("Generating template version: " + templateToCopy.version.toString());
   let placeholders = [] as TemplatePlaceholder[];
-  await templateToCopy.placeholders?.every(async (p) => {
-    const placeholderValue = (await vscode.window.showInputBox({ prompt: p.displayName })) || p.placeholder;
-    placeholders.push({ placeholder: p.placeholder, value: placeholderValue });
-  });
+  if (templateToCopy.placeholders) {
+    for (let i = 0; i < templateToCopy.placeholders.length; i++) {
+      const p = templateToCopy.placeholders[i];
+      if (p.placeholder === "SOLUTIONPREFIX" || p.placeholder === "SOLUTIONPLACEHOLDER") {
+        continue;
+      }
+      const placeholderValue = (await vscode.window.showInputBox({ prompt: p.displayName })) || p.placeholder;
+      placeholders.push({ placeholder: p.placeholder, value: placeholderValue });
+    }
+  }
+  context.projectSettings.placeholders = placeholders;
   templateToCopy.files?.every(async (f) => {
     const extension = f.extension === ".tstemplate" ? ".ts" : f.extension; // This is done because the .ts files do not copy into the published extension thus we overwrite it when actually copying from extension into the code
     var data = fs.readFileSync(templateFilePath + "\\" + f.filename + f.extension + "\\" + f.version + f.extension, "utf8");
     data = data.replace(/\SOLUTIONPREFIX/g, context.projectSettings.prefix || "SOLUTIONPREFIX");
     data = data.replace(/\SOLUTIONPLACEHOLDER/g, context.projectSettings.solutionName || "SOLUTIONPLACEHOLDER");
-    await templateToCopy.placeholders?.every((p) => {
-      data = data.replace(new RegExp(p.placeholder, "g"), placeholders.find((x) => x.placeholder === p.placeholder)?.value || p.placeholder);
-    });
     const destPath = f.path;
     destPath.unshift(folderPath);
     destPath.push(f.filename + extension);
-    await vscode.workspace.fs.writeFile(vscode.Uri.file(path.join(...destPath)), Buffer.from(data, "utf8"));
+    var destPathString = path.join(...destPath);
+    for (let i = 0; i < placeholders.length; i++) {
+      const p = placeholders[i];
+      data = data.replace(new RegExp(p.placeholder, "g"), p.value || p.placeholder);
+      destPathString = destPathString.replace(new RegExp(p.placeholder, "g"), p.value || p.placeholder);
+    }
+    await vscode.workspace.fs.writeFile(vscode.Uri.file(destPathString), Buffer.from(data, "utf8"));
   });
+  vscode.window.showInformationMessage("Template generation complete");
 }
 
-export async function createTemplatedFile(context: DataversePowerToolsContext, sourceFilename: string, destinationFileName: string, replacements?: TemplatePlaceholder[]) {
+export async function createTemplatedFile(context: DataversePowerToolsContext, sourceFilename: string, destinationFileName: string, replacements?: TemplatePlaceholder[], openFile?: boolean) {
   if (context.projectSettings.type && context.projectSettings.templateversion && vscode.workspace.workspaceFolders) {
     var fullFilePath = context.vscode.asAbsolutePath(path.join("templates", context.projectSettings.type));
     var templates = JSON.parse(fs.readFileSync(fullFilePath + "\\template.json", "utf8")) as Array<PowertoolsTemplate>;
@@ -64,24 +101,29 @@ export async function createTemplatedFile(context: DataversePowerToolsContext, s
             }
             fileName = destinationFileName;
             if (replacements) {
-              replacements.forEach((replacement) => {
-                data = data.replace(new RegExp(replacement.placeholder, "g"), replacement.value);
-              });
+              for (let i = 0; i < replacements.length; i++) {
+                const p = replacements[i];
+                data = data.replace(new RegExp(p.placeholder, "g"), p.value || p.placeholder);
+              }
             }
             destPath.push(fileName + fileExtension);
-            console.log(vscode.Uri.file(path.join(...destPath)), Buffer.from(data, "utf8"));
-            await vscode.workspace.fs.writeFile(vscode.Uri.file(path.join(...destPath)), Buffer.from(data, "utf8"));
-            vscode.workspace.openTextDocument(vscode.Uri.file(path.join(...destPath))).then((doc) => {
-              vscode.window.showTextDocument(doc);
-            });
+            var destPathString = path.join(...destPath);
+            if (context.projectSettings.placeholders) {
+              for (let i = 0; i < context.projectSettings.placeholders.length; i++) {
+                const p = context.projectSettings.placeholders[i];
+                data = data.replace(new RegExp(p.placeholder, "g"), p.value || p.placeholder);
+                destPathString = destPathString.replace(new RegExp(p.placeholder, "g"), p.value || p.placeholder);
+              }
+            }
+            await vscode.workspace.fs.writeFile(vscode.Uri.file(destPathString), Buffer.from(data, "utf8"));
+            if (openFile) {
+              vscode.workspace.openTextDocument(vscode.Uri.file(destPathString)).then((doc) => {
+                vscode.window.showTextDocument(doc);
+              });
+            }
           }
         }
       }
     }
   }
-}
-
-export interface TemplatePlaceholder {
-  placeholder: string;
-  value: string;
 }

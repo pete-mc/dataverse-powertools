@@ -1,0 +1,27 @@
+{
+    "plugins": [
+      {
+        "profile": "default,debug",
+        "assemblypath": "bin\\Debug\\net471",
+        "solution": "SOLUTIONPLACEHOLDER"
+      },
+      {
+        "profile": "release,release",
+        "assemblypath": "bin\\Release\\net471",
+        "solution": "SOLUTIONPLACEHOLDER"
+      }
+    ],
+    "earlyboundtypes": [
+      {
+        "entities": "account,contact",
+        "actions": "",
+        "generateOptionsetEnums": "true",
+        "generateStateEnums": "true",
+        "generateGlobalOptionsets": true,
+        "filename": "generated\\EarlyBoundTypes.cs",
+        "oneTypePerFile": false,
+        "classNamespace": "PROJECTNAMESPACE",
+        "serviceContextName": "XrmSvc"
+      }
+    ]
+  }

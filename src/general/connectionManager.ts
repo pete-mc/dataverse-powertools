@@ -160,7 +160,7 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
   }
 
   async function inputPrefix(input: MultiStepInput, state: Partial<State>) {
-    if (state.prefix === null || state.prefix === "") {
+    if (state.prefix === null || state.prefix === "" || state.prefix === undefined) {
       state.prefix = await input.showInputBox({
         ignoreFocusOut: true,
         title,
@@ -189,6 +189,9 @@ export async function getProjectType(context: DataversePowerToolsContext) {
   );
   context.projectSettings.type = result?.target;
   switch (context.projectSettings.type) {
+    case ProjectTypes.plugin:
+      context.projectSettings.templateversion = 2;
+      break;
     case ProjectTypes.solution:
       context.projectSettings.templateversion = 1.1;
       break;

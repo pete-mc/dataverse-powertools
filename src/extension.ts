@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import * as cs from "./general/initialiseProject";
+import * as cs from "./general/initialiseExtension";
 import path = require("path");
 import fs = require("fs");
 import DataversePowerToolsContext from "./context";
@@ -20,6 +20,7 @@ import { createWebResourceClass, createWebResourceTest } from "./webresources/cr
 import { createPluginClass, createWorkflowClass } from "./plugins/createPluginClass";
 import { addPluginDecoration } from "./plugins/addStepDecoration";
 import { addWorkflowDecoration } from "./plugins/addWorkflowDecoration";
+import { initialiseProject } from "./general/generateTemplates";
 
 export async function activate(vscodeContext: vscode.ExtensionContext) {
   const context = new DataversePowerToolsContext(vscodeContext);
@@ -29,7 +30,7 @@ export async function activate(vscodeContext: vscode.ExtensionContext) {
   await context.readSettings(context);
   await cs.setUISettings(context);
   //#region General
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.initialiseProject", () => context.initialiseProject()));
+  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.initialiseProject", () => initialiseProject(context)));
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createConnectionString", () => createServicePrincipalString(context)));
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.restoreDependencies", () => restoreDependencies(context)));
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.updateConnectionString", () => updateConnectionString(context)));

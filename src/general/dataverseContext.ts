@@ -35,7 +35,7 @@ async function getDavaverseFetchOptions(organisationUrl: string, tenantId: strin
     });
 
     const data: any = await tokenResponse.json();
-    if (data === null && data["access_token"] === null) {
+    if (data === null || data["access_token"] === undefined || data["access_token"] === null) {
       return undefined;
     }
     const options = {

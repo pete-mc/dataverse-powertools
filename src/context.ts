@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import fs = require("fs");
-import { setUISettings } from "./general/initialiseProject";
+import { setUISettings } from "./general/initialiseExtension";
 import { generateTemplates } from "./general/generateTemplates";
 import { restoreDependencies } from "./general/restoreDependencies";
 import { createSNKKey, generateEarlyBound } from "./plugins/earlybound";
@@ -69,24 +69,10 @@ export default class DataversePowerToolsContext {
     const data = await fs.promises.readFile(filePath);
     return data;
   }
-
-  async initialiseProject() {
-    await getProjectType(this);
-    await createServicePrincipalString(this);
-    await generateTemplates(this);
-    await this.writeSettings();
-    await this.readSettings(this);
-    await setUISettings(this);
-    await restoreDependencies(this);
-    if (this.projectSettings.type === "plugin") {
-      await createSNKKey(this);
-      await generateEarlyBound(this);
-      await buildProject(this);
-    }
-  }
 }
 
 interface ProjectSettings {
+  placeholders?: TemplatePlaceholder[];
   type?: ProjectTypes;
   templateversion?: number;
   tenantId?: string;
@@ -94,6 +80,11 @@ interface ProjectSettings {
   connectionString?: string;
   prefix?: string;
   controlName?: string;
+}
+
+export interface TemplatePlaceholder {
+  placeholder: string;
+  value: string;
 }
 
 export enum ProjectTypes {

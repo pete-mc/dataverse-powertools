@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
-import DataversePowerToolsContext from "../context";
-import { TemplatePlaceholder, createTemplatedFile } from "../general/generateTemplates";
+import DataversePowerToolsContext, { TemplatePlaceholder } from "../context";
+import { createTemplatedFile } from "../general/generateTemplates";
 import path = require("path");
 
 export async function createWebResourceClass(context: DataversePowerToolsContext) {
