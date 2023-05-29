@@ -25,11 +25,24 @@ export async function createSNKKey(context: DataversePowerToolsContext) {
   });
 }
 
+function getProjectName(context: DataversePowerToolsContext): string {
+  if (!context.projectSettings.placeholders) {
+    return "plugins_src";
+  }
+  for (let i = 0; i < context.projectSettings.placeholders.length; i++) {
+    if (context.projectSettings.placeholders[i].placeholder === "PROJECTNAMESPACE") {
+      return context.projectSettings.placeholders[i].value;
+    }
+  }
+  return "plugins_src";
+}
+
 export async function generateEarlyBound(context: DataversePowerToolsContext) {
   if (!context.projectSettings.type || !context.projectSettings.templateversion || !vscode.workspace.workspaceFolders) {
     return;
   }
-  const solutionName = "plugins_src";
+  var solutionName = getProjectName(context);
+
   const spklFile = await vscode.workspace.fs.readFile(vscode.Uri.file(vscode.workspace.workspaceFolders[0].uri.fsPath + "\\" + solutionName + "\\spkl.json"));
   await vscode.workspace.fs.createDirectory(vscode.Uri.file(vscode.workspace.workspaceFolders[0].uri.fsPath + "\\" + solutionName + "\\generated"));
   await vscode.workspace.fs.createDirectory(vscode.Uri.file(vscode.workspace.workspaceFolders[0].uri.fsPath + "\\logs"));

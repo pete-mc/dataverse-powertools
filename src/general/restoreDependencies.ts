@@ -34,7 +34,7 @@ export async function restoreDependencies(context: DataversePowerToolsContext) {
           title: "Restoring " + c.command,
         },
         async () => {
-          const test = await restoreDepedencyExec(c.command, workspacePath, context);
+          await restoreDepedencyExec(c.command, workspacePath, context);
         },
       );
     }
@@ -52,7 +52,9 @@ export async function restoreDepedencyExec(command: string, workspacePath: strin
     const child = promise.child;
 
     child.stdout.on("data", function (data: any) {
-      const test = data;
+      if (!data) {
+        return;
+      }
       if (data.includes("Error") && !data.includes("0 Error")) {
         vscode.window.showErrorMessage("Error building plugins, see output for details.");
         context.channel.appendLine(data);
