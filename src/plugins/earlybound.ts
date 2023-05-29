@@ -43,7 +43,6 @@ export async function generateEarlyBound(context: DataversePowerToolsContext) {
   }
   var solutionName = getProjectName(context);
 
-  const spklFile = await vscode.workspace.fs.readFile(vscode.Uri.file(vscode.workspace.workspaceFolders[0].uri.fsPath + "\\" + solutionName + "\\spkl.json"));
   await vscode.workspace.fs.createDirectory(vscode.Uri.file(vscode.workspace.workspaceFolders[0].uri.fsPath + "\\" + solutionName + "\\generated"));
   await vscode.workspace.fs.createDirectory(vscode.Uri.file(vscode.workspace.workspaceFolders[0].uri.fsPath + "\\logs"));
   await vscode.window.withProgress(
@@ -56,13 +55,12 @@ export async function generateEarlyBound(context: DataversePowerToolsContext) {
         return;
       }
       var fullFilePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-      cp.execFile(fullFilePath + "\\packages\\spkl\\tools\\spkl.exe", ["earlybound", "..\\plugins_src\\spkl.json", '"' + context.connectionString + '"'], { cwd: fullFilePath + "\\logs" }, (error, stdout) => {
+      cp.execFile(fullFilePath + "\\packages\\spkl\\tools\\spkl.exe", ["earlybound", `..\\${solutionName}\\spkl.json`, context.connectionString], { cwd: fullFilePath + "\\logs" }, (error, stdout) => {
         if (error) {
           vscode.window.showErrorMessage("Error creating Earlybound types.");
           context.channel.appendLine(error.message);
           context.channel.appendLine(stdout);
           context.channel.appendLine("Error Creating Earlybound types");
-          vscode.window.showErrorMessage(error.message);
           context.channel.show();
         } else {
           context.channel.appendLine(stdout);
