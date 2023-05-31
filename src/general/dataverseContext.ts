@@ -1,4 +1,5 @@
 import fetch from "node-fetch";
+import DataversePowerToolsContext from "../context";
 
 async function getDavaverseFetchOptions(organisationUrl: string, tenantId: string, applicationId: string, clientSecret: string, method: string): Promise<Options | undefined> {
   try {
@@ -68,6 +69,37 @@ export async function getSolutions(organisationUrl: string, tenantId: string, ap
   } catch {
     return undefined;
   }
+}
+
+async function getDataverseTables(organisationUrl: string, tenantId: string, applicationId: string, clientSecret: string): Promise<string[]> {
+  const options = await getDavaverseFetchOptions(organisationUrl, tenantId, applicationId, clientSecret, "GET");
+  if (options === undefined) {
+    return [];
+  }
+  try {
+    const url = organisationUrl + "/api/data/v9.1/EntityDefinitions?$select=LogicalName";
+    const response = await fetch(url, options);
+    const data: any = await response.json();
+    if (data === null) {
+      return [];
+    }
+    const tables = data.value.map((record: any) => record.LogicalName);
+    return tables;
+  } catch {
+    return [];
+  }
+}
+
+export async function getDataverseTablesFromContext(context: DataversePowerToolsContext): Promise<string[]> {
+  if (!context.projectSettings.tenantId) {
+    return [];
+  }
+  return await getDataverseTables(
+    context.connectionString.split(";")[2].replace("Url=", ""),
+    context.projectSettings.tenantId,
+    context.connectionString.split(";")[3].replace("ClientId=", ""),
+    context.connectionString.split(";")[4].replace("ClientSecret=", ""),
+  );
 }
 
 export class DataverseSolution {

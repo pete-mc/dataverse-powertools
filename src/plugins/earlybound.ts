@@ -9,7 +9,7 @@ export async function createSNKKey(context: DataversePowerToolsContext) {
     return;
   }
   var fullFilePath = context.vscode.asAbsolutePath(path.join("templates"));
-  var localPath = vscode.workspace.workspaceFolders[0].uri.fsPath + "\\plugins_src";
+  var localPath = vscode.workspace.workspaceFolders[0].uri.fsPath + "\\" + getProjectName(context);
   cp.execFile(fullFilePath + "\\sn.exe", ["-k", localPath + "\\Plugin.snk"], (error, stdout) => {
     if (error) {
       vscode.window.showErrorMessage("Error creating SNK Key.");
@@ -25,7 +25,7 @@ export async function createSNKKey(context: DataversePowerToolsContext) {
   });
 }
 
-function getProjectName(context: DataversePowerToolsContext): string {
+export function getProjectName(context: DataversePowerToolsContext): string {
   if (!context.projectSettings.placeholders) {
     return "plugins_src";
   }

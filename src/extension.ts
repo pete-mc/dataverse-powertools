@@ -21,14 +21,17 @@ import { createPluginClass, createWorkflowClass } from "./plugins/createPluginCl
 import { addPluginDecoration } from "./plugins/addStepDecoration";
 import { addWorkflowDecoration } from "./plugins/addWorkflowDecoration";
 import { initialiseProject } from "./general/generateTemplates";
+import { pluginTableSelector } from "./plugins/pluginTables";
 
 export async function activate(vscodeContext: vscode.ExtensionContext) {
   const context = new DataversePowerToolsContext(vscodeContext);
   context.channel.appendLine(fs.readFileSync(context.vscode.asAbsolutePath(path.join("templates", "logo.txt")), "utf8"));
   context.channel.appendLine(`version: ${vscodeContext.extension.packageJSON.version}`);
-
   await context.readSettings(context);
   await cs.setUISettings(context);
+
+  pluginTableSelector(context);
+
   //#region General
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.initialiseProject", () => initialiseProject(context)));
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createConnectionString", () => createServicePrincipalString(context)));

@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.1.9",
+  "version": "0.1.10",
   "engines": {
     "vscode": "^1.75.0"
   },
@@ -45,6 +45,31 @@
           "group": "navigation@10",
           "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
         }
+      ],
+      "view/title": [
+  
+      ],
+      "view/item/context": [
+        {
+          "command": "dataversePowerToolsTree.addEntry",
+          "when": "view == dataversePowerToolsTree && viewItem == Available",
+          "group": "inline"
+        },
+        {
+          "command": "dataversePowerToolsTree.deleteEntry",
+          "when": "view == dataversePowerToolsTree && viewItem == Selected",
+          "group": "inline"
+        },
+        {
+          "command": "dataversePowerToolsTree.manualAddToTree",
+          "when": "view == dataversePowerToolsTree && viewItem == SelectedRoot",
+          "group": "inline"
+        },      
+        {
+          "command": "dataversePowerToolsTree.updateTree",
+          "when": "view == dataversePowerToolsTree && viewItem == AvailableRoot",
+          "group": "inline"
+        }
       ]
     },
     "viewsContainers": {
@@ -62,7 +87,16 @@
           "id": "dataversePowerToolsMenu",
           "name": "Menu",
           "icon": "media/dep.svg",
-          "contextualTitle": "Package Explorer"
+          "contextualTitle": "Package Explorer",
+          "type": "tree"
+        },
+        {
+          "id": "dataversePowerToolsTree",
+          "name": "Earlybound Options",
+          "icon": "media/dep.svg",
+          "contextualTitle": "Package Explorer",
+          "type": "tree",
+          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
         }
       ],
       "explorer": []
@@ -95,6 +129,38 @@
       }
     ],
     "commands": [
+      {
+        "command": "dataversePowerToolsTree.deleteEntry",
+        "title": "Remove Table",
+        "icon": {
+          "light": "media/light/error.svg",
+          "dark": "media/dark/error.svg"
+        }
+      },
+      {
+        "command": "dataversePowerToolsTree.addEntry",
+        "title": "Add Table",
+        "icon": {
+          "light": "media/light/pass.svg",
+          "dark": "media/dark/pass.svg"
+        }
+      },
+      {
+        "command": "dataversePowerToolsTree.manualAddToTree",
+        "title": "Add Unlisted Earlybound Table",
+        "icon": {
+          "light": "media/light/add.svg",
+          "dark": "media/dark/add.svg"
+        }
+      },
+      {
+        "command": "dataversePowerToolsTree.updateTree",
+        "title": "Refresh Earlybound Tables From Dataverse",
+        "icon": {
+          "light": "media/light/refresh.svg",
+          "dark": "media/dark/refresh.svg"
+        }
+      },
       {
         "command": "dataverse-powertools.createWebResourceTest",
         "title": "Dataverse PowerTools: Create New Test",
@@ -201,7 +267,7 @@
         "command": "dataverse-powertools.addPluginDecoration",
         "title": "Dataverse PowerTools: Add Plugin Decoration",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
-      }      ,
+      },
       {
         "command": "dataverse-powertools.addWorkflowDecoration",
         "title": "Dataverse PowerTools: Add Workflow Decoration",
@@ -243,6 +309,7 @@
     "webpack-cli": "^4.9.2"
   },
   "dependencies": {
+    "fast-xml-parser": "^4.2.2",
     "fs-extra": "^10.1.0",
     "node-fetch": "^3.2.10",
     "uuid": "^9.0.0"
