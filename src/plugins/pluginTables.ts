@@ -115,6 +115,7 @@ class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
         label: table,
         id: table,
         contextValue: "Available",
+        type: EarlyboundType.table,
       } as TreeItem;
     });
     this.data[1].children = this.allTables.filter((table) => !this.data[0].children?.some((selectedTable) => selectedTable.label === table.label));
