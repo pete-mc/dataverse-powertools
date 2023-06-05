@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.1.11",
+  "version": "0.1.12",
   "engines": {
     "vscode": "^1.75.0"
   },
@@ -119,7 +119,7 @@
       },
       {
         "view": "dataversePowerToolsMenu",
-        "contents": "Webresource Menu\n[Create New Class](command:dataverse-powertools.createWebResourceClass)\n[Create New Test](command:dataverse-powertools.createWebResourceTest)\n[Build Web Resources](command:dataverse-powertools.buildWebresources)\n[Build & Deploy Web Resources](command:dataverse-powertools.deployWebresources)\n[Generate Typings](command:dataverse-powertools.generateTypings)",
+        "contents": "Webresource Menu\n[Create New Class](command:dataverse-powertools.createWebResourceClass)\n[Create New Test](command:dataverse-powertools.createWebResourceTest)\n[Build Web Resources](command:dataverse-powertools.buildWebresources)\n[Build & Deploy Web Resources](command:dataverse-powertools.deployWebresources)\n[Generate Typings](command:dataverse-powertools.generateTypings)\n[Add Form Registration](command:dataverse-powertools.addFormDecoration)\n[Register Form Events](command:dataverse-powertools.saveFormData)",
         "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
       },
       {
@@ -272,6 +272,11 @@
         "command": "dataverse-powertools.addWorkflowDecoration",
         "title": "Dataverse PowerTools: Add Workflow Decoration",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
+        "command": "dataverse-powertools.saveFormData",
+        "title": "Dataverse PowerTools: Register Form Events",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
       }
     ]
   },

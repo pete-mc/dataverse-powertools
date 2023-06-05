@@ -19,7 +19,11 @@ class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
 
   constructor(context: DataversePowerToolsContext) {
     this.context = context;
-    this.data = [new TreeItem("Selected Tables", [], undefined, "SelectedRoot"), new TreeItem("Available Tables", [], undefined, "AvailableRoot"), new TreeItem("Selected Actions", [], undefined, "SelectedRoot")];
+    this.data = [
+      new TreeItem("Selected Tables", [], undefined, "SelectedRoot"),
+      new TreeItem("Available Tables", [], undefined, "AvailableRoot"),
+      new TreeItem("Selected Actions", [], undefined, "SelectedRoot"),
+    ];
     this.data[0].children = this.getSelectedTables(EarlyboundType.table);
     this.getDataverseTables();
     this.data[2].children = this.getSelectedTables(EarlyboundType.action);

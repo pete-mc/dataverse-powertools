@@ -1,5 +1,6 @@
 import fetch from "node-fetch";
 import DataversePowerToolsContext from "../context";
+import { XMLBuilder, XMLParser } from "fast-xml-parser";
 
 async function getDavaverseFetchOptions(organisationUrl: string, tenantId: string, applicationId: string, clientSecret: string, method: string): Promise<Options | undefined> {
   try {
@@ -51,6 +52,18 @@ async function getDavaverseFetchOptions(organisationUrl: string, tenantId: strin
     return undefined;
   }
 }
+async function getDavaverseFetchOptionsFormContext(context: DataversePowerToolsContext, method: string): Promise<Options | undefined> {
+  if (!context.projectSettings.tenantId) {
+    return undefined;
+  }
+  return await getDavaverseFetchOptions(
+    context.connectionString.split(";")[2].replace("Url=", ""),
+    context.projectSettings.tenantId,
+    context.connectionString.split(";")[3].replace("ClientId=", ""),
+    context.connectionString.split(";")[4].replace("ClientSecret=", ""),
+    method,
+  );
+}
 
 export async function getSolutions(organisationUrl: string, tenantId: string, applicationId: string, clientSecret: string): Promise<DataverseSolution[] | undefined> {
   const options = await getDavaverseFetchOptions(organisationUrl, tenantId, applicationId, clientSecret, "GET");
@@ -58,7 +71,9 @@ export async function getSolutions(organisationUrl: string, tenantId: string, ap
     return undefined;
   }
   try {
-    const url = organisationUrl + "/api/data/v9.1/solutions?$select=friendlyname,uniquename,solutionid,publisherid&$filter=ismanaged%20eq%20false&$expand=publisherid($select=friendlyname,customizationprefix,publisherid)";
+    const url =
+      organisationUrl +
+      "/api/data/v9.1/solutions?$select=friendlyname,uniquename,solutionid,publisherid&$filter=ismanaged%20eq%20false&$expand=publisherid($select=friendlyname,customizationprefix,publisherid)";
     const response = await fetch(url, options);
     const data: any = await response.json();
     if (data === null) {
@@ -102,6 +117,102 @@ export async function getDataverseTablesFromContext(context: DataversePowerTools
   );
 }
 
+export class DataverseForm {
+  id: string;
+  displayName: string | undefined;
+  context: DataversePowerToolsContext;
+  public form: any;
+  parsingOptions = {
+    ignoreAttributes: false,
+    attributeNamePrefix: "@_",
+    suppressBooleanAttributes: false,
+    suppressEmptyNode: true,
+    isArray: (_name: unknown, jpath: string, _isLeafNode: unknown, _isAttribute: unknown) => {
+      const alwaysArray = ["form.formLibraries.Library", "form.events.event", "form.events.event.Handlers.Handler"]; //add any node here that you want to force to be an array.
+      if (alwaysArray.indexOf(jpath) !== -1) {
+        return true;
+      }
+      return false;
+    },
+  };
+  constructor(formid: string, context: DataversePowerToolsContext) {
+    this.id = formid;
+    this.context = context;
+  }
+
+  public async getFormData(): Promise<void> {
+    if (!this.context.projectSettings.tenantId) {
+      return;
+    }
+    const organisationUrl = this.context.connectionString.split(";")[2].replace("Url=", "");
+    const options = await getDavaverseFetchOptionsFormContext(this.context, "GET");
+    if (options === undefined) {
+      return;
+    }
+    try {
+      this.context.channel.appendLine(`Loading Form: ${this.id}`);
+      const url = organisationUrl + "/api/data/v9.1/systemforms(" + this.id + ")?$select=formxml";
+      const response = await fetch(url, options);
+      if (response.ok === false) {
+        this.context.channel.appendLine(await response.text());
+        return;
+      }
+      const data: any = await response.json();
+      if (data === null) {
+        return;
+      }
+      this.form = await new XMLParser(this.parsingOptions).parse(data.formxml);
+    } catch (e) {
+      this.context.channel.appendLine(JSON.stringify(e));
+    }
+  }
+
+  public async saveForm(): Promise<void> {
+    if (!this.context.projectSettings.tenantId) {
+      return;
+    }
+    const organisationUrl = this.context.connectionString.split(";")[2].replace("Url=", "");
+    var options = await getDavaverseFetchOptionsFormContext(this.context, "PATCH");
+    if (options === undefined) {
+      return;
+    }
+    try {
+      options.headers["Content-Type"] = "application/json";
+      options.headers["Accept"] = "application/json";
+      const formxml = (await new XMLBuilder(this.parsingOptions).build(this.form)).replace(/&quot;/g, '"');
+      options.body = JSON.stringify({ formxml: formxml });
+      const url = organisationUrl + "/api/data/v9.1/systemforms(" + this.id + ")";
+      const response = await fetch(url, options);
+      const data: any = await response.text();
+      if (data === null || data === "") {
+        this.context.channel.appendLine(`Saved Form: ${this.id}`);
+        return;
+      }
+      this.context.channel.appendLine(data);
+    } catch (e) {
+      this.context.channel.appendLine(JSON.stringify(e));
+    }
+  }
+}
+
+export async function publishAllCustomisations(context: DataversePowerToolsContext) {
+  if (!context.projectSettings.tenantId) {
+    return;
+  }
+  const organisationUrl = context.connectionString.split(";")[2].replace("Url=", "");
+  const options = await getDavaverseFetchOptionsFormContext(context, "POST");
+  if (options === undefined) {
+    return;
+  }
+  try {
+    const url = organisationUrl + "/api/data/v9.1/PublishAllXml";
+    const response = await fetch(url, options);
+    const data: any = await response.json();
+    if (data === null) {
+      return;
+    }
+  } catch {}
+}
 export class DataverseSolution {
   id: string;
   displayName: string;
@@ -121,9 +232,14 @@ export class DataverseSolution {
 
 interface Options {
   method: string;
+  body?: any;
   headers: {
     // eslint-disable-next-line @typescript-eslint/naming-convention
     Authorization: string;
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    Accept?: string;
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    "Content-Type"?: string;
   };
 }
 

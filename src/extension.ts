@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import * as cs from "./general/initialiseExtension";
 import path = require("path");
 import fs = require("fs");
-import DataversePowerToolsContext from "./context";
+import DataversePowerToolsContext, { ProjectTypes } from "./context";
 import { createSNKKey, generateEarlyBound } from "./plugins/earlybound";
 import { buildDeployPlugin } from "./plugins/buildDeployPlugin";
 import { buildDeployWorkflow } from "./plugins/buildDeployWorkflow";
@@ -22,6 +22,8 @@ import { addPluginDecoration } from "./plugins/addStepDecoration";
 import { addWorkflowDecoration } from "./plugins/addWorkflowDecoration";
 import { initialiseProject } from "./general/generateTemplates";
 import { pluginTableSelector } from "./plugins/pluginTables";
+import { saveFormData } from "./webresources/saveFormData";
+import { addFormDecoration } from "./webresources/addFormDecoration";
 
 export async function activate(vscodeContext: vscode.ExtensionContext) {
   const context = new DataversePowerToolsContext(vscodeContext);
@@ -30,7 +32,9 @@ export async function activate(vscodeContext: vscode.ExtensionContext) {
   await context.readSettings(context);
   await cs.setUISettings(context);
 
-  pluginTableSelector(context);
+  if (context.projectSettings.type === ProjectTypes.plugin) {
+    pluginTableSelector(context);
+  }
 
   //#region General
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.initialiseProject", () => initialiseProject(context)));
@@ -56,6 +60,8 @@ export async function activate(vscodeContext: vscode.ExtensionContext) {
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.generateTypings", () => generateTypings(context)));
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createWebResourceClass", () => createWebResourceClass(context)));
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createWebResourceTest", () => createWebResourceTest(context)));
+  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.addFormDecoration", () => addFormDecoration(context)));
+  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.saveFormData", () => saveFormData(context)));
   //#endregion
   //#region Solution
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.extractSolution", () => extractSolution(context)));

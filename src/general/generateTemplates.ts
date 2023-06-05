@@ -37,7 +37,9 @@ export async function generateTemplates(context: DataversePowerToolsContext) {
   }
   const folderPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
   var templateFilePath = context.vscode.asAbsolutePath(path.join("templates", context.projectSettings.type));
-  const templateToCopy = JSON.parse(fs.readFileSync(templateFilePath + "\\template.json", "utf8")).find((t: PowertoolsTemplate) => t.version === context.projectSettings.templateversion) as PowertoolsTemplate;
+  const templateToCopy = JSON.parse(fs.readFileSync(templateFilePath + "\\template.json", "utf8")).find(
+    (t: PowertoolsTemplate) => t.version === context.projectSettings.templateversion,
+  ) as PowertoolsTemplate;
   if (!templateToCopy) {
     vscode.window.showErrorMessage("Could not find matching template");
     return;
@@ -74,7 +76,13 @@ export async function generateTemplates(context: DataversePowerToolsContext) {
   vscode.window.showInformationMessage("Template generation complete");
 }
 
-export async function createTemplatedFile(context: DataversePowerToolsContext, sourceFilename: string, destinationFileName: string, replacements?: TemplatePlaceholder[], openFile?: boolean) {
+export async function createTemplatedFile(
+  context: DataversePowerToolsContext,
+  sourceFilename: string,
+  destinationFileName: string,
+  replacements?: TemplatePlaceholder[],
+  openFile?: boolean,
+) {
   if (context.projectSettings.type && context.projectSettings.templateversion && vscode.workspace.workspaceFolders) {
     var fullFilePath = context.vscode.asAbsolutePath(path.join("templates", context.projectSettings.type));
     var templates = JSON.parse(fs.readFileSync(fullFilePath + "\\template.json", "utf8")) as Array<PowertoolsTemplate>;
@@ -89,7 +97,10 @@ export async function createTemplatedFile(context: DataversePowerToolsContext, s
       if (templateToCopy !== undefined && templateToCopy.files !== undefined) {
         const pluginTemplate = templateToCopy.files.find((x) => x.filename === sourceFilename);
         if (pluginTemplate !== undefined) {
-          var data = fs.readFileSync(fullFilePath + "\\" + pluginTemplate.filename + pluginTemplate.extension + "\\" + context.projectSettings.templateversion + pluginTemplate.extension, "utf8");
+          var data = fs.readFileSync(
+            fullFilePath + "\\" + pluginTemplate.filename + pluginTemplate.extension + "\\" + context.projectSettings.templateversion + pluginTemplate.extension,
+            "utf8",
+          );
           if (vscode.workspace.workspaceFolders) {
             const folderPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
             const destPath = pluginTemplate.path;

@@ -117,6 +117,12 @@
                 "filename": "sample.test",
                 "extension": ".tstemplate",
                 "version": 1
+            },
+            {
+                "path": ["typings"],
+                "filename": "PowerTools.d",
+                "extension": ".tstemplate",
+                "version": 1
             }
         ]
     }
