@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import fs = require("fs");
 import DataversePowerToolsContext from "../context";
 import { getProjectName } from "./earlybound";
-import { getDataverseTablesFromContext } from "../general/dataverseContext";
+import { getDataverseTables } from "../general/dataverse/getDataverseTables";
 
 export function pluginTableSelector(context: DataversePowerToolsContext) {
   new TreeDataProvider(context);
@@ -113,7 +113,7 @@ class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
   }
 
   async getDataverseTables(): Promise<void> {
-    const tableArray = await getDataverseTablesFromContext(this.context);
+    const tableArray = await getDataverseTables(this.context);
     this.allTables = tableArray.map((table) => {
       return {
         label: table,

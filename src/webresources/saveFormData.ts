@@ -1,6 +1,6 @@
 import DataversePowerToolsContext from "../context";
 import * as vscode from "vscode";
-import { DataverseForm } from "../general/dataverseContext";
+import { DataverseForm } from "../general/dataverse/DataverseForm";
 import { randomUUID } from "crypto";
 
 export async function saveFormData(context: DataversePowerToolsContext): Promise<void> {
@@ -48,12 +48,10 @@ export async function saveFormDataExec(context: DataversePowerToolsContext): Pro
   const webpackConfigText = webpackConfigDocument.getText();
   const libraryName = webpackConfigText.match(/(?<=output: {\s*filename: ['"]).*?(?=['"],)/)?.[0];
 
-  //Get all of the forms from Dataverse using the new DataverseForm("8448b78f-8f42-454e-8e2a-f8196b0419af", context);
   for (const formId in groupedRegisterEvents) {
     const form = new DataverseForm(formId, context);
     await form.getFormData();
     /* eslint-disable @typescript-eslint/naming-convention */
-    //check if the library in the libraryName variable exists in the form object and add it if it doesn't
     if (!form.form.form.formLibraries) {
       form.form.form.formLibraries = { Library: [] };
     }
@@ -136,6 +134,9 @@ export async function saveFormDataExec(context: DataversePowerToolsContext): Pro
     context.channel.appendLine(`Saving Form: ${form.id}`);
     await form.saveForm();
   }
+  context.channel.appendLine(`Publishing All Customisations`);
+  await context.dataverse?.publishAllCustomisations();
+  context.channel.appendLine(`Publish Complete`);
 }
 
 interface RegisterEvent {

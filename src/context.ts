@@ -1,13 +1,10 @@
 import * as vscode from "vscode";
 import fs = require("fs");
-import { setUISettings } from "./general/initialiseExtension";
-import { generateTemplates } from "./general/generateTemplates";
-import { restoreDependencies } from "./general/restoreDependencies";
-import { createSNKKey, generateEarlyBound } from "./plugins/earlybound";
-import { buildProject } from "./plugins/buildPlugin";
-import { createServicePrincipalString, getServicePrincipalString, getProjectType } from "./general/connectionManager";
+import { createServicePrincipalString, getServicePrincipalString, getProjectType } from "./general/connectionStringManager";
+import { DataverseContext } from "./general/dataverse/dataverseContext";
 
 export default class DataversePowerToolsContext {
+  public dataverse: DataverseContext | undefined;
   public vscode: vscode.ExtensionContext;
   public channel: vscode.OutputChannel;
   public projectSettings: ProjectSettings = {};
@@ -15,7 +12,6 @@ export default class DataversePowerToolsContext {
   public template?: PowertoolsTemplate;
   private settingsFilename: string = "dataverse-powertools.json";
   public statusBar: vscode.StatusBarItem;
-
   constructor(vscodeContext: vscode.ExtensionContext) {
     this.vscode = vscodeContext;
     this.channel = vscode.window.createOutputChannel("dataverse-powertools");

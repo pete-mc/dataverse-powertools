@@ -3,9 +3,11 @@ import * as vscode from "vscode";
 import { v4 as uuidv4 } from "uuid";
 import DataversePowerToolsContext from "../context";
 import { MultiStepInput, shouldResume, validationIgnore } from "../general/inputControls";
+import { getDataverseForms } from "../general/dataverse/getDataverseForms";
+import { getDataverseTables } from "../general/dataverse/getDataverseTables";
 
-export async function addFormDecoration(_context: DataversePowerToolsContext) {
-  const outputs = await collectInputs();
+export async function addFormDecoration(context: DataversePowerToolsContext) {
+  const outputs = await collectInputs(context);
   const decoration = `
 <PowerTools.RegisterEvent[]>[
   {
@@ -13,15 +15,16 @@ export async function addFormDecoration(_context: DataversePowerToolsContext) {
     event: "${outputs.eventType}",
     executionContext: ${outputs.sendExecutionContext},
     triggerId: "${outputs.id}",
-    function: "${_context.projectSettings.prefix}.${outputs.className}.${outputs.functionName}",
+    function: "${context.projectSettings.prefix}.${outputs.className}.${outputs.functionName}",
   },
 ];
 `;
   vscode.window.activeTextEditor?.insertSnippet(new vscode.SnippetString(decoration));
 }
 
-async function collectInputs() {
+async function collectInputs(context: DataversePowerToolsContext) {
   const state = {} as Partial<State>;
+  state.context = context;
   state.id = uuidv4();
   await MultiStepInput.run((input) => inputClassName(input, state));
   return state as State;
@@ -38,10 +41,49 @@ async function inputClassName(input: MultiStepInput, state: Partial<State>) {
     validate: validationIgnore,
     shouldResume: shouldResume,
   });
+  return (input: MultiStepInput) => inputEntity(input, state);
+}
+async function inputEntity(input: MultiStepInput, state: Partial<State>) {
+  if (state.context) {
+    const tables = (await getDataverseTables(state.context)).map((table) => {
+      return { label: table };
+    });
+    if (tables.length > 0) {
+      state.entity = (
+        (await input.showQuickPick({
+          title: "Create Form Registration",
+          step: 2,
+          totalSteps: 5,
+          placeholder: "Select Table",
+          items: tables,
+          shouldResume: shouldResume,
+        })) as any
+      ).label;
+      return (input: MultiStepInput) => inputFormId(input, state);
+    }
+  }
   return (input: MultiStepInput) => inputFormId(input, state);
 }
 
 async function inputFormId(input: MultiStepInput, state: Partial<State>) {
+  if (state.context && state.entity) {
+    const forms = (await getDataverseForms(state.context, state.entity)).map((form) => {
+      return { label: form.displayName + " [" + form.formType + "]", target: form.formId };
+    });
+    if (forms.length > 0) {
+      state.formId = (
+        (await input.showQuickPick({
+          title: "Create Form Registration",
+          step: 2,
+          totalSteps: 5,
+          placeholder: "Select Form",
+          items: forms,
+          shouldResume: shouldResume,
+        })) as any
+      ).target;
+      return (input: MultiStepInput) => inputEvent(input, state);
+    }
+  }
   state.formId = await input.showInputBox({
     ignoreFocusOut: true,
     title: "Create Form Registration",
@@ -101,10 +143,12 @@ async function inputExecutionContext(input: MultiStepInput, state: Partial<State
 }
 
 interface State {
+  context: DataversePowerToolsContext;
   formId: string;
   eventType: "onload" | "onsave";
   sendExecutionContext: boolean;
   functionName: string;
   className: string;
   id: string;
+  entity: string;
 }

@@ -2,8 +2,8 @@ import * as vscode from "vscode";
 import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes, TemplatePlaceholder } from "../context";
 import path = require("path");
 import fs = require("fs");
-import { createServicePrincipalString, getProjectType } from "./connectionManager";
-import { setUISettings } from "./initialiseExtension";
+import { createServicePrincipalString, getProjectType } from "./connectionStringManager";
+import { generalInitialise } from "./initialiseExtension";
 import { restoreDependencies } from "./restoreDependencies";
 import { createSNKKey, generateEarlyBound } from "../plugins/earlybound";
 import { buildProject } from "../plugins/buildPlugin";
@@ -15,7 +15,7 @@ export async function initialiseProject(context: DataversePowerToolsContext) {
   await generateTemplates(context);
   await context.writeSettings();
   await context.readSettings(context);
-  await setUISettings(context);
+  await generalInitialise(context);
   await restoreDependencies(context);
   switch (context.projectSettings.type) {
     case ProjectTypes.plugin:

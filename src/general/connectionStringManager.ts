@@ -1,7 +1,7 @@
 import { window } from "vscode";
 import DataversePowerToolsContext, { ProjectTypes } from "../context";
 import { MultiStepInput, shouldResume, validationIgnore } from "./inputControls";
-import { getSolutions } from "./dataverseContext";
+import { getSolutions } from "./dataverse/getSolutions";
 
 export async function updateConnectionString(context: DataversePowerToolsContext) {
   let connectionString = await createServicePrincipalString(context, true);
@@ -127,7 +127,9 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
     if (state.organisationUrl === undefined || state.tenantId === undefined || state.applicationId === undefined || state.clientSecret === undefined) {
       return (input: MultiStepInput) => inputManualSolutionName(input, state);
     }
-    const solutions = await getSolutions(state.organisationUrl, state.tenantId, state.applicationId, state.clientSecret);
+    context.connectionString = `AuthType=ClientSecret;LoginPrompt=Never;Url=${state.organisationUrl};ClientId=${state.applicationId};ClientSecret=${state.clientSecret}`;
+    context.projectSettings.tenantId = state.tenantId;
+    const solutions = await getSolutions(context);
     if (!solutions) {
       return (input: MultiStepInput) => inputManualSolutionName(input, state);
     }
