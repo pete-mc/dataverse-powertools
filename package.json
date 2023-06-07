@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.1.13",
+  "version": "0.2.0",
   "engines": {
     "vscode": "^1.75.0"
   },
@@ -47,7 +47,16 @@
         }
       ],
       "view/title": [
-  
+        {
+          "command": "dataversePowerToolsTableIntersectTree.updateTree",
+          "when": "view == dataversePowerToolsTableIntersectTree",
+          "group": "navigation"
+        },
+        {
+          "command": "dataversePowerToolsTableIntersectTree.addNewFormIntersect",
+          "when": "view == dataversePowerToolsTableIntersectTree",
+          "group": "navigation"
+        }
       ],
       "view/item/context": [
         {
@@ -69,7 +78,24 @@
           "command": "dataversePowerToolsTree.updateTree",
           "when": "view == dataversePowerToolsTree && viewItem == AvailableRoot",
           "group": "inline"
+        },
+        {
+          "command": "dataversePowerToolsTableIntersectTree.removeNewFormIntersect",
+          "when": "view == dataversePowerToolsTableIntersectTree && viewItem == formintersect",
+          "group": "inline"
+        },
+        {
+          "command": "dataversePowerToolsTableIntersectTree.addForm",
+          "when": "view == dataversePowerToolsTableIntersectTree && viewItem == formintersect",
+          "group": "inline"
+        },
+        {
+          "command": "dataversePowerToolsTableIntersectTree.removeForm",
+          "when": "view == dataversePowerToolsTableIntersectTree && viewItem == form",
+          "group": "inline"
         }
+
+
       ]
     },
     "viewsContainers": {
@@ -97,6 +123,14 @@
           "contextualTitle": "Package Explorer",
           "type": "tree",
           "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+        },
+        {
+          "id": "dataversePowerToolsTableIntersectTree",
+          "name": "Form Intersects",
+          "icon": "media/dep.svg",
+          "contextualTitle": "Package Explorer",
+          "type": "tree",
+          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
         }
       ],
       "explorer": []
@@ -161,6 +195,50 @@
           "dark": "media/dark/refresh.svg"
         }
       },
+      {
+        "command": "dataversePowerToolsTableIntersectTree.removeNewFormIntersect",
+        "title": "Remove Form Intersect",
+        "icon": {
+          "light": "media/light/trash.svg",
+          "dark": "media/dark/trash.svg"
+        }
+      },
+      {
+        "command": "dataversePowerToolsTableIntersectTree.removeForm",
+        "title": "Remove Form",
+        "icon": {
+          "light": "media/light/trash.svg",
+          "dark": "media/dark/trash.svg"
+        }
+      },
+      {
+        "command": "dataversePowerToolsTableIntersectTree.addForm",
+        "title": "Add Form",
+        "icon": {
+          "light": "media/light/add.svg",
+          "dark": "media/dark/add.svg"
+        }
+      },
+      {
+        "command": "dataversePowerToolsTableIntersectTree.addNewFormIntersect",
+        "title": "Add New Form Intersect",
+        "icon": {
+          "light": "media/light/add.svg",
+          "dark": "media/dark/add.svg"
+        }
+      },
+      {
+        "command": "dataversePowerToolsTableIntersectTree.updateTree",
+        "title": "Refresh Form Intersects from file",
+        "icon": {
+          "light": "media/light/refresh.svg",
+          "dark": "media/dark/refresh.svg"
+        }
+      },
+
+
+
+
       {
         "command": "dataverse-powertools.createWebResourceTest",
         "title": "Dataverse PowerTools: Create New Test",

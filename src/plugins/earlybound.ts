@@ -2,7 +2,6 @@ import * as vscode from "vscode";
 import * as cp from "child_process";
 import DataversePowerToolsContext from "../context";
 import path = require("path");
-import fs = require("fs");
 
 export async function createSNKKey(context: DataversePowerToolsContext) {
   if (!context.projectSettings.type || !context.projectSettings.templateversion || !vscode.workspace.workspaceFolders) {
@@ -55,18 +54,23 @@ export async function generateEarlyBound(context: DataversePowerToolsContext) {
         return;
       }
       var fullFilePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-      cp.execFile(fullFilePath + "\\packages\\spkl\\tools\\spkl.exe", ["earlybound", `..\\${solutionName}\\spkl.json`, context.connectionString], { cwd: fullFilePath + "\\logs" }, (error, stdout) => {
-        if (error) {
-          vscode.window.showErrorMessage("Error creating Earlybound types.");
-          context.channel.appendLine(error.message);
-          context.channel.appendLine(stdout);
-          context.channel.appendLine("Error Creating Earlybound types");
-          context.channel.show();
-        } else {
-          context.channel.appendLine(stdout);
-          vscode.window.showInformationMessage("Earlybound types has been generated.");
-        }
-      });
+      cp.execFile(
+        fullFilePath + "\\packages\\spkl\\tools\\spkl.exe",
+        ["earlybound", `..\\${solutionName}\\spkl.json`, context.connectionString],
+        { cwd: fullFilePath + "\\logs" },
+        (error, stdout) => {
+          if (error) {
+            vscode.window.showErrorMessage("Error creating Earlybound types.");
+            context.channel.appendLine(error.message);
+            context.channel.appendLine(stdout);
+            context.channel.appendLine("Error Creating Earlybound types");
+            context.channel.show();
+          } else {
+            context.channel.appendLine(stdout);
+            vscode.window.showInformationMessage("Earlybound types has been generated.");
+          }
+        },
+      );
     },
   );
 }

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import * as vscode from "vscode";
 import { v4 as uuidv4 } from "uuid";
 import DataversePowerToolsContext from "../context";

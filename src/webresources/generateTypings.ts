@@ -17,24 +17,34 @@ export async function generateTypingsExecution(context: DataversePowerToolsConte
   if (vscode.workspace.workspaceFolders !== undefined) {
     const util = require("util");
     const exec = util.promisify(require("child_process").execFile);
-    const spklFile = await vscode.workspace.fs.readFile(vscode.Uri.file(vscode.workspace.workspaceFolders[0].uri.fsPath + "\\spkl.json"));
-    const spklString = Buffer.from(spklFile).toString("utf8");
-    const spkl = JSON.parse(spklString);
+    const defTypedOptions = [
+      `/url:${context.connectionString.split(";")[2].replace("Url=", "")}/XRMServices/2011/Organization.svc`,
+      `/out:typings\\XRM`,
+      `/ss:${context.projectSettings.solutionName}`,
+      `/mfaAppId:${context.connectionString.split(";")[3].replace("ClientId=", "")}`,
+      `/mfaReturnUrl:${context.connectionString.split(";")[2].replace("Url=", "")}`,
+      `/mfaClientSecret:${context.connectionString.split(";")[4].replace("ClientSecret=", "")}`,
+      `/jsLib:webresources_src\\lib`,
+      `/method:ClientSecret`,
+      `/w:${context.projectSettings.solutionName}Web`,
+      `/r:${context.projectSettings.solutionName}Rest`,
+    ];
+
+    if (context.projectSettings.formIntersect !== undefined && context.projectSettings.formIntersect.length > 0) {
+      //format: MyAccountIntersect: b053a39a-041a-4356-acef-ddf00182762b;a72c7955-442b-4ea4-9499-b10cd18b4256
+      defTypedOptions.push(
+        `/fi:${context.projectSettings.formIntersect
+          .map((intersect) => {
+            return intersect.name + ": " + intersect.forms.map((form) => form.formId).join(";");
+          })
+          .join(" ")}`,
+      );
+    }
+
     try {
       const promise = exec(
         vscode.workspace.workspaceFolders[0].uri.fsPath + ".\\packages\\Delegate.XrmDefinitelyTyped\\content\\XrmDefinitelyTyped\\XrmDefinitelyTyped.exe",
-        [
-          `/url:${context.connectionString.split(";")[2].replace("Url=", "")}/XRMServices/2011/Organization.svc`,
-          `/out:typings\\XRM`,
-          `/solutions:${spkl.webresources[0].solution}`,
-          `/mfaAppId:${context.connectionString.split(";")[3].replace("ClientId=", "")}`,
-          `/mfaReturnUrl:${context.connectionString.split(";")[2].replace("Url=", "")}`,
-          `/mfaClientSecret:${context.connectionString.split(";")[4].replace("ClientSecret=", "")}`,
-          `/jsLib:bin/${context.projectSettings.prefix}_dependencies`,
-          `/method:ClientSecret`,
-          `/web:${spkl.webresources[0].solution}Web`,
-          `/rest:${spkl.webresources[0].solution}Rest`,
-        ],
+        defTypedOptions,
         {
           cwd: vscode.workspace.workspaceFolders[0].uri.fsPath,
         },

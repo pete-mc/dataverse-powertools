@@ -29,6 +29,17 @@ export async function buildAndDeployExec(context: DataversePowerToolsContext) {
       context.channel.show();
     });
 
+    childBuild.stdout.on("data", function (data: any) {
+      const output = data.replace(/\\[\d+m/g, "");
+      if (output.includes("ERROR")) {
+        context.channel.appendLine(output);
+        vscode.window.showInformationMessage("Error building webresources, see output for details.");
+        error = true;
+        context.channel.show();
+      }
+      context.channel.appendLine(output);
+    });
+
     childBuild.on("close", function (_code: any) {
       if (!error) {
         vscode.window.showInformationMessage("Building Complete");
@@ -56,7 +67,7 @@ export async function deploy(context: DataversePowerToolsContext) {
         });
         const childDeploy = promiseDeploy.child;
         childDeploy.stdout.on("data", function (data: any) {
-          console.log(data);
+          context.channel.appendLine(data);
           if (data.includes("with an error")) {
             vscode.window.showErrorMessage("Error deploying webresources, see output for details.");
             context.channel.appendLine(data);

@@ -8,6 +8,7 @@ import { createWebResourceClass, createWebResourceTest } from "./createWebresour
 import { deployWebresources } from "./deployWebresources";
 import { generateTypings } from "./generateTypings";
 import { saveFormData } from "./saveFormData";
+import { formIntersectSelector } from "./tableIntersects/tableIntersects";
 
 export function initialiseWebresources(context: DataversePowerToolsContext): void {
   vscode.commands.executeCommand("setContext", "dataverse-powertools.isPlugin", false);
@@ -21,6 +22,7 @@ export function initialiseWebresources(context: DataversePowerToolsContext): voi
       context.template = templates[0];
     }
   }
+  formIntersectSelector(context);
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildWebresources", () => buildWebresources(context)));
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.deployWebresources", () => deployWebresources(context)));
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.generateTypings", () => generateTypings(context)));

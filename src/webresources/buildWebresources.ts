@@ -28,6 +28,16 @@ export async function buildWebresourcesExec(context: DataversePowerToolsContext)
       context.channel.appendLine(data);
       context.channel.show();
     });
+    child.stdout.on("data", function (data: any) {
+      const output = data.replace(/\\[\d+m/g, "");
+      if (output.includes("ERROR")) {
+        context.channel.appendLine(output);
+        vscode.window.showInformationMessage("Error building webresources, see output for details.");
+        error = true;
+        context.channel.show();
+      }
+      context.channel.appendLine(output);
+    });
     child.on("close", function (_code: any) {
       if (!error) {
         vscode.window.showInformationMessage("Building Complete");

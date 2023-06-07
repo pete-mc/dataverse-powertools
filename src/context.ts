@@ -2,9 +2,10 @@ import * as vscode from "vscode";
 import fs = require("fs");
 import { createServicePrincipalString, getServicePrincipalString, getProjectType } from "./general/connectionStringManager";
 import { DataverseContext } from "./general/dataverse/dataverseContext";
+import { DataverseFormRecord } from "./general/dataverse/getDataverseForms";
 
 export default class DataversePowerToolsContext {
-  public dataverse: DataverseContext | undefined;
+  public dataverse: DataverseContext;
   public vscode: vscode.ExtensionContext;
   public channel: vscode.OutputChannel;
   public projectSettings: ProjectSettings = {};
@@ -18,6 +19,7 @@ export default class DataversePowerToolsContext {
     this.statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     this.statusBar.tooltip = "Dataverse PowerTools";
     this.statusBar.command = "dataverse-powertools.openSettings";
+    this.dataverse = new DataverseContext(this);
   }
 
   async openSettings() {
@@ -28,7 +30,9 @@ export default class DataversePowerToolsContext {
     if (vscode.workspace.workspaceFolders !== undefined) {
       const filePath = vscode.workspace.workspaceFolders[0].uri.fsPath + "\\" + this.settingsFilename;
       let toWrite = JSON.parse(JSON.stringify(this.projectSettings));
-      toWrite.connectionString = toWrite.connectionString?.substring(0, toWrite.connectionString?.indexOf("ClientId"));
+      if (toWrite.connectionString?.indexOf("ClientId") > -1) {
+        toWrite.connectionString = toWrite.connectionString?.substring(0, toWrite.connectionString?.indexOf("ClientId"));
+      }
       fs.writeFile(filePath, JSON.stringify(toWrite), (err) => {
         if (err) {
           this.channel.appendLine(`Error writing settings file: ${err}`);
@@ -37,23 +41,23 @@ export default class DataversePowerToolsContext {
     }
   }
 
-  async readSettings(context: DataversePowerToolsContext) {
+  async readSettings() {
     if (vscode.workspace.workspaceFolders !== undefined) {
       const filePath = vscode.workspace.workspaceFolders[0].uri.fsPath + "\\" + this.settingsFilename;
       await this.readFileAsync(filePath)
         .then(async (data: any) => {
           this.projectSettings = JSON.parse(data);
           this.connectionString = this.projectSettings.connectionString || "";
-          let name = context.connectionString.substring(context.connectionString.indexOf("Url=") + 4, context.connectionString.length - 1);
+          let name = this.connectionString.substring(this.connectionString.indexOf("Url=") + 4, this.connectionString.length - 1);
           name = name.replace(/\/+$/, "");
           const credentialString = await getServicePrincipalString(this, name);
           if (credentialString === "") {
             await createServicePrincipalString(this);
-            context.connectionString = this.projectSettings.connectionString || "";
+            this.connectionString = this.projectSettings.connectionString || "";
           } else {
-            context.connectionString += credentialString;
+            this.connectionString += credentialString;
           }
-          context.projectSettings = this.projectSettings;
+          this.projectSettings = this.projectSettings;
         })
         .catch((err) => {
           this.channel.appendLine(`Error reading settings file: ${err}`);
@@ -76,6 +80,14 @@ interface ProjectSettings {
   connectionString?: string;
   prefix?: string;
   controlName?: string;
+  formIntersect?: FormIntersect[];
+}
+
+export interface FormIntersect {
+  id: string;
+  name: string;
+  entity: string;
+  forms: DataverseFormRecord[];
 }
 
 export interface TemplatePlaceholder {

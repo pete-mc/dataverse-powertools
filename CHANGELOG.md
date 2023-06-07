@@ -4,6 +4,13 @@ All notable changes to the "dataverse-powertools" extension will be documented i
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## 0.2.0
+
+- Added form intercepts to the Dataverse PowerTools menu.  This will allow you to select the forms intercepts for XrmDefinatelyTyped to generate into classes from the menu rather than manually.This release includes the ability to select any available form from your dataverse environment. Note there is still no support for view intercepts. This will be added in a future release.
+- Added support to include XRMQuery into the library bundle. This will save having to load XRMQuery onto the form in addition to the library file.
+- Some better error handling
+- Rebuilt how the extension loads to be more modular.
+
 ## 0.1.13
 
 - Added lookup to dataverse to get form list to save having to enter the form id into the vscode dialog.

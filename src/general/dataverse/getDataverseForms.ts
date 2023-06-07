@@ -2,9 +2,11 @@ import fetch from "node-fetch";
 import { Options } from "./dataverseContext";
 import DataversePowerToolsContext from "../../context";
 
-export async function getDataverseForms(context: DataversePowerToolsContext, entity: string): Promise<DataverseForm[]> {
-  if (context.dataverse?.isValid) {
-    await context.dataverse.initialize();
+export async function getDataverseForms(context: DataversePowerToolsContext, entity: string): Promise<DataverseFormRecord[]> {
+  if (!context.dataverse.isValid) {
+    if (!(await context.dataverse.initialize())) {
+      return [];
+    }
   }
   /* eslint-disable @typescript-eslint/naming-convention */
   const options = {
@@ -32,7 +34,7 @@ export async function getDataverseForms(context: DataversePowerToolsContext, ent
         formId: record.msdyn_objectid,
         displayName: record.msdyn_name,
         formType: record.msdyn_componenttypename,
-      } as DataverseForm;
+      } as DataverseFormRecord;
     });
     return forms;
   } catch {
@@ -40,7 +42,7 @@ export async function getDataverseForms(context: DataversePowerToolsContext, ent
   }
 }
 
-export interface DataverseForm {
+export interface DataverseFormRecord {
   formId: string;
   displayName: string;
   formType: string;

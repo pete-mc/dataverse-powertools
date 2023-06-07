@@ -1,7 +1,6 @@
 import fetch from "node-fetch";
 import { DataverseContext, Options } from "./dataverseContext";
 import DataversePowerToolsContext from "../../context";
-import { Interface } from "readline";
 
 export async function getDataverseTables(context: DataversePowerToolsContext): Promise<string[]> {
   if (!context.dataverse) {
@@ -20,6 +19,11 @@ export async function getDataverseTables(context: DataversePowerToolsContext): P
   try {
     const url = context.dataverse?.organizationUrl + "/api/data/v9.1/EntityDefinitions?$select=LogicalName";
     const response = await fetch(url, options);
+    if (!response.ok) {
+      const data: any = await response.text();
+      context.channel.appendLine(data);
+      return [];
+    }
     const data: any = await response.json();
     if (data === null) {
       return [];

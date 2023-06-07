@@ -14,10 +14,11 @@ export class DataverseContext {
     this.context = context;
     this.tenantId = context.projectSettings.tenantId || "";
   }
-  public async initialize(): Promise<void> {
+  public async initialize(): Promise<boolean> {
     if (this.context.connectionString !== "") {
-      await this.refreshAuthorizationToken();
+      return await this.refreshAuthorizationToken();
     }
+    return false;
   }
 
   private async autoRefreshToken(): Promise<void> {
@@ -59,8 +60,9 @@ export class DataverseContext {
       const data: any = await tokenResponse.json();
       if (data === null || data["access_token"] === undefined || data["access_token"] === null) {
         this.context.statusBar.text = "Dataverse Not Connected";
-        this.context.statusBar.tooltip = "Dataverse Not Connected";
         this.context.statusBar.show();
+        this.context.channel.appendLine("Error refreshing authorization token");
+        this.context.channel.appendLine(JSON.stringify(data));
         return false;
       }
       this.authorizationToken = data["access_token"];
@@ -75,9 +77,10 @@ export class DataverseContext {
       this.context.statusBar.show();
       this.context.channel.appendLine("Connected to Dataverse");
       return true;
-    } catch (error) {
+    } catch (e: any) {
+      this.context.channel.appendLine("Error getting authorization token");
+      this.context.channel.appendLine(JSON.stringify(e));
       this.context.statusBar.text = "Dataverse Not Connected";
-      this.context.statusBar.tooltip = "Dataverse Not Connected";
       this.context.statusBar.show();
       return false;
     }
@@ -106,7 +109,7 @@ export class DataverseContext {
         this.context.statusBar.text = "Dataverse Not Connected";
         this.context.statusBar.show();
         this.context.channel.appendLine("Error refreshing authorization token");
-        this.context.channel.appendLine(data);
+        this.context.channel.appendLine(JSON.stringify(data));
         return false;
       }
       this.authorizationToken = data["access_token"];
@@ -121,7 +124,7 @@ export class DataverseContext {
       this.context.channel.appendLine("Connected to Dataverse");
     } catch (e: any) {
       this.context.channel.appendLine("Error refreshing authorization token");
-      this.context.channel.appendLine(e);
+      this.context.channel.appendLine(JSON.stringify(e));
       this.context.statusBar.text = "Dataverse Not Connected";
       this.context.statusBar.show();
       return false;

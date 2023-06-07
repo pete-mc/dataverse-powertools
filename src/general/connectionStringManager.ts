@@ -6,7 +6,7 @@ import { getSolutions } from "./dataverse/getSolutions";
 export async function updateConnectionString(context: DataversePowerToolsContext) {
   let connectionString = await createServicePrincipalString(context, true);
   await context.writeSettings();
-  await context.readSettings(context);
+  await context.readSettings();
   context.statusBar.text = connectionString.split(";")[2].replace("Url=", "") ?? "";
   context.statusBar.show();
 }

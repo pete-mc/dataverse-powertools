@@ -73,7 +73,7 @@ export class DataverseForm {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        method: "GET",
+        method: "PATCH",
       } as Options;
       /* eslint-enable @typescript-eslint/naming-convention */
       const formxml = (await new XMLBuilder(this.parsingOptions).build(this.form)).replace(/&quot;/g, '"');

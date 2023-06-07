@@ -9,12 +9,12 @@ import { createSNKKey, generateEarlyBound } from "../plugins/earlybound";
 import { buildProject } from "../plugins/buildPlugin";
 import { generateTypings } from "../webresources/generateTypings";
 
-export async function initialiseProject(context: DataversePowerToolsContext) {
+export async function createNewProject(context: DataversePowerToolsContext) {
   await getProjectType(context);
   await createServicePrincipalString(context);
   await generateTemplates(context);
   await context.writeSettings();
-  await context.readSettings(context);
+  await context.readSettings();
   await generalInitialise(context);
   await restoreDependencies(context);
   switch (context.projectSettings.type) {

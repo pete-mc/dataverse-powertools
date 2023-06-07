@@ -7,6 +7,7 @@ import { pluginTableSelector } from "./plugins/pluginTables";
 import { initialiseWebresources } from "./webresources/initialiseWebresources";
 import { initialiseSolutions } from "./solution/initialiseSolutions";
 import { initialisePortals } from "./portals/initialisePortals";
+import { initialisePlugins } from "./plugins/initialisePlugins";
 
 export async function activate(vscodeContext: vscode.ExtensionContext) {
   const context = new DataversePowerToolsContext(vscodeContext);
@@ -22,6 +23,7 @@ export async function initialise(context: DataversePowerToolsContext) {
       await initialiseWebresources(context);
       break;
     case ProjectTypes.plugin:
+      await initialisePlugins(context);
       await pluginTableSelector(context);
       break;
     case ProjectTypes.solution:
