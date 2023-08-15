@@ -4,6 +4,10 @@ All notable changes to the "dataverse-powertools" extension will be documented i
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## 0.2.2
+
+Updated word-wrap as recommended by dependecybot in GitHib.
+
 ## 0.2.1
 
 Updated fast-xml-parser to remove vulnerablity to Regex Injection via Doctype Entities as per <https://github.com/advisories/GHSA-6w63-h3fj-q4vw>
