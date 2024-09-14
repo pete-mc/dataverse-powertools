@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import fs = require("fs");
 import DataversePowerToolsContext from "../context";
-import { getProjectName } from "./earlybound";
+import { getProjectName } from "./getProjectName";
 import { getDataverseTables } from "../general/dataverse/getDataverseTables";
 
 export function pluginTableSelector(context: DataversePowerToolsContext) {

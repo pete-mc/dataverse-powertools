@@ -18,6 +18,6 @@ export async function createWorkflowClass(context: DataversePowerToolsContext) {
     return;
   }
   const name = await vscode.window.showInputBox({ prompt: "Enter in the name of the new class" });
-  const placeholders = [{ placeholder: "ClassName", value: name ?? "" }] as TemplatePlaceholder[];
+  const placeholders = [{ placeholder: "WFClassName", value: name ?? "" }] as TemplatePlaceholder[];
   await createTemplatedFile(context, "sampleWorkflow", name ?? "BLANK", placeholders, true);
 }

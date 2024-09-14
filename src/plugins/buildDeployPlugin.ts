@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
+import { getProjectName } from "./getProjectName";
 
 export async function buildDeployPlugin(context: DataversePowerToolsContext) {
   vscode.window.showInformationMessage("Building");
@@ -57,10 +58,11 @@ export async function deployPlugin(context: DataversePowerToolsContext) {
 
 export async function deployPluginExecution(context: DataversePowerToolsContext) {
   if (vscode.workspace.workspaceFolders !== undefined) {
+    var solutionName = getProjectName(context);
     const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
     const util = require("util");
     const exec = util.promisify(require("child_process").execFile);
-    const promise = exec(workspacePath + "\\packages\\spkl\\tools\\spkl.exe", ["plugins", "./plugins_src/spkl.json", context.connectionString], {
+    const promise = exec(workspacePath + "\\packages\\spkl\\tools\\spkl.exe", ["plugins", `${solutionName}\\spkl.json`, context.connectionString], {
       cwd: workspacePath,
     });
     const child = promise.child;

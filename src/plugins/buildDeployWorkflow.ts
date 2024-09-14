@@ -1,8 +1,10 @@
 import * as vscode from "vscode";
 import * as cp from "child_process";
 import DataversePowerToolsContext from "../context";
+import { getProjectName } from "./getProjectName";
 
 export async function buildDeployWorkflow(context: DataversePowerToolsContext) {
+  const PROJECTNAMESPACE = context.projectSettings.placeholders?.find((p) => p.placeholder === "PROJECTNAMESPACE")?.value;
   vscode.window.showInformationMessage("Building");
   if (vscode.workspace.workspaceFolders !== undefined) {
     const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
@@ -14,9 +16,10 @@ export async function buildDeployWorkflow(context: DataversePowerToolsContext) {
       } else {
         context.channel.appendLine(stdout);
         vscode.window.showInformationMessage("Built and Deploying to Dataverse");
+        var solutionName = getProjectName(context);
         cp.execFile(
           workspacePath + "\\packages\\spkl\\tools\\spkl.exe",
-          ["workflow", "./plugins_src/spkl.json", context.connectionString],
+          ["workflow", `${solutionName}\\spkl.json`, context.connectionString],
           {
             cwd: workspacePath,
           },

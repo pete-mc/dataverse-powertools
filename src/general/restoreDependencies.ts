@@ -5,43 +5,48 @@ import fs = require("fs");
 import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes } from "../context";
 
 export async function restoreDependencies(context: DataversePowerToolsContext) {
-  if (!context.projectSettings.type) {
-    vscode.window.showErrorMessage("No Template Found; Try reloading extension again");
-    return;
-  }
-  const util = require("util");
-  const execFile = util.promisify(cp.exec);
-  vscode.window.showInformationMessage("Restoring dependencies...");
-  var fullFilePath = context.vscode.asAbsolutePath(path.join("templates", context.projectSettings.type));
-  var templates = JSON.parse(fs.readFileSync(fullFilePath + "\\template.json", "utf8")) as Array<PowertoolsTemplate>;
-  var templateToCopy = {} as PowertoolsTemplate;
-  for (const t of templates) {
-    if (t.version === context.projectSettings.templateversion) {
-      templateToCopy = t;
-      break;
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: "Restoring dependencies...",
+    },
+    async () => {
+      if (!context.projectSettings.type) {
+        vscode.window.showErrorMessage("No Template Found; Try reloading extension again");
+        return;
+      }
+      const util = require("util");
+      var fullFilePath = context.vscode.asAbsolutePath(path.join("templates", context.projectSettings.type));
+      var templates = JSON.parse(fs.readFileSync(fullFilePath + "\\template.json", "utf8")) as Array<PowertoolsTemplate>;
+      var templateToCopy = {} as PowertoolsTemplate;
+      for (const t of templates) {
+        if (t.version === context.projectSettings.templateversion) {
+          templateToCopy = t;
+          break;
+        }
+      }
+      const stillRunning = false;
+      context.template = templateToCopy;
+      if (vscode.workspace.workspaceFolders !== undefined && context.template !== undefined && context.template.restoreCommands) {
+        const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+        for (const c of context.template?.restoreCommands || []) {
+          await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: "Restoring " + c.command,
+            },
+            async () => {
+              await restoreDepedencyExec(c.command, workspacePath, context);
+            },
+          );
+        }
+        context.channel.appendLine("Restore Complete.");
+      } else {
+        context.channel.appendLine("No Template Found; Try reloading extension again");
+        vscode.window.showErrorMessage("No Template Found; Try reloading extension again");
+      }
     }
-  }
-
-  vscode.window.showInformationMessage("Restoring dependencies...");
-  const stillRunning = false;
-  context.template = templateToCopy;
-  if (vscode.workspace.workspaceFolders !== undefined && context.template !== undefined && context.template.restoreCommands) {
-    const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-    for (const c of context.template?.restoreCommands || []) {
-      await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: "Restoring " + c.command,
-        },
-        async () => {
-          await restoreDepedencyExec(c.command, workspacePath, context);
-        },
-      );
-    }
-    vscode.window.showInformationMessage("Restore Complete.");
-  } else {
-    vscode.window.showErrorMessage("No Template Found; Try reloading extension again");
-  }
+  );
 }
 
 export async function restoreDepedencyExec(command: string, workspacePath: string, context: DataversePowerToolsContext) {
@@ -60,7 +65,7 @@ export async function restoreDepedencyExec(command: string, workspacePath: strin
         context.channel.appendLine(data);
         context.channel.show();
       } else if (data.includes("0 Error")) {
-        vscode.window.showInformationMessage("Building Plugin Successful.");
+        context.channel.appendLine("Building Plugin Successful."); 
         context.channel.appendLine(data);
         context.channel.show();
       } else {

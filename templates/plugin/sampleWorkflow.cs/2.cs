@@ -8,7 +8,7 @@ using Microsoft.Xrm.Sdk.Workflow;
 namespace PROJECTNAMESPACE
 {
     //[CrmPluginRegistration("WorkflowActivity","ClassName", "Workflow Description", "Workflow Group Name", IsolationModeEnum.Sandbox)]
-    public class ClassName : CodeActivity
+    public class WFClassName : CodeActivity
     {
         [RequiredArgument]
         [Input("Contact")]

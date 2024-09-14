@@ -33,10 +33,15 @@ export default class DataversePowerToolsContext {
       if (toWrite.connectionString?.indexOf("ClientId") > -1) {
         toWrite.connectionString = toWrite.connectionString?.substring(0, toWrite.connectionString?.indexOf("ClientId"));
       }
-      fs.writeFile(filePath, JSON.stringify(toWrite), (err) => {
-        if (err) {
-          this.channel.appendLine(`Error writing settings file: ${err}`);
-        }
+      return new Promise<void>((resolve, reject) => {
+        fs.writeFile(filePath, JSON.stringify(toWrite), (err) => {
+          if (err) {
+            this.channel.appendLine(`Error writing settings file: ${err}`);
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
       });
     }
   }
@@ -60,7 +65,11 @@ export default class DataversePowerToolsContext {
           this.projectSettings = this.projectSettings;
         })
         .catch((err) => {
-          this.channel.appendLine(`Error reading settings file: ${err}`);
+          if (err.code === "ENOENT") {
+            this.channel.appendLine(`No project settings file found in the root of the workspace. Run the 'Dataverse PowerTools: Initialise Project' command to create one.`);
+          } else {
+            this.channel.appendLine(`Error reading settings file: ${err}`);
+          }
         });
     }
   }

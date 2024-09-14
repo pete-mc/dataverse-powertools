@@ -8,25 +8,35 @@ import { restoreDependencies } from "./restoreDependencies";
 import { createSNKKey, generateEarlyBound } from "../plugins/earlybound";
 import { buildProject } from "../plugins/buildPlugin";
 import { generateTypings } from "../webresources/generateTypings";
+import { initialisePlugins } from "../plugins/initialisePlugins";
 
 export async function createNewProject(context: DataversePowerToolsContext) {
-  await getProjectType(context);
-  await createServicePrincipalString(context);
-  await generateTemplates(context);
-  await context.writeSettings();
-  await context.readSettings();
-  await generalInitialise(context);
-  await restoreDependencies(context);
-  switch (context.projectSettings.type) {
-    case ProjectTypes.plugin:
-      await createSNKKey(context);
-      await generateEarlyBound(context);
-      await buildProject(context);
-      break;
-    case ProjectTypes.webresource:
-      await generateTypings(context);
-      break;
-  }
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: "Creating new project...",
+    },
+    async () => {
+      await getProjectType(context);
+      await createServicePrincipalString(context);
+      await generateTemplates(context);
+      await context.writeSettings();
+      await context.readSettings();
+      await restoreDependencies(context);
+      await generalInitialise(context);
+      switch (context.projectSettings.type) {
+        case ProjectTypes.plugin:
+          await createSNKKey(context);
+          await generateEarlyBound(context);
+          await buildProject(context);
+          initialisePlugins(context);
+          break;
+        case ProjectTypes.webresource:
+          await generateTypings(context);
+          break;
+      }
+  });
+  vscode.window.showInformationMessage("Project created");
 }
 
 export async function generateTemplates(context: DataversePowerToolsContext) {
@@ -44,7 +54,7 @@ export async function generateTemplates(context: DataversePowerToolsContext) {
     vscode.window.showErrorMessage("Could not find matching template");
     return;
   }
-  vscode.window.showInformationMessage("Generating template version: " + templateToCopy.version.toString());
+  context.channel.appendLine("Generating template version: " + templateToCopy.version.toString());
   let placeholders = [] as TemplatePlaceholder[];
   if (templateToCopy.placeholders) {
     for (let i = 0; i < templateToCopy.placeholders.length; i++) {
@@ -73,7 +83,7 @@ export async function generateTemplates(context: DataversePowerToolsContext) {
     }
     await vscode.workspace.fs.writeFile(vscode.Uri.file(destPathString), Buffer.from(data, "utf8"));
   });
-  vscode.window.showInformationMessage("Template generation complete");
+  context.channel.appendLine("Template generation complete");
 }
 
 export async function createTemplatedFile(
