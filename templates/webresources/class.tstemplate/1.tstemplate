@@ -1,12 +1,12 @@
-// <PowerTools.RegisterEvent[]>[
-//   {
-//     formId: "54030c9f-2e0d-4a6f-b2c2-ac01ca342bf6",
-//     event: "onload",
-//     executionContext: true,
-//     triggerId: "c9bd9b02-8be7-4cfb-8493-367b1592398a",
-//     function: "SOLUTIONPREFIX.ClassName.OnLoad",
-//   },
-// ];
+<PowerTools.RegisterEvent[]>[
+  {
+    formId: "FORMIDPLACEHOLDER",
+    event: "onsave",
+    executionContext: true,
+    triggerId: "NEWGUID",
+    function: "sq.ClassName.OnLoad",
+  },
+];
 
 
 export class ClassName {

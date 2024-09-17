@@ -51,7 +51,7 @@ export async function generateTypingsExecution(context: DataversePowerToolsConte
       );
       const child = promise.child;
       child.stdout.on("data", function (data: any) {
-        console.log("stdout: " + data);
+        context.channel.appendLine(data);
       });
       child.stderr.on("data", function (_data: any) {
         vscode.window.showInformationMessage("Error creating types, see output for details.");

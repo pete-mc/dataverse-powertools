@@ -1,12 +1,23 @@
 import { ClassName } from "../ClassName";
 import { XrmMockGenerator } from "xrm-mock";
 
-XrmMockGenerator.initialise();
-XrmMockGenerator.Attribute.createString("someattribute", "somevalue");
-const form = XrmMockGenerator.eventContext.getFormContext() as Form.TableName.Main.FormName;
-ClassName.OnLoad(XrmMockGenerator.eventContext);
+// Test suite
+describe("ClassName Test Suite", () => {
 
-it("should be the same value", () => {
-  expect(form.getAttribute("someattribute").getValue()).toBe("somevalue");
+  beforeEach(() => {
+    XrmMockGenerator.initialise();
+    // Set initial attribute values as needed
+    XrmMockGenerator.Attribute.createString("attribute", "value");
+  });
+
+// Copy test cases as needed
+it("Test Case 1", () => {
+    ClassName.OnLoad(XrmMockGenerator.eventContext as unknown as Xrm.ExecutionContext<unknown, unknown>);
+    const form = XrmMockGenerator.eventContext.getFormContext();
+    const value = "Bob"; //form.getAttribute("firstname").getValue();
+
+    // Compare the expected value with the actual value
+    expect(value).toBe("Bob"); 
+  });
+
 });
-

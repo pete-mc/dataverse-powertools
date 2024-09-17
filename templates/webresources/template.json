@@ -18,7 +18,15 @@
                 "command": "dotnet paket install"
             },
             {
-                "command": "npm install"
+                "command": "npm install --loglevel=error"
+            }
+        ],
+        "initCommands": [
+            {
+                "command": "npm install typescript --loglevel=error"
+            },
+            {
+                "command": "npm i eslint eslint-config-prettier @types/jest @typescript-eslint/eslint-plugin @typescript-eslint/parser jest jest-cli prettier syswide-cas ts-jest ts-loader webpack webpack-cli webpack-merge xrm-mock eslint-plugin-prettier jest-junit exports-loader --save-dev --loglevel=error"
             }
         ],
         "files": [
@@ -54,20 +62,8 @@
             },
             {
                 "path": [],
-                "filename": "package",
-                "extension": ".json",
-                "version": 1
-            },
-            {
-                "path": [],
                 "filename": "paket",
                 "extension": ".dependencies",
-                "version": 1
-            },
-            {
-                "path": [],
-                "filename": "README",
-                "extension": ".md",
                 "version": 1
             },
             {

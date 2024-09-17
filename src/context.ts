@@ -116,7 +116,7 @@ export interface PowertoolsTemplate {
   version: number;
   files?: File[];
   placeholders?: Placeholder[];
-
+  initCommands?: RestoreCommand[];
   restoreCommands?: RestoreCommand[];
 }
 interface File {
@@ -131,7 +131,7 @@ interface Placeholder {
   placeholder: string;
 }
 
-interface RestoreCommand {
+export interface RestoreCommand {
   command: string;
   params: string[];
 }

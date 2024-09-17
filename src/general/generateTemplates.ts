@@ -9,6 +9,8 @@ import { createSNKKey, generateEarlyBound } from "../plugins/earlybound";
 import { buildProject } from "../plugins/buildPlugin";
 import { generateTypings } from "../webresources/generateTypings";
 import { initialisePlugins } from "../plugins/initialisePlugins";
+import { initialiseWebresources } from "../webresources/initialiseWebresources";
+import { createWebResourceClass } from "../webresources/createWebresourceClass";
 
 export async function createNewProject(context: DataversePowerToolsContext) {
   await vscode.window.withProgress(
@@ -22,6 +24,7 @@ export async function createNewProject(context: DataversePowerToolsContext) {
       await generateTemplates(context);
       await context.writeSettings();
       await context.readSettings();
+      await restoreDependencies(context, true);
       await restoreDependencies(context);
       await generalInitialise(context);
       switch (context.projectSettings.type) {
@@ -33,6 +36,15 @@ export async function createNewProject(context: DataversePowerToolsContext) {
           break;
         case ProjectTypes.webresource:
           await generateTypings(context);
+          initialiseWebresources(context);
+          // ask if they want to create a new webresource
+          vscode.window.showQuickPick(["Yes", "No"], {
+            placeHolder: "Would you like to create a new webresource?",
+          }).then(async (value) => {
+            if (value === "Yes") {
+              await createWebResourceClass(context);
+            }
+          });
           break;
       }
   });

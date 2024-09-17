@@ -2,9 +2,9 @@ import * as vscode from "vscode";
 import * as cp from "child_process";
 import path = require("path");
 import fs = require("fs");
-import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes } from "../context";
+import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes, RestoreCommand } from "../context";
 
-export async function restoreDependencies(context: DataversePowerToolsContext) {
+export async function restoreDependencies(context: DataversePowerToolsContext, initialising: boolean = false) {
   await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
@@ -29,7 +29,8 @@ export async function restoreDependencies(context: DataversePowerToolsContext) {
       context.template = templateToCopy;
       if (vscode.workspace.workspaceFolders !== undefined && context.template !== undefined && context.template.restoreCommands) {
         const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-        for (const c of context.template?.restoreCommands || []) {
+        let restoreCommands = initialising ? context.template?.initCommands || [] : context.template?.restoreCommands || [];
+        for (const c of restoreCommands) {
           await vscode.window.withProgress(
             {
               location: vscode.ProgressLocation.Notification,
@@ -61,20 +62,21 @@ export async function restoreDepedencyExec(command: string, workspacePath: strin
         return;
       }
       if (data.includes("Error") && !data.includes("0 Error")) {
-        vscode.window.showErrorMessage("Error building plugins, see output for details.");
+        vscode.window.showErrorMessage("Error restoring " + command + ". See output for details.");
         context.channel.appendLine(data);
         context.channel.show();
       } else if (data.includes("0 Error")) {
-        context.channel.appendLine("Building Plugin Successful."); 
+        context.channel.appendLine("Restore Complete."); 
         context.channel.appendLine(data);
         context.channel.show();
       } else {
+        context.channel.appendLine(data);
         return stdout;
       }
     });
 
     child.stderr.on("data", function (data: any) {
-      vscode.window.showErrorMessage("Error building restoring " + command + ". See output for details.");
+      vscode.window.showErrorMessage("Error restoring " + command + ". See output for details.");
       context.channel.appendLine(data);
       context.channel.show();
     });
