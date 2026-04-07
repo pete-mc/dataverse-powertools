@@ -4,6 +4,14 @@ All notable changes to the "dataverse-powertools" extension will be documented i
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## 0.3.0
+
+- Removed reliance on spkl for webresource deployment.  Webresources are now deployed using direct Dataverse API calls.  This will allow for a much faster deployment experience as well as removing the need to have spkl installed on the machine.  This release also includes a migration command to help move from spkl to the new deployment method.
+- Improved experience for extenstion startup and loading.  The extension will now load much faster and will only load the components that are needed for the current project type.  This will also allow for better error handling and logging during the startup process.
+- System requirements check.  The extension will now check for the required system requirements on startup and will provide a warning if any of the requirements are not met.  This will help to prevent issues with the extension not working correctly due to missing dependencies or unsupported environments.
+- Dependabot updates.  Updated all dependencies to their latest versions to ensure that the extension is using the most up-to-date and secure versions of its dependencies.
+- Applied Github Security and CodeQL recommendations to improve security and code quality of the extension.
+
 ## 0.2.2
 
 Updated word-wrap as recommended by dependecybot in GitHib.
