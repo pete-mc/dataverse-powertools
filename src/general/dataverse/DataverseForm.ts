@@ -13,8 +13,9 @@ export class DataverseForm {
     attributeNamePrefix: "@_",
     suppressBooleanAttributes: false,
     suppressEmptyNode: true,
-    isArray: (_name: unknown, jpath: string, _isLeafNode: unknown, _isAttribute: unknown) => {
+    isArray: (_name: string, jPathOrMatcher: unknown, _isLeafNode: boolean, _isAttribute: boolean) => {
       const alwaysArray = ["form.formLibraries.Library", "form.events.event", "form.events.event.Handlers.Handler"]; //add any node here that you want to force to be an array.
+      const jpath = typeof jPathOrMatcher === "string" ? jPathOrMatcher : "";
       if (alwaysArray.indexOf(jpath) !== -1) {
         return true;
       }
