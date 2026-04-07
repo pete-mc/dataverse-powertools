@@ -198,7 +198,7 @@ export async function getProjectType(context: DataversePowerToolsContext) {
   context.projectSettings.type = result?.target;
   switch (context.projectSettings.type) {
     case ProjectTypes.plugin:
-      context.projectSettings.templateversion = 2;
+      context.projectSettings.templateversion = 3;
       break;
     case ProjectTypes.solution:
       context.projectSettings.templateversion = 1.1;

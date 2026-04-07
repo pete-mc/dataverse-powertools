@@ -80,6 +80,26 @@
           "group": "inline"
         },
         {
+          "command": "dataverse-powertools.togglePluginEmitEntityEtc",
+          "when": "view == dataversePowerToolsTree && viewItem == EmitEntityEtcSetting",
+          "group": "inline"
+        },
+        {
+          "command": "dataverse-powertools.editModelBuilderSetting",
+          "when": "view == dataversePowerToolsTree && (viewItem == ModelBuilderSetting || viewItem == ModelBuilderFilterItem)",
+          "group": "inline"
+        },
+        {
+          "command": "dataverse-powertools.configurePluginEarlyBound",
+          "when": "view == dataversePowerToolsTree && viewItem == ModelBuilderConfigureAction",
+          "group": "inline"
+        },
+        {
+          "command": "dataverse-powertools.generateEarlyBound",
+          "when": "view == dataversePowerToolsTree && viewItem == ModelBuilderGenerateAction",
+          "group": "inline"
+        },
+        {
           "command": "dataversePowerToolsTableIntersectTree.removeNewFormIntersect",
           "when": "view == dataversePowerToolsTableIntersectTree && viewItem == formintersect",
           "group": "inline"
@@ -109,18 +129,10 @@
       "dataverse-powertools": [
         {
           "id": "dataversePowerToolsMenu",
-          "name": "Menu",
+          "name": "Actions",
           "icon": "media/dep.svg",
           "contextualTitle": "Package Explorer",
           "type": "tree"
-        },
-        {
-          "id": "dataversePowerToolsRequirements",
-          "name": "System Requirements",
-          "icon": "media/dep.svg",
-          "contextualTitle": "System Requirements",
-          "type": "tree",
-          "visibility": "collapsed"
         },
         {
           "id": "dataversePowerToolsTree",
@@ -137,11 +149,31 @@
           "contextualTitle": "Package Explorer",
           "type": "tree",
           "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
+        },
+        {
+          "id": "dataversePowerToolsLocalSettings",
+          "name": "Local Settings",
+          "icon": "media/dep.svg",
+          "contextualTitle": "Local Settings",
+          "type": "tree"
+        },
+        {
+          "id": "dataversePowerToolsRequirements",
+          "name": "System Requirements",
+          "icon": "media/dep.svg",
+          "contextualTitle": "System Requirements",
+          "type": "tree",
+          "visibility": "collapsed"
         }
       ],
       "explorer": []
     },
     "viewsWelcome": [
+      {
+        "view": "dataversePowerToolsTree",
+        "contents": "Plugin early bound settings are not configured.\n[Configure Settings](command:dataverse-powertools.configurePluginEarlyBound)\n[Generate Early Bound](command:dataverse-powertools.generateEarlyBound)",
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && dataverse-powertools.isPluginV3 && !dataverse-powertools.hasPluginModelBuilderSettings"
+      },
       {
         "view": "dataversePowerToolsMenu",
         "contents": "Dataverse PowerTools\nDetecting folder settings...",
@@ -154,8 +186,13 @@
       },
       {
         "view": "dataversePowerToolsMenu",
+        "contents": "Plugin Menu\n[Build and Deploy Plugins](command:dataverse-powertools.buildDeployPlugin)\n[Build and Deploy Workflows](command:dataverse-powertools.buildDeployWorkflow)\n[Build Project](command:dataverse-powertools.buildProject)\n[Create Plugin Class](command:dataverse-powertools.createPluginClass)\n[Create Workflow Class](command:dataverse-powertools.createWorkflowClass)\n[Add Plugin Step Decoration](command:dataverse-powertools.addPluginDecoration)\n[Add Workflow Decoration](command:dataverse-powertools.addWorkflowDecoration)",
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && dataverse-powertools.isPluginV3"
+      },
+      {
+        "view": "dataversePowerToolsMenu",
         "contents": "Plugin Menu\n[Build and Deploy Plugins](command:dataverse-powertools.buildDeployPlugin)\n[Build and Deploy Workflows](command:dataverse-powertools.buildDeployWorkflow)\n[Build Project](command:dataverse-powertools.buildProject)\n[Generate Early Bound](command:dataverse-powertools.generateEarlyBound)\n[Create Plugin Class](command:dataverse-powertools.createPluginClass)\n[Create Workflow Class](command:dataverse-powertools.createWorkflowClass)\n[Add Plugin Step Decoration](command:dataverse-powertools.addPluginDecoration)\n[Add Workflow Decoration](command:dataverse-powertools.addWorkflowDecoration)",
-        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && !dataverse-powertools.isPluginV3"
       },
       {
         "view": "dataversePowerToolsMenu",
@@ -173,7 +210,7 @@
         "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource && !dataverse-powertools.hasSpkl"
       },
       {
-        "view": "dataversePowerToolsMenu",
+        "view": "dataversePowerToolsLocalSettings",
         "contents": "Local Settings Menu\n[Restore Dependencies](command:dataverse-powertools.restoreDependencies)\n[Update Connection String](command:dataverse-powertools.updateConnectionString)",
         "when": "dataverse-powertools.showLoaded"
       },
@@ -362,9 +399,45 @@
         "enablement": "!dataverse-powertools.showLoaded"
       },
       {
+        "command": "dataverse-powertools.configurePluginEarlyBound",
+        "title": "Dataverse PowerTools: Configure Plugin Early Bound Settings",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && dataverse-powertools.isPluginV3",
+        "icon": {
+          "light": "media/light/checklist.svg",
+          "dark": "media/dark/checklist.svg"
+        }
+      },
+      {
+        "command": "dataverse-powertools.editModelBuilderSetting",
+        "title": "Dataverse PowerTools: Edit Model Builder Setting",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && dataverse-powertools.isPluginV3",
+        "icon": {
+          "light": "media/light/edit.svg",
+          "dark": "media/dark/edit.svg"
+        }
+      },
+      {
+        "command": "dataverse-powertools.editPluginMessageFilter",
+        "title": "Dataverse PowerTools: Edit Plugin Message Filter",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && dataverse-powertools.isPluginV3"
+      },
+      {
+        "command": "dataverse-powertools.togglePluginEmitEntityEtc",
+        "title": "Dataverse PowerTools: Toggle Emit Entity Type Code",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && dataverse-powertools.isPluginV3",
+        "icon": {
+          "light": "media/light/sync.svg",
+          "dark": "media/dark/sync.svg"
+        }
+      },
+      {
         "command": "dataverse-powertools.generateEarlyBound",
         "title": "Dataverse PowerTools: Generate Early Bound",
-        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin",
+        "icon": {
+          "light": "media/light/cloud-download.svg",
+          "dark": "media/dark/cloud-download.svg"
+        }
       },
       {
         "command": "dataverse-powertools.buildDeployPlugin",

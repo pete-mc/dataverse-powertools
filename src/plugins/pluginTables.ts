@@ -1,205 +1,181 @@
 import * as vscode from "vscode";
-import fs = require("fs");
-import DataversePowerToolsContext from "../context";
-import { getProjectName } from "./getProjectName";
-import { getDataverseTables } from "../general/dataverse/getDataverseTables";
+import DataversePowerToolsContext, { PluginModelBuilderSettings } from "../context";
+import { configureModelBuilderSettings, editModelBuilderSetting, loadPluginModelBuilderSettings } from "../general/modelbuilder";
+import { applyDefaults } from "../general/modelbuilder/settingsFile";
+import { ModelBuilderSettingKey } from "../general/modelbuilder/ui";
 
-export function pluginTableSelector(context: DataversePowerToolsContext) {
-  new TreeDataProvider(context);
+interface SettingTreeItem extends vscode.TreeItem {
+  settingKey?: ModelBuilderSettingKey;
+  children?: SettingTreeItem[];
 }
 
-class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
-  private _onDidChangeTreeData: vscode.EventEmitter<TreeItem | undefined | null | void> = new vscode.EventEmitter<TreeItem | undefined | null | void>();
-  readonly onDidChangeTreeData: vscode.Event<TreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
+export function pluginTableSelector(context: DataversePowerToolsContext) {
+  new PluginModelBuilderTreeDataProvider(context);
+}
 
-  context: DataversePowerToolsContext;
-  data: TreeItem[];
-  allTables: TreeItem[] = [];
-  count = 0;
+class PluginModelBuilderTreeDataProvider implements vscode.TreeDataProvider<SettingTreeItem> {
+  private readonly _onDidChangeTreeData = new vscode.EventEmitter<SettingTreeItem | undefined | null | void>();
+  readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+
+  private context: DataversePowerToolsContext;
+  private data: SettingTreeItem[] = [];
 
   constructor(context: DataversePowerToolsContext) {
     this.context = context;
-    this.data = [
-      new TreeItem("Selected Tables", [], undefined, "SelectedRoot"),
-      new TreeItem("Available Tables", [], undefined, "AvailableRoot"),
-      new TreeItem("Selected Actions", [], undefined, "SelectedRoot"),
-    ];
-    this.data[0].children = this.getSelectedTables(EarlyboundType.table);
-    this.getDataverseTables();
-    this.data[2].children = this.getSelectedTables(EarlyboundType.action);
-    const options = {
-      treeDataProvider: this,
-      showCollapseAll: true,
-    };
 
     vscode.window.registerTreeDataProvider("dataversePowerToolsTree", this);
-    vscode.commands.registerCommand("dataversePowerToolsTree.updateTree", () => {
-      this.getDataverseTables();
-    });
-    vscode.commands.registerCommand("dataversePowerToolsTree.manualAddToTree", (event) => {
-      console.log(event);
-      if (event.label === "Selected Tables") {
-        vscode.window.showInputBox({ prompt: "Enter the name of the table to add" }).then((table) => {
-          if (table) {
-            this.data[0].children?.push({
-              label: table,
-              id: table,
-              contextValue: "Selected",
-              type: EarlyboundType.table,
-            } as TreeItem);
-            this.saveAvailableToSpklFile();
-            this.refresh();
-          }
-        });
-      } else if (event.label === "Selected Actions") {
-        vscode.window.showInputBox({ prompt: "Enter the name of the action to add" }).then((action) => {
-          if (action) {
-            this.data[2].children?.push({
-              label: action,
-              id: action,
-              contextValue: "Selected",
-              type: EarlyboundType.action,
-            } as TreeItem);
-            this.saveAvailableToSpklFile();
-            this.refresh();
-          }
-        });
-      }
-    });
-    vscode.commands.registerCommand("dataversePowerToolsTree.addEntry", (event) => {
-      // add to selected
-      event.contextValue = "Selected";
-      this.data[0].children?.push(event);
-      // remove from available
-      this.data[1].children = this.data[1].children?.filter((i) => i.label !== event.label);
-      this.saveAvailableToSpklFile();
-      this.refresh();
-    });
 
-    vscode.commands.registerCommand("dataversePowerToolsTree.deleteEntry", (event) => {
-      if (event.type === EarlyboundType.table) {
-        event.contextValue = "Available";
-        this.data[1].children?.push(event);
-        console.log(this.data[1].children);
-        // remove from selected
-        this.data[0].children = this.data[0].children?.filter((i) => i.label !== event.label);
-      } else if (event.type === EarlyboundType.action) {
-        // remove from selected
-        this.data[2].children = this.data[2].children?.filter((i) => i.label !== event.label);
-      }
-      this.saveAvailableToSpklFile();
-      this.refresh();
-    });
+    context.vscode.subscriptions.push(
+      vscode.commands.registerCommand("dataverse-powertools.editModelBuilderSetting", async (item: SettingTreeItem) => {
+        if (!item?.settingKey) {
+          return;
+        }
 
-    const tree = vscode.window.createTreeView("dataversePowerToolsTree", options);
-    context.vscode.subscriptions.push(tree);
+        const updated = await editModelBuilderSetting(this.context, item.settingKey);
+        if (!updated) {
+          return;
+        }
+
+        await this.reloadSettings();
+      }),
+    );
+
+    void this.reloadSettings();
   }
 
-  refresh(): void {
-    this.data[0].children = this.data[0].children?.sort((a, b) => (!a.label || !b.label ? -1 : a.label > b.label ? 1 : -1));
-    this.data[1].children = this.data[1].children?.sort((a, b) => (!a.label || !b.label ? -1 : a.label > b.label ? 1 : -1));
-    this._onDidChangeTreeData.fire();
-  }
-
-  getTreeItem(element: TreeItem): vscode.TreeItem | Thenable<vscode.TreeItem> {
-    return element;
-  }
-
-  getChildren(element?: TreeItem | undefined): vscode.ProviderResult<TreeItem[]> {
-    if (element === undefined) {
-      return this.data;
-    }
-    return element.children ? element.children : [];
-  }
-
-  async getDataverseTables(): Promise<void> {
-    const tableArray = await getDataverseTables(this.context);
-    this.allTables = tableArray.map((table) => {
-      return {
-        label: table,
-        id: table,
-        contextValue: "Available",
-        type: EarlyboundType.table,
-      } as TreeItem;
-    });
-    this.data[1].children = this.allTables.filter((table) => !this.data[0].children?.some((selectedTable) => selectedTable.label === table.label));
+  private async reloadSettings(): Promise<void> {
+    await loadPluginModelBuilderSettings(this.context);
+    this.buildTree();
     this.refresh();
   }
 
-  async saveAvailableToSpklFile(): Promise<void> {
-    if (!vscode.workspace.workspaceFolders) {
-      return;
+  private formatArrayValue(values: string[] | undefined): string {
+    if (!values || values.length === 0) {
+      return "(none)";
     }
-    const solutionName = getProjectName(this.context);
-    var spklFile = JSON.parse(fs.readFileSync(vscode.workspace.workspaceFolders[0].uri.fsPath + "\\" + solutionName + "\\spkl.json", "utf8")) as Spkl;
-    spklFile.earlyboundtypes[0].entities = this.data[0].children?.map((table) => table.label).join(",") ?? "";
-    spklFile.earlyboundtypes[0].actions = this.data[2].children?.map((action) => action.label).join(",") ?? "";
-    fs.writeFileSync(vscode.workspace.workspaceFolders[0].uri.fsPath + "\\" + solutionName + "\\spkl.json", JSON.stringify(spklFile, null, 2));
+
+    return values.join(", ");
   }
 
-  getSelectedTables(type: EarlyboundType): TreeItem[] {
-    if (!vscode.workspace.workspaceFolders) {
-      return [];
-    }
-    const solutionName = getProjectName(this.context);
-    var spklFile = JSON.parse(fs.readFileSync(vscode.workspace.workspaceFolders[0].uri.fsPath + "\\" + solutionName + "\\spkl.json", "utf8")) as Spkl;
-    if (type === EarlyboundType.table) {
-      if (spklFile.earlyboundtypes[0].entities === "" || spklFile.earlyboundtypes[0].entities === undefined) {
-        return [];
-      }
-      return spklFile.earlyboundtypes[0].entities.split(",").map((table) => {
-        return {
-          label: table,
-          id: table,
-          contextValue: "Selected",
-          type: EarlyboundType.table,
-        } as TreeItem;
-      });
-    } else if (type === EarlyboundType.action) {
-      if (spklFile.earlyboundtypes[0].actions === "" || spklFile.earlyboundtypes[0].entities === undefined) {
-        return [];
-      }
-      return spklFile.earlyboundtypes[0].actions.split(",").map((action) => {
-        return {
-          label: action,
-          id: action,
-          contextValue: "Selected",
-          type: EarlyboundType.action,
-        } as TreeItem;
-      });
-    }
-    return [];
+  private formatBoolValue(value: boolean | undefined): string {
+    return value ? "Enabled" : "Disabled";
   }
-}
 
-enum EarlyboundType {
-  table,
-  action,
-}
+  private createSettingRow(label: string, value: string, settingKey: ModelBuilderSettingKey): SettingTreeItem {
+    return {
+      label: `${label}: ${value}`,
+      settingKey,
+      contextValue: "ModelBuilderSetting",
+      command: {
+        command: "dataverse-powertools.editModelBuilderSetting",
+        title: `Edit ${label}`,
+        arguments: [{ settingKey }],
+      },
+      collapsibleState: vscode.TreeItemCollapsibleState.None,
+    };
+  }
 
-interface Spkl {
-  earlyboundtypes: [
-    {
-      entities: string;
-      actions: string;
-    },
-  ];
-}
+  private createFilterItemRow(label: string, settingKey: ModelBuilderSettingKey): SettingTreeItem {
+    return {
+      label,
+      settingKey,
+      contextValue: "ModelBuilderFilterItem",
+      command: {
+        command: "dataverse-powertools.editModelBuilderSetting",
+        title: `Edit ${settingKey}`,
+        arguments: [{ settingKey }],
+      },
+      collapsibleState: vscode.TreeItemCollapsibleState.None,
+    };
+  }
 
-class TreeItem extends vscode.TreeItem {
-  command?: vscode.Command | undefined;
-  children?: TreeItem[] | undefined;
-  contextValue?: string | undefined;
-  type?: EarlyboundType | undefined;
+  private buildTree(): void {
+    const settings = applyDefaults(this.context.projectSettings.pluginModelBuilder || ({} as PluginModelBuilderSettings));
 
-  constructor(label: string, children?: TreeItem[] | undefined, command?: vscode.Command, contextValue?: string) {
-    super(label, children === undefined ? vscode.TreeItemCollapsibleState.None : vscode.TreeItemCollapsibleState.Expanded);
-    this.command = command;
-    this.contextValue = contextValue;
-    if (this.label === "Available Tables" || this.label === "Available Actions") {
-      this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
-    } else {
-      this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+    const actionsRoot: SettingTreeItem = {
+      label: "Actions",
+      contextValue: "ModelBuilderActionsRoot",
+      collapsibleState: vscode.TreeItemCollapsibleState.Expanded,
+      children: [
+        {
+          label: "Configure All Settings",
+          command: {
+            command: "dataverse-powertools.configurePluginEarlyBound",
+            title: "Configure All Settings",
+          },
+          contextValue: "ModelBuilderConfigureAction",
+          collapsibleState: vscode.TreeItemCollapsibleState.None,
+        },
+        {
+          label: "Generate Early Bound",
+          command: {
+            command: "dataverse-powertools.generateEarlyBound",
+            title: "Generate Early Bound",
+          },
+          contextValue: "ModelBuilderGenerateAction",
+          collapsibleState: vscode.TreeItemCollapsibleState.None,
+        },
+      ],
+    };
+
+    const selectedTables = settings.entityNamesFilter || [];
+    const selectedTablesRoot: SettingTreeItem = {
+      label: "Selected Tables",
+      contextValue: "ModelBuilderSelectedTablesRoot",
+      collapsibleState: vscode.TreeItemCollapsibleState.Expanded,
+      children:
+        selectedTables.length > 0 ? selectedTables.map((table) => this.createFilterItemRow(table, "entityNamesFilter")) : [this.createFilterItemRow("(none)", "entityNamesFilter")],
+    };
+
+    const selectedMessages = settings.messageNamesFilter || [];
+    const selectedMessagesRoot: SettingTreeItem = {
+      label: "Selected Messages",
+      contextValue: "ModelBuilderSelectedMessagesRoot",
+      collapsibleState: vscode.TreeItemCollapsibleState.Expanded,
+      children:
+        selectedMessages.length > 0
+          ? selectedMessages.map((message) => this.createFilterItemRow(message, "messageNamesFilter"))
+          : [this.createFilterItemRow("(none)", "messageNamesFilter")],
+    };
+
+    const settingsRoot: SettingTreeItem = {
+      label: "Settings",
+      contextValue: "ModelBuilderSettingsRoot",
+      collapsibleState: vscode.TreeItemCollapsibleState.Expanded,
+      children: [
+        this.createSettingRow("Namespace", settings.namespace || "", "namespace"),
+        this.createSettingRow("Service Context Name", settings.serviceContextName || "", "serviceContextName"),
+        this.createSettingRow("Output Directory", settings.outputDirectory || "", "outputDirectory"),
+        this.createSettingRow("Emit Entity Type Code", this.formatBoolValue(settings.emitEntityEtc), "emitEntityEtc"),
+        this.createSettingRow("Emit Fields Classes", this.formatBoolValue(settings.emitFieldsClasses), "emitFieldsClasses"),
+        this.createSettingRow("Emit Virtual Attributes", this.formatBoolValue(settings.emitVirtualAttributes), "emitVirtualAttributes"),
+        this.createSettingRow("Entity Types Folder", settings.entityTypesFolder || "", "entityTypesFolder"),
+        this.createSettingRow("Generate Global Option Sets", this.formatBoolValue(settings.generateGlobalOptionSets), "generateGlobalOptionSets"),
+        this.createSettingRow("Generate SDK Messages", this.formatBoolValue(settings.generateSdkMessages), "generateSdkMessages"),
+        this.createSettingRow("Log Level", settings.logLevel || "Off", "logLevel"),
+        this.createSettingRow("Messages Types Folder", settings.messagesTypesFolder || "", "messagesTypesFolder"),
+        this.createSettingRow("Option Sets Types Folder", settings.optionSetsTypesFolder || "", "optionSetsTypesFolder"),
+        this.createSettingRow("Suppress Generated Code Attribute", this.formatBoolValue(settings.suppressGeneratedCodeAttribute), "suppressGeneratedCodeAttribute"),
+        this.createSettingRow("Suppress INotify Pattern", this.formatBoolValue(settings.suppressINotifyPattern), "suppressINotifyPattern"),
+      ],
+    };
+
+    this.data = [actionsRoot, selectedTablesRoot, selectedMessagesRoot, settingsRoot];
+  }
+
+  refresh(): void {
+    this._onDidChangeTreeData.fire();
+  }
+
+  getTreeItem(element: SettingTreeItem): vscode.TreeItem {
+    return element;
+  }
+
+  getChildren(element?: SettingTreeItem): vscode.ProviderResult<SettingTreeItem[]> {
+    if (!element) {
+      return this.data;
     }
+
+    return element.children as SettingTreeItem[] | undefined;
   }
 }

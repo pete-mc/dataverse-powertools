@@ -1,25 +1,33 @@
 import DataversePowerToolsContext from "../context";
 import * as vscode from "vscode";
-import { addPluginDecoration } from "./addStepDecoration";
-import { addWorkflowDecoration } from "./addWorkflowDecoration";
-import { buildDeployPlugin } from "./buildDeployPlugin";
-import { buildDeployWorkflow } from "./buildDeployWorkflow";
-import { buildProject } from "./buildPlugin";
-import { createPluginClass, createWorkflowClass } from "./createPluginClass";
-import { generateEarlyBound, createSNKKey } from "./earlybound";
+import { configureModelBuilderSettings, generateEarlyBoundV3, loadPluginModelBuilderSettings, updatePluginModelBuilderSettingsContext } from "../general/modelbuilder";
 
-export function initialisePlugins(context: DataversePowerToolsContext): void {
+function registerPlaceholderCommand(context: DataversePowerToolsContext, commandId: string, message: string) {
+  context.vscode.subscriptions.push(
+    vscode.commands.registerCommand(commandId, () => {
+      context.channel.appendLine(`[Plugin Placeholder] ${message}`);
+      vscode.window.showInformationMessage(message);
+    }),
+  );
+}
+
+export async function initialisePlugins(context: DataversePowerToolsContext): Promise<void> {
   vscode.commands.executeCommand("setContext", "dataverse-powertools.isPlugin", true);
+  vscode.commands.executeCommand("setContext", "dataverse-powertools.isPluginV3", true);
   vscode.commands.executeCommand("setContext", "dataverse-powertools.isWebResource", false);
   vscode.commands.executeCommand("setContext", "dataverse-powertools.isSolution", false);
   vscode.commands.executeCommand("setContext", "dataverse-powertools.isPortal", false);
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.generateEarlyBound", () => generateEarlyBound(context)));
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildDeployPlugin", () => buildDeployPlugin(context)));
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildProject", () => buildProject(context)));
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildDeployWorkflow", () => buildDeployWorkflow(context)));
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createPluginClass", () => createPluginClass(context)));
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createWorkflowClass", () => createWorkflowClass(context)));
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createSNKKey", () => createSNKKey(context)));
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.addPluginDecoration", () => addPluginDecoration(context)));
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.addWorkflowDecoration", () => addWorkflowDecoration(context)));
+  await loadPluginModelBuilderSettings(context);
+  void updatePluginModelBuilderSettingsContext(context);
+
+  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.generateEarlyBound", () => generateEarlyBoundV3(context)));
+  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.configurePluginEarlyBound", () => configureModelBuilderSettings(context)));
+  registerPlaceholderCommand(context, "dataverse-powertools.buildDeployPlugin", "Plugin build/deploy flow is coming soon.");
+  registerPlaceholderCommand(context, "dataverse-powertools.buildProject", "Plugin build project flow is coming soon.");
+  registerPlaceholderCommand(context, "dataverse-powertools.buildDeployWorkflow", "Plugin workflow deploy flow is coming soon.");
+  registerPlaceholderCommand(context, "dataverse-powertools.createPluginClass", "Plugin class scaffolding is coming soon.");
+  registerPlaceholderCommand(context, "dataverse-powertools.createWorkflowClass", "Plugin workflow class scaffolding is coming soon.");
+  registerPlaceholderCommand(context, "dataverse-powertools.createSNKKey", "This template uses pac plugin init --skip-signing; SNK generation is not required by default.");
+  registerPlaceholderCommand(context, "dataverse-powertools.addPluginDecoration", "Plugin decoration tooling is coming soon.");
+  registerPlaceholderCommand(context, "dataverse-powertools.addWorkflowDecoration", "Workflow decoration tooling is coming soon.");
 }

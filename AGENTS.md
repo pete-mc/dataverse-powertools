@@ -5,6 +5,7 @@ This document helps coding agents understand the structure and intent of this VS
 ## What this repo is
 
 `dataverse-powertools` is a VS Code extension that accelerates Dataverse / Dynamics 365 development by:
+
 - Scaffolding project templates
 - Managing project settings and connection context
 - Running build/deploy workflows for different project types
@@ -31,6 +32,7 @@ The extension is centered around a workspace-level config file: `dataverse-power
 ## Project types and feature modules
 
 Project types are defined in `src/context.ts` (`ProjectTypes`):
+
 - `plugin`
 - `webresources`
 - `pcffield`
@@ -39,11 +41,13 @@ Project types are defined in `src/context.ts` (`ProjectTypes`):
 - `portal`
 
 Each type has:
+
 - an initialization function that sets VS Code context keys
 - a set of commands registered on activation
 - template assets in `templates/<type>/`
 
 Example: `src/webresources/initialiseWebresources.ts` sets:
+
 - `dataverse-powertools.isWebResource = true`
 - registers webresource-related commands
 
@@ -52,6 +56,7 @@ Example: `src/webresources/initialiseWebresources.ts` sets:
 Primary settings file: `dataverse-powertools.json` in workspace root.
 
 Common settings in `projectSettings` include:
+
 - `type`
 - `templateversion`
 - `tenantId`
@@ -61,6 +66,7 @@ Common settings in `projectSettings` include:
 - `prefix`
 
 Secret handling:
+
 - `connectionString` in settings is non-secret base.
 - client secret/id are stored via VS Code secret store.
 - merged runtime connection string is rebuilt at load time.
@@ -68,14 +74,17 @@ Secret handling:
 ## Template system
 
 Template metadata:
+
 - `templates/<type>/template.json`
 
 Each template entry can define:
+
 - `files`: source template payloads to copy
 - `restoreCommands` / `initCommands`: dependency/bootstrap commands
 - placeholders replaced during generation
 
 Key behavior:
+
 - generation is managed by `src/general/generateTemplates.ts`
 - placeholders are replaced in file content and destination paths
 - generated project settings are persisted to `dataverse-powertools.json`
@@ -97,6 +106,7 @@ Guideline: keep raw Dataverse HTTP calls in `src/general/dataverse/` helper clas
 ## Webresources flow (current)
 
 Main command path:
+
 - build artifacts to `bin/`
 - deploy command scans `bin/**`
 - each file is upserted as a Dataverse webresource
@@ -108,6 +118,7 @@ Main command path:
 Webresources no longer require SPKL for deploy.
 
 Migration command:
+
 - `Dataverse PowerTools: Upgrade from Spkl`
 - visible for webresource projects when `spkl.json` exists
 - extracts solution name from `spkl.json`
@@ -116,11 +127,13 @@ Migration command:
 - refreshes in-memory context
 
 Context key used for UI visibility:
+
 - `dataverse-powertools.hasSpkl`
 
 ## Command/UI wiring
 
 `package.json` contributes:
+
 - commands
 - menu/view entries
 - `when` conditions bound to context keys (`showLoaded`, `isWebResource`, etc.)
@@ -130,6 +143,7 @@ Initialization modules are responsible for setting context keys via `vscode.comm
 ## Practical guidance for coding agents
 
 When making changes:
+
 1. Keep project-type logic in its module (`src/webresources`, `src/plugins`, etc.).
 2. Put Dataverse HTTP/API behavior in `src/general/dataverse/`.
 3. Persist new workspace settings in `projectSettings` and `dataverse-powertools.json`.

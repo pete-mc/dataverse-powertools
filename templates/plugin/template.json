@@ -1,5 +1,20 @@
 [
   {
+    "version": 3,
+    "files": [],
+    "placeholders": [],
+    "initCommands": [
+      {
+        "command": "pac plugin init --skip-signing"
+      }
+    ],
+    "restoreCommands": [
+      {
+        "command": "dotnet restore"
+      }
+    ]
+  },
+  {
     "version": 2,
     "files": [
       {

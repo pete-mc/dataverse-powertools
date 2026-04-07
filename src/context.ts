@@ -30,6 +30,7 @@ export default class DataversePowerToolsContext {
     if (vscode.workspace.workspaceFolders !== undefined) {
       const filePath = vscode.workspace.workspaceFolders[0].uri.fsPath + "\\" + this.settingsFilename;
       let toWrite = JSON.parse(JSON.stringify(this.projectSettings));
+      delete toWrite.pluginModelBuilder;
       if (toWrite.connectionString?.indexOf("ClientId") > -1) {
         toWrite.connectionString = toWrite.connectionString?.substring(0, toWrite.connectionString?.indexOf("ClientId"));
       }
@@ -92,8 +93,28 @@ interface ProjectSettings {
   webresourceSolutionName?: string;
   connectionString?: string;
   prefix?: string;
+  pluginModelBuilder?: PluginModelBuilderSettings;
   controlName?: string;
   formIntersect?: FormIntersect[];
+}
+
+export interface PluginModelBuilderSettings {
+  namespace?: string;
+  serviceContextName?: string;
+  outputDirectory?: string;
+  emitEntityEtc?: boolean;
+  emitFieldsClasses?: boolean;
+  emitVirtualAttributes?: boolean;
+  entityNamesFilter?: string[];
+  entityTypesFolder?: string;
+  generateGlobalOptionSets?: boolean;
+  generateSdkMessages?: boolean;
+  logLevel?: string;
+  messageNamesFilter?: string[];
+  messagesTypesFolder?: string;
+  optionSetsTypesFolder?: string;
+  suppressGeneratedCodeAttribute?: boolean;
+  suppressINotifyPattern?: boolean;
 }
 
 export interface FormIntersect {

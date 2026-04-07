@@ -5,10 +5,11 @@ import fs = require("fs");
 import { createServicePrincipalString, getProjectType } from "./connectionStringManager";
 import { generalInitialise } from "./initialiseExtension";
 import { restoreDependencies } from "./restoreDependencies";
-import { createSNKKey, generateEarlyBound } from "../plugins/earlybound";
-import { buildProject } from "../plugins/buildPlugin";
+import { createSNKKey, generateEarlyBound } from "../plugins_old/earlybound";
+import { buildProject } from "../plugins_old/buildPlugin";
 import { generateTypings } from "../webresources/generateTypings";
-import { initialisePlugins } from "../plugins/initialisePlugins";
+import { initialisePlugins as initialisePluginsOld } from "../plugins_old/initialisePlugins";
+import { initialisePlugins as initialisePluginsNew } from "../plugins/initialisePlugins";
 import { initialiseWebresources } from "../webresources/initialiseWebresources";
 import { createWebResourceClass } from "../webresources/createWebresourceClass";
 
@@ -29,10 +30,15 @@ export async function createNewProject(context: DataversePowerToolsContext) {
       await generalInitialise(context);
       switch (context.projectSettings.type) {
         case ProjectTypes.plugin:
-          await createSNKKey(context);
-          await generateEarlyBound(context);
-          await buildProject(context);
-          initialisePlugins(context);
+          if (context.projectSettings.templateversion === 3) {
+            await initialisePluginsNew(context);
+            context.channel.appendLine("Plugin project initialised using pac plugin init --skip-signing.");
+          } else {
+            await createSNKKey(context);
+            await generateEarlyBound(context);
+            await buildProject(context);
+            initialisePluginsOld(context);
+          }
           break;
         case ProjectTypes.webresource:
           await generateTypings(context);
