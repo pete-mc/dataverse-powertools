@@ -38,16 +38,19 @@ export async function createNewProject(context: DataversePowerToolsContext) {
           await generateTypings(context);
           initialiseWebresources(context);
           // ask if they want to create a new webresource
-          vscode.window.showQuickPick(["Yes", "No"], {
-            placeHolder: "Would you like to create a new webresource?",
-          }).then(async (value) => {
-            if (value === "Yes") {
-              await createWebResourceClass(context);
-            }
-          });
+          vscode.window
+            .showQuickPick(["Yes", "No"], {
+              placeHolder: "Would you like to create a new webresource?",
+            })
+            .then(async (value) => {
+              if (value === "Yes") {
+                await createWebResourceClass(context);
+              }
+            });
           break;
       }
-  });
+    },
+  );
   vscode.window.showInformationMessage("Project created");
 }
 

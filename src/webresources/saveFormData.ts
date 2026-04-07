@@ -37,10 +37,13 @@ export async function saveFormDataExec(context: DataversePowerToolsContext): Pro
   }
 
   //Group the PowerTools.RegisterEvent objects by formId
-  const groupedRegisterEvents = registerEvents.reduce((acc, cur) => {
-    (acc[cur.formId] = acc[cur.formId] || []).push(cur);
-    return acc;
-  }, {} as { [key: string]: RegisterEvent[] });
+  const groupedRegisterEvents = registerEvents.reduce(
+    (acc, cur) => {
+      (acc[cur.formId] = acc[cur.formId] || []).push(cur);
+      return acc;
+    },
+    {} as { [key: string]: RegisterEvent[] },
+  );
 
   //get library filename from the project webpack.common.js
   const webpackConfig = await vscode.workspace.findFiles("webpack.common.js");

@@ -9,12 +9,17 @@ import { deployWebresources } from "./deployWebresources";
 import { generateTypings } from "./generateTypings";
 import { saveFormData } from "./saveFormData";
 import { formIntersectSelector } from "./tableIntersects/tableIntersects";
+import { upgradeFromSpkl } from "./upgradeFromSpkl";
 
 export function initialiseWebresources(context: DataversePowerToolsContext): void {
   vscode.commands.executeCommand("setContext", "dataverse-powertools.isPlugin", false);
   vscode.commands.executeCommand("setContext", "dataverse-powertools.isWebResource", true);
   vscode.commands.executeCommand("setContext", "dataverse-powertools.isSolution", false);
   vscode.commands.executeCommand("setContext", "dataverse-powertools.isPortal", false);
+  if (vscode.workspace.workspaceFolders) {
+    const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+    vscode.commands.executeCommand("setContext", "dataverse-powertools.hasSpkl", fs.existsSync(path.join(workspacePath, "spkl.json")));
+  }
   if (context.projectSettings.type && context.projectSettings.templateversion && vscode.workspace.workspaceFolders) {
     if (vscode.workspace.workspaceFolders !== undefined && context.projectSettings.templateversion && vscode.workspace.workspaceFolders) {
       var fullFilePath = context.vscode.asAbsolutePath(path.join("templates", context.projectSettings.type));
@@ -30,4 +35,5 @@ export function initialiseWebresources(context: DataversePowerToolsContext): voi
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createWebResourceTest", () => createWebResourceTest(context)));
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.addFormDecoration", () => addFormDecoration(context)));
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.saveFormData", () => saveFormData(context)));
+  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.upgradeFromSpkl", () => upgradeFromSpkl(context)));
 }

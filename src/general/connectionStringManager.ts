@@ -13,7 +13,7 @@ export async function updateConnectionString(context: DataversePowerToolsContext
 
 export async function getServicePrincipalString(context: DataversePowerToolsContext, name: string): Promise<string> {
   const servicePrincipal = await context.vscode.secrets.get(name);
-  return servicePrincipal === undefined ? "" : servicePrincipal.split('TenantID=')[0];
+  return servicePrincipal === undefined ? "" : servicePrincipal.split("TenantID=")[0];
 }
 
 export async function saveServicePrincipalString(context: DataversePowerToolsContext, name: string, clientId: string, clientSecret: string, tenantId: string): Promise<void> {
@@ -40,6 +40,7 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
   context.projectSettings.prefix = state.prefix;
   context.projectSettings.tenantId = state.tenantId;
   context.projectSettings.solutionName = state.solutionName;
+  context.projectSettings.webresourceSolutionName = state.solutionName;
   context.projectSettings.connectionString = connectionString;
   return connectionString;
 
@@ -60,14 +61,18 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
       validate: validationIgnore,
       shouldResume: shouldResume,
     });
-    if (update) return (input: MultiStepInput) => inputTenantId(input, state);
+    if (update) {
+      return (input: MultiStepInput) => inputTenantId(input, state);
+    }
     let organisationUrl = "";
     if (state.organisationUrl !== undefined && state.organisationUrl !== "") {
       organisationUrl = state.organisationUrl.replace(/\/+$/, "");
     }
     const credentialResult = await context.vscode.secrets.get(organisationUrl);
-    const splitCreds = credentialResult?.split(";")
-    if (credentialResult == undefined || splitCreds == undefined || splitCreds.length < 4) return (input: MultiStepInput) => inputTenantId(input, state);
+    const splitCreds = credentialResult?.split(";");
+    if (credentialResult === undefined || splitCreds === undefined || splitCreds.length < 4) {
+      return (input: MultiStepInput) => inputTenantId(input, state);
+    }
     const result = await window.showQuickPick(["Yes", "No"], { placeHolder: "Existing credentials found. Do you want to use the existing credentials?" });
     if (result === "No") {
       return (input: MultiStepInput) => inputTenantId(input, state);
@@ -79,21 +84,19 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
     return (input: MultiStepInput) => inputSolutionName(input, state);
   }
 
-
-
   async function inputTenantId(input: MultiStepInput, state: Partial<State>) {
-      state.tenantId = await input.showInputBox({
-        ignoreFocusOut: true,
-        title,
-        step: 2,
-        totalSteps: 6,
-        value: typeof state.tenantId === "string" ? state.tenantId.replace(/\/+$/, "") : "",
-        prompt: "Type in the Tenant Id",
-        validate: validationIgnore,
-        shouldResume: shouldResume,
-      });
-      context.dataverse.tenantId = state.tenantId;
-      return (input: MultiStepInput) => inputApplicationId(input, state);
+    state.tenantId = await input.showInputBox({
+      ignoreFocusOut: true,
+      title,
+      step: 2,
+      totalSteps: 6,
+      value: typeof state.tenantId === "string" ? state.tenantId.replace(/\/+$/, "") : "",
+      prompt: "Type in the Tenant Id",
+      validate: validationIgnore,
+      shouldResume: shouldResume,
+    });
+    context.dataverse.tenantId = state.tenantId;
+    return (input: MultiStepInput) => inputApplicationId(input, state);
   }
 
   async function inputApplicationId(input: MultiStepInput, state: Partial<State>) {

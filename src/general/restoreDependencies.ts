@@ -46,7 +46,7 @@ export async function restoreDependencies(context: DataversePowerToolsContext, i
         context.channel.appendLine("No Template Found; Try reloading extension again");
         vscode.window.showErrorMessage("No Template Found; Try reloading extension again");
       }
-    }
+    },
   );
 }
 
@@ -66,7 +66,7 @@ export async function restoreDepedencyExec(command: string, workspacePath: strin
         context.channel.appendLine(data);
         context.channel.show();
       } else if (data.includes("0 Error")) {
-        context.channel.appendLine("Restore Complete."); 
+        context.channel.appendLine("Restore Complete.");
         context.channel.appendLine(data);
         context.channel.show();
       } else {

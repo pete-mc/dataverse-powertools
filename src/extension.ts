@@ -8,9 +8,14 @@ import { initialiseWebresources } from "./webresources/initialiseWebresources";
 import { initialiseSolutions } from "./solution/initialiseSolutions";
 import { initialisePortals } from "./portals/initialisePortals";
 import { initialisePlugins } from "./plugins/initialisePlugins";
+import { registerSystemRequirementCommands } from "./general/systemRequirements";
 
 export async function activate(vscodeContext: vscode.ExtensionContext) {
   const context = new DataversePowerToolsContext(vscodeContext);
+  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.showLog", () => context.channel.show(true)));
+  registerSystemRequirementCommands(context);
+  await vscode.commands.executeCommand("setContext", "dataverse-powertools.detectingFolderSettings", true);
+  await vscode.commands.executeCommand("setContext", "dataverse-powertools.hasSupportedProjectType", false);
   context.channel.appendLine(fs.readFileSync(context.vscode.asAbsolutePath(path.join("templates", "logo.txt")), "utf8"));
   context.channel.appendLine(`version: ${vscodeContext.extension.packageJSON.version}`);
   await initialise(context);

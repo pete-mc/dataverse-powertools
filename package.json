@@ -9,9 +9,9 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.2.5",
+  "version": "0.3.0",
   "engines": {
-    "vscode": "^1.75.0"
+    "vscode": "^1.93.0"
   },
   "categories": [
     "Other"
@@ -117,6 +117,14 @@
           "type": "tree"
         },
         {
+          "id": "dataversePowerToolsRequirements",
+          "name": "System Requirements",
+          "icon": "media/dep.svg",
+          "contextualTitle": "System Requirements",
+          "type": "tree",
+          "visibility": "collapsed"
+        },
+        {
           "id": "dataversePowerToolsTree",
           "name": "Earlybound Options",
           "icon": "media/dep.svg",
@@ -138,8 +146,13 @@
     "viewsWelcome": [
       {
         "view": "dataversePowerToolsMenu",
+        "contents": "Dataverse PowerTools\nDetecting folder settings...",
+        "when": "dataverse-powertools.detectingFolderSettings"
+      },
+      {
+        "view": "dataversePowerToolsMenu",
         "contents": "Dataverse PowerTools \n[Initialise Project](command:dataverse-powertools.initialiseProject)",
-        "when": "!dataverse-powertools.showLoaded"
+        "when": "!dataverse-powertools.showLoaded && !dataverse-powertools.detectingFolderSettings && !dataverse-powertools.hasSupportedProjectType"
       },
       {
         "view": "dataversePowerToolsMenu",
@@ -153,13 +166,113 @@
       },
       {
         "view": "dataversePowerToolsMenu",
+        "contents": "Webresource Menu\n[Create New Class](command:dataverse-powertools.createWebResourceClass)\n[Create New Test](command:dataverse-powertools.createWebResourceTest)\n[Build Web Resources](command:dataverse-powertools.buildWebresources)\n[Build & Deploy Web Resources](command:dataverse-powertools.deployWebresources)\n[Generate Typings](command:dataverse-powertools.generateTypings)\n[Add Form Registration](command:dataverse-powertools.addFormDecoration)\n[Register Form Events](command:dataverse-powertools.saveFormData)\n[Upgrade from Spkl](command:dataverse-powertools.upgradeFromSpkl)",
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource && dataverse-powertools.hasSpkl"
+      },
+      {
+        "view": "dataversePowerToolsMenu",
         "contents": "Webresource Menu\n[Create New Class](command:dataverse-powertools.createWebResourceClass)\n[Create New Test](command:dataverse-powertools.createWebResourceTest)\n[Build Web Resources](command:dataverse-powertools.buildWebresources)\n[Build & Deploy Web Resources](command:dataverse-powertools.deployWebresources)\n[Generate Typings](command:dataverse-powertools.generateTypings)\n[Add Form Registration](command:dataverse-powertools.addFormDecoration)\n[Register Form Events](command:dataverse-powertools.saveFormData)",
-        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource && !dataverse-powertools.hasSpkl"
       },
       {
         "view": "dataversePowerToolsMenu",
         "contents": "Local Settings Menu\n[Restore Dependencies](command:dataverse-powertools.restoreDependencies)\n[Update Connection String](command:dataverse-powertools.updateConnectionString)",
         "when": "dataverse-powertools.showLoaded"
+      },
+      {
+        "view": "dataversePowerToolsRequirements",
+        "contents": "System Requirements\nScanning tools and globals...",
+        "when": "dataverse-powertools.requirementsScanning"
+      },
+      {
+        "view": "dataversePowerToolsRequirements",
+        "contents": "System Requirements",
+        "when": "dataverse-powertools.requirementsScanned"
+      },
+      {
+        "view": "dataversePowerToolsRequirements",
+        "contents": "✅ .NET SDK",
+        "when": "dataverse-powertools.requirementsScanned && dataverse-powertools.hasDotnet"
+      },
+      {
+        "view": "dataversePowerToolsRequirements",
+        "contents": "❌ .NET SDK — [Download](https://dotnet.microsoft.com/download)",
+        "when": "dataverse-powertools.requirementsScanned && !dataverse-powertools.hasDotnet"
+      },
+      {
+        "view": "dataversePowerToolsRequirements",
+        "contents": "✅ Node.js",
+        "when": "dataverse-powertools.requirementsScanned && dataverse-powertools.hasNode"
+      },
+      {
+        "view": "dataversePowerToolsRequirements",
+        "contents": "❌ Node.js — [Download](https://nodejs.org/en/download)",
+        "when": "dataverse-powertools.requirementsScanned && !dataverse-powertools.hasNode"
+      },
+      {
+        "view": "dataversePowerToolsRequirements",
+        "contents": "✅ Power Platform CLI (pac)",
+        "when": "dataverse-powertools.requirementsScanned && dataverse-powertools.hasPac"
+      },
+      {
+        "view": "dataversePowerToolsRequirements",
+        "contents": "❌ Power Platform CLI (pac) — [Download](https://aka.ms/PowerPlatformCLI)",
+        "when": "dataverse-powertools.requirementsScanned && !dataverse-powertools.hasPac"
+      },
+      {
+        "view": "dataversePowerToolsRequirements",
+        "contents": "✅ npm global: jest",
+        "when": "dataverse-powertools.requirementsScanned && dataverse-powertools.hasGlobalJest"
+      },
+      {
+        "view": "dataversePowerToolsRequirements",
+        "contents": "❌ npm global: jest",
+        "when": "dataverse-powertools.requirementsScanned && !dataverse-powertools.hasGlobalJest"
+      },
+      {
+        "view": "dataversePowerToolsRequirements",
+        "contents": "✅ npm global: webpack",
+        "when": "dataverse-powertools.requirementsScanned && dataverse-powertools.hasGlobalWebpack"
+      },
+      {
+        "view": "dataversePowerToolsRequirements",
+        "contents": "❌ npm global: webpack",
+        "when": "dataverse-powertools.requirementsScanned && !dataverse-powertools.hasGlobalWebpack"
+      },
+      {
+        "view": "dataversePowerToolsRequirements",
+        "contents": "✅ npm global: webpack-cli",
+        "when": "dataverse-powertools.requirementsScanned && dataverse-powertools.hasGlobalWebpackCli"
+      },
+      {
+        "view": "dataversePowerToolsRequirements",
+        "contents": "❌ npm global: webpack-cli",
+        "when": "dataverse-powertools.requirementsScanned && !dataverse-powertools.hasGlobalWebpackCli"
+      },
+      {
+        "view": "dataversePowerToolsRequirements",
+        "contents": "✅ npm global: typescript",
+        "when": "dataverse-powertools.requirementsScanned && dataverse-powertools.hasGlobalTypescript"
+      },
+      {
+        "view": "dataversePowerToolsRequirements",
+        "contents": "❌ npm global: typescript",
+        "when": "dataverse-powertools.requirementsScanned && !dataverse-powertools.hasGlobalTypescript"
+      },
+      {
+        "view": "dataversePowerToolsRequirements",
+        "contents": "[Add Missing npm Globals](command:dataverse-powertools.installRequiredGlobals)",
+        "when": "dataverse-powertools.requirementsScanned && (!dataverse-powertools.hasGlobalJest || !dataverse-powertools.hasGlobalWebpack || !dataverse-powertools.hasGlobalWebpackCli || !dataverse-powertools.hasGlobalTypescript)"
+      },
+      {
+        "view": "dataversePowerToolsRequirements",
+        "contents": "[Recheck Requirements](command:dataverse-powertools.recheckRequirements)",
+        "when": "dataverse-powertools.requirementsScanned"
+      },
+      {
+        "view": "dataversePowerToolsMenu",
+        "contents": "[Show Log](command:dataverse-powertools.showLog)",
+        "when": "true"
       }
     ],
     "commands": [
@@ -355,6 +468,23 @@
         "command": "dataverse-powertools.saveFormData",
         "title": "Dataverse PowerTools: Register Form Events",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
+      },
+      {
+        "command": "dataverse-powertools.upgradeFromSpkl",
+        "title": "Dataverse PowerTools: Upgrade from Spkl",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource && dataverse-powertools.hasSpkl"
+      },
+      {
+        "command": "dataverse-powertools.showLog",
+        "title": "Dataverse PowerTools: Show Log"
+      },
+      {
+        "command": "dataverse-powertools.recheckRequirements",
+        "title": "Dataverse PowerTools: Recheck Requirements"
+      },
+      {
+        "command": "dataverse-powertools.installRequiredGlobals",
+        "title": "Dataverse PowerTools: Add Missing npm Globals"
       }
     ]
   },
@@ -374,20 +504,20 @@
     "@types/fs-extra": "^9.0.13",
     "@types/glob": "^7.2.0",
     "@types/mocha": "^9.1.0",
-    "@types/node": "14.x",
+    "@types/node": "^20.17.0",
     "@types/uuid": "^9.0.1",
-    "@types/vscode": "^1.66.0",
-    "@typescript-eslint/eslint-plugin": "^5.16.0",
-    "@typescript-eslint/parser": "^5.16.0",
-    "@vscode/test-electron": "^2.1.3",
-    "@vscode/vsce": "^2.19.0",
-    "eslint": "^8.11.0",
-    "eslint-plugin-prettier": "^4.2.1",
+    "@types/vscode": "^1.93.0",
+    "@typescript-eslint/eslint-plugin": "^8.58.0",
+    "@typescript-eslint/parser": "^8.58.0",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^2.32.0",
+    "eslint": "^8.57.1",
+    "eslint-plugin-prettier": "^5.5.5",
     "glob": "^7.2.0",
     "mocha": "^9.2.2",
-    "prettier": "2.8.8",
+    "prettier": "^3.8.1",
     "ts-loader": "^9.2.8",
-    "typescript": "^4.5.5",
+    "typescript": "^5.9.3",
     "webpack": "^5.94.0",
     "webpack-cli": "^4.9.2"
   },

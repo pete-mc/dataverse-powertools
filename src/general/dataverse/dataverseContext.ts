@@ -22,11 +22,14 @@ export class DataverseContext {
   }
 
   private async autoRefreshToken(): Promise<void> {
-    setTimeout(async () => {
-      if (await this.refreshAuthorizationToken()) {
-        this.autoRefreshToken();
-      }
-    }, this.tokenExpiresIn * 1000 - this.tokenExpiresInBuffer * 1000 * 2);
+    setTimeout(
+      async () => {
+        if (await this.refreshAuthorizationToken()) {
+          this.autoRefreshToken();
+        }
+      },
+      this.tokenExpiresIn * 1000 - this.tokenExpiresInBuffer * 1000 * 2,
+    );
   }
 
   get isValid(): boolean {

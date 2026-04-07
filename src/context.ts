@@ -52,6 +52,9 @@ export default class DataversePowerToolsContext {
       await this.readFileAsync(filePath)
         .then(async (data: any) => {
           this.projectSettings = JSON.parse(data);
+          if (!this.projectSettings.webresourceSolutionName && this.projectSettings.solutionName) {
+            this.projectSettings.webresourceSolutionName = this.projectSettings.solutionName;
+          }
           this.connectionString = this.projectSettings.connectionString || "";
           let name = this.connectionString.substring(this.connectionString.indexOf("Url=") + 4, this.connectionString.length - 1);
           name = name.replace(/\/+$/, "");
@@ -86,6 +89,7 @@ interface ProjectSettings {
   templateversion?: number;
   tenantId?: string;
   solutionName?: string;
+  webresourceSolutionName?: string;
   connectionString?: string;
   prefix?: string;
   controlName?: string;

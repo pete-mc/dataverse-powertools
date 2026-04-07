@@ -1,5 +1,7 @@
 import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
+import * as path from "path";
+import { DataverseWebresource } from "../general/dataverse/DataverseWebresource";
 
 export async function deployWebresources(context: DataversePowerToolsContext) {
   await vscode.window.withProgress(
@@ -57,34 +59,68 @@ export async function deploy(context: DataversePowerToolsContext) {
       title: "Deploying Resources...",
     },
     async () => {
-      const util = require("util");
-      const exec = util.promisify(require("child_process").execFile);
-      if (vscode.workspace.workspaceFolders !== undefined) {
-        let error = false;
-        const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-        const promiseDeploy = exec(workspacePath + "\\packages\\spkl\\tools\\spkl.exe", ["webresources", "./spkl.json", context.connectionString || ""], {
-          cwd: workspacePath,
-        });
-        const childDeploy = promiseDeploy.child;
-        childDeploy.stdout.on("data", function (data: any) {
-          context.channel.appendLine(data);
-          if (data.includes("with an error")) {
-            vscode.window.showErrorMessage("Error deploying webresources, see output for details.");
-            context.channel.appendLine(data);
-            context.channel.show();
-            error = true;
-          }
-        });
-        childDeploy.stderr.on("data", function (_data: any) {
-          vscode.window.showErrorMessage("Error deploying webresources, see output for details.");
-        });
-        childDeploy.on("close", function (_code: any) {
-          if (!error) {
-            vscode.window.showInformationMessage("Deploy Complete");
-          }
-        });
+      if (vscode.workspace.workspaceFolders === undefined) {
+        return;
+      }
 
-        const { stdout, stderr } = await promiseDeploy;
+      try {
+        if (!context.dataverse.isValid) {
+          const initialized = await context.dataverse.initialize();
+          if (!initialized) {
+            vscode.window.showErrorMessage("Error deploying webresources, Dataverse connection is not valid.");
+            return;
+          }
+        }
+
+        const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+        const binPath = path.join(workspacePath, "bin");
+        const filesToDeploy = await vscode.workspace.findFiles("bin/**", "**/{node_modules,.git}/**");
+        const solutionUniqueName = context.projectSettings.webresourceSolutionName || context.projectSettings.solutionName;
+
+        if (filesToDeploy.length === 0) {
+          vscode.window.showWarningMessage("No built webresources found in the bin folder.");
+          return;
+        }
+
+        let deployedCount = 0;
+
+        for (const file of filesToDeploy) {
+          const relativePath = path.relative(binPath, file.fsPath);
+          if (!relativePath || relativePath.startsWith("..")) {
+            continue;
+          }
+
+          const extension = path.extname(relativePath).toLowerCase();
+          const webresourceType = DataverseWebresource.mapWebresourceType(extension);
+          if (webresourceType === undefined) {
+            context.channel.appendLine(`Skipping unsupported webresource type: ${relativePath}`);
+            continue;
+          }
+
+          const contentBuffer = await vscode.workspace.fs.readFile(file);
+          const contentBase64 = Buffer.from(contentBuffer).toString("base64");
+          const name = relativePath.replace(/\\/g, "/");
+
+          const webresource = new DataverseWebresource(name, context);
+          await webresource.upsert(contentBase64, webresourceType, path.basename(name));
+          if (solutionUniqueName) {
+            await webresource.addToSolution(solutionUniqueName);
+          }
+          deployedCount += 1;
+          context.channel.appendLine(`Deployed webresource: ${name}`);
+        }
+
+        if (!solutionUniqueName) {
+          context.channel.appendLine("No webresource solution configured in settings; skipped adding webresources to a solution.");
+        }
+        vscode.window.showInformationMessage(`Publishing customizations...`);
+        context.channel.appendLine(`Webresource deployment complete, upserted ${deployedCount} webresources. Publishing customizations...`);
+        await context.dataverse.publishAllCustomisations();
+        vscode.window.showInformationMessage(`Deploy Complete (${deployedCount} webresources upserted)`);
+      } catch (e: any) {
+        context.channel.appendLine(e?.message || JSON.stringify(e));
+        context.channel.show();
+        vscode.window.showErrorMessage("Error deploying webresources, see output for details.");
       }
     },
   );

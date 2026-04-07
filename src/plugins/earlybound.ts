@@ -34,7 +34,7 @@ export async function createSNKKey(context: DataversePowerToolsContext) {
           }
         });
       });
-    }
+    },
   );
 }
 
@@ -75,7 +75,7 @@ export async function generateEarlyBound(context: DataversePowerToolsContext) {
               vscode.window.showInformationMessage("Earlybound types has been generated.");
               resolve();
             }
-          }
+          },
         );
       });
     },

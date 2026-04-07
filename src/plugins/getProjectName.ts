@@ -1,6 +1,5 @@
 import DataversePowerToolsContext from "../context";
 
-
 export function getProjectName(context: DataversePowerToolsContext): string {
   if (!context.projectSettings.placeholders) {
     return "plugins_src";
