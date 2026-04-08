@@ -1,7 +1,14 @@
 [
   {
     "version": 3,
-    "files": [],
+    "files": [
+      {
+        "path": [],
+        "filename": "WorkflowBase",
+        "extension": ".cs",
+        "version": 1
+      }
+    ],
     "placeholders": [],
     "initCommands": [
       {

@@ -31,4 +31,5 @@ export async function generalInitialise(context: DataversePowerToolsContext) {
   }
 
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.detectingFolderSettings", false);
+  await vscode.commands.executeCommand("setContext", "dataverse-powertools.folderStateReady", true);
 }

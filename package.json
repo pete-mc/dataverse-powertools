@@ -46,6 +46,13 @@
           "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
         }
       ],
+      "editor/context": [
+        {
+          "command": "dataverse-powertools.updateFilteringAttributes",
+          "group": "navigation@20",
+          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && editorLangId == csharp"
+        }
+      ],
       "view/title": [
         {
           "command": "dataversePowerToolsTableIntersectTree.updateTree",
@@ -182,16 +189,16 @@
       {
         "view": "dataversePowerToolsMenu",
         "contents": "Dataverse PowerTools \n[Initialise Project](command:dataverse-powertools.initialiseProject)",
-        "when": "!dataverse-powertools.showLoaded && !dataverse-powertools.detectingFolderSettings && !dataverse-powertools.hasSupportedProjectType"
+        "when": "dataverse-powertools.folderStateReady && !dataverse-powertools.showLoaded && !dataverse-powertools.detectingFolderSettings && !dataverse-powertools.hasSupportedProjectType"
       },
       {
         "view": "dataversePowerToolsMenu",
-        "contents": "Plugin Menu\n[Build and Deploy Plugins](command:dataverse-powertools.buildDeployPlugin)\n[Build and Deploy Workflows](command:dataverse-powertools.buildDeployWorkflow)\n[Build Project](command:dataverse-powertools.buildProject)\n[Create Plugin Class](command:dataverse-powertools.createPluginClass)\n[Create Workflow Class](command:dataverse-powertools.createWorkflowClass)\n[Add Plugin Step Decoration](command:dataverse-powertools.addPluginDecoration)\n[Add Workflow Decoration](command:dataverse-powertools.addWorkflowDecoration)",
+        "contents": "Plugin Menu\n[Build and Deploy Plugins](command:dataverse-powertools.buildDeployPlugin)\n[Build and Deploy Workflows](command:dataverse-powertools.buildDeployWorkflow)\n[Build Project](command:dataverse-powertools.buildProject)\n[Create Plugin Class](command:dataverse-powertools.createPluginClass)\n[Create Workflow Class](command:dataverse-powertools.createWorkflowClass)\n[Add Class Decoration](command:dataverse-powertools.addClassDecoration)",
         "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && dataverse-powertools.isPluginV3"
       },
       {
         "view": "dataversePowerToolsMenu",
-        "contents": "Plugin Menu\n[Build and Deploy Plugins](command:dataverse-powertools.buildDeployPlugin)\n[Build and Deploy Workflows](command:dataverse-powertools.buildDeployWorkflow)\n[Build Project](command:dataverse-powertools.buildProject)\n[Generate Early Bound](command:dataverse-powertools.generateEarlyBound)\n[Create Plugin Class](command:dataverse-powertools.createPluginClass)\n[Create Workflow Class](command:dataverse-powertools.createWorkflowClass)\n[Add Plugin Step Decoration](command:dataverse-powertools.addPluginDecoration)\n[Add Workflow Decoration](command:dataverse-powertools.addWorkflowDecoration)",
+        "contents": "Plugin Menu\n[Build and Deploy Plugins](command:dataverse-powertools.buildDeployPlugin)\n[Build and Deploy Workflows](command:dataverse-powertools.buildDeployWorkflow)\n[Build Project](command:dataverse-powertools.buildProject)\n[Generate Early Bound](command:dataverse-powertools.generateEarlyBound)\n[Create Plugin Class](command:dataverse-powertools.createPluginClass)\n[Create Workflow Class](command:dataverse-powertools.createWorkflowClass)\n[Add Class Decoration](command:dataverse-powertools.addClassDecoration)",
         "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && !dataverse-powertools.isPluginV3"
       },
       {
@@ -520,6 +527,16 @@
         "command": "dataverse-powertools.downloadPortal",
         "title": "Dataverse PowerTools: Download Portal",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPortal"
+      },
+      {
+        "command": "dataverse-powertools.updateFilteringAttributes",
+        "title": "Dataverse PowerTools: Update Filtering Attributes",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
+        "command": "dataverse-powertools.addClassDecoration",
+        "title": "Dataverse PowerTools: Add Class Decoration",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
         "command": "dataverse-powertools.addPluginDecoration",

@@ -1,17 +1,16 @@
 using Microsoft.Xrm.Sdk;
 using System;
 
-namespace Plugin
+namespace NAMESPACEPLACEHOLDER
 {
     /// <summary>
     /// Plugin development guide: https://docs.microsoft.com/powerapps/developer/common-data-service/plug-ins
-    /// Best practices and guidance: https://docs.microsoft.com/powerapps/developer/common-data-service/best-practices/business-logic/    
+    /// Best practices and guidance: https://docs.microsoft.com/powerapps/developer/common-data-service/best-practices/business-logic/
     /// </summary>
-
-    public class Plugin1 : PluginBase
+    public class CLASSNAMEPLACEHOLDER : PluginBase
     {
-        public Plugin1(string unsecureConfiguration, string secureConfiguration)
-            : base(typeof(Plugin1))
+        public CLASSNAMEPLACEHOLDER(string unsecureConfiguration, string secureConfiguration)
+            : base(typeof(CLASSNAMEPLACEHOLDER))
         {
             // TODO: Implement your custom configuration handling
             // https://docs.microsoft.com/powerapps/developer/common-data-service/register-plug-in#set-configuration-data

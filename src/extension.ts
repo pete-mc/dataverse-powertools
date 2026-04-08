@@ -16,8 +16,9 @@ export async function activate(vscodeContext: vscode.ExtensionContext) {
   const context = new DataversePowerToolsContext(vscodeContext);
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.showLog", () => context.channel.show(true)));
   registerSystemRequirementCommands(context);
+  await vscode.commands.executeCommand("setContext", "dataverse-powertools.folderStateReady", false);
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.detectingFolderSettings", true);
-  await vscode.commands.executeCommand("setContext", "dataverse-powertools.hasSupportedProjectType", false);
+  await vscode.commands.executeCommand("setContext", "dataverse-powertools.hasSupportedProjectType", true);
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.isPluginV3", false);
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.hasPluginModelBuilderSettings", false);
   context.channel.appendLine(fs.readFileSync(context.vscode.asAbsolutePath(path.join("templates", "logo.txt")), "utf8"));
