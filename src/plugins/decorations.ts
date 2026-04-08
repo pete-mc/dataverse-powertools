@@ -7,6 +7,7 @@ import DataversePowerToolsContext from "../context";
 import { MultiStepInput, shouldResume, validationIgnore } from "../general/inputControls";
 import { getDataverseTables } from "../general/dataverse/getDataverseTables";
 import { getDataverseTableAttributes } from "../general/dataverse/getDataverseTableAttributes";
+import { ExecutionModeEnum, IsolationModeEnum, MessageNameEnum, PluginState, StageEnum, WorkflowState } from "../typings/decorations";
 
 function getEol(document: vscode.TextDocument): string {
   return document.eol === vscode.EndOfLine.CRLF ? "\r\n" : "\n";
@@ -254,16 +255,20 @@ function parseDecorationArguments(argumentsText: string): DecorationArgsParseRes
 }
 
 function getQuotedValue(argumentText: string): string | undefined {
-  const match = argumentText.trim().match(/^"([\s\S]*)"$/);
-  if (!match) {
+  const trimmed = argumentText.trim();
+  if (!trimmed.startsWith('"') || !trimmed.endsWith('"')) {
     return undefined;
   }
 
-  return match[1].replace(/\\"/g, '"');
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return undefined;
+  }
 }
 
 function escapeForQuotedArgument(value: string): string {
-  return value.replace(/"/g, '\\"');
+  return JSON.stringify(value);
 }
 
 function findDecorationBoundsAtCursor(document: vscode.TextDocument, cursorOffset: number): { start: number; end: number } | undefined {
@@ -335,7 +340,7 @@ export async function updateFilteringAttributes(context: DataversePowerToolsCont
   }
 
   const filteringArgumentRange = parsed.argumentRanges[4];
-  const replacementText = `"${escapeForQuotedArgument(selectedFilteringAttributes)}"`;
+  const replacementText = escapeForQuotedArgument(selectedFilteringAttributes);
   const replacementStart = decorationBounds.start + openParenIndex + 1 + filteringArgumentRange.start;
   const replacementEnd = decorationBounds.start + openParenIndex + 1 + filteringArgumentRange.end;
 
@@ -499,7 +504,6 @@ async function inputPluginIsolationMode(input: MultiStepInput, state: Partial<Pl
   ).label;
   return;
 }
-
 async function pickEntityFromDataverse(context: DataversePowerToolsContext): Promise<string | undefined> {
   const tables = await getDataverseTables(context);
   if (tables.length === 0) {
@@ -610,130 +614,4 @@ async function inputWorkflowIsolationMode(input: MultiStepInput, state: Partial<
     })
   ).label;
   return;
-}
-
-interface PluginState {
-  messageName: string;
-  entityName: string;
-  stage: string;
-  executionMode: string;
-  filteringAttributes: string;
-  stepName: string;
-  executionOrder: string;
-  isolationMode: string;
-  id: string;
-}
-
-interface WorkflowState {
-  workflowName: string;
-  workflowDescription: string;
-  workflowGroup: string;
-  isolationMode: string;
-}
-
-enum MessageNameEnum {
-  AddItem,
-  AddListMembers,
-  AddMember,
-  AddMembers,
-  AddPrincipalToQueue,
-  AddPrivileges,
-  AddProductToKit,
-  AddRecurrence,
-  AddToQueue,
-  AddUserToRecordTeam,
-  ApplyRecordCreationAndUpdateRule,
-  Assign,
-  Associate,
-  BackgroundSend,
-  Book,
-  CalculatePrice,
-  Cancel,
-  CheckIncoming,
-  CheckPromote,
-  Clone,
-  CloneMobileOfflineProfile,
-  CloneProduct,
-  Close,
-  CopyDynamicListToStatic,
-  CopySystemForm,
-  Create,
-  CreateException,
-  CreateInstance,
-  CreateKnowledgeArticleTranslation,
-  CreateKnowledgeArticleVersion,
-  Delete,
-  DeleteOpenInstances,
-  DeliverIncoming,
-  DeliverPromote,
-  Disassociate,
-  Execute,
-  ExecuteById,
-  Export,
-  GenerateSocialProfile,
-  GetDefaultPriceLevel,
-  GrantAccess,
-  Import,
-  LockInvoicePricing,
-  LockSalesOrderPricing,
-  Lose,
-  Merge,
-  ModifyAccess,
-  PickFromQueue,
-  Publish,
-  PublishAll,
-  PublishTheme,
-  QualifyLead,
-  Recalculate,
-  ReleaseToQueue,
-  RemoveFromQueue,
-  RemoveItem,
-  RemoveMember,
-  RemoveMembers,
-  RemovePrivilege,
-  RemoveProductFromKit,
-  RemoveRelated,
-  RemoveUserFromRecordTeam,
-  ReplacePrivileges,
-  Reschedule,
-  Retrieve,
-  RetrieveExchangeRate,
-  RetrieveFilteredForms,
-  RetrieveMultiple,
-  RetrievePersonalWall,
-  RetrievePrincipalAccess,
-  RetrieveRecordWall,
-  RetrieveSharedPrincipalsAndAccess,
-  RetrieveUnpublished,
-  RetrieveUnpublishedMultiple,
-  RetrieveUserQueues,
-  RevokeAccess,
-  RouteTo,
-  Send,
-  SendFromTemplate,
-  SetLocLabels,
-  SetRelated,
-  SetState,
-  TriggerServiceEndpointCheck,
-  UnlockInvoicePricing,
-  UnlockSalesOrderPricing,
-  Update,
-  ValidateRecurrenceRule,
-  Win,
-}
-
-enum StageEnum {
-  PreValidation = 10,
-  PreOperation = 20,
-  PostOperation = 40,
-}
-
-enum ExecutionModeEnum {
-  Asynchronous,
-  Synchronous,
-}
-
-enum IsolationModeEnum {
-  None = 0,
-  Sandbox = 1,
 }

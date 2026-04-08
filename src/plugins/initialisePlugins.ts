@@ -2,6 +2,7 @@ import DataversePowerToolsContext from "../context";
 import * as vscode from "vscode";
 import { configureModelBuilderSettings, generateEarlyBoundV3, loadPluginModelBuilderSettings, updatePluginModelBuilderSettingsContext } from "../general/modelbuilder";
 import { buildProject } from "./buildProject";
+import { buildAndDeploy } from "./buildAndDeploy";
 import { createPluginClass, createWorkflowClass } from "./createClasses";
 import { addClassDecoration, updateFilteringAttributes } from "./decorations";
 
@@ -25,9 +26,10 @@ export async function initialisePlugins(context: DataversePowerToolsContext): Pr
 
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.generateEarlyBound", () => generateEarlyBoundV3(context)));
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.configurePluginEarlyBound", () => configureModelBuilderSettings(context)));
-  registerPlaceholderCommand(context, "dataverse-powertools.buildDeployPlugin", "Plugin build/deploy flow is coming soon.");
+  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildAndDeploy", () => buildAndDeploy(context)));
+  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildDeployPlugin", () => buildAndDeploy(context)));
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildProject", () => buildProject(context)));
-  registerPlaceholderCommand(context, "dataverse-powertools.buildDeployWorkflow", "Plugin workflow deploy flow is coming soon.");
+  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildDeployWorkflow", () => buildAndDeploy(context)));
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createPluginClass", () => createPluginClass(context)));
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createWorkflowClass", () => createWorkflowClass(context)));
   registerPlaceholderCommand(context, "dataverse-powertools.createSNKKey", "This template uses pac plugin init --skip-signing; SNK generation is not required by default.");

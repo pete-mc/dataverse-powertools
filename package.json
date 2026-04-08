@@ -193,12 +193,12 @@
       },
       {
         "view": "dataversePowerToolsMenu",
-        "contents": "Plugin Menu\n[Build and Deploy Plugins](command:dataverse-powertools.buildDeployPlugin)\n[Build and Deploy Workflows](command:dataverse-powertools.buildDeployWorkflow)\n[Build Project](command:dataverse-powertools.buildProject)\n[Create Plugin Class](command:dataverse-powertools.createPluginClass)\n[Create Workflow Class](command:dataverse-powertools.createWorkflowClass)\n[Add Class Decoration](command:dataverse-powertools.addClassDecoration)",
+        "contents": "Plugin Menu\n[Build and Deploy](command:dataverse-powertools.buildAndDeploy)\n[Build Project](command:dataverse-powertools.buildProject)\n[Create Plugin Class](command:dataverse-powertools.createPluginClass)\n[Create Workflow Class](command:dataverse-powertools.createWorkflowClass)\n[Add Class Decoration](command:dataverse-powertools.addClassDecoration)",
         "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && dataverse-powertools.isPluginV3"
       },
       {
         "view": "dataversePowerToolsMenu",
-        "contents": "Plugin Menu\n[Build and Deploy Plugins](command:dataverse-powertools.buildDeployPlugin)\n[Build and Deploy Workflows](command:dataverse-powertools.buildDeployWorkflow)\n[Build Project](command:dataverse-powertools.buildProject)\n[Generate Early Bound](command:dataverse-powertools.generateEarlyBound)\n[Create Plugin Class](command:dataverse-powertools.createPluginClass)\n[Create Workflow Class](command:dataverse-powertools.createWorkflowClass)\n[Add Class Decoration](command:dataverse-powertools.addClassDecoration)",
+        "contents": "Plugin Menu\n[Build and Deploy](command:dataverse-powertools.buildAndDeploy)\n[Build Project](command:dataverse-powertools.buildProject)\n[Generate Early Bound](command:dataverse-powertools.generateEarlyBound)\n[Create Plugin Class](command:dataverse-powertools.createPluginClass)\n[Create Workflow Class](command:dataverse-powertools.createWorkflowClass)\n[Add Class Decoration](command:dataverse-powertools.addClassDecoration)",
         "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && !dataverse-powertools.isPluginV3"
       },
       {
@@ -445,6 +445,11 @@
           "light": "media/light/cloud-download.svg",
           "dark": "media/dark/cloud-download.svg"
         }
+      },
+      {
+        "command": "dataverse-powertools.buildAndDeploy",
+        "title": "Dataverse PowerTools: Build and Deploy",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
         "command": "dataverse-powertools.buildDeployPlugin",
