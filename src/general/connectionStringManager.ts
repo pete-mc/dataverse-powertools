@@ -188,8 +188,6 @@ export async function getProjectType(context: DataversePowerToolsContext) {
     [
       { label: "Plugins", description: "Plugins", target: ProjectTypes.plugin },
       { label: "Web Resources", description: "Web Resources", target: ProjectTypes.webresource },
-      { label: "PCF Field", description: "PCF Field", target: ProjectTypes.pcffield },
-      { label: "PCF Data Set", description: "PCF Data Set", target: ProjectTypes.pcfdataset },
       { label: "Solution", description: "Solution", target: ProjectTypes.solution },
       { label: "Portal", description: "Portal", target: ProjectTypes.portal },
     ],

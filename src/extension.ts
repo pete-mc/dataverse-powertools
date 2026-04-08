@@ -53,8 +53,5 @@ export async function initialise(context: DataversePowerToolsContext) {
     case ProjectTypes.portal:
       await initialisePortals(context);
       break;
-    case ProjectTypes.pcfdataset:
-    case ProjectTypes.pcffield:
-      throw new Error("Function not implemented.");
   }
 }
