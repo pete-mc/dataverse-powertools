@@ -7,6 +7,19 @@ function escapeODataString(value: string): string {
   return value.replace(/'/g, "''");
 }
 
+function isStrongNameRequiredError(errorText: string): boolean {
+  const lower = errorText.toLowerCase();
+  return lower.includes("0x8004416c") || lower.includes("public assembly must have public key token");
+}
+
+function logStrongNameRequiredGuidance(context: DataversePowerToolsContext): void {
+  context.channel.appendLine(
+    "Dataverse pluginassembly API requires a strong-named assembly (public key token). " +
+      "Unsigned assemblies from --skip-signing cannot be created/updated through pluginassembly endpoints.",
+  );
+  context.channel.appendLine("Options: sign the assembly for API-based deploy, or use package-based plugin deployment flow.");
+}
+
 export async function getDataversePluginAssemblyId(context: DataversePowerToolsContext, assemblyName: string): Promise<string | undefined> {
   if (!context.dataverse) {
     context.dataverse = new DataverseContext(context);
@@ -33,7 +46,11 @@ export async function getDataversePluginAssemblyId(context: DataversePowerToolsC
     const url = `${context.dataverse.organizationUrl}/api/data/v9.1/pluginassemblies?$select=pluginassemblyid,name&$filter=name eq '${escapedAssemblyName}'`;
     const response = await fetch(url, options);
     if (!response.ok) {
-      context.channel.appendLine(await response.text());
+      const errorText = await response.text();
+      context.channel.appendLine(errorText);
+      if (isStrongNameRequiredError(errorText)) {
+        logStrongNameRequiredGuidance(context);
+      }
       return undefined;
     }
 
@@ -144,7 +161,11 @@ export async function updateDataversePluginAssemblyContent(context: DataversePow
     const url = `${context.dataverse.organizationUrl}/api/data/v9.1/pluginassemblies(${assemblyId})`;
     const response = await fetch(url, options);
     if (!response.ok) {
-      context.channel.appendLine(await response.text());
+      const errorText = await response.text();
+      context.channel.appendLine(errorText);
+      if (isStrongNameRequiredError(errorText)) {
+        logStrongNameRequiredGuidance(context);
+      }
       return false;
     }
 

@@ -93,6 +93,8 @@ interface ProjectSettings {
   webresourceSolutionName?: string;
   connectionString?: string;
   prefix?: string;
+  pluginPackageName?: string;
+  pluginPackageVersion?: string;
   pluginModelBuilder?: PluginModelBuilderSettings;
   controlName?: string;
   formIntersect?: FormIntersect[];
@@ -132,8 +134,6 @@ export interface TemplatePlaceholder {
 export enum ProjectTypes {
   plugin = "plugin",
   webresource = "webresources",
-  pcffield = "pcffield",
-  pcfdataset = "pcfdataset",
   solution = "solution",
   portal = "portal",
 }

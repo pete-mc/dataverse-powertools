@@ -5,6 +5,7 @@ import { buildProject } from "./buildProject";
 import { buildAndDeploy } from "./buildAndDeploy";
 import { createPluginClass, createWorkflowClass } from "./createClasses";
 import { addClassDecoration, updateFilteringAttributes } from "./decorations";
+import { registerDecorationCodeLens } from "./decorationsCodeLens";
 
 function registerPlaceholderCommand(context: DataversePowerToolsContext, commandId: string, message: string) {
   context.vscode.subscriptions.push(
@@ -37,4 +38,5 @@ export async function initialisePlugins(context: DataversePowerToolsContext): Pr
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.addPluginDecoration", () => addClassDecoration(context)));
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.addWorkflowDecoration", () => addClassDecoration(context)));
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.updateFilteringAttributes", () => updateFilteringAttributes(context)));
+  registerDecorationCodeLens(context);
 }

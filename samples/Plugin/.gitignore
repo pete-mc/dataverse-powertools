@@ -9,5 +9,3 @@
 
 # MSBuild Binary and Structured Log
 *.binlog
-
-/generated

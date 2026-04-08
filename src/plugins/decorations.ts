@@ -295,7 +295,7 @@ function findDecorationBoundsAtCursor(document: vscode.TextDocument, cursorOffse
 export async function updateFilteringAttributes(context: DataversePowerToolsContext): Promise<void> {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
-    vscode.window.showWarningMessage("Open a C# file and right-click a CrmPluginRegistration decoration.");
+    vscode.window.showWarningMessage("Open a C# file and place the cursor on a CrmPluginRegistration decoration.");
     return;
   }
 
@@ -308,7 +308,7 @@ export async function updateFilteringAttributes(context: DataversePowerToolsCont
   const cursorOffset = document.offsetAt(editor.selection.active);
   const decorationBounds = findDecorationBoundsAtCursor(document, cursorOffset);
   if (!decorationBounds) {
-    vscode.window.showWarningMessage("Right-click directly on a CrmPluginRegistration decoration to update filtering attributes.");
+    vscode.window.showWarningMessage("Place the cursor directly on a CrmPluginRegistration decoration to update filtering attributes.");
     return;
   }
 

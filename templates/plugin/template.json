@@ -7,12 +7,21 @@
         "filename": "WorkflowBase",
         "extension": ".cs",
         "version": 1
+      },
+      {
+        "path": [],
+        "filename": "CrmPluginRegistrationAttribute.generated",
+        "extension": ".cs",
+        "version": 1
       }
     ],
     "placeholders": [],
     "initCommands": [
       {
         "command": "pac plugin init --skip-signing"
+      },
+      {
+        "command": "dotnet add package Microsoft.CrmSdk.Workflow"
       }
     ],
     "restoreCommands": [

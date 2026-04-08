@@ -1,10 +1,13 @@
 import * as cp from "child_process";
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
-import { upsertDataversePluginAssembly } from "../general/dataverse/getDataversePluginAssembly";
+import { addDataverseSolutionComponentByObjectId } from "../general/dataverse/addDataverseSolutionComponent";
+import { PluginPackageMetadata, upsertDataversePluginPackage, waitForDataversePluginAssemblyFromPackage } from "../general/dataverse/getDataversePluginPackage";
 import { PluginStepRegistration, registerPluginSteps } from "../general/dataverse/registerPluginSteps";
+import { registerWorkflowActivities, WorkflowActivityRegistration } from "../general/dataverse/registerWorkflowActivities";
 
 interface ExecResult {
   stdout: string;
@@ -18,7 +21,7 @@ interface DecorationInfo {
 
 interface ParsedDecorationResult {
   pluginSteps: PluginStepRegistration[];
-  workflowCount: number;
+  workflowActivities: WorkflowActivityRegistration[];
 }
 
 function execFileAsync(file: string, args: string[], cwd?: string): Promise<ExecResult> {
@@ -31,6 +34,14 @@ function execFileAsync(file: string, args: string[], cwd?: string): Promise<Exec
       resolve({ stdout, stderr });
     });
   });
+}
+
+function escapePowerShellSingleQuoted(text: string): string {
+  return text.replace(/'/g, "''");
+}
+
+async function runPowerShellScript(script: string, cwd?: string): Promise<ExecResult> {
+  return execFileAsync("pwsh", ["-NoProfile", "-Command", script], cwd);
 }
 
 async function findBuildTarget(workspacePath: string): Promise<string | undefined> {
@@ -84,6 +95,43 @@ async function walkDirectory(rootPath: string): Promise<string[]> {
   return results;
 }
 
+async function sanitizeBuiltPackage(context: DataversePowerToolsContext, packagePath: string): Promise<void> {
+  const tempRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "dataverse-powertools-package-"));
+  try {
+    const escapedPackagePath = escapePowerShellSingleQuoted(packagePath);
+    const escapedTempRoot = escapePowerShellSingleQuoted(tempRoot);
+    await runPowerShellScript(`Expand-Archive -Path '${escapedPackagePath}' -DestinationPath '${escapedTempRoot}' -Force`);
+
+    const forbiddenAssemblyNames = new Set(["microsoft.xrm.sdk.dll", "microsoft.crm.sdk.proxy.dll", "microsoft.xrm.sdk.workflow.dll"]);
+
+    const extractedFiles = await walkDirectory(tempRoot);
+    const removedFiles: string[] = [];
+    for (const extractedFilePath of extractedFiles) {
+      const fileName = path.basename(extractedFilePath).toLowerCase();
+      if (!forbiddenAssemblyNames.has(fileName)) {
+        continue;
+      }
+
+      await fs.promises.rm(extractedFilePath, { force: true });
+      removedFiles.push(fileName);
+    }
+
+    if (removedFiles.length === 0) {
+      return;
+    }
+
+    context.channel.appendLine(`Sanitizing package by removing forbidden SDK assemblies: ${Array.from(new Set(removedFiles)).join(", ")}.`);
+
+    const escapedPackageWildcard = escapePowerShellSingleQuoted(path.join(tempRoot, "*"));
+    await runPowerShellScript(
+      `if (Test-Path '${escapedPackagePath}') { Remove-Item '${escapedPackagePath}' -Force }; ` +
+        `Compress-Archive -Path '${escapedPackageWildcard}' -DestinationPath '${escapedPackagePath}' -Force`,
+    );
+  } finally {
+    await fs.promises.rm(tempRoot, { recursive: true, force: true });
+  }
+}
+
 async function findBuiltAssemblyPath(workspacePath: string, csprojPath: string): Promise<string | undefined> {
   const binPath = path.join(workspacePath, "bin");
   if (!fs.existsSync(binPath)) {
@@ -110,6 +158,147 @@ async function findBuiltAssemblyPath(workspacePath: string, csprojPath: string):
   }
 
   return latestFile;
+}
+
+async function findBuiltPackagePath(workspacePath: string, csprojPath: string, packedAfterMs: number, preferredPackageId?: string): Promise<string | undefined> {
+  const binPath = path.join(workspacePath, "bin");
+  if (!fs.existsSync(binPath)) {
+    return undefined;
+  }
+
+  const allFiles = await walkDirectory(binPath);
+  const allPackages = allFiles.filter((filePath) => {
+    const fileName = path.basename(filePath).toLowerCase();
+    return fileName.endsWith(".nupkg") && !fileName.endsWith(".snupkg");
+  });
+
+  if (allPackages.length === 0) {
+    return undefined;
+  }
+
+  const packagePrefix = `${path.basename(csprojPath, ".csproj")}.`;
+  const preferredPrefix = preferredPackageId ? `${preferredPackageId}.`.toLowerCase() : undefined;
+  const packedAfterThreshold = packedAfterMs - 2000;
+
+  const withStats = await Promise.all(
+    allPackages.map(async (filePath) => ({
+      filePath,
+      fileNameLower: path.basename(filePath).toLowerCase(),
+      mtimeMs: (await fs.promises.stat(filePath)).mtimeMs,
+    })),
+  );
+
+  const currentRunPackages = withStats.filter((entry) => entry.mtimeMs >= packedAfterThreshold);
+
+  if (preferredPrefix) {
+    const preferredCurrent = currentRunPackages.filter((entry) => entry.fileNameLower.startsWith(preferredPrefix)).sort((a, b) => b.mtimeMs - a.mtimeMs)[0];
+    if (preferredCurrent) {
+      return preferredCurrent.filePath;
+    }
+  }
+
+  const projectCurrent = currentRunPackages.filter((entry) => entry.fileNameLower.startsWith(packagePrefix.toLowerCase())).sort((a, b) => b.mtimeMs - a.mtimeMs)[0];
+  if (projectCurrent) {
+    return projectCurrent.filePath;
+  }
+
+  const latestCurrent = currentRunPackages.sort((a, b) => b.mtimeMs - a.mtimeMs)[0];
+  if (latestCurrent) {
+    return latestCurrent.filePath;
+  }
+
+  if (preferredPrefix) {
+    const preferredAny = withStats.filter((entry) => entry.fileNameLower.startsWith(preferredPrefix)).sort((a, b) => b.mtimeMs - a.mtimeMs)[0];
+    if (preferredAny) {
+      return preferredAny.filePath;
+    }
+  }
+
+  const projectAny = withStats.filter((entry) => entry.fileNameLower.startsWith(packagePrefix.toLowerCase())).sort((a, b) => b.mtimeMs - a.mtimeMs)[0];
+  if (projectAny) {
+    return projectAny.filePath;
+  }
+
+  return withStats.sort((a, b) => b.mtimeMs - a.mtimeMs)[0].filePath;
+}
+
+function sanitizeUniqueNameSegment(value: string): string {
+  return value
+    .replace(/[^A-Za-z0-9_]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function normalizeCustomizationPrefix(prefix: string | undefined): string {
+  const sanitized = (prefix || "")
+    .trim()
+    .replace(/[^A-Za-z0-9]/g, "")
+    .replace(/_+$/g, "");
+
+  if (!sanitized) {
+    return "dpt";
+  }
+
+  if (!/^[A-Za-z]/.test(sanitized)) {
+    return `p${sanitized}`;
+  }
+
+  return sanitized;
+}
+
+function getPrefixedPackageId(context: DataversePowerToolsContext, csprojPath: string): string {
+  const normalizedPrefix = normalizeCustomizationPrefix(context.projectSettings.prefix);
+  const configuredName = sanitizeUniqueNameSegment(context.projectSettings.pluginPackageName || "");
+  const projectName = configuredName || sanitizeUniqueNameSegment(path.basename(csprojPath, ".csproj")) || "Plugin";
+  return `${normalizedPrefix}_${projectName}`;
+}
+
+function getConfiguredPluginPackageVersion(context: DataversePowerToolsContext): string {
+  const configuredVersion = (context.projectSettings.pluginPackageVersion || "").trim();
+  if (/^\d+(\.\d+){1,3}([\-+][0-9A-Za-z.-]+)?$/.test(configuredVersion)) {
+    return configuredVersion;
+  }
+
+  return "1.0.0";
+}
+
+function buildPluginPackageUniqueName(context: DataversePowerToolsContext, packageName: string): string {
+  const normalizedPrefix = normalizeCustomizationPrefix(context.projectSettings.prefix);
+  const segment = sanitizeUniqueNameSegment(packageName);
+  const baseSegment = segment.length > 0 ? segment : "pluginpackage";
+
+  let uniqueName = /^[A-Za-z][A-Za-z0-9]*_/.test(baseSegment) ? baseSegment : `${normalizedPrefix}_${baseSegment}`;
+  if (uniqueName.length > 128) {
+    uniqueName = uniqueName.substring(0, 128);
+  }
+
+  return uniqueName;
+}
+
+function parsePackageMetadata(context: DataversePowerToolsContext, csprojPath: string, packagePath: string): PluginPackageMetadata {
+  const packageFileName = path.basename(packagePath, ".nupkg");
+  const match = packageFileName.match(/^(.+?)\.([0-9]+(?:\.[0-9]+){1,3}(?:[-+][A-Za-z0-9.-]+)?)$/);
+  const fallbackName = path.basename(csprojPath, ".csproj");
+  const fallbackVersion = getConfiguredPluginPackageVersion(context);
+
+  if (match) {
+    const packageName = match[1];
+    const version = match[2];
+    const uniqueName = buildPluginPackageUniqueName(context, packageName);
+    return {
+      name: packageName,
+      uniqueName,
+      version,
+    };
+  }
+
+  const uniqueName = buildPluginPackageUniqueName(context, fallbackName);
+
+  return {
+    name: fallbackName,
+    uniqueName,
+    version: fallbackVersion,
+  };
 }
 
 async function discoverDecorations(workspacePath: string): Promise<DecorationInfo[]> {
@@ -249,7 +438,7 @@ function extractNamespace(content: string): string {
 function parseDecorationsFromContent(content: string): ParsedDecorationResult {
   const namespaceName = extractNamespace(content);
   const pluginSteps: PluginStepRegistration[] = [];
-  let workflowCount = 0;
+  const workflowActivities: WorkflowActivityRegistration[] = [];
 
   const regex = /\[CrmPluginRegistration\(([\s\S]*?)\)\][\s\S]*?public\s+class\s+(\w+)\s*:\s*([^\r\n\{]+)/g;
   let match = regex.exec(content);
@@ -261,7 +450,13 @@ function parseDecorationsFromContent(content: string): ParsedDecorationResult {
 
     const isWorkflow = argsText.includes('"WorkflowActivity"') || classInheritance.includes("WorkflowBase") || classInheritance.includes("CodeActivity");
     if (isWorkflow) {
-      workflowCount++;
+      workflowActivities.push({
+        className,
+        fullTypeName: `${namespaceName}.${className}`,
+        workflowName: getQuotedStringValue(args[1] || `"${className}"`),
+        workflowDescription: getQuotedStringValue(args[2] || '""'),
+        workflowGroup: getQuotedStringValue(args[3] || '""'),
+      });
       match = regex.exec(content);
       continue;
     }
@@ -297,7 +492,7 @@ function parseDecorationsFromContent(content: string): ParsedDecorationResult {
     match = regex.exec(content);
   }
 
-  return { pluginSteps, workflowCount };
+  return { pluginSteps, workflowActivities };
 }
 
 async function discoverRegistrations(workspacePath: string): Promise<ParsedDecorationResult> {
@@ -310,16 +505,16 @@ async function discoverRegistrations(workspacePath: string): Promise<ParsedDecor
   });
 
   const pluginSteps: PluginStepRegistration[] = [];
-  let workflowCount = 0;
+  const workflowActivities: WorkflowActivityRegistration[] = [];
 
   for (const filePath of sourceFiles) {
     const content = await fs.promises.readFile(filePath, "utf8");
     const parsed = parseDecorationsFromContent(content);
     pluginSteps.push(...parsed.pluginSteps);
-    workflowCount += parsed.workflowCount;
+    workflowActivities.push(...parsed.workflowActivities);
   }
 
-  return { pluginSteps, workflowCount };
+  return { pluginSteps, workflowActivities };
 }
 
 export async function buildAndDeploy(context: DataversePowerToolsContext): Promise<void> {
@@ -333,7 +528,7 @@ export async function buildAndDeploy(context: DataversePowerToolsContext): Promi
   await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
-      title: "Building and deploying plugin assembly...",
+      title: "Building package and deploying...",
     },
     async () => {
       const buildTarget = await findBuildTarget(workspacePath);
@@ -342,7 +537,7 @@ export async function buildAndDeploy(context: DataversePowerToolsContext): Promi
         buildArgs.push(buildTarget);
       }
 
-      context.channel.appendLine(`Build and Deploy started${buildTarget ? ` for ${buildTarget}` : ""}.`);
+      context.channel.appendLine(`Build Package & Deploy started${buildTarget ? ` for ${buildTarget}` : ""}.`);
 
       try {
         const buildResult = await execFileAsync("dotnet", buildArgs, workspacePath);
@@ -365,6 +560,47 @@ export async function buildAndDeploy(context: DataversePowerToolsContext): Promi
         return;
       }
 
+      const packArgs = ["pack"];
+      if (buildTarget) {
+        packArgs.push(buildTarget);
+      }
+      packArgs.push("--configuration", "Debug", "--no-build");
+
+      const csprojPathForPack = await findPrimaryCsproj(workspacePath);
+      let expectedPackageId: string | undefined;
+      if (csprojPathForPack) {
+        const prefixedPackageId = getPrefixedPackageId(context, csprojPathForPack);
+        const configuredPackageVersion = getConfiguredPluginPackageVersion(context);
+        expectedPackageId = prefixedPackageId;
+        packArgs.push(`-p:PackageId=${prefixedPackageId}`);
+        packArgs.push(`-p:Version=${configuredPackageVersion}`);
+        context.channel.appendLine(`Using PackageId override for pack: ${prefixedPackageId}`);
+        context.channel.appendLine(`Using package Version override for pack: ${configuredPackageVersion}`);
+      }
+
+      const packStartedAt = Date.now();
+
+      try {
+        const packResult = await execFileAsync("dotnet", packArgs, workspacePath);
+        if (packResult.stdout) {
+          context.channel.appendLine(packResult.stdout);
+        }
+        if (packResult.stderr) {
+          context.channel.appendLine(packResult.stderr);
+        }
+      } catch (error: any) {
+        if (error?.stdout) {
+          context.channel.appendLine(error.stdout);
+        }
+        if (error?.stderr) {
+          context.channel.appendLine(error.stderr);
+        }
+        context.channel.appendLine("Package build failed; deployment skipped.");
+        context.channel.show();
+        vscode.window.showErrorMessage("Package build failed. See output for details.");
+        return;
+      }
+
       const csprojPath = await findPrimaryCsproj(workspacePath);
       if (!csprojPath) {
         vscode.window.showErrorMessage("No .csproj found in workspace root.");
@@ -377,36 +613,96 @@ export async function buildAndDeploy(context: DataversePowerToolsContext): Promi
         return;
       }
 
-      const discovered = await discoverRegistrations(workspacePath);
-      const pluginCount = discovered.pluginSteps.length;
-      const workflowCount = discovered.workflowCount;
-      context.channel.appendLine(`Discovered ${pluginCount} plugin step decorations and ${workflowCount} workflow decorations.`);
+      const packagePath = await findBuiltPackagePath(workspacePath, csprojPath, packStartedAt, expectedPackageId);
+      if (!packagePath) {
+        context.channel.appendLine("Package path not detected after pack. Check dotnet output for package location.");
+        vscode.window.showErrorMessage("Package build succeeded, but .nupkg path was not detected. See output for details.");
+        return;
+      }
+      context.channel.appendLine(`Built package: ${packagePath}`);
 
-      const assemblyName = path.basename(assemblyPath, ".dll");
-      const assemblyResolution = await upsertDataversePluginAssembly(context, assemblyName, assemblyPath);
-      const assemblyId = assemblyResolution.assemblyId;
-      if (!assemblyId) {
-        context.channel.appendLine(`Unable to resolve or create Dataverse plugin assembly '${assemblyName}'.`);
-        vscode.window.showErrorMessage(`Build succeeded, but failed to resolve/create Dataverse plugin assembly '${assemblyName}'. See output for details.`);
+      try {
+        await sanitizeBuiltPackage(context, packagePath);
+      } catch (error: any) {
+        const message = error?.error?.message || error?.message || "Unknown package sanitization error";
+        context.channel.appendLine(`Failed to sanitize package before upload: ${message}`);
+        if (error?.stdout) {
+          context.channel.appendLine(error.stdout);
+        }
+        if (error?.stderr) {
+          context.channel.appendLine(error.stderr);
+        }
+        context.channel.show();
+        vscode.window.showErrorMessage("Package sanitization failed. See output for details.");
         return;
       }
 
-      if (assemblyResolution.created) {
-        context.channel.appendLine(`Created Dataverse plugin assembly '${assemblyName}' (${assemblyId}).`);
-      } else if (assemblyResolution.updated) {
-        context.channel.appendLine(`Updated Dataverse plugin assembly '${assemblyName}' (${assemblyId}).`);
-      } else {
-        context.channel.appendLine(`Resolved existing Dataverse plugin assembly '${assemblyName}' (${assemblyId}).`);
+      const packageMetadata = parsePackageMetadata(context, csprojPath, packagePath);
+      context.channel.appendLine(`Package metadata: Name='${packageMetadata.name}', UniqueName='${packageMetadata.uniqueName}', Version='${packageMetadata.version}'.`);
+      const packageResolution = await upsertDataversePluginPackage(context, packageMetadata, packagePath);
+      const pluginPackageId = packageResolution.pluginPackageId;
+      if (!pluginPackageId) {
+        context.channel.appendLine(`Unable to resolve or create Dataverse plugin package '${packageMetadata.uniqueName}'.`);
+        vscode.window.showErrorMessage(`Build succeeded, but failed to resolve/create Dataverse plugin package '${packageMetadata.uniqueName}'. See output for details.`);
+        return;
       }
 
-      const registrationResult = await registerPluginSteps(context, assemblyId, discovered.pluginSteps);
+      if (packageResolution.created) {
+        context.channel.appendLine(`Created Dataverse plugin package '${packageMetadata.uniqueName}' (${pluginPackageId}).`);
+      } else if (packageResolution.updated) {
+        context.channel.appendLine(`Updated Dataverse plugin package '${packageMetadata.uniqueName}' (${pluginPackageId}).`);
+      } else {
+        context.channel.appendLine(`Resolved existing Dataverse plugin package '${packageMetadata.uniqueName}' (${pluginPackageId}).`);
+      }
+
+      const solutionUniqueName = context.projectSettings.solutionName;
+      if (solutionUniqueName) {
+        const packageSolutionAssociation = await addDataverseSolutionComponentByObjectId(context, solutionUniqueName, pluginPackageId);
+        if (packageSolutionAssociation) {
+          context.channel.appendLine(`Ensured plugin package '${packageMetadata.uniqueName}' is associated with solution '${solutionUniqueName}'.`);
+        } else {
+          context.channel.appendLine(`Could not associate plugin package '${packageMetadata.uniqueName}' with solution '${solutionUniqueName}'.`);
+        }
+      }
+
+      const discovered = await discoverRegistrations(workspacePath);
+      const pluginCount = discovered.pluginSteps.length;
+      const workflowCount = discovered.workflowActivities.length;
+      context.channel.appendLine(`Discovered ${pluginCount} plugin step decorations and ${workflowCount} workflow decorations.`);
+
+      const assemblyName = path.basename(assemblyPath, ".dll");
+      context.channel.appendLine(`Waiting for plugin assembly '${assemblyName}' to be available from package import...`);
+      const assemblyId = await waitForDataversePluginAssemblyFromPackage(context, pluginPackageId, assemblyName);
+      if (!assemblyId) {
+        context.channel.appendLine(`Unable to resolve Dataverse plugin assembly '${assemblyName}' linked to package '${packageMetadata.uniqueName}'.`);
+        vscode.window.showErrorMessage(`Package uploaded, but plugin assembly '${assemblyName}' was not available yet. Re-run deployment or check Dataverse import status.`);
+        return;
+      }
+
+      context.channel.appendLine(`Resolved Dataverse plugin assembly '${assemblyName}' (${assemblyId}).`);
+      const registrationResult = await registerPluginSteps(context, assemblyId, discovered.pluginSteps, context.projectSettings.solutionName);
       context.channel.appendLine(
-        `Plugin step sync complete. Created: ${registrationResult.created}, Updated: ${registrationResult.updated}, Skipped: ${registrationResult.skipped}.`,
+        `Plugin step sync complete. Created: ${registrationResult.created}, Updated: ${registrationResult.updated}, Unchanged: ${registrationResult.unchanged}, Skipped: ${registrationResult.skipped}.`,
       );
 
-      context.channel.appendLine("Build and Deploy completed.");
+      const workflowResult = await registerWorkflowActivities(context, assemblyId, discovered.workflowActivities, context.projectSettings.solutionName);
+      context.channel.appendLine(
+        `Workflow activity sync complete. Created: ${workflowResult.created}, Updated: ${workflowResult.updated}, Unchanged: ${workflowResult.unchanged}, Skipped: ${workflowResult.skipped}.`,
+      );
+
+      context.channel.appendLine("Publishing all customizations...");
+      try {
+        vscode.window.showInformationMessage("Publishing customizations...");
+        await context.dataverse?.publishAllCustomisations();
+        context.channel.appendLine("Publish all customizations completed.");
+      } catch (publishError: any) {
+        const message = publishError?.message || "Unknown publish error";
+        context.channel.appendLine(`Publish all customizations failed: ${message}`);
+      }
+
+      context.channel.appendLine("Build Package & Deploy completed.");
       vscode.window.showInformationMessage(
-        `Build and Deploy completed (Assembly ${assemblyResolution.created ? "created" : "updated"}, Steps: ${registrationResult.created} created, ${registrationResult.updated} updated, ${registrationResult.skipped} skipped).`,
+        `Build Package & Deploy completed (Package ${packageResolution.created ? "created" : "updated"}, Steps: ${registrationResult.created} created, ${registrationResult.updated} updated, ${registrationResult.unchanged} unchanged, ${registrationResult.skipped} skipped, Workflows: ${workflowResult.created} created, ${workflowResult.updated} updated, ${workflowResult.unchanged} unchanged, ${workflowResult.skipped} skipped, package built).`,
       );
     },
   );

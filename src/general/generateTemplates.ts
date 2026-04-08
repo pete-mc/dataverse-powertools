@@ -13,6 +13,57 @@ import { initialisePlugins as initialisePluginsNew } from "../plugins/initialise
 import { initialiseWebresources } from "../webresources/initialiseWebresources";
 import { createWebResourceClass } from "../webresources/createWebresourceClass";
 
+async function promptPluginPackageName(context: DataversePowerToolsContext): Promise<void> {
+  if (context.projectSettings.type !== ProjectTypes.plugin) {
+    return;
+  }
+
+  const defaultName = context.projectSettings.pluginPackageName || "Plugin";
+  const input = await vscode.window.showInputBox({
+    ignoreFocusOut: true,
+    prompt: "What is the plugin package name?",
+    value: defaultName,
+    validateInput: (value) => {
+      if (!value || value.trim().length === 0) {
+        return "Plugin package name is required.";
+      }
+      return undefined;
+    },
+  });
+
+  context.projectSettings.pluginPackageName = (input || defaultName).trim();
+}
+
+function isLikelyNuGetVersion(value: string): boolean {
+  return /^\d+(\.\d+){1,3}([\-+][0-9A-Za-z.-]+)?$/.test(value.trim());
+}
+
+async function promptPluginPackageVersion(context: DataversePowerToolsContext): Promise<void> {
+  if (context.projectSettings.type !== ProjectTypes.plugin) {
+    return;
+  }
+
+  const defaultVersion = context.projectSettings.pluginPackageVersion || "1.0.0";
+  const input = await vscode.window.showInputBox({
+    ignoreFocusOut: true,
+    prompt: "What is the plugin package version?",
+    value: defaultVersion,
+    validateInput: (value) => {
+      if (!value || value.trim().length === 0) {
+        return "Plugin package version is required.";
+      }
+
+      if (!isLikelyNuGetVersion(value)) {
+        return "Use a NuGet version like 1.0.0 or 1.0.0-beta.1";
+      }
+
+      return undefined;
+    },
+  });
+
+  context.projectSettings.pluginPackageVersion = (input || defaultVersion).trim();
+}
+
 export async function createNewProject(context: DataversePowerToolsContext) {
   await vscode.window.withProgress(
     {
@@ -22,6 +73,8 @@ export async function createNewProject(context: DataversePowerToolsContext) {
     async () => {
       await getProjectType(context);
       await createServicePrincipalString(context);
+      await promptPluginPackageName(context);
+      await promptPluginPackageVersion(context);
       await generateTemplates(context);
       await context.writeSettings();
       await context.readSettings();

@@ -140,7 +140,7 @@ export async function downloadPortal(context: DataversePowerToolsContext, pacLoc
   if (vscode.workspace.workspaceFolders !== undefined) {
     const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
     try {
-      const stdout = await runPac(context, pacLocation, ["paportal", "list"]);
+      const stdout = await runPac(context, pacLocation, ["pages", "list"]);
       if (stdout !== null && stdout !== "") {
         const arrayOfString = stdout.replace(/\s\s+/g, "\r").split("\r");
         const indexBeforeInformation = arrayOfString.findIndex((x) => x === "Friendly Name") + 1;
@@ -149,14 +149,14 @@ export async function downloadPortal(context: DataversePowerToolsContext, pacLoc
           quickPickArray.push({ label: arrayOfString[i + 2], target: arrayOfString[i + 1] });
         }
 
-        const result = await window.showQuickPick(quickPickArray, { placeHolder: "Select a CRM/Dynamics Solution." });
+        const result = await window.showQuickPick(quickPickArray, { placeHolder: "Select a Power Pages website." });
         if (!result?.target) {
           return;
         }
 
         context.channel.appendLine(`${result.label}, ${result.target}`);
         const downloadPath = path.join(workspacePath, "portalpublish");
-        const downloadOutput = await runPac(context, pacLocation, ["paportal", "download", "-id", result.target, "-p", downloadPath]);
+        const downloadOutput = await runPac(context, pacLocation, ["pages", "download", "-id", result.target, "-p", downloadPath]);
         if (downloadOutput !== null && downloadOutput !== "") {
           context.channel.appendLine(downloadOutput);
           context.channel.show();

@@ -46,13 +46,7 @@
           "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
         }
       ],
-      "editor/context": [
-        {
-          "command": "dataverse-powertools.updateFilteringAttributes",
-          "group": "navigation@20",
-          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && editorLangId == csharp"
-        }
-      ],
+      "editor/context": [],
       "view/title": [
         {
           "command": "dataversePowerToolsTableIntersectTree.updateTree",
@@ -193,12 +187,12 @@
       },
       {
         "view": "dataversePowerToolsMenu",
-        "contents": "Plugin Menu\n[Build and Deploy](command:dataverse-powertools.buildAndDeploy)\n[Build Project](command:dataverse-powertools.buildProject)\n[Create Plugin Class](command:dataverse-powertools.createPluginClass)\n[Create Workflow Class](command:dataverse-powertools.createWorkflowClass)\n[Add Class Decoration](command:dataverse-powertools.addClassDecoration)",
+        "contents": "Plugin Menu\n[Build Package & Deploy](command:dataverse-powertools.buildAndDeploy)\n[Build Locally](command:dataverse-powertools.buildProject)\n\nTip: Create new classes from Explorer right-click menu. Use CodeLens in C# files to add/update class decorations for step registrations.",
         "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && dataverse-powertools.isPluginV3"
       },
       {
         "view": "dataversePowerToolsMenu",
-        "contents": "Plugin Menu\n[Build and Deploy](command:dataverse-powertools.buildAndDeploy)\n[Build Project](command:dataverse-powertools.buildProject)\n[Generate Early Bound](command:dataverse-powertools.generateEarlyBound)\n[Create Plugin Class](command:dataverse-powertools.createPluginClass)\n[Create Workflow Class](command:dataverse-powertools.createWorkflowClass)\n[Add Class Decoration](command:dataverse-powertools.addClassDecoration)",
+        "contents": "Plugin Menu\n[Build Package & Deploy](command:dataverse-powertools.buildAndDeploy)\n[Build Locally](command:dataverse-powertools.buildProject)\n[Generate Early Bound](command:dataverse-powertools.generateEarlyBound)\n\nTip: Create new classes from Explorer right-click menu. Use CodeLens in C# files to add/update class decorations for step registrations.",
         "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && !dataverse-powertools.isPluginV3"
       },
       {
@@ -448,22 +442,22 @@
       },
       {
         "command": "dataverse-powertools.buildAndDeploy",
-        "title": "Dataverse PowerTools: Build and Deploy",
+        "title": "Dataverse PowerTools: Build Package & Deploy",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
         "command": "dataverse-powertools.buildDeployPlugin",
-        "title": "Dataverse PowerTools: Build and Deploy Plugins",
+        "title": "Dataverse PowerTools: Build Package & Deploy",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
         "command": "dataverse-powertools.buildProject",
-        "title": "Dataverse PowerTools: Build Plugin Project",
+        "title": "Dataverse PowerTools: Build Locally",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
         "command": "dataverse-powertools.buildDeployWorkflow",
-        "title": "Dataverse PowerTools: Build and Deploy Workflows",
+        "title": "Dataverse PowerTools: Build Package & Deploy",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {

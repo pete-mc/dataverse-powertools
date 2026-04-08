@@ -1,5 +1,6 @@
 import fetch from "node-fetch";
 import DataversePowerToolsContext from "../../context";
+import { addDataverseSolutionComponent } from "./addDataverseSolutionComponent";
 import { DataverseContext, Options } from "./dataverseContext";
 
 export interface PluginStepRegistration {
@@ -142,9 +143,9 @@ async function resolveSdkMessageFilterId(context: DataversePowerToolsContext, sd
 
 async function resolveExistingStepId(context: DataversePowerToolsContext, step: PluginStepRegistration, pluginTypeId: string, sdkMessageId: string): Promise<string | undefined> {
   if (step.stepId) {
-    const stepData = await getJson(context, `/api/data/v9.1/sdkmessageprocessingsteps(${step.stepId})?$select=sdkmessageprocessingstepid`);
-    if (stepData?.sdkmessageprocessingstepid) {
-      return stepData.sdkmessageprocessingstepid;
+    const explicitIdExists = await doesStepExistById(context, step.stepId);
+    if (explicitIdExists) {
+      return step.stepId;
     }
   }
 
@@ -159,6 +160,115 @@ async function resolveExistingStepId(context: DataversePowerToolsContext, step: 
   }
 
   return data.value[0]?.sdkmessageprocessingstepid;
+}
+
+async function doesStepExistById(context: DataversePowerToolsContext, stepId: string): Promise<boolean> {
+  if (!(await ensureDataverseContext(context))) {
+    return false;
+  }
+
+  const token = await context.dataverse.getAuthorizationToken();
+  const baseUrl = context.dataverse.organizationUrl;
+  if (!token || !baseUrl) {
+    return false;
+  }
+
+  /* eslint-disable @typescript-eslint/naming-convention */
+  const options = {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+  } as Options;
+  /* eslint-enable @typescript-eslint/naming-convention */
+
+  const response = await fetch(`${baseUrl}/api/data/v9.1/sdkmessageprocessingsteps(${stepId})?$select=sdkmessageprocessingstepid`, options);
+  if (response.ok) {
+    return true;
+  }
+
+  if (response.status === 404) {
+    return false;
+  }
+
+  context.channel.appendLine(await response.text());
+  return false;
+}
+
+interface ExistingStepSnapshot {
+  sdkmessageprocessingstepid?: string;
+  name?: string;
+  rank?: number;
+  stage?: number;
+  mode?: number;
+  filteringattributes?: string;
+  sdkMessageFilterId?: string;
+}
+
+async function getExistingStepSnapshot(context: DataversePowerToolsContext, stepId: string): Promise<ExistingStepSnapshot | undefined> {
+  const data = await getJson(
+    context,
+    `/api/data/v9.1/sdkmessageprocessingsteps(${stepId})?$select=sdkmessageprocessingstepid,name,rank,stage,mode,filteringattributes,_sdkmessagefilterid_value`,
+  );
+
+  if (!data) {
+    return undefined;
+  }
+
+  return {
+    sdkmessageprocessingstepid: data.sdkmessageprocessingstepid,
+    name: data.name,
+    rank: data.rank,
+    stage: data.stage,
+    mode: data.mode,
+    filteringattributes: data.filteringattributes,
+    sdkMessageFilterId: data._sdkmessagefilterid_value,
+  };
+}
+
+function normalizeFilteringAttributes(value: string | undefined): string {
+  const normalized = (value || "")
+    .split(",")
+    .map((attribute) => attribute.trim().toLowerCase())
+    .filter((attribute) => attribute.length > 0)
+    .sort((a, b) => a.localeCompare(b));
+
+  return normalized.join(",");
+}
+
+function stepNeedsUpdate(existingStep: ExistingStepSnapshot, step: PluginStepRegistration, sdkMessageFilterId?: string): boolean {
+  const existingFilter = normalizeFilteringAttributes(existingStep.filteringattributes);
+  const requestedFilter = normalizeFilteringAttributes(step.filteringAttributes);
+  const existingMessageFilterId = existingStep.sdkMessageFilterId || undefined;
+  const requestedMessageFilterId = sdkMessageFilterId || undefined;
+
+  if ((existingStep.name || "") !== step.stepName) {
+    return true;
+  }
+
+  if ((existingStep.rank ?? 0) !== step.executionOrder) {
+    return true;
+  }
+
+  if ((existingStep.stage ?? 0) !== step.stage) {
+    return true;
+  }
+
+  if ((existingStep.mode ?? 0) !== step.mode) {
+    return true;
+  }
+
+  if (existingFilter !== requestedFilter) {
+    return true;
+  }
+
+  if ((existingMessageFilterId || "") !== (requestedMessageFilterId || "")) {
+    return true;
+  }
+
+  return false;
 }
 
 function buildStepPayload(step: PluginStepRegistration, pluginTypeId: string, sdkMessageId: string, sdkMessageFilterId?: string): any {
@@ -184,12 +294,19 @@ function buildStepPayload(step: PluginStepRegistration, pluginTypeId: string, sd
 export interface RegisterPluginStepsResult {
   created: number;
   updated: number;
+  unchanged: number;
   skipped: number;
 }
 
-export async function registerPluginSteps(context: DataversePowerToolsContext, assemblyId: string, steps: PluginStepRegistration[]): Promise<RegisterPluginStepsResult> {
+export async function registerPluginSteps(
+  context: DataversePowerToolsContext,
+  assemblyId: string,
+  steps: PluginStepRegistration[],
+  solutionUniqueName?: string,
+): Promise<RegisterPluginStepsResult> {
   let created = 0;
   let updated = 0;
+  let unchanged = 0;
   let skipped = 0;
 
   for (const step of steps) {
@@ -217,22 +334,46 @@ export async function registerPluginSteps(context: DataversePowerToolsContext, a
     const stepPayload = buildStepPayload(step, pluginTypeId, sdkMessageId, sdkMessageFilterId);
     const existingStepId = await resolveExistingStepId(context, step, pluginTypeId, sdkMessageId);
     if (existingStepId) {
-      const updateResponse = await sendJson(context, "PATCH", `/api/data/v9.1/sdkmessageprocessingsteps(${existingStepId})`, stepPayload);
-      if (updateResponse !== undefined) {
-        updated++;
+      const existingSnapshot = await getExistingStepSnapshot(context, existingStepId);
+      const requiresUpdate = existingSnapshot ? stepNeedsUpdate(existingSnapshot, step, sdkMessageFilterId) : true;
+
+      if (requiresUpdate) {
+        const updateResponse = await sendJson(context, "PATCH", `/api/data/v9.1/sdkmessageprocessingsteps(${existingStepId})`, stepPayload);
+        if (updateResponse !== undefined) {
+          updated++;
+        } else {
+          skipped++;
+          continue;
+        }
       } else {
-        skipped++;
+        unchanged++;
       }
+
+      if (solutionUniqueName) {
+        const associated = await addDataverseSolutionComponent(context, solutionUniqueName, 92, existingStepId);
+        if (!associated) {
+          context.channel.appendLine(`Could not associate step '${step.stepName}' with solution '${solutionUniqueName}'.`);
+        }
+      }
+
       continue;
     }
 
     const createResponse = await sendJson(context, "POST", "/api/data/v9.1/sdkmessageprocessingsteps", stepPayload);
-    if (createResponse !== undefined) {
+    const createdStepId = createResponse?.sdkmessageprocessingstepid;
+    if (createResponse !== undefined && createdStepId) {
       created++;
+
+      if (solutionUniqueName) {
+        const associated = await addDataverseSolutionComponent(context, solutionUniqueName, 92, createdStepId);
+        if (!associated) {
+          context.channel.appendLine(`Could not associate step '${step.stepName}' with solution '${solutionUniqueName}'.`);
+        }
+      }
     } else {
       skipped++;
     }
   }
 
-  return { created, updated, skipped };
+  return { created, updated, unchanged, skipped };
 }

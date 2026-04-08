@@ -57,15 +57,15 @@ export async function buildProject(context: DataversePowerToolsContext): Promise
 
   if (buildTarget) {
     args.push(buildTarget);
-    context.channel.appendLine(`Building plugin target: ${buildTarget}`);
+    context.channel.appendLine(`Building locally target: ${buildTarget}`);
   } else {
-    context.channel.appendLine("No .sln or .csproj found in workspace root. Running dotnet build in workspace root.");
+    context.channel.appendLine("No .sln or .csproj found in workspace root. Running local dotnet build in workspace root.");
   }
 
   await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
-      title: "Building plugin project...",
+      title: "Building locally...",
     },
     async () => {
       try {
@@ -78,8 +78,8 @@ export async function buildProject(context: DataversePowerToolsContext): Promise
           context.channel.appendLine(stderr);
         }
 
-        context.channel.appendLine("Build completed successfully.");
-        vscode.window.showInformationMessage("Plugin build completed successfully.");
+        context.channel.appendLine("Local build completed successfully.");
+        vscode.window.showInformationMessage("Build locally completed successfully.");
       } catch (error: any) {
         if (error?.stdout) {
           context.channel.appendLine(error.stdout);
@@ -90,7 +90,7 @@ export async function buildProject(context: DataversePowerToolsContext): Promise
         const message = error?.error?.message || error?.message || "Unknown build error";
         context.channel.appendLine(`Build failed: ${message}`);
         context.channel.show();
-        vscode.window.showErrorMessage("Error building plugin project. See output for details.");
+        vscode.window.showErrorMessage("Error during local build. See output for details.");
       }
     },
   );
