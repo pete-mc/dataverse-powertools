@@ -52,6 +52,29 @@ async function getWorkspacePath(): Promise<string | undefined> {
   return vscode.workspace.workspaceFolders[0].uri.fsPath;
 }
 
+async function resolveTargetDirectoryPath(targetUri?: vscode.Uri): Promise<string | undefined> {
+  const workspacePath = await getWorkspacePath();
+  if (!workspacePath) {
+    return undefined;
+  }
+
+  if (!targetUri) {
+    return workspacePath;
+  }
+
+  const targetPath = targetUri.fsPath;
+  try {
+    const stat = await fs.promises.stat(targetPath);
+    if (stat.isDirectory()) {
+      return targetPath;
+    }
+  } catch {
+    return path.dirname(targetPath);
+  }
+
+  return path.dirname(targetPath);
+}
+
 async function detectNamespace(workspacePath: string): Promise<string> {
   const entries = await fs.promises.readdir(workspacePath, { withFileTypes: true });
   const csFiles = entries.filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".cs")).map((entry) => entry.name);
@@ -195,10 +218,16 @@ async function ensureWorkflowPackages(context: DataversePowerToolsContext, works
   );
 }
 
-export async function createPluginClass(context: DataversePowerToolsContext): Promise<void> {
+export async function createPluginClass(context: DataversePowerToolsContext, targetUri?: vscode.Uri): Promise<void> {
   const workspacePath = await getWorkspacePath();
   if (!workspacePath) {
     vscode.window.showErrorMessage("No workspace folder is open.");
+    return;
+  }
+
+  const targetDirectory = await resolveTargetDirectoryPath(targetUri);
+  if (!targetDirectory) {
+    vscode.window.showErrorMessage("Could not resolve destination folder.");
     return;
   }
 
@@ -217,7 +246,7 @@ export async function createPluginClass(context: DataversePowerToolsContext): Pr
   let template = await readTemplate(context, path.join("templates", "plugin", "pluginClassV3.cs", "1.cs"));
   template = template.replace(/NAMESPACEPLACEHOLDER/g, namespaceName).replace(/CLASSNAMEPLACEHOLDER/g, className);
 
-  const destination = await writeClassFile(workspacePath, className, template);
+  const destination = await writeClassFile(targetDirectory, className, template);
   if (!destination) {
     vscode.window.showWarningMessage(`A file named ${className}.cs already exists.`);
     return;
@@ -239,10 +268,16 @@ async function ensureWorkflowBase(context: DataversePowerToolsContext, workspace
   context.channel.appendLine("Created workflow base class: WorkflowBase.cs");
 }
 
-export async function createWorkflowClass(context: DataversePowerToolsContext): Promise<void> {
+export async function createWorkflowClass(context: DataversePowerToolsContext, targetUri?: vscode.Uri): Promise<void> {
   const workspacePath = await getWorkspacePath();
   if (!workspacePath) {
     vscode.window.showErrorMessage("No workspace folder is open.");
+    return;
+  }
+
+  const targetDirectory = await resolveTargetDirectoryPath(targetUri);
+  if (!targetDirectory) {
+    vscode.window.showErrorMessage("Could not resolve destination folder.");
     return;
   }
 
@@ -264,7 +299,7 @@ export async function createWorkflowClass(context: DataversePowerToolsContext): 
   let template = await readTemplate(context, path.join("templates", "plugin", "workflowClassV3.cs", "1.cs"));
   template = template.replace(/NAMESPACEPLACEHOLDER/g, namespaceName).replace(/WORKFLOWCLASSNAMEPLACEHOLDER/g, className);
 
-  const destination = await writeClassFile(workspacePath, className, template);
+  const destination = await writeClassFile(targetDirectory, className, template);
   if (!destination) {
     vscode.window.showWarningMessage(`A file named ${className}.cs already exists.`);
     return;
