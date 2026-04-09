@@ -14,8 +14,7 @@ function appendPacPluginInitOutputDirectory(command: string, projectName: string
     return command;
   }
 
-  const escapedProjectName = shellQuote.quote([projectName]);
-  return `${command} --outputDirectory ${escapedProjectName}`;
+  return `${command} --outputDirectory "${projectName}"`;
 }
 
 function resolvePluginCsprojPath(workspacePath: string, projectName: string): string {
@@ -54,8 +53,7 @@ function resolveInitCommand(command: string, workspacePath: string, context: Dat
 
   if (/^dotnet\s+add\s+package\s+Microsoft\.CrmSdk\.Workflow\b/i.test(resolved)) {
     const pluginCsprojPath = resolvePluginCsprojPath(workspacePath, projectName);
-    const escapedCsprojPath = shellQuote.quote([pluginCsprojPath]);
-    resolved = `dotnet add ${escapedCsprojPath} package Microsoft.CrmSdk.Workflow`;
+    resolved = `dotnet add "${pluginCsprojPath}" package Microsoft.CrmSdk.Workflow`;
   }
 
   return resolved;
