@@ -128,19 +128,16 @@ async function findBuiltAssemblyPath(workspacePath: string, csprojPath: string):
   const projectDirectory = path.dirname(csprojPath);
   const binDirectory = path.join(projectDirectory, "bin");
 
-  if (!(await pathExists(binDirectory))) {
-    return undefined;
-  }
-
-  const allFiles = await walkDirectory(binDirectory);
+  const allFiles = fs.existsSync(binDirectory) ? await walkDirectory(binDirectory) : await walkDirectory(workspacePath);
   const matchingFiles = allFiles.filter((filePath) => {
     if (path.basename(filePath).toLowerCase() !== assemblyName.toLowerCase()) {
       return false;
     }
 
-    const relative = path.relative(binDirectory, filePath).toLowerCase();
+    const relativeBase = fs.existsSync(binDirectory) ? binDirectory : workspacePath;
+    const relative = path.relative(relativeBase, filePath).toLowerCase();
     const segments = relative.split(path.sep);
-    return !segments.includes("obj");
+    return !segments.includes("obj") && (segments.includes("bin") || relativeBase === binDirectory);
   });
   if (matchingFiles.length === 0) {
     return undefined;

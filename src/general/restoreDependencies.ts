@@ -2,7 +2,6 @@ import * as vscode from "vscode";
 import * as cp from "child_process";
 import path = require("path");
 import fs = require("fs");
-import shellQuote = require("shell-quote");
 import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes, RestoreCommand } from "../context";
 
 function appendPacPluginInitOutputDirectory(command: string, projectName: string): string {
@@ -14,8 +13,7 @@ function appendPacPluginInitOutputDirectory(command: string, projectName: string
     return command;
   }
 
-  const escapedProjectName = shellQuote.quote([projectName]);
-  return `${command} --outputDirectory ${escapedProjectName}`;
+  return `${command} --outputDirectory "${projectName}"`;
 }
 
 function resolvePluginCsprojPath(workspacePath: string, projectName: string): string {
@@ -54,8 +52,7 @@ function resolveInitCommand(command: string, workspacePath: string, context: Dat
 
   if (/^dotnet\s+add\s+package\s+Microsoft\.CrmSdk\.Workflow\b/i.test(resolved)) {
     const pluginCsprojPath = resolvePluginCsprojPath(workspacePath, projectName);
-    const escapedCsprojPath = shellQuote.quote([pluginCsprojPath]);
-    resolved = `dotnet add ${escapedCsprojPath} package Microsoft.CrmSdk.Workflow`;
+    resolved = `dotnet add "${pluginCsprojPath}" package Microsoft.CrmSdk.Workflow`;
   }
 
   return resolved;
@@ -110,17 +107,9 @@ export async function restoreDependencies(context: DataversePowerToolsContext, i
 
 export async function restoreDepedencyExec(command: string, workspacePath: string, context: DataversePowerToolsContext) {
   const util = require("util");
-  const execFile = util.promisify(require("child_process").execFile);
+  const exec = util.promisify(require("child_process").exec);
   if (vscode.workspace.workspaceFolders !== undefined) {
-    const parsed = shellQuote.parse(command).filter((token) => typeof token === "string") as string[];
-    if (parsed.length === 0) {
-      vscode.window.showErrorMessage("Invalid restore command.");
-      return;
-    }
-
-    const executable = parsed[0];
-    const args = parsed.slice(1);
-    const promise = execFile(executable, args, { cwd: workspacePath });
+    const promise = exec(command, { cwd: workspacePath });
     const child = promise.child;
 
     child.stdout.on("data", function (data: any) {
