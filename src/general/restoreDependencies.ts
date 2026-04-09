@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as cp from "child_process";
 import path = require("path");
 import fs = require("fs");
+import shellQuote = require("shell-quote");
 import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes, RestoreCommand } from "../context";
 
 function appendPacPluginInitOutputDirectory(command: string, projectName: string): string {
@@ -13,7 +14,8 @@ function appendPacPluginInitOutputDirectory(command: string, projectName: string
     return command;
   }
 
-  return `${command} --outputDirectory ${projectName}`;
+  const escapedProjectName = shellQuote.quote([projectName]);
+  return `${command} --outputDirectory ${escapedProjectName}`;
 }
 
 function resolvePluginCsprojPath(workspacePath: string, projectName: string): string {
