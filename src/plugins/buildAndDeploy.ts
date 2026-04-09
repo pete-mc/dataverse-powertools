@@ -124,14 +124,17 @@ async function sanitizeBuiltPackage(context: DataversePowerToolsContext, package
 }
 
 async function findBuiltAssemblyPath(workspacePath: string, csprojPath: string): Promise<string | undefined> {
-  const binPath = path.join(workspacePath, "bin");
-  if (!fs.existsSync(binPath)) {
-    return undefined;
-  }
-
   const assemblyName = `${path.basename(csprojPath, ".csproj")}.dll`;
-  const allFiles = await walkDirectory(binPath);
-  const matchingFiles = allFiles.filter((filePath) => path.basename(filePath).toLowerCase() === assemblyName.toLowerCase());
+  const allFiles = await walkDirectory(workspacePath);
+  const matchingFiles = allFiles.filter((filePath) => {
+    if (path.basename(filePath).toLowerCase() !== assemblyName.toLowerCase()) {
+      return false;
+    }
+
+    const relative = path.relative(workspacePath, filePath).toLowerCase();
+    const segments = relative.split(path.sep);
+    return segments.includes("bin") && !segments.includes("obj");
+  });
   if (matchingFiles.length === 0) {
     return undefined;
   }
@@ -152,15 +155,24 @@ async function findBuiltAssemblyPath(workspacePath: string, csprojPath: string):
 }
 
 async function findBuiltPackagePath(workspacePath: string, csprojPath: string, packedAfterMs: number, preferredPackageId?: string): Promise<string | undefined> {
-  const binPath = path.join(workspacePath, "bin");
-  if (!fs.existsSync(binPath)) {
-    return undefined;
-  }
-
-  const allFiles = await walkDirectory(binPath);
+  const allFiles = await walkDirectory(workspacePath);
   const allPackages = allFiles.filter((filePath) => {
+    const relative = path.relative(workspacePath, filePath).toLowerCase();
+    const segments = relative.split(path.sep);
+    if (!segments.includes("bin") || segments.includes("obj")) {
+      return false;
+    }
+
     const fileName = path.basename(filePath).toLowerCase();
-    return fileName.endsWith(".nupkg") && !fileName.endsWith(".snupkg");
+    if (!fileName.endsWith(".nupkg") || fileName.endsWith(".snupkg")) {
+      return false;
+    }
+
+    if (fileName.includes(".tests.")) {
+      return false;
+    }
+
+    return true;
   });
 
   if (allPackages.length === 0) {
