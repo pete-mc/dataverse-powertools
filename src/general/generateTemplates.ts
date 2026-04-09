@@ -79,6 +79,80 @@ function resolvePrimaryPluginCsprojInDirectory(projectDirectory: string, project
   return candidate ? path.join(projectDirectory, candidate) : undefined;
 }
 
+function normalizeGitignoreLines(content: string): string {
+  const lines = content.split(/\r?\n/);
+  const normalizedLines = lines.map((line) => {
+    const trimmed = line.trim();
+    if (trimmed === "/bin" || trimmed === "bin" || trimmed === "bin/") {
+      return "/**/bin";
+    }
+
+    if (trimmed === "/obj" || trimmed === "obj" || trimmed === "obj/") {
+      return "/**/obj";
+    }
+
+    return line;
+  });
+
+  const hasRecursiveBin = normalizedLines.some((line) => line.trim() === "/**/bin");
+  const hasRecursiveObj = normalizedLines.some((line) => line.trim() === "/**/obj");
+
+  if (!hasRecursiveBin) {
+    normalizedLines.push("/**/bin");
+  }
+
+  if (!hasRecursiveObj) {
+    normalizedLines.push("/**/obj");
+  }
+
+  return `${normalizedLines.join("\n")}\n`;
+}
+
+function mergeGitignoreContent(rootContent: string, nestedContent: string): string {
+  const rootLines = rootContent.split(/\r?\n/);
+  const nestedLines = nestedContent.split(/\r?\n/);
+  const existing = new Set(rootLines);
+
+  for (const line of nestedLines) {
+    if (existing.has(line)) {
+      continue;
+    }
+
+    rootLines.push(line);
+    existing.add(line);
+  }
+
+  return rootLines.join("\n");
+}
+
+async function normalizePluginV3Gitignore(context: DataversePowerToolsContext, workspacePath: string, projectDirectory: string): Promise<void> {
+  const nestedGitignorePath = path.join(projectDirectory, ".gitignore");
+  const rootGitignorePath = path.join(workspacePath, ".gitignore");
+
+  if (!fs.existsSync(nestedGitignorePath) && !fs.existsSync(rootGitignorePath)) {
+    return;
+  }
+
+  let rootContent = fs.existsSync(rootGitignorePath) ? await fs.promises.readFile(rootGitignorePath, "utf8") : "";
+
+  if (fs.existsSync(nestedGitignorePath)) {
+    const nestedContent = await fs.promises.readFile(nestedGitignorePath, "utf8");
+    if (!rootContent) {
+      rootContent = nestedContent;
+      context.channel.appendLine("Moved plugin .gitignore content to workspace root.");
+    } else {
+      rootContent = mergeGitignoreContent(rootContent, nestedContent);
+      context.channel.appendLine("Merged plugin .gitignore content into workspace root .gitignore.");
+    }
+
+    await fs.promises.rm(nestedGitignorePath, { force: true });
+  }
+
+  const normalized = normalizeGitignoreLines(rootContent);
+  await fs.promises.writeFile(rootGitignorePath, normalized, "utf8");
+  context.channel.appendLine("Normalized .gitignore to use recursive /bin and /obj ignores.");
+}
+
 async function ensurePluginV3Solution(context: DataversePowerToolsContext, workspacePath: string, pluginCsprojPath: string, projectName: string): Promise<void> {
   const solutionNameSource = context.projectSettings.pluginPackageName || projectName;
   const solutionName = sanitizeSolutionName(solutionNameSource);
@@ -142,6 +216,8 @@ async function normalizePluginV3Layout(context: DataversePowerToolsContext): Pro
   if (!fs.existsSync(projectDirectory)) {
     return;
   }
+
+  await normalizePluginV3Gitignore(context, workspacePath, projectDirectory);
 
   const pluginCsprojPath = path.join(projectDirectory, "Plugin.csproj");
   const renamedCsprojPath = path.join(projectDirectory, `${projectName}.csproj`);

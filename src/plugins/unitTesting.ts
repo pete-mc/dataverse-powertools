@@ -139,9 +139,16 @@ namespace ${namespaceName};
 public class ${className}
 {
     [TestMethod]
-    public void PluginProject_IsConfiguredForUnitTests()
+  public void TODO_Add_DataverseUnitTest_For_Plugin_Execution()
     {
-        Assert.IsTrue(true);
+    // TODO: Replace placeholders with your plugin class and DataverseUnitTest setup.
+    // TODO: Arrange a DataverseUnitTest context/service provider with target/pre-image data.
+    // TODO: Execute the plugin under test and assert expected output/state changes.
+    var messageName = "Update";
+    var tableLogicalName = "account";
+
+    Assert.IsFalse(string.IsNullOrWhiteSpace(messageName));
+    Assert.IsFalse(string.IsNullOrWhiteSpace(tableLogicalName));
     }
 }
 `;
@@ -155,9 +162,16 @@ namespace ${namespaceName};
 public class ${className}
 {
     [Test]
-    public void PluginProject_IsConfiguredForUnitTests()
+  public void TODO_Add_DataverseUnitTest_For_Plugin_Execution()
     {
-        Assert.That(true, Is.True);
+    // TODO: Replace placeholders with your plugin class and DataverseUnitTest setup.
+    // TODO: Arrange a DataverseUnitTest context/service provider with target/pre-image data.
+    // TODO: Execute the plugin under test and assert expected output/state changes.
+    var messageName = "Update";
+    var tableLogicalName = "account";
+
+    Assert.That(string.IsNullOrWhiteSpace(messageName), Is.False);
+    Assert.That(string.IsNullOrWhiteSpace(tableLogicalName), Is.False);
     }
 }
 `;
@@ -170,9 +184,16 @@ namespace ${namespaceName};
 public class ${className}
 {
     [Fact]
-    public void PluginProject_IsConfiguredForUnitTests()
+  public void TODO_Add_DataverseUnitTest_For_Plugin_Execution()
     {
-        Assert.True(true);
+    // TODO: Replace placeholders with your plugin class and DataverseUnitTest setup.
+    // TODO: Arrange a DataverseUnitTest context/service provider with target/pre-image data.
+    // TODO: Execute the plugin under test and assert expected output/state changes.
+    var messageName = "Update";
+    var tableLogicalName = "account";
+
+    Assert.False(string.IsNullOrWhiteSpace(messageName));
+    Assert.False(string.IsNullOrWhiteSpace(tableLogicalName));
     }
 }
 `;

@@ -3,7 +3,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace Plugin.Tests;
 
 [TestClass]
-public class PluginBoilerplateTests
+public class NewPluginTests
 {
     [TestMethod]
   public void TODO_Add_DataverseUnitTest_For_Plugin_Execution()
