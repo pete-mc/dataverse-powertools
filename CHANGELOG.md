@@ -2,6 +2,16 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.3.2
+
+- Added plugin unit testing support, including setup, test class generation, and test execution commands.
+- Added test framework selection support for MSTest, xUnit, and NUnit.
+- Fixed CodeLens filtering attribute updates to resolve the correct decoration/table context.
+- Added plugin project naming during initialization and improved foldered project layout handling.
+- Improved plugin v3 solution creation.
+- Hardened plugin/test compatibility for generated test projects (target framework and C# language version normalization).
+- Fixed package/deploy artifact discovery for nested project outputs and excluded test packages from deployment selection.
+
 ## 0.3.1
 
 - Added support for plugin and workflow class decorations using codelens with ability to select and update filtering attirbutes through command bar prompt.

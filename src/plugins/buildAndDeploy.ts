@@ -7,6 +7,7 @@ import DataversePowerToolsContext from "../context";
 import { addDataverseSolutionComponentByObjectId } from "../general/dataverse/addDataverseSolutionComponent";
 import { PluginPackageMetadata, upsertDataversePluginPackage, waitForDataversePluginAssemblyFromPackage } from "../general/dataverse/getDataversePluginPackage";
 import { PluginStepRegistration, registerPluginSteps } from "../general/dataverse/registerPluginSteps";
+import { findPrimaryPluginCsproj } from "./projectPaths";
 import { registerWorkflowActivities, WorkflowActivityRegistration } from "../general/dataverse/registerWorkflowActivities";
 
 interface ExecResult {
@@ -63,16 +64,6 @@ async function findBuildTarget(workspacePath: string): Promise<string | undefine
   }
 
   return undefined;
-}
-
-async function findPrimaryCsproj(workspacePath: string): Promise<string | undefined> {
-  const entries = await fs.promises.readdir(workspacePath, { withFileTypes: true });
-  const csprojFile = entries
-    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".csproj"))
-    .map((entry) => entry.name)
-    .sort((a, b) => a.localeCompare(b))[0];
-
-  return csprojFile ? path.join(workspacePath, csprojFile) : undefined;
 }
 
 async function walkDirectory(rootPath: string): Promise<string[]> {
@@ -133,14 +124,24 @@ async function sanitizeBuiltPackage(context: DataversePowerToolsContext, package
 }
 
 async function findBuiltAssemblyPath(workspacePath: string, csprojPath: string): Promise<string | undefined> {
-  const binPath = path.join(workspacePath, "bin");
-  if (!fs.existsSync(binPath)) {
+  const assemblyName = `${path.basename(csprojPath, ".csproj")}.dll`;
+  const projectDirectory = path.dirname(csprojPath);
+  const binDirectory = path.join(projectDirectory, "bin");
+
+  if (!(await pathExists(binDirectory))) {
     return undefined;
   }
 
-  const assemblyName = `${path.basename(csprojPath, ".csproj")}.dll`;
-  const allFiles = await walkDirectory(binPath);
-  const matchingFiles = allFiles.filter((filePath) => path.basename(filePath).toLowerCase() === assemblyName.toLowerCase());
+  const allFiles = await walkDirectory(binDirectory);
+  const matchingFiles = allFiles.filter((filePath) => {
+    if (path.basename(filePath).toLowerCase() !== assemblyName.toLowerCase()) {
+      return false;
+    }
+
+    const relative = path.relative(binDirectory, filePath).toLowerCase();
+    const segments = relative.split(path.sep);
+    return !segments.includes("obj");
+  });
   if (matchingFiles.length === 0) {
     return undefined;
   }
@@ -161,15 +162,24 @@ async function findBuiltAssemblyPath(workspacePath: string, csprojPath: string):
 }
 
 async function findBuiltPackagePath(workspacePath: string, csprojPath: string, packedAfterMs: number, preferredPackageId?: string): Promise<string | undefined> {
-  const binPath = path.join(workspacePath, "bin");
-  if (!fs.existsSync(binPath)) {
-    return undefined;
-  }
-
-  const allFiles = await walkDirectory(binPath);
+  const allFiles = await walkDirectory(workspacePath);
   const allPackages = allFiles.filter((filePath) => {
+    const relative = path.relative(workspacePath, filePath).toLowerCase();
+    const segments = relative.split(path.sep);
+    if (!segments.includes("bin") || segments.includes("obj")) {
+      return false;
+    }
+
     const fileName = path.basename(filePath).toLowerCase();
-    return fileName.endsWith(".nupkg") && !fileName.endsWith(".snupkg");
+    if (!fileName.endsWith(".nupkg") || fileName.endsWith(".snupkg")) {
+      return false;
+    }
+
+    if (fileName.includes(".tests.")) {
+      return false;
+    }
+
+    return true;
   });
 
   if (allPackages.length === 0) {
@@ -566,7 +576,7 @@ export async function buildAndDeploy(context: DataversePowerToolsContext): Promi
       }
       packArgs.push("--configuration", "Debug", "--no-build");
 
-      const csprojPathForPack = await findPrimaryCsproj(workspacePath);
+      const csprojPathForPack = await findPrimaryPluginCsproj(workspacePath, context.projectSettings.pluginProjectName);
       let expectedPackageId: string | undefined;
       if (csprojPathForPack) {
         const prefixedPackageId = getPrefixedPackageId(context, csprojPathForPack);
@@ -601,9 +611,9 @@ export async function buildAndDeploy(context: DataversePowerToolsContext): Promi
         return;
       }
 
-      const csprojPath = await findPrimaryCsproj(workspacePath);
+      const csprojPath = await findPrimaryPluginCsproj(workspacePath, context.projectSettings.pluginProjectName);
       if (!csprojPath) {
-        vscode.window.showErrorMessage("No .csproj found in workspace root.");
+        vscode.window.showErrorMessage("No plugin .csproj found in workspace.");
         return;
       }
 

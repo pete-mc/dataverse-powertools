@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
+import { findPrimaryPluginCsproj } from "./projectPaths";
 
 const requiredWorkflowPackage = "Microsoft.CrmSdk.Workflow";
 const fallbackWorkflowPackage = "Microsoft.CrmSdk.CoreAssemblies";
@@ -52,13 +53,36 @@ async function getWorkspacePath(): Promise<string | undefined> {
   return vscode.workspace.workspaceFolders[0].uri.fsPath;
 }
 
-async function detectNamespace(workspacePath: string): Promise<string> {
-  const entries = await fs.promises.readdir(workspacePath, { withFileTypes: true });
+async function resolveTargetDirectoryPath(targetUri?: vscode.Uri): Promise<string | undefined> {
+  const workspacePath = await getWorkspacePath();
+  if (!workspacePath) {
+    return undefined;
+  }
+
+  if (!targetUri) {
+    return workspacePath;
+  }
+
+  const targetPath = targetUri.fsPath;
+  try {
+    const stat = await fs.promises.stat(targetPath);
+    if (stat.isDirectory()) {
+      return targetPath;
+    }
+  } catch {
+    return path.dirname(targetPath);
+  }
+
+  return path.dirname(targetPath);
+}
+
+async function detectNamespace(projectPath: string): Promise<string> {
+  const entries = await fs.promises.readdir(projectPath, { withFileTypes: true });
   const csFiles = entries.filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".cs")).map((entry) => entry.name);
 
   const preferredFiles = ["PluginBase.cs", "WorkflowBase.cs", ...csFiles];
   for (const fileName of preferredFiles) {
-    const filePath = path.join(workspacePath, fileName);
+    const filePath = path.join(projectPath, fileName);
     if (!fs.existsSync(filePath)) {
       continue;
     }
@@ -93,20 +117,6 @@ async function openFile(filePath: string): Promise<void> {
   await vscode.window.showTextDocument(document);
 }
 
-async function findPrimaryCsproj(workspacePath: string): Promise<string | undefined> {
-  const entries = await fs.promises.readdir(workspacePath, { withFileTypes: true });
-  const csprojFile = entries
-    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".csproj"))
-    .map((entry) => entry.name)
-    .sort((a, b) => a.localeCompare(b))[0];
-
-  if (!csprojFile) {
-    return undefined;
-  }
-
-  return path.join(workspacePath, csprojFile);
-}
-
 function hasPackageReference(csprojContent: string, packageName: string): boolean {
   const escapedPackageName = packageName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const attributeReferenceRegex = new RegExp(`<PackageReference[^>]*(Include|Update)\\s*=\\s*["']${escapedPackageName}["'][^>]*>`, "i");
@@ -116,9 +126,9 @@ function hasPackageReference(csprojContent: string, packageName: string): boolea
 }
 
 async function ensureWorkflowPackages(context: DataversePowerToolsContext, workspacePath: string): Promise<void> {
-  const csprojPath = await findPrimaryCsproj(workspacePath);
+  const csprojPath = await findPrimaryPluginCsproj(workspacePath, context.projectSettings.pluginProjectName);
   if (!csprojPath) {
-    context.channel.appendLine("Workflow package check skipped: no .csproj found in workspace root.");
+    context.channel.appendLine("Workflow package check skipped: no plugin .csproj found in workspace.");
     return;
   }
 
@@ -195,12 +205,21 @@ async function ensureWorkflowPackages(context: DataversePowerToolsContext, works
   );
 }
 
-export async function createPluginClass(context: DataversePowerToolsContext): Promise<void> {
+export async function createPluginClass(context: DataversePowerToolsContext, targetUri?: vscode.Uri): Promise<void> {
   const workspacePath = await getWorkspacePath();
   if (!workspacePath) {
     vscode.window.showErrorMessage("No workspace folder is open.");
     return;
   }
+
+  const targetDirectory = await resolveTargetDirectoryPath(targetUri);
+  if (!targetDirectory) {
+    vscode.window.showErrorMessage("Could not resolve destination folder.");
+    return;
+  }
+
+  const pluginCsprojPath = await findPrimaryPluginCsproj(workspacePath, context.projectSettings.pluginProjectName);
+  const pluginProjectDirectory = pluginCsprojPath ? path.dirname(pluginCsprojPath) : workspacePath;
 
   const nameInput = await vscode.window.showInputBox({ prompt: "Enter the plugin class name" });
   if (!nameInput) {
@@ -213,11 +232,11 @@ export async function createPluginClass(context: DataversePowerToolsContext): Pr
     return;
   }
 
-  const namespaceName = await detectNamespace(workspacePath);
+  const namespaceName = await detectNamespace(pluginProjectDirectory);
   let template = await readTemplate(context, path.join("templates", "plugin", "pluginClassV3.cs", "1.cs"));
   template = template.replace(/NAMESPACEPLACEHOLDER/g, namespaceName).replace(/CLASSNAMEPLACEHOLDER/g, className);
 
-  const destination = await writeClassFile(workspacePath, className, template);
+  const destination = await writeClassFile(targetDirectory, className, template);
   if (!destination) {
     vscode.window.showWarningMessage(`A file named ${className}.cs already exists.`);
     return;
@@ -239,12 +258,21 @@ async function ensureWorkflowBase(context: DataversePowerToolsContext, workspace
   context.channel.appendLine("Created workflow base class: WorkflowBase.cs");
 }
 
-export async function createWorkflowClass(context: DataversePowerToolsContext): Promise<void> {
+export async function createWorkflowClass(context: DataversePowerToolsContext, targetUri?: vscode.Uri): Promise<void> {
   const workspacePath = await getWorkspacePath();
   if (!workspacePath) {
     vscode.window.showErrorMessage("No workspace folder is open.");
     return;
   }
+
+  const targetDirectory = await resolveTargetDirectoryPath(targetUri);
+  if (!targetDirectory) {
+    vscode.window.showErrorMessage("Could not resolve destination folder.");
+    return;
+  }
+
+  const pluginCsprojPath = await findPrimaryPluginCsproj(workspacePath, context.projectSettings.pluginProjectName);
+  const pluginProjectDirectory = pluginCsprojPath ? path.dirname(pluginCsprojPath) : workspacePath;
 
   const nameInput = await vscode.window.showInputBox({ prompt: "Enter the workflow class name" });
   if (!nameInput) {
@@ -257,14 +285,14 @@ export async function createWorkflowClass(context: DataversePowerToolsContext): 
     return;
   }
 
-  const namespaceName = await detectNamespace(workspacePath);
+  const namespaceName = await detectNamespace(pluginProjectDirectory);
   await ensureWorkflowPackages(context, workspacePath);
-  await ensureWorkflowBase(context, workspacePath, namespaceName);
+  await ensureWorkflowBase(context, pluginProjectDirectory, namespaceName);
 
   let template = await readTemplate(context, path.join("templates", "plugin", "workflowClassV3.cs", "1.cs"));
   template = template.replace(/NAMESPACEPLACEHOLDER/g, namespaceName).replace(/WORKFLOWCLASSNAMEPLACEHOLDER/g, className);
 
-  const destination = await writeClassFile(workspacePath, className, template);
+  const destination = await writeClassFile(targetDirectory, className, template);
   if (!destination) {
     vscode.window.showWarningMessage(`A file named ${className}.cs already exists.`);
     return;

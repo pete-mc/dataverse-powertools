@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.3.0",
+  "version": "0.3.2",
   "engines": {
     "vscode": "^1.93.0"
   },
@@ -44,6 +44,11 @@
           "command": "dataverse-powertools.createWorkflowClass",
           "group": "navigation@10",
           "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+        },
+        {
+          "command": "dataverse-powertools.createPluginTest",
+          "group": "navigation@11",
+          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && dataverse-powertools.hasPluginUnitTesting"
         }
       ],
       "editor/context": [],
@@ -187,13 +192,23 @@
       },
       {
         "view": "dataversePowerToolsMenu",
-        "contents": "Plugin Menu\n[Build Package & Deploy](command:dataverse-powertools.buildAndDeploy)\n[Build Locally](command:dataverse-powertools.buildProject)\n\nTip: Create new classes from Explorer right-click menu. Use CodeLens in C# files to add/update class decorations for step registrations.",
-        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && dataverse-powertools.isPluginV3"
+        "contents": "Plugin Menu\n[Build Package & Deploy](command:dataverse-powertools.buildAndDeploy)\n[Build Locally](command:dataverse-powertools.buildProject)\n[Run Tests](command:dataverse-powertools.runPluginTests)\n\nTip: Create classes/tests from Explorer right-click menu. Use CodeLens in C# files to add/update class decorations for step registrations.",
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && dataverse-powertools.isPluginV3 && dataverse-powertools.hasPluginUnitTesting"
       },
       {
         "view": "dataversePowerToolsMenu",
-        "contents": "Plugin Menu\n[Build Package & Deploy](command:dataverse-powertools.buildAndDeploy)\n[Build Locally](command:dataverse-powertools.buildProject)\n[Generate Early Bound](command:dataverse-powertools.generateEarlyBound)\n\nTip: Create new classes from Explorer right-click menu. Use CodeLens in C# files to add/update class decorations for step registrations.",
-        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && !dataverse-powertools.isPluginV3"
+        "contents": "Plugin Menu\n[Build Package & Deploy](command:dataverse-powertools.buildAndDeploy)\n[Build Locally](command:dataverse-powertools.buildProject)\n[Setup Unit Testing](command:dataverse-powertools.setupPluginUnitTesting)\n\nTip: Create classes from Explorer right-click menu. Unit tests can be enabled from the Setup Unit Testing action.",
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && dataverse-powertools.isPluginV3 && !dataverse-powertools.hasPluginUnitTesting"
+      },
+      {
+        "view": "dataversePowerToolsMenu",
+        "contents": "Plugin Menu\n[Build Package & Deploy](command:dataverse-powertools.buildAndDeploy)\n[Build Locally](command:dataverse-powertools.buildProject)\n[Generate Early Bound](command:dataverse-powertools.generateEarlyBound)\n[Run Tests](command:dataverse-powertools.runPluginTests)\n\nTip: Create classes/tests from Explorer right-click menu. Use CodeLens in C# files to add/update class decorations for step registrations.",
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && !dataverse-powertools.isPluginV3 && dataverse-powertools.hasPluginUnitTesting"
+      },
+      {
+        "view": "dataversePowerToolsMenu",
+        "contents": "Plugin Menu\n[Build Package & Deploy](command:dataverse-powertools.buildAndDeploy)\n[Build Locally](command:dataverse-powertools.buildProject)\n[Generate Early Bound](command:dataverse-powertools.generateEarlyBound)\n[Setup Unit Testing](command:dataverse-powertools.setupPluginUnitTesting)\n\nTip: Create classes from Explorer right-click menu. Unit tests can be enabled from the Setup Unit Testing action.",
+        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && !dataverse-powertools.isPluginV3 && !dataverse-powertools.hasPluginUnitTesting"
       },
       {
         "view": "dataversePowerToolsMenu",
@@ -484,6 +499,21 @@
         "command": "dataverse-powertools.createWorkflowClass",
         "title": "Dataverse PowerTools: Create Workflow Class",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
+        "command": "dataverse-powertools.createPluginTest",
+        "title": "Dataverse PowerTools: Create Plugin Test",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && dataverse-powertools.hasPluginUnitTesting"
+      },
+      {
+        "command": "dataverse-powertools.setupPluginUnitTesting",
+        "title": "Dataverse PowerTools: Setup Unit Testing",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
+        "command": "dataverse-powertools.runPluginTests",
+        "title": "Dataverse PowerTools: Run Tests",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && dataverse-powertools.hasPluginUnitTesting"
       },
       {
         "command": "dataverse-powertools.restoreDependencies",

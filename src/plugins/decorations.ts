@@ -292,7 +292,26 @@ function findDecorationBoundsAtCursor(document: vscode.TextDocument, cursorOffse
   return undefined;
 }
 
-export async function updateFilteringAttributes(context: DataversePowerToolsContext): Promise<void> {
+function findDecorationBoundsAtLine(document: vscode.TextDocument, targetLine: number): { start: number; end: number } | undefined {
+  const fullText = document.getText();
+  const decorationRegex = /\[CrmPluginRegistration\(([\s\S]*?)\)\]/g;
+  let match = decorationRegex.exec(fullText);
+
+  while (match) {
+    const startOffset = match.index;
+    const endOffset = match.index + match[0].length;
+    const startLine = document.positionAt(startOffset).line;
+    if (startLine === targetLine) {
+      return { start: startOffset, end: endOffset };
+    }
+
+    match = decorationRegex.exec(fullText);
+  }
+
+  return undefined;
+}
+
+export async function updateFilteringAttributes(context: DataversePowerToolsContext, targetLine?: number): Promise<void> {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     vscode.window.showWarningMessage("Open a C# file and place the cursor on a CrmPluginRegistration decoration.");
@@ -306,7 +325,7 @@ export async function updateFilteringAttributes(context: DataversePowerToolsCont
   }
 
   const cursorOffset = document.offsetAt(editor.selection.active);
-  const decorationBounds = findDecorationBoundsAtCursor(document, cursorOffset);
+  const decorationBounds = typeof targetLine === "number" ? findDecorationBoundsAtLine(document, targetLine) : findDecorationBoundsAtCursor(document, cursorOffset);
   if (!decorationBounds) {
     vscode.window.showWarningMessage("Place the cursor directly on a CrmPluginRegistration decoration to update filtering attributes.");
     return;
