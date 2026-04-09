@@ -92,7 +92,7 @@ export function registerDecorationCodeLens(context: DataversePowerToolsContext):
   context.vscode.subscriptions.push(
     vscode.commands.registerCommand("dataverse-powertools.updateFilteringAttributesAtLine", async (uri: vscode.Uri, line: number) => {
       await focusDecorationTokenInEditor(uri, line);
-      await updateFilteringAttributes(context);
+      await updateFilteringAttributes(context, line);
     }),
   );
 

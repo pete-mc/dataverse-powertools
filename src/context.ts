@@ -93,8 +93,12 @@ interface ProjectSettings {
   webresourceSolutionName?: string;
   connectionString?: string;
   prefix?: string;
+  pluginProjectName?: string;
   pluginPackageName?: string;
   pluginPackageVersion?: string;
+  pluginUnitTestingEnabled?: boolean;
+  pluginUnitTestingFramework?: "mstest" | "xunit" | "nunit";
+  pluginUnitTestingProject?: string;
   pluginModelBuilder?: PluginModelBuilderSettings;
   controlName?: string;
   formIntersect?: FormIntersect[];

@@ -6,6 +6,7 @@ import { buildAndDeploy } from "./buildAndDeploy";
 import { createPluginClass, createWorkflowClass } from "./createClasses";
 import { addClassDecoration, updateFilteringAttributes } from "./decorations";
 import { registerDecorationCodeLens } from "./decorationsCodeLens";
+import { createPluginTest, promptAndSetupPluginUnitTesting, runPluginUnitTests } from "./unitTesting";
 
 function registerPlaceholderCommand(context: DataversePowerToolsContext, commandId: string, message: string) {
   context.vscode.subscriptions.push(
@@ -22,6 +23,7 @@ export async function initialisePlugins(context: DataversePowerToolsContext): Pr
   vscode.commands.executeCommand("setContext", "dataverse-powertools.isWebResource", false);
   vscode.commands.executeCommand("setContext", "dataverse-powertools.isSolution", false);
   vscode.commands.executeCommand("setContext", "dataverse-powertools.isPortal", false);
+  await vscode.commands.executeCommand("setContext", "dataverse-powertools.hasPluginUnitTesting", !!context.projectSettings.pluginUnitTestingEnabled);
   await loadPluginModelBuilderSettings(context);
   void updatePluginModelBuilderSettingsContext(context);
 
@@ -37,6 +39,9 @@ export async function initialisePlugins(context: DataversePowerToolsContext): Pr
   context.vscode.subscriptions.push(
     vscode.commands.registerCommand("dataverse-powertools.createWorkflowClass", (resourceUri?: vscode.Uri) => createWorkflowClass(context, resourceUri)),
   );
+  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.setupPluginUnitTesting", () => promptAndSetupPluginUnitTesting(context)));
+  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.runPluginTests", () => runPluginUnitTests(context)));
+  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createPluginTest", (resourceUri?: vscode.Uri) => createPluginTest(context, resourceUri)));
   registerPlaceholderCommand(context, "dataverse-powertools.createSNKKey", "This template uses pac plugin init --skip-signing; SNK generation is not required by default.");
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.addClassDecoration", () => addClassDecoration(context)));
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.addPluginDecoration", () => addClassDecoration(context)));

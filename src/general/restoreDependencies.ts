@@ -4,6 +4,60 @@ import path = require("path");
 import fs = require("fs");
 import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes, RestoreCommand } from "../context";
 
+function appendPacPluginInitOutputDirectory(command: string, projectName: string): string {
+  if (!/^pac\s+plugin\s+init\b/i.test(command)) {
+    return command;
+  }
+
+  if (/\s(--outputDirectory|-o)\b/i.test(command)) {
+    return command;
+  }
+
+  return `${command} --outputDirectory ${projectName}`;
+}
+
+function resolvePluginCsprojPath(workspacePath: string, projectName: string): string {
+  const projectDirectory = path.join(workspacePath, projectName);
+  const preferredPath = path.join(projectDirectory, `${projectName}.csproj`);
+  if (fs.existsSync(preferredPath)) {
+    return preferredPath;
+  }
+
+  const legacyPath = path.join(projectDirectory, "Plugin.csproj");
+  if (fs.existsSync(legacyPath)) {
+    return legacyPath;
+  }
+
+  if (fs.existsSync(projectDirectory)) {
+    const discoveredCsproj = fs
+      .readdirSync(projectDirectory)
+      .filter((name) => name.toLowerCase().endsWith(".csproj") && !name.toLowerCase().endsWith(".tests.csproj"))
+      .sort((a, b) => a.localeCompare(b))[0];
+
+    if (discoveredCsproj) {
+      return path.join(projectDirectory, discoveredCsproj);
+    }
+  }
+
+  return preferredPath;
+}
+
+function resolveInitCommand(command: string, workspacePath: string, context: DataversePowerToolsContext, initialising: boolean): string {
+  if (!(initialising && context.projectSettings.type === ProjectTypes.plugin && context.projectSettings.templateversion === 3)) {
+    return command;
+  }
+
+  const projectName = (context.projectSettings.pluginProjectName || "Plugin").trim() || "Plugin";
+  let resolved = appendPacPluginInitOutputDirectory(command, projectName);
+
+  if (/^dotnet\s+add\s+package\s+Microsoft\.CrmSdk\.Workflow\b/i.test(resolved)) {
+    const pluginCsprojPath = resolvePluginCsprojPath(workspacePath, projectName);
+    resolved = `dotnet add "${pluginCsprojPath}" package Microsoft.CrmSdk.Workflow`;
+  }
+
+  return resolved;
+}
+
 export async function restoreDependencies(context: DataversePowerToolsContext, initialising: boolean = false) {
   await vscode.window.withProgress(
     {
@@ -31,13 +85,14 @@ export async function restoreDependencies(context: DataversePowerToolsContext, i
         const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
         let restoreCommands = initialising ? context.template?.initCommands || [] : context.template?.restoreCommands || [];
         for (const c of restoreCommands) {
+          const resolvedCommand = resolveInitCommand(c.command, workspacePath, context, initialising);
           await vscode.window.withProgress(
             {
               location: vscode.ProgressLocation.Notification,
-              title: "Restoring " + c.command,
+              title: "Restoring " + resolvedCommand,
             },
             async () => {
-              await restoreDepedencyExec(c.command, workspacePath, context);
+              await restoreDepedencyExec(resolvedCommand, workspacePath, context);
             },
           );
         }
