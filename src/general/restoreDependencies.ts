@@ -1,9 +1,7 @@
 import * as vscode from "vscode";
-import * as cp from "child_process";
 import path = require("path");
 import fs = require("fs");
-import shellQuote = require("shell-quote");
-import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes, RestoreCommand } from "../context";
+import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes } from "../context";
 
 function appendPacPluginInitOutputDirectory(command: string, projectName: string): string {
   if (!/^pac\s+plugin\s+init\b/i.test(command)) {
@@ -108,17 +106,9 @@ export async function restoreDependencies(context: DataversePowerToolsContext, i
 
 export async function restoreDepedencyExec(command: string, workspacePath: string, context: DataversePowerToolsContext) {
   const util = require("util");
-  const execFile = util.promisify(require("child_process").execFile);
+  const exec = util.promisify(require("child_process").exec);
   if (vscode.workspace.workspaceFolders !== undefined) {
-    const parsed = shellQuote.parse(command).filter((token) => typeof token === "string") as string[];
-    if (parsed.length === 0) {
-      vscode.window.showErrorMessage("Invalid restore command.");
-      return;
-    }
-
-    const executable = parsed[0];
-    const args = parsed.slice(1);
-    const promise = execFile(executable, args, { cwd: workspacePath });
+    const promise = exec(command, { cwd: workspacePath });
     const child = promise.child;
 
     child.stdout.on("data", function (data: any) {
