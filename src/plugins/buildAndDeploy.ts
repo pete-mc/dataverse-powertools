@@ -125,15 +125,22 @@ async function sanitizeBuiltPackage(context: DataversePowerToolsContext, package
 
 async function findBuiltAssemblyPath(workspacePath: string, csprojPath: string): Promise<string | undefined> {
   const assemblyName = `${path.basename(csprojPath, ".csproj")}.dll`;
-  const allFiles = await walkDirectory(workspacePath);
+  const projectDirectory = path.dirname(csprojPath);
+  const binDirectory = path.join(projectDirectory, "bin");
+
+  if (!(await pathExists(binDirectory))) {
+    return undefined;
+  }
+
+  const allFiles = await walkDirectory(binDirectory);
   const matchingFiles = allFiles.filter((filePath) => {
     if (path.basename(filePath).toLowerCase() !== assemblyName.toLowerCase()) {
       return false;
     }
 
-    const relative = path.relative(workspacePath, filePath).toLowerCase();
+    const relative = path.relative(binDirectory, filePath).toLowerCase();
     const segments = relative.split(path.sep);
-    return segments.includes("bin") && !segments.includes("obj");
+    return !segments.includes("obj");
   });
   if (matchingFiles.length === 0) {
     return undefined;

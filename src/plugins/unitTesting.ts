@@ -234,12 +234,24 @@ function tryParseDotNetFrameworkVersion(targetFramework: string): number | undef
   return Number.parseInt(numeric, 10);
 }
 
+function isRunnableModernDotNetTargetFramework(targetFramework: string): boolean {
+  return /^net\d+\.\d+$/.test(targetFramework.trim().toLowerCase());
+}
+
 function resolveCompatibleTestTargetFramework(pluginTargetFramework: string): string {
-  const parsedFrameworkVersion = tryParseDotNetFrameworkVersion(pluginTargetFramework);
-  if (parsedFrameworkVersion !== undefined && parsedFrameworkVersion < 472) {
-    return "net472";
+  const normalizedTargetFramework = pluginTargetFramework.trim().toLowerCase();
+  const parsedFrameworkVersion = tryParseDotNetFrameworkVersion(normalizedTargetFramework);
+  if (parsedFrameworkVersion !== undefined) {
+    return parsedFrameworkVersion < 472 ? "net472" : normalizedTargetFramework;
   }
 
+  if (isRunnableModernDotNetTargetFramework(normalizedTargetFramework)) {
+    return normalizedTargetFramework;
+  }
+
+  if (normalizedTargetFramework.startsWith("netstandard")) {
+    return "net8.0";
+  }
   return pluginTargetFramework;
 }
 
