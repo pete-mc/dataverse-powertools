@@ -2,8 +2,11 @@ import * as path from "path";
 import * as fs from "fs";
 import { VSBrowser, ActivityBar, Workbench, InputBox } from "vscode-extension-tester";
 
-// Capture screenshots of the real extension UI for use in the README + wiki.
-// Run directly: extest setup-and-run out/ui-test/screenshots.test.js --code_settings sandbox/vscode-settings.json
+// Local asset generator (NOT part of the CI ui-test glob — filename is `.ts`, not
+// `.test.ts`). Captures screenshots of the real extension UI for the README + wiki.
+// Requires the gitignored `sandbox/screens` fixtures; skips if they're absent.
+// Run: npm run compile-tests && extest setup-and-run out/ui-test/screenshots.js \
+//        --code_settings sandbox/vscode-settings.json --extensions_dir sandbox/ext-dir --mocha_config .mocharc-ui.json
 const repoRoot = path.resolve(__dirname, "..", "..");
 const outDir = path.resolve(repoRoot, "sandbox", "screenshots-out");
 const fixtures = path.resolve(repoRoot, "sandbox", "screens");
@@ -64,7 +67,10 @@ async function openProject(kind: string): Promise<void> {
 describe("Dataverse PowerTools screenshots", function () {
   this.timeout(240000);
 
-  before(async () => {
+  before(async function () {
+    if (!fs.existsSync(fixtures)) {
+      this.skip();
+    }
     fs.mkdirSync(outDir, { recursive: true });
     await VSBrowser.instance.waitForWorkbench();
     await dismissOverlays();
