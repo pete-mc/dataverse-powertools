@@ -3,6 +3,8 @@ import fs = require("fs");
 import { createServicePrincipalString, getServicePrincipalString, getProjectType } from "./general/connectionStringManager";
 import { DataverseContext } from "./general/dataverse/dataverseContext";
 import { DataverseFormRecord } from "./general/dataverse/getDataverseForms";
+import { workspaceFilePath } from "./general/paths";
+import { parseConnectionString, buildConnectionString, getOrganizationUrl } from "./general/connectionString";
 
 export default class DataversePowerToolsContext {
   public dataverse: DataverseContext;
@@ -26,13 +28,25 @@ export default class DataversePowerToolsContext {
     await vscode.commands.executeCommand("dataversePowerToolsMenu.focus");
   }
 
+  private settingsFilePath(): string | undefined {
+    const folders = vscode.workspace.workspaceFolders;
+    if (!folders || folders.length === 0) {
+      return undefined;
+    }
+    return workspaceFilePath(folders[0].uri.fsPath, this.settingsFilename);
+  }
+
   async writeSettings() {
-    if (vscode.workspace.workspaceFolders !== undefined) {
-      const filePath = vscode.workspace.workspaceFolders[0].uri.fsPath + "\\" + this.settingsFilename;
+    const filePath = this.settingsFilePath();
+    if (filePath !== undefined) {
       let toWrite = JSON.parse(JSON.stringify(this.projectSettings));
       delete toWrite.pluginModelBuilder;
-      if (toWrite.connectionString?.indexOf("ClientId") > -1) {
-        toWrite.connectionString = toWrite.connectionString?.substring(0, toWrite.connectionString?.indexOf("ClientId"));
+      if (typeof toWrite.connectionString === "string" && toWrite.connectionString.length > 0) {
+        // Persist only the non-secret base; client id/secret live in secret storage.
+        const parts = parseConnectionString(toWrite.connectionString);
+        delete parts.clientId;
+        delete parts.clientSecret;
+        toWrite.connectionString = buildConnectionString(parts);
       }
       return new Promise<void>((resolve, reject) => {
         fs.writeFile(filePath, JSON.stringify(toWrite), (err) => {
@@ -48,8 +62,8 @@ export default class DataversePowerToolsContext {
   }
 
   async readSettings() {
-    if (vscode.workspace.workspaceFolders !== undefined) {
-      const filePath = vscode.workspace.workspaceFolders[0].uri.fsPath + "\\" + this.settingsFilename;
+    const filePath = this.settingsFilePath();
+    if (filePath !== undefined) {
       await this.readFileAsync(filePath)
         .then(async (data: any) => {
           this.projectSettings = JSON.parse(data);
@@ -57,8 +71,7 @@ export default class DataversePowerToolsContext {
             this.projectSettings.webresourceSolutionName = this.projectSettings.solutionName;
           }
           this.connectionString = this.projectSettings.connectionString || "";
-          let name = this.connectionString.substring(this.connectionString.indexOf("Url=") + 4, this.connectionString.length - 1);
-          name = name.replace(/\/+$/, "");
+          const name = getOrganizationUrl(this.connectionString);
           const credentialString = await getServicePrincipalString(this, name);
           if (credentialString === "") {
             await createServicePrincipalString(this);
@@ -66,7 +79,6 @@ export default class DataversePowerToolsContext {
           } else {
             this.connectionString += credentialString;
           }
-          this.projectSettings = this.projectSettings;
         })
         .catch((err) => {
           if (err.code === "ENOENT") {

@@ -1,59 +1,66 @@
 import fetch from "node-fetch";
 import DataversePowerToolsContext from "../../context";
+import { parseConnectionString, normalizeOrganizationUrl } from "../connectionString";
 
 export class DataverseContext {
   public authorizationToken: string = "";
   public tenantId: string = "";
   public organizationUrl: string = "";
-  private refreshToken: string = "";
   private tokenExpires: Date = new Date();
   private tokenExpiresIn: number = 0;
   private tokenExpiresInBuffer: number = 60;
+  private refreshTimer: ReturnType<typeof setTimeout> | undefined;
   private context: DataversePowerToolsContext;
   constructor(context: DataversePowerToolsContext) {
     this.context = context;
     this.tenantId = context.projectSettings.tenantId || "";
   }
+
   public async initialize(): Promise<boolean> {
     if (this.context.connectionString !== "") {
-      return await this.refreshAuthorizationToken();
+      return await this.acquireToken();
     }
     return false;
   }
 
-  private async autoRefreshToken(): Promise<void> {
-    setTimeout(
-      async () => {
-        if (await this.refreshAuthorizationToken()) {
-          this.autoRefreshToken();
-        }
-      },
-      this.tokenExpiresIn * 1000 - this.tokenExpiresInBuffer * 1000 * 2,
-    );
-  }
-
   get isValid(): boolean {
-    if (this.authorizationToken === "" || this.tokenExpires < new Date()) {
-      return false;
-    }
-    return true;
+    return this.authorizationToken !== "" && this.tokenExpires > new Date();
   }
 
   async getAuthorizationToken(): Promise<string> {
-    if (this.authorizationToken === "" || this.tokenExpires < new Date()) {
-      await this.refreshAuthorizationToken();
+    if (!this.isValid) {
+      await this.acquireToken();
     }
     return this.authorizationToken;
   }
 
-  private async getInitialToken(): Promise<boolean> {
+  private scheduleAutoRefresh(): void {
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+    }
+    // Refresh ahead of expiry; never schedule a non-positive/too-tight delay.
+    const delayMs = Math.max((this.tokenExpiresIn - this.tokenExpiresInBuffer * 2) * 1000, 30000);
+    this.refreshTimer = setTimeout(() => {
+      void this.acquireToken();
+    }, delayMs);
+  }
+
+  /**
+   * Acquire (or re-acquire) an access token via the OAuth client-credentials grant.
+   * That grant does not issue refresh tokens, so "refreshing" is just re-acquiring.
+   * The previous code tried a refresh_token grant that always failed, so auto-refresh
+   * silently died and calls started 401ing once the first token expired.
+   */
+  private async acquireToken(): Promise<boolean> {
     try {
+      const parts = parseConnectionString(this.context.connectionString);
+      const organizationUrl = normalizeOrganizationUrl(parts.url);
       const tokenUrl = "https://login.microsoftonline.com/" + this.tenantId + "/oauth2/token";
       const params = new URLSearchParams();
       params.append("grant_type", "client_credentials");
-      params.append("client_id", this.context.connectionString.split(";")[3].replace("ClientId=", ""));
-      params.append("client_secret", this.context.connectionString.split(";")[4].replace("ClientSecret=", ""));
-      params.append("resource", this.context.connectionString.split(";")[2].replace("Url=", ""));
+      params.append("client_id", parts.clientId ?? "");
+      params.append("client_secret", parts.clientSecret ?? "");
+      params.append("resource", organizationUrl);
       const tokenResponse = await fetch(tokenUrl, {
         method: "post",
         body: params,
@@ -62,78 +69,34 @@ export class DataverseContext {
       });
       const data: any = await tokenResponse.json();
       if (data === null || data["access_token"] === undefined || data["access_token"] === null) {
-        this.context.statusBar.text = "Dataverse Not Connected";
-        this.context.statusBar.show();
-        this.context.channel.appendLine("Error refreshing authorization token");
-        this.context.channel.appendLine(JSON.stringify(data));
+        this.setDisconnected(data);
         return false;
       }
       this.authorizationToken = data["access_token"];
-      this.refreshToken = data["refresh_token"];
-      this.tokenExpiresIn = data["expires_in"];
+      this.tokenExpiresIn = Number(data["expires_in"]) || 0;
       this.tokenExpires = new Date();
-      this.tokenExpires.setSeconds(this.tokenExpires.getSeconds() + this.tokenExpiresIn);
-      this.organizationUrl = this.context.connectionString.split(";")[2].replace("Url=", "");
-      this.autoRefreshToken();
-      const splitUri = this.context.connectionString.split(";");
-      this.context.statusBar.text = splitUri[2].replace("Url=", "");
+      this.tokenExpires.setSeconds(this.tokenExpires.getSeconds() + this.tokenExpiresIn - this.tokenExpiresInBuffer);
+      this.organizationUrl = organizationUrl;
+      this.context.statusBar.text = organizationUrl;
       this.context.statusBar.show();
       this.context.channel.appendLine("Connected to Dataverse");
+      this.scheduleAutoRefresh();
       return true;
     } catch (e: any) {
       this.context.channel.appendLine("Error getting authorization token");
       this.context.channel.appendLine(JSON.stringify(e));
-      this.context.statusBar.text = "Dataverse Not Connected";
-      this.context.statusBar.show();
+      this.setDisconnected();
       return false;
     }
   }
 
-  private async refreshAuthorizationToken(): Promise<boolean> {
-    if (this.refreshToken === "") {
-      return await this.getInitialToken();
+  private setDisconnected(data?: unknown): void {
+    this.context.statusBar.text = "Dataverse Not Connected";
+    this.context.statusBar.show();
+    this.context.channel.appendLine("Error refreshing authorization token");
+    if (data !== undefined) {
+      this.context.channel.appendLine(JSON.stringify(data));
     }
-    try {
-      const tokenUrl = "https://login.microsoftonline.com/" + this.tenantId + "/oauth2/token";
-      const params = new URLSearchParams();
-      params.append("grant_type", "refresh_token");
-      params.append("client_id", this.context.connectionString.split(";")[3].replace("ClientId=", ""));
-      params.append("client_secret", this.context.connectionString.split(";")[4].replace("ClientSecret=", ""));
-      params.append("resource", this.context.connectionString.split(";")[2].replace("Url=", ""));
-      params.append("refresh_token", this.refreshToken);
-      const tokenResponse = await fetch(tokenUrl, {
-        method: "post",
-        body: params,
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      });
-      const data: any = await tokenResponse.json();
-      if (data === null || data["access_token"] === undefined || data["access_token"] === null) {
-        this.context.statusBar.text = "Dataverse Not Connected";
-        this.context.statusBar.show();
-        this.context.channel.appendLine("Error refreshing authorization token");
-        this.context.channel.appendLine(JSON.stringify(data));
-        return false;
-      }
-      this.authorizationToken = data["access_token"];
-      this.refreshToken = data["refresh_token"];
-      this.tokenExpiresIn = data["expires_in"];
-      this.tokenExpires = new Date();
-      this.tokenExpires.setSeconds(this.tokenExpires.getSeconds() + this.tokenExpiresIn - this.tokenExpiresInBuffer);
-      const splitUri = this.context.connectionString.split(";");
-      this.organizationUrl = this.context.connectionString.split(";")[2].replace("Url=", "");
-      this.context.statusBar.text = splitUri[2].replace("Url=", "");
-      this.context.statusBar.show();
-      this.context.channel.appendLine("Connected to Dataverse");
-    } catch (e: any) {
-      this.context.channel.appendLine("Error refreshing authorization token");
-      this.context.channel.appendLine(JSON.stringify(e));
-      this.context.statusBar.text = "Dataverse Not Connected";
-      this.context.statusBar.show();
-      return false;
-    }
-    this.autoRefreshToken();
-    return true;
   }
 
   public async publishAllCustomisations(): Promise<void> {
@@ -152,11 +115,13 @@ export class DataverseContext {
     try {
       const url = this.organizationUrl + "/api/data/v9.1/PublishAllXml";
       const response = await fetch(url, options);
-      const data: any = await response.json();
-      if (data === null) {
-        return;
+      if (!response.ok) {
+        const responseText = await response.text();
+        this.context.channel.appendLine(`Failed to publish customizations: ${response.status} ${responseText}`);
       }
-    } catch {}
+    } catch (e: any) {
+      this.context.channel.appendLine(`Error publishing customizations: ${e?.message || JSON.stringify(e)}`);
+    }
   }
 
   /**
@@ -180,11 +145,13 @@ export class DataverseContext {
     try {
       const url = this.organizationUrl + "/api/data/v9.1/PublishXml";
       const response = await fetch(url, options);
-      const data: any = await response.json();
-      if (data === null) {
-        return;
+      if (!response.ok) {
+        const responseText = await response.text();
+        this.context.channel.appendLine(`Failed to publish customization: ${response.status} ${responseText}`);
       }
-    } catch {}
+    } catch (e: any) {
+      this.context.channel.appendLine(`Error publishing customization: ${e?.message || JSON.stringify(e)}`);
+    }
   }
 }
 

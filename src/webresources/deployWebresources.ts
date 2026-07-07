@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
 import * as path from "path";
 import { DataverseWebresource } from "../general/dataverse/DataverseWebresource";
+import { runWebresourceBuild } from "./webpackBuild";
 
 export async function deployWebresources(context: DataversePowerToolsContext) {
   await vscode.window.withProgress(
@@ -16,39 +17,9 @@ export async function deployWebresources(context: DataversePowerToolsContext) {
 }
 
 export async function buildAndDeployExec(context: DataversePowerToolsContext) {
-  if (vscode.workspace.workspaceFolders !== undefined) {
-    const util = require("util");
-    const exec = util.promisify(require("child_process").exec);
-    const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-    const promiseBuild = exec("webpack --config webpack.dev.js", { cwd: workspacePath });
-    const childBuild = promiseBuild.child;
-    let error = false;
-
-    childBuild.stderr.on("data", function (data: any) {
-      vscode.window.showInformationMessage("Error building webresources, see output for details.");
-      error = true;
-      context.channel.appendLine(data);
-      context.channel.show();
-    });
-
-    childBuild.stdout.on("data", function (data: any) {
-      const output = data.replace(/\\[\d+m/g, "");
-      if (output.includes("ERROR")) {
-        context.channel.appendLine(output);
-        vscode.window.showInformationMessage("Error building webresources, see output for details.");
-        error = true;
-        context.channel.show();
-      }
-      context.channel.appendLine(output);
-    });
-
-    childBuild.on("close", function (_code: any) {
-      if (!error) {
-        vscode.window.showInformationMessage("Building Complete");
-        deploy(context);
-      }
-    });
-    const { stdout, stderr } = await promiseBuild;
+  const built = await runWebresourceBuild(context);
+  if (built) {
+    await deploy(context);
   }
 }
 

@@ -29,7 +29,7 @@ export async function walkDirectory(rootPath: string): Promise<string[]> {
   return results;
 }
 
-function isTestProjectPath(csprojPath: string): boolean {
+export function isTestProjectPath(csprojPath: string): boolean {
   const lowerPath = csprojPath.toLowerCase();
   return lowerPath.endsWith(".tests.csproj") || lowerPath.includes("\\tests\\") || lowerPath.includes("/tests/") || lowerPath.includes(".tests\\") || lowerPath.includes(".tests/");
 }
