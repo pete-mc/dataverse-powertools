@@ -2,6 +2,8 @@ out
 dist
 node_modules
 .vscode-test/
+.vscode-test-web/
+test-resources/
 *.vsix
 .vs/
 templates/plugin/plugin.csproj/obj/
@@ -9,3 +11,25 @@ templates/plugin/plugins_src.csproj/obj/
 templates/plugin/plugins_srctest.csproj/obj/
 WindowsCredentialManager/bin/
 WindowsCredentialManager/obj/
+
+# .NET build artifacts from sample projects
+samples/**/bin/
+samples/**/obj/
+
+# Coverage output
+coverage/
+
+# Local sandbox test projects (throwaway webresource/plugin/solution projects
+# used to exercise the extension against a real Dataverse environment). Never committed.
+/sandbox/
+
+# Live test environment credentials — NEVER commit these.
+.env
+.env.local
+.env.*.local
+*.env.local
+
+# MCP config is environment/user-specific (carries the test-org URL) — never commit it.
+.mcp.json
+.mcp.json.*
+.mcp.json.example

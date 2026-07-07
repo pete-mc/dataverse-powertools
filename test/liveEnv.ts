@@ -1,0 +1,89 @@
+import * as path from "path";
+import * as dotenv from "dotenv";
+import { parseConnectionString, normalizeOrganizationUrl } from "../src/general/connectionString";
+
+// Load credentials from a gitignored .env — either at the repo root or inside the
+// gitignored sandbox/ folder. Root is loaded first; dotenv does not override vars
+// that are already set, so an existing environment/root value wins. Never logs contents.
+const repoRoot = path.resolve(__dirname, "..");
+dotenv.config({ path: path.resolve(repoRoot, ".env") });
+dotenv.config({ path: path.resolve(repoRoot, "sandbox", ".env") });
+
+export interface LiveEnv {
+  url: string;
+  clientId: string;
+  clientSecret: string;
+  tenantId: string;
+  /** Optional test-only solution unique name (keeps live tests scoped). */
+  solutionName?: string;
+  /** Optional test-only publisher prefix. */
+  publisherPrefix?: string;
+}
+
+/**
+ * Read live-test credentials from the environment (a gitignored `.env`, or real
+ * env vars in CI). Returns undefined when anything required is missing — callers
+ * should skip (not fail) their live tests in that case, so unit/CI runs without
+ * secrets stay green.
+ *
+ * Accepts either a full DVPT_TEST_CONNECTION_STRING or the discrete
+ * DVPT_TEST_URL / DVPT_TEST_CLIENT_ID / DVPT_TEST_CLIENT_SECRET vars.
+ */
+export function loadLiveEnv(): LiveEnv | undefined {
+  const tenantId = process.env.DVPT_TEST_TENANT_ID?.trim() ?? "";
+
+  // Explicitly-set discrete vars take precedence; a full connection string only
+  // fills whatever the discrete vars leave empty. (This way a leftover placeholder
+  // connection string never overrides real discrete values.)
+  let url = normalizeOrganizationUrl(process.env.DVPT_TEST_URL);
+  let clientId = process.env.DVPT_TEST_CLIENT_ID?.trim() ?? "";
+  let clientSecret = process.env.DVPT_TEST_CLIENT_SECRET?.trim() ?? "";
+
+  if (!url || !clientId || !clientSecret) {
+    const connectionString = process.env.DVPT_TEST_CONNECTION_STRING;
+    if (connectionString) {
+      const parts = parseConnectionString(connectionString);
+      url = url || normalizeOrganizationUrl(parts.url);
+      clientId = clientId || (parts.clientId ?? "");
+      clientSecret = clientSecret || (parts.clientSecret ?? "");
+    }
+  }
+
+  if (!url || !clientId || !clientSecret || !tenantId) {
+    return undefined;
+  }
+
+  return {
+    url,
+    clientId,
+    clientSecret,
+    tenantId,
+    solutionName: process.env.DVPT_TEST_SOLUTION_NAME?.trim() || undefined,
+    publisherPrefix: process.env.DVPT_TEST_PUBLISHER_PREFIX?.trim() || undefined,
+  };
+}
+
+export interface TestSolutionConfig {
+  solutionUniqueName: string;
+  solutionFriendlyName: string;
+  publisherUniqueName: string;
+  publisherFriendlyName: string;
+  prefix: string;
+  optionValuePrefix: number;
+}
+
+/**
+ * The dedicated test solution/publisher config. Live tests ensure this exists and
+ * add anything they create to it, so test artifacts are easy to find (and the
+ * solution can be deleted wholesale) instead of scattered in the Default layer.
+ */
+export function testSolutionConfig(env: LiveEnv): TestSolutionConfig {
+  return {
+    solutionUniqueName: env.solutionName || "dvpttests",
+    solutionFriendlyName: "Dataverse PowerTools Tests",
+    publisherUniqueName: "dataversepowertoolstests",
+    publisherFriendlyName: "Dataverse PowerTools Tests",
+    prefix: env.publisherPrefix || "dvpt",
+    optionValuePrefix: 65200,
+  };
+}

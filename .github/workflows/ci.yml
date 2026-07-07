@@ -1,11 +1,14 @@
+name: CI
+
 on:
+  pull_request:
   push:
-    branches:
+    branches-ignore:
       - main
 
-name: Deploy Extension
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-test:
     name: Lint, build & test
@@ -26,20 +29,19 @@ jobs:
       - name: Integration tests (headless VS Code)
         run: xvfb-run -a npm run test:integration
 
-  deploy:
-    name: Publish to Marketplace
-    needs: build-test
+  ui-test:
+    name: UI tests (ExTester)
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    # UI tests are slower and download a full VS Code + chromedriver; keep them
+    # on their own job so they don't block the fast feedback from build-test.
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: 20
+          cache: npm
       - run: npm ci
-      - name: Publish to Visual Studio Marketplace
-        uses: HaaLeo/publish-vscode-extension@v2
-        with:
-          pat: ${{ secrets.VSCE_PAT }}
-          registryUrl: https://marketplace.visualstudio.com
+      - name: Compile (webpack bundle)
+        run: npm run compile
+      - name: UI tests (headless)
+        run: xvfb-run -a npm run test:ui
