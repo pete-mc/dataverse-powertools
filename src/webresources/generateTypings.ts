@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
+import { workspaceFilePath } from "../general/paths";
 
 export async function generateTypings(context: DataversePowerToolsContext) {
   await vscode.window.withProgress(
@@ -43,7 +44,7 @@ export async function generateTypingsExecution(context: DataversePowerToolsConte
 
     try {
       const promise = exec(
-        vscode.workspace.workspaceFolders[0].uri.fsPath + ".\\packages\\Delegate.XrmDefinitelyTyped\\content\\XrmDefinitelyTyped\\XrmDefinitelyTyped.exe",
+        workspaceFilePath(vscode.workspace.workspaceFolders[0].uri.fsPath, "packages", "Delegate.XrmDefinitelyTyped", "content", "XrmDefinitelyTyped", "XrmDefinitelyTyped.exe"),
         defTypedOptions,
         {
           cwd: vscode.workspace.workspaceFolders[0].uri.fsPath,

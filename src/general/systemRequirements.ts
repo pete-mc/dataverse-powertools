@@ -70,12 +70,14 @@ async function detectPacInstalled(): Promise<boolean> {
   return commandExists("which pac");
 }
 
-async function scanNpmGlobalPackages(): Promise<Record<string, boolean>> {
+/**
+ * Parse the JSON output of `npm ls -g --depth=0 --json` into presence flags.
+ * Pure and tolerant: malformed/empty input yields all-false rather than throwing.
+ */
+export function parseNpmGlobals(stdout: string): Record<string, boolean> {
   try {
-    const { stdout } = await execCommand("npm ls -g --depth=0 --json");
     const parsed = JSON.parse(stdout);
     const dependencies = parsed?.dependencies || {};
-
     return {
       jest: !!dependencies.jest,
       webpack: !!dependencies.webpack,
@@ -89,6 +91,21 @@ async function scanNpmGlobalPackages(): Promise<Record<string, boolean>> {
       webpackCli: false,
       typescript: false,
     };
+  }
+}
+
+async function scanNpmGlobalPackages(): Promise<Record<string, boolean>> {
+  try {
+    const { stdout } = await execCommand("npm ls -g --depth=0 --json");
+    return parseNpmGlobals(stdout);
+  } catch (error: any) {
+    // `npm ls -g` frequently exits non-zero because of unrelated peer-dependency
+    // noise in the global store, yet still prints valid JSON on stdout. Parse that
+    // instead of reporting every global package as missing.
+    if (typeof error?.stdout === "string" && error.stdout.length > 0) {
+      return parseNpmGlobals(error.stdout);
+    }
+    return parseNpmGlobals("");
   }
 }
 
