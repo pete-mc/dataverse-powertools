@@ -75,7 +75,13 @@ export function normalizeOrganizationUrl(url: string | undefined | null): string
   if (!url) {
     return "";
   }
-  return url.trim().replace(/\/+$/, "");
+  // Strip trailing slashes without a regex (avoids polynomial-backtracking / ReDoS).
+  const trimmed = url.trim();
+  let end = trimmed.length;
+  while (end > 0 && trimmed.charCodeAt(end - 1) === 47 /* "/" */) {
+    end -= 1;
+  }
+  return trimmed.slice(0, end);
 }
 
 /** The organization URL from a connection string, trailing slashes removed. */
