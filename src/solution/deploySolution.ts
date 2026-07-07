@@ -1,5 +1,7 @@
 import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
+import { pacSolutionImportArgs, pacSolutionPackArgs } from "./pacArgs";
+import { ensurePacAuth, getEnvironmentUrl, loadSolutionConfig, runPacSolution } from "./pacRunner";
 
 export async function deploySolution(context: DataversePowerToolsContext) {
   await vscode.window.withProgress(
@@ -13,32 +15,33 @@ export async function deploySolution(context: DataversePowerToolsContext) {
   );
 }
 
-export async function deploySolutionExec(context: DataversePowerToolsContext) {
-  if (vscode.workspace.workspaceFolders !== undefined) {
-    const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-    const util = require("util");
-    const exec = util.promisify(require("child_process").execFile);
-    const promise = exec(workspacePath + "\\packages\\spkl\\tools\\spkl.exe", ["import", "./spkl.json", context.connectionString], {
-      cwd: workspacePath,
-    });
-    const child = promise.child;
-
-    child.stdout.on("data", function (data: any) {
-      const test = data;
-      if (data.includes("Processed")) {
-        vscode.window.showInformationMessage("Solution has been Deployed.");
-      } else if (data.includes("0 Error")) {
-      }
-      context.channel.appendLine(data);
-      context.channel.show();
-    });
-
-    child.stderr.on("data", function (_data: any) {
-      vscode.window.showInformationMessage("Error deploying plugins, see output for details.");
-    });
-
-    child.on("close", function (_code: any) {});
-
-    const { error, stdout, stderr } = await promise;
+export async function deploySolutionExec(context: DataversePowerToolsContext): Promise<boolean> {
+  const folders = vscode.workspace.workspaceFolders;
+  if (!folders || folders.length === 0) {
+    vscode.window.showErrorMessage("No workspace folder is open.");
+    return false;
   }
+  const workspacePath = folders[0].uri.fsPath;
+
+  const config = await loadSolutionConfig(context, workspacePath);
+  if (!config) {
+    return false;
+  }
+
+  // Pack the source folder into an unmanaged zip locally, then authenticate and
+  // import it into Dataverse (spkl's "import" was pack + import to server).
+  let ok = await runPacSolution(context, pacSolutionPackArgs(config, false), workspacePath);
+  if (ok) {
+    if (!(await ensurePacAuth(context, workspacePath))) {
+      return false;
+    }
+    ok = await runPacSolution(context, pacSolutionImportArgs(config, getEnvironmentUrl(context)), workspacePath);
+  }
+
+  if (ok) {
+    vscode.window.showInformationMessage("Solution has been deployed.");
+  } else {
+    vscode.window.showErrorMessage("Error deploying solution, see output for details.");
+  }
+  return ok;
 }
