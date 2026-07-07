@@ -3,16 +3,16 @@ import path = require("path");
 import fs = require("fs");
 import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes } from "../context";
 
-function appendPacPluginInitOutputDirectory(command: string, projectName: string): string {
-  if (!/^pac\s+plugin\s+init\b/i.test(command)) {
-    return command;
-  }
+function isPacPluginInit(argv: string[]): boolean {
+  return argv[0]?.toLowerCase() === "pac" && argv[1]?.toLowerCase() === "plugin" && argv[2]?.toLowerCase() === "init";
+}
 
-  if (/\s(--outputDirectory|-o)\b/i.test(command)) {
-    return command;
-  }
+function hasOutputDirectoryFlag(argv: string[]): boolean {
+  return argv.some((token) => token.toLowerCase() === "--outputdirectory" || token === "-o");
+}
 
-  return `${command} --outputDirectory "${projectName}"`;
+function isDotnetAddWorkflowPackage(argv: string[]): boolean {
+  return argv[0]?.toLowerCase() === "dotnet" && argv[1]?.toLowerCase() === "add" && argv[2]?.toLowerCase() === "package" && argv[3]?.toLowerCase() === "microsoft.crmsdk.workflow";
 }
 
 function resolvePluginCsprojPath(workspacePath: string, projectName: string): string {
@@ -41,20 +41,33 @@ function resolvePluginCsprojPath(workspacePath: string, projectName: string): st
   return preferredPath;
 }
 
-function resolveInitCommand(command: string, workspacePath: string, context: DataversePowerToolsContext, initialising: boolean): string {
+/**
+ * Resolve a template command for execution.
+ *
+ * Most template commands are constant strings (run through the shell so Windows
+ * `.cmd` wrappers like npm work). The plugin-v3 rewrites, however, interpolate the
+ * project name / csproj path — untrusted "library input". To avoid a shell-injection
+ * risk those are returned as an argv array and run with `execFile` (no shell), so the
+ * values can never be interpreted as shell syntax. Only `pac`/`dotnet` (real
+ * executables) are rewritten this way, so `execFile` is safe on all platforms.
+ */
+function resolveInitCommand(command: string, workspacePath: string, context: DataversePowerToolsContext, initialising: boolean): string | string[] {
   if (!(initialising && context.projectSettings.type === ProjectTypes.plugin && context.projectSettings.templateversion === 3)) {
     return command;
   }
 
   const projectName = (context.projectSettings.pluginProjectName || "Plugin").trim() || "Plugin";
-  let resolved = appendPacPluginInitOutputDirectory(command, projectName);
+  const argv = command.split(/\s+/).filter((token) => token.length > 0);
 
-  if (/^dotnet\s+add\s+package\s+Microsoft\.CrmSdk\.Workflow\b/i.test(resolved)) {
-    const pluginCsprojPath = resolvePluginCsprojPath(workspacePath, projectName);
-    resolved = `dotnet add "${pluginCsprojPath}" package Microsoft.CrmSdk.Workflow`;
+  if (isPacPluginInit(argv)) {
+    return hasOutputDirectoryFlag(argv) ? argv : [...argv, "--outputDirectory", projectName];
   }
 
-  return resolved;
+  if (isDotnetAddWorkflowPackage(argv)) {
+    return ["dotnet", "add", resolvePluginCsprojPath(workspacePath, projectName), "package", "Microsoft.CrmSdk.Workflow"];
+  }
+
+  return command;
 }
 
 export async function restoreDependencies(context: DataversePowerToolsContext, initialising: boolean = false) {
@@ -68,27 +81,26 @@ export async function restoreDependencies(context: DataversePowerToolsContext, i
         vscode.window.showErrorMessage("No Template Found; Try reloading extension again");
         return;
       }
-      const util = require("util");
-      var fullFilePath = context.vscode.asAbsolutePath(path.join("templates", context.projectSettings.type));
-      var templates = JSON.parse(fs.readFileSync(fullFilePath + "\\template.json", "utf8")) as Array<PowertoolsTemplate>;
-      var templateToCopy = {} as PowertoolsTemplate;
+      const fullFilePath = context.vscode.asAbsolutePath(path.join("templates", context.projectSettings.type));
+      const templates = JSON.parse(fs.readFileSync(path.join(fullFilePath, "template.json"), "utf8")) as Array<PowertoolsTemplate>;
+      let templateToCopy = {} as PowertoolsTemplate;
       for (const t of templates) {
         if (t.version === context.projectSettings.templateversion) {
           templateToCopy = t;
           break;
         }
       }
-      const stillRunning = false;
       context.template = templateToCopy;
       if (vscode.workspace.workspaceFolders !== undefined && context.template !== undefined && context.template.restoreCommands) {
         const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-        let restoreCommands = initialising ? context.template?.initCommands || [] : context.template?.restoreCommands || [];
+        const restoreCommands = initialising ? context.template?.initCommands || [] : context.template?.restoreCommands || [];
         for (const c of restoreCommands) {
           const resolvedCommand = resolveInitCommand(c.command, workspacePath, context, initialising);
+          const displayCommand = Array.isArray(resolvedCommand) ? resolvedCommand.join(" ") : resolvedCommand;
           await vscode.window.withProgress(
             {
               location: vscode.ProgressLocation.Notification,
-              title: "Restoring " + resolvedCommand,
+              title: "Restoring " + displayCommand,
             },
             async () => {
               await restoreDepedencyExec(resolvedCommand, workspacePath, context);
@@ -104,41 +116,43 @@ export async function restoreDependencies(context: DataversePowerToolsContext, i
   );
 }
 
-export async function restoreDepedencyExec(command: string, workspacePath: string, context: DataversePowerToolsContext) {
+export async function restoreDepedencyExec(command: string | string[], workspacePath: string, context: DataversePowerToolsContext) {
+  if (vscode.workspace.workspaceFolders === undefined) {
+    return;
+  }
   const util = require("util");
-  const exec = util.promisify(require("child_process").exec);
-  if (vscode.workspace.workspaceFolders !== undefined) {
-    const promise = exec(command, { cwd: workspacePath });
-    const child = promise.child;
+  const cp = require("child_process");
+  const displayCommand = Array.isArray(command) ? command.join(" ") : command;
 
-    child.stdout.on("data", function (data: any) {
-      if (!data) {
-        return;
-      }
-      if (data.includes("Error") && !data.includes("0 Error")) {
-        vscode.window.showErrorMessage("Error restoring " + command + ". See output for details.");
-        context.channel.appendLine(data);
-        context.channel.show();
-      } else if (data.includes("0 Error")) {
-        context.channel.appendLine("Restore Complete.");
-        context.channel.appendLine(data);
-        context.channel.show();
-      } else {
-        context.channel.appendLine(data);
-        return stdout;
-      }
-    });
+  // argv arrays run with execFile (no shell); constant strings run through the shell
+  // so Windows .cmd wrappers (npm) still work.
+  const promise = Array.isArray(command)
+    ? util.promisify(cp.execFile)(command[0], command.slice(1), { cwd: workspacePath })
+    : util.promisify(cp.exec)(command, { cwd: workspacePath });
+  const child = promise.child;
 
-    child.stderr.on("data", function (data: any) {
-      vscode.window.showErrorMessage("Error restoring " + command + ". See output for details.");
+  child.stdout.on("data", function (data: any) {
+    if (!data) {
+      return;
+    }
+    if (data.includes("Error") && !data.includes("0 Error")) {
+      vscode.window.showErrorMessage("Error restoring " + displayCommand + ". See output for details.");
       context.channel.appendLine(data);
       context.channel.show();
-    });
+    } else if (data.includes("0 Error")) {
+      context.channel.appendLine("Restore Complete.");
+      context.channel.appendLine(data);
+      context.channel.show();
+    } else {
+      context.channel.appendLine(data);
+    }
+  });
 
-    child.on("close", function (_code: any) {
-      return "success";
-    });
+  child.stderr.on("data", function (data: any) {
+    vscode.window.showErrorMessage("Error restoring " + displayCommand + ". See output for details.");
+    context.channel.appendLine(data);
+    context.channel.show();
+  });
 
-    const { stdout, stderr } = await promise;
-  }
+  await promise;
 }
