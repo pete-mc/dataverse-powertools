@@ -227,7 +227,7 @@
       },
       {
         "view": "dataversePowerToolsLocalSettings",
-        "contents": "Local Settings Menu\n[Restore Dependencies](command:dataverse-powertools.restoreDependencies)\n[Update Dataverse Authentication](command:dataverse-powertools.updateConnectionString)",
+        "contents": "Local Settings Menu\n[Restore Dependencies](command:dataverse-powertools.restoreDependencies)\n[Update Dataverse Authentication](command:dataverse-powertools.updateConnectionString)\n[Switch Dataverse Environment](command:dataverse-powertools.switchEnvironment)",
         "when": "dataverse-powertools.showLoaded"
       },
       {
@@ -407,6 +407,11 @@
       {
         "command": "dataverse-powertools.updateConnectionString",
         "title": "Dataverse PowerTools: Update Dataverse Authentication",
+        "enablement": "dataverse-powertools.showLoaded"
+      },
+      {
+        "command": "dataverse-powertools.switchEnvironment",
+        "title": "Dataverse PowerTools: Switch Dataverse Environment",
         "enablement": "dataverse-powertools.showLoaded"
       },
       {

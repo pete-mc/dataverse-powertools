@@ -2,8 +2,8 @@ import { window } from "vscode";
 import DataversePowerToolsContext, { ProjectTypes } from "../context";
 import { MultiStepInput, shouldResume, validationIgnore } from "./inputControls";
 import { getSolutions } from "./dataverse/getSolutions";
-import { DataverseAuthType } from "./dataverse/authTypes";
-import { buildAuthConnectionString, getOrganizationUrl, normalizeOrganizationUrl } from "./connectionString";
+import { DataverseAuthType, parseAuthType } from "./dataverse/authTypes";
+import { buildAuthConnectionString, getOrganizationUrl, normalizeOrganizationUrl, parseConnectionString } from "./connectionString";
 import { discoverEnvironments, discoverEnvironmentsWithSecret } from "./dataverse/globalDiscovery";
 
 export async function updateConnectionString(context: DataversePowerToolsContext) {
@@ -14,6 +14,72 @@ export async function updateConnectionString(context: DataversePowerToolsContext
   // differs across auth types (OAuth strings have no LoginPrompt).
   context.statusBar.text = getOrganizationUrl(connectionString);
   context.statusBar.show();
+}
+
+/**
+ * Switch to a different Dataverse environment without re-entering credentials. Reuses
+ * the current connection's auth (interactive signs in silently from the cached account;
+ * client secret reuses the stored secret), lists environments via Global Discovery,
+ * then updates the connection url + solution for the chosen environment.
+ */
+export async function switchEnvironment(context: DataversePowerToolsContext): Promise<void> {
+  const parts = parseConnectionString(context.connectionString || context.projectSettings.connectionString || "");
+  const authType = parseAuthType(parts.authType);
+  const tenantId = context.projectSettings.tenantId || parts.tenantId || "";
+
+  let environments: Awaited<ReturnType<typeof discoverEnvironments>>;
+  if (authType === DataverseAuthType.oauth) {
+    environments = await discoverEnvironments(parts.clientId);
+  } else if (parts.clientId && parts.clientSecret) {
+    environments = await discoverEnvironmentsWithSecret(parts.clientId, parts.clientSecret, tenantId);
+  }
+
+  if (!environments || environments.length === 0) {
+    window.showErrorMessage("No Dataverse environments were found to switch to. Try Update Dataverse Authentication.");
+    return;
+  }
+  const pick = await window.showQuickPick(
+    environments.map((environment) => ({ label: environment.friendlyName, description: environment.url, target: environment })),
+    { placeHolder: "Switch to which Dataverse environment?", ignoreFocusOut: true },
+  );
+  if (!pick) {
+    return;
+  }
+  const newUrl = normalizeOrganizationUrl(pick.target.url);
+
+  let connectionString: string;
+  if (authType === DataverseAuthType.oauth) {
+    connectionString = buildAuthConnectionString({ authType: "OAuth", url: newUrl, clientId: parts.clientId });
+  } else {
+    connectionString = buildAuthConnectionString({ authType: "ClientSecret", url: newUrl, clientId: parts.clientId, clientSecret: parts.clientSecret });
+  }
+  context.connectionString = connectionString;
+  context.projectSettings.connectionString = connectionString;
+  context.projectSettings.tenantId = tenantId;
+
+  // Drop the cached token — it's for the old org — so the next call re-authenticates
+  // against the new environment (interactive stays silent via the cached account).
+  context.dataverse.authorizationToken = "";
+  context.dataverse.tenantId = tenantId;
+
+  const solutions = await getSolutions(context);
+  if (solutions && solutions.length > 0) {
+    const solutionPick = await window.showQuickPick(
+      solutions.map((solution) => ({ label: solution.displayName, target: solution })),
+      { placeHolder: "Select a solution in the new environment" },
+    );
+    if (solutionPick) {
+      context.projectSettings.solutionName = solutionPick.target.uniqueName;
+      context.projectSettings.webresourceSolutionName = solutionPick.target.uniqueName;
+      context.projectSettings.prefix = solutionPick.target.publisherPrefix;
+    }
+  }
+
+  await context.writeSettings();
+  await context.readSettings();
+  context.statusBar.text = getOrganizationUrl(connectionString);
+  context.statusBar.show();
+  window.showInformationMessage(`Switched to ${pick.label}`);
 }
 
 export async function getServicePrincipalString(context: DataversePowerToolsContext, name: string): Promise<string> {
