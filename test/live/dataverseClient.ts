@@ -165,6 +165,40 @@ export class LiveDataverseClient {
     return { uniqueName: opts.solutionUniqueName, solutionId };
   }
 
+  /** The id of a table's main form (type 2), for form-event tests. */
+  async findMainFormId(entityLogicalName: string): Promise<string | undefined> {
+    const res = await this.request("GET", `systemforms?$select=formid,name&$filter=objecttypecode eq '${entityLogicalName}' and type eq 2`);
+    if (!res.ok) {
+      throw new Error(`Query systemforms failed: ${res.status} ${await res.text()}`);
+    }
+    return ((await res.json()) as any).value?.[0]?.formid;
+  }
+
+  /** Get a form's raw formxml. */
+  async getFormXml(formId: string): Promise<string> {
+    const res = await this.request("GET", `systemforms(${formId})?$select=formxml`);
+    if (!res.ok) {
+      throw new Error(`Get formxml failed: ${res.status} ${await res.text()}`);
+    }
+    return ((await res.json()) as any).formxml ?? "";
+  }
+
+  /** Publish all customizations (so newly-created webresources become referenceable). */
+  async publishAll(): Promise<void> {
+    const res = await this.request("POST", "PublishAllXml");
+    if (!res.ok) {
+      throw new Error(`PublishAllXml failed: ${res.status} ${await res.text()}`);
+    }
+  }
+
+  /** Overwrite a form's formxml (used to restore a form after a test). */
+  async setFormXml(formId: string, formxml: string): Promise<void> {
+    const res = await this.request("PATCH", `systemforms(${formId})`, { formxml });
+    if (!res.ok) {
+      throw new Error(`Set formxml failed: ${res.status} ${await res.text()}`);
+    }
+  }
+
   /** True if the given component (by objectid) is a member of the solution. */
   async isComponentInSolution(solutionId: string, objectId: string): Promise<boolean> {
     const res = await this.request("GET", `solutioncomponents?$select=solutioncomponentid&$filter=_solutionid_value eq ${solutionId} and objectid eq ${objectId}`);
