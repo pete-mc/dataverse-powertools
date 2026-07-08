@@ -2,7 +2,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "crypto";
 import DataversePowerToolsContext from "../context";
 import { MultiStepInput, shouldResume, validationIgnore } from "../general/inputControls";
 import { getDataverseTables } from "../general/dataverse/getDataverseTables";
@@ -371,7 +371,7 @@ export async function updateFilteringAttributes(context: DataversePowerToolsCont
 
 async function collectPluginInputs(context: DataversePowerToolsContext): Promise<PluginState> {
   const state = {} as Partial<PluginState>;
-  state.id = uuidv4();
+  state.id = randomUUID();
   await MultiStepInput.run((input) => inputMessageName(input, state, context));
   return state as PluginState;
 }

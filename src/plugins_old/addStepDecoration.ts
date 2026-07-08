@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import * as vscode from "vscode";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "crypto";
 import DataversePowerToolsContext from "../context";
 import { MultiStepInput, shouldResume, validationIgnore } from "../general/inputControls";
 
@@ -12,7 +12,7 @@ export async function addPluginDecoration(_context: DataversePowerToolsContext) 
 
 async function collectInputs() {
   const state = {} as Partial<State>;
-  state.id = uuidv4();
+  state.id = randomUUID();
   await MultiStepInput.run((input) => inputMessageName(input, state));
   return state as State;
 }
