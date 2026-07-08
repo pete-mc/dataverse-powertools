@@ -4,7 +4,7 @@
 
 import fetch from "node-fetch";
 import * as vscode from "vscode";
-import { PublicClientApplication, AccountInfo } from "@azure/msal-node";
+import { PublicClientApplication, AccountInfo, ICachePlugin, TokenCacheContext } from "@azure/msal-node";
 import { buildDataverseScopes } from "./authTypes";
 import { SIGN_IN_SUCCESS_HTML, SIGN_IN_ERROR_HTML } from "./authPages";
 
@@ -40,6 +40,34 @@ interface InteractiveApp {
 // cache (and refresh token) survives across acquireToken calls — otherwise every
 // renewal would reopen the browser.
 const interactiveApps = new Map<string, InteractiveApp>();
+
+// Persist MSAL's token cache to VS Code secret storage so the refresh token survives
+// a window reload / restart — otherwise the user would have to sign in again every
+// time VS Code restarts. Set once at activation via initInteractiveTokenCache.
+const MSAL_CACHE_SECRET_KEY = "dataverse-powertools.msal-cache";
+let cacheSecrets: vscode.SecretStorage | undefined;
+
+export function initInteractiveTokenCache(secrets: vscode.SecretStorage): void {
+  cacheSecrets = secrets;
+}
+
+const cachePlugin: ICachePlugin = {
+  beforeCacheAccess: async (cacheContext: TokenCacheContext) => {
+    if (!cacheSecrets) {
+      return;
+    }
+    const cached = await cacheSecrets.get(MSAL_CACHE_SECRET_KEY);
+    if (cached) {
+      cacheContext.tokenCache.deserialize(cached);
+    }
+  },
+  afterCacheAccess: async (cacheContext: TokenCacheContext) => {
+    if (!cacheSecrets || !cacheContext.cacheHasChanged) {
+      return;
+    }
+    await cacheSecrets.store(MSAL_CACHE_SECRET_KEY, cacheContext.tokenCache.serialize());
+  },
+};
 
 /**
  * Service principal + client secret via the v1 token endpoint (resource-style).
@@ -91,8 +119,21 @@ export async function acquireInteractiveForScopes(scopes: string[], clientId: st
   const key = `${INTERACTIVE_AUTHORITY}|${effectiveClientId}`;
   let app = interactiveApps.get(key);
   if (!app) {
-    app = { pca: new PublicClientApplication({ auth: { clientId: effectiveClientId, authority: INTERACTIVE_AUTHORITY } }) };
+    app = { pca: new PublicClientApplication({ auth: { clientId: effectiveClientId, authority: INTERACTIVE_AUTHORITY }, cache: { cachePlugin } }) };
     interactiveApps.set(key, app);
+  }
+
+  // Recover the account from the persisted cache after a restart (the map is empty
+  // but the refresh token was saved to secret storage), so we can renew silently.
+  if (!app.account) {
+    try {
+      const accounts = await app.pca.getTokenCache().getAllAccounts();
+      if (accounts.length > 0) {
+        app.account = accounts[0];
+      }
+    } catch {
+      // No persisted cache — an interactive sign-in will be needed.
+    }
   }
 
   // Try silent first (MSAL's cached refresh token) so renewals don't reopen the browser.
