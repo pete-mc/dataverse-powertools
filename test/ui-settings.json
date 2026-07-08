@@ -1,0 +1,10 @@
+{
+  "workbench.startupEditor": "none",
+  "workbench.welcomePage.walkthroughs.openOnInstall": false,
+  "workbench.tips.enabled": false,
+  "window.commandCenter": false,
+  "update.mode": "none",
+  "telemetry.telemetryLevel": "off",
+  "security.workspace.trust.enabled": false,
+  "extensions.ignoreRecommendations": true
+}
