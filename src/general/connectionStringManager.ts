@@ -145,7 +145,10 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
       step: 4,
       totalSteps: 7,
       value: state.applicationId || "",
-      prompt: state.authType === DataverseAuthType.oauth ? "Application (client) ID — optional; leave blank to use VS Code's default sign-in app" : "Type in the Application ID",
+      prompt:
+        state.authType === DataverseAuthType.oauth
+          ? "Application (client) ID — optional; leave blank to use the default Dataverse sign-in app (same as XrmToolBox)"
+          : "Type in the Application ID",
       validate: validationIgnore,
       shouldResume: shouldResume,
     });

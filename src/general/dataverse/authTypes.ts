@@ -53,27 +53,3 @@ export function buildDataverseScopes(organizationUrl: string | undefined | null)
 export function isConfidentialClient(authType: DataverseAuthType): boolean {
   return authType === DataverseAuthType.clientSecret || authType === DataverseAuthType.certificate;
 }
-
-/**
- * Scopes for the interactive flow through VS Code's built-in Microsoft auth
- * provider. Alongside the Dataverse resource scope, VS Code understands the
- * `VSCODE_TENANT:` and `VSCODE_CLIENT_ID:` modifiers to target a specific tenant
- * and app registration (the built-in first-party client may not have Dataverse
- * access, so a project that supplies its own client id should use it).
- */
-export function buildInteractiveScopes(organizationUrl: string | undefined | null, tenantId?: string | null, clientId?: string | null): string[] {
-  const scopes = buildDataverseScopes(organizationUrl);
-  if (scopes.length === 0) {
-    return scopes;
-  }
-  scopes.push("offline_access");
-  const tenant = (tenantId ?? "").trim();
-  if (tenant) {
-    scopes.push(`VSCODE_TENANT:${tenant}`);
-  }
-  const client = (clientId ?? "").trim();
-  if (client) {
-    scopes.push(`VSCODE_CLIENT_ID:${client}`);
-  }
-  return scopes;
-}

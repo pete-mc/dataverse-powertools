@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { DataverseAuthType, parseAuthType, buildAuthority, buildDataverseScopes, isConfidentialClient, buildInteractiveScopes } from "./authTypes";
+import { DataverseAuthType, parseAuthType, buildAuthority, buildDataverseScopes, isConfidentialClient } from "./authTypes";
 
 describe("parseAuthType", () => {
   it("recognises each auth type case-insensitively", () => {
@@ -45,24 +45,5 @@ describe("isConfidentialClient", () => {
     expect(isConfidentialClient(DataverseAuthType.clientSecret)).toBe(true);
     expect(isConfidentialClient(DataverseAuthType.certificate)).toBe(true);
     expect(isConfidentialClient(DataverseAuthType.oauth)).toBe(false);
-  });
-});
-
-describe("buildInteractiveScopes", () => {
-  it("includes the Dataverse resource scope and offline_access", () => {
-    expect(buildInteractiveScopes("https://org.crm.dynamics.com")).toEqual(["https://org.crm.dynamics.com/.default", "offline_access"]);
-  });
-
-  it("adds tenant and client-id modifiers when supplied", () => {
-    expect(buildInteractiveScopes("https://org.crm.dynamics.com", "tenant-1", "client-1")).toEqual([
-      "https://org.crm.dynamics.com/.default",
-      "offline_access",
-      "VSCODE_TENANT:tenant-1",
-      "VSCODE_CLIENT_ID:client-1",
-    ]);
-  });
-
-  it("returns no scopes when there is no org url", () => {
-    expect(buildInteractiveScopes("", "tenant-1")).toEqual([]);
   });
 });

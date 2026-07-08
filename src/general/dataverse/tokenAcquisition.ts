@@ -4,15 +4,34 @@
 
 import fetch from "node-fetch";
 import * as vscode from "vscode";
-import { ConfidentialClientApplication } from "@azure/msal-node";
-import { buildAuthority, buildDataverseScopes, buildInteractiveScopes } from "./authTypes";
+import { ConfidentialClientApplication, PublicClientApplication, AccountInfo } from "@azure/msal-node";
+import { buildAuthority, buildDataverseScopes } from "./authTypes";
 import { CertificateCredential } from "./certificate";
 
 export interface TokenResult {
   accessToken: string;
-  /** When the token expires. VS Code-managed interactive tokens don't report this. */
+  /** When the token expires, if known. */
   expiresOn: Date | null;
 }
+
+/**
+ * Microsoft's well-known sample application, the same one Dataverse tooling such as
+ * XrmToolBox uses for interactive sign-in. It has http://localhost registered (for
+ * the MSAL loopback flow) and the Dataverse delegated permission, so users don't have
+ * to register their own app. A project can override it by putting its own ClientId in
+ * the connection. If Microsoft ever restricts this app, override with a project app id.
+ */
+export const DEFAULT_INTERACTIVE_CLIENT_ID = "51f81489-12ee-4a9e-aaae-a2591f45987d";
+
+interface InteractiveApp {
+  pca: PublicClientApplication;
+  account?: AccountInfo;
+}
+
+// Cache one MSAL public-client app per authority+clientId so its in-memory token
+// cache (and refresh token) survives across acquireToken calls — otherwise every
+// renewal would reopen the browser.
+const interactiveApps = new Map<string, InteractiveApp>();
 
 /**
  * Service principal + client secret via the v1 token endpoint (resource-style).
@@ -62,20 +81,54 @@ export async function acquireCertificateToken(clientId: string, tenantId: string
 }
 
 /**
- * Interactive user sign-in via VS Code's built-in Microsoft auth provider. VS Code
- * owns the browser flow, caching and silent refresh; pass promptIfNeeded on the
- * first connect (so the user is asked to sign in) and false afterwards (silent).
+ * Interactive user sign-in via MSAL's public-client loopback flow — the same approach
+ * (and default app id) Dataverse tooling like XrmToolBox uses. Opens the system browser
+ * to sign in, then reuses MSAL's cached refresh token silently on renewal so it only
+ * pops the browser when it genuinely has to. `promptIfNeeded` gates that browser prompt:
+ * true on an explicit connect, false on background refresh.
  */
 export async function acquireInteractiveToken(organizationUrl: string, tenantId: string, clientId: string | undefined, promptIfNeeded: boolean): Promise<TokenResult | undefined> {
-  const scopes = buildInteractiveScopes(organizationUrl, tenantId, clientId);
+  const scopes = buildDataverseScopes(organizationUrl);
   if (scopes.length === 0) {
     return undefined;
   }
-  const session = await vscode.authentication.getSession("microsoft", scopes, promptIfNeeded ? { createIfNone: true } : { createIfNone: false });
-  if (!session || !session.accessToken) {
+  const effectiveClientId = (clientId ?? "").trim() || DEFAULT_INTERACTIVE_CLIENT_ID;
+  const authority = buildAuthority(tenantId);
+  const key = `${authority}|${effectiveClientId}`;
+  let app = interactiveApps.get(key);
+  if (!app) {
+    app = { pca: new PublicClientApplication({ auth: { clientId: effectiveClientId, authority } }) };
+    interactiveApps.set(key, app);
+  }
+
+  // Try silent first (MSAL's cached refresh token) so renewals don't reopen the browser.
+  if (app.account) {
+    try {
+      const silent = await app.pca.acquireTokenSilent({ account: app.account, scopes });
+      if (silent?.accessToken) {
+        return { accessToken: silent.accessToken, expiresOn: silent.expiresOn ?? null };
+      }
+    } catch {
+      // Cache miss / interaction required — fall through to an interactive sign-in.
+    }
+  }
+
+  if (!promptIfNeeded) {
+    // Background refresh with nothing usable cached; don't pop a browser unprompted.
     return undefined;
   }
-  // VS Code doesn't surface the expiry; treat as valid for ~50 minutes and then
-  // re-request — getSession returns a cached/refreshed token silently.
-  return { accessToken: session.accessToken, expiresOn: new Date(Date.now() + 50 * 60 * 1000) };
+
+  const result = await app.pca.acquireTokenInteractive({
+    scopes,
+    openBrowser: async (url: string) => {
+      await vscode.env.openExternal(vscode.Uri.parse(url));
+    },
+    successTemplate: "Signed in to Dataverse. You can close this tab and return to VS Code.",
+    errorTemplate: "Dataverse sign-in failed. You can close this tab and return to VS Code.",
+  });
+  if (!result?.accessToken) {
+    return undefined;
+  }
+  app.account = result.account ?? app.account;
+  return { accessToken: result.accessToken, expiresOn: result.expiresOn ?? null };
 }
