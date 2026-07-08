@@ -118,3 +118,20 @@ export function buildConnectionString(parts: ParsedConnectionString): string {
 
   return segments.join(";");
 }
+
+/**
+ * Build the connection string for a chosen auth type, emitting only the parts
+ * that type needs: ClientSecret keeps its secret + LoginPrompt; Certificate carries
+ * a CertificatePath (the passphrase lives in secret storage, never here); OAuth
+ * carries nothing sensitive. Empty parts are dropped by buildConnectionString.
+ */
+export function buildAuthConnectionString(params: { authType: string; url: string; clientId?: string; clientSecret?: string; certificatePath?: string }): string {
+  return buildConnectionString({
+    authType: params.authType,
+    loginPrompt: params.authType === "ClientSecret" ? "Never" : undefined,
+    url: params.url,
+    clientId: params.clientId,
+    clientSecret: params.clientSecret,
+    certificatePath: params.certificatePath,
+  });
+}

@@ -1,5 +1,31 @@
 import { describe, it, expect } from "vitest";
-import { parseConnectionString, normalizeOrganizationUrl, getOrganizationUrl, buildConnectionString } from "./connectionString";
+import { parseConnectionString, normalizeOrganizationUrl, getOrganizationUrl, buildConnectionString, buildAuthConnectionString } from "./connectionString";
+
+describe("buildAuthConnectionString", () => {
+  it("keeps the secret and LoginPrompt for client-secret auth", () => {
+    expect(buildAuthConnectionString({ authType: "ClientSecret", url: "https://org.crm.dynamics.com", clientId: "abc", clientSecret: "s3cr3t" })).toBe(
+      "AuthType=ClientSecret;LoginPrompt=Never;Url=https://org.crm.dynamics.com;ClientId=abc;ClientSecret=s3cr3t",
+    );
+  });
+
+  it("emits a CertificatePath and no secret for certificate auth", () => {
+    const result = buildAuthConnectionString({ authType: "Certificate", url: "https://org.crm.dynamics.com", clientId: "abc", certificatePath: "/certs/app.pem" });
+    expect(result).toBe("AuthType=Certificate;Url=https://org.crm.dynamics.com;ClientId=abc;CertificatePath=/certs/app.pem");
+    expect(result).not.toContain("ClientSecret");
+    expect(result).not.toContain("LoginPrompt");
+  });
+
+  it("carries nothing sensitive for interactive auth", () => {
+    const result = buildAuthConnectionString({ authType: "OAuth", url: "https://org.crm.dynamics.com", clientId: "abc" });
+    expect(result).toBe("AuthType=OAuth;Url=https://org.crm.dynamics.com;ClientId=abc");
+    expect(result).not.toContain("ClientSecret");
+    expect(result).not.toContain("CertificatePath");
+  });
+
+  it("omits an empty client id for interactive auth", () => {
+    expect(buildAuthConnectionString({ authType: "OAuth", url: "https://org.crm.dynamics.com" })).toBe("AuthType=OAuth;Url=https://org.crm.dynamics.com");
+  });
+});
 
 describe("parseConnectionString", () => {
   it("parses a full service-principal connection string", () => {
