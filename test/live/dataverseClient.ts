@@ -183,6 +183,36 @@ export class LiveDataverseClient {
     return ((await res.json()) as any).formxml ?? "";
   }
 
+  /** Find a plugin package by its unique name. */
+  async findPluginPackageByUniqueName(uniqueName: string): Promise<{ pluginpackageid: string; uniquename: string } | undefined> {
+    const escaped = uniqueName.replace(/'/g, "''");
+    const res = await this.request("GET", `pluginpackages?$select=pluginpackageid,uniquename&$filter=uniquename eq '${escaped}'`);
+    if (!res.ok) {
+      throw new Error(`Query pluginpackage failed: ${res.status} ${await res.text()}`);
+    }
+    return ((await res.json()) as any).value?.[0];
+  }
+
+  /** Get a plugin package by id (to verify a push landed). */
+  async getPluginPackageById(id: string): Promise<{ pluginpackageid: string; uniquename: string } | undefined> {
+    const res = await this.request("GET", `pluginpackages(${id})?$select=pluginpackageid,uniquename`);
+    if (res.status === 404) {
+      return undefined;
+    }
+    if (!res.ok) {
+      throw new Error(`Get pluginpackage failed: ${res.status} ${await res.text()}`);
+    }
+    return (await res.json()) as any;
+  }
+
+  /** Delete a plugin package (and its extracted assemblies) to clean up after a test. */
+  async deletePluginPackage(id: string): Promise<void> {
+    const res = await this.request("DELETE", `pluginpackages(${id})`);
+    if (!res.ok && res.status !== 404) {
+      throw new Error(`Delete pluginpackage failed: ${res.status} ${await res.text()}`);
+    }
+  }
+
   /** Publish all customizations (so newly-created webresources become referenceable). */
   async publishAll(): Promise<void> {
     const res = await this.request("POST", "PublishAllXml");
