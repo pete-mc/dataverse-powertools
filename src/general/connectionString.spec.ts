@@ -82,6 +82,13 @@ describe("normalizeOrganizationUrl / getOrganizationUrl", () => {
     expect(normalizeOrganizationUrl("https://org.crm.dynamics.com///")).toBe("https://org.crm.dynamics.com");
   });
 
+  it("coerces http and scheme-less urls to https (Dataverse is https-only)", () => {
+    expect(normalizeOrganizationUrl("http://org.crm.dynamics.com")).toBe("https://org.crm.dynamics.com");
+    expect(normalizeOrganizationUrl("org.crm.dynamics.com")).toBe("https://org.crm.dynamics.com");
+    expect(normalizeOrganizationUrl("HTTP://org.crm.dynamics.com/")).toBe("https://org.crm.dynamics.com");
+    expect(normalizeOrganizationUrl("https://org.crm.dynamics.com")).toBe("https://org.crm.dynamics.com");
+  });
+
   it("returns empty string for missing url", () => {
     expect(normalizeOrganizationUrl(undefined)).toBe("");
     expect(getOrganizationUrl("ClientId=a")).toBe("");
