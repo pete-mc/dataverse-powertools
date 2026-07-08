@@ -5,6 +5,7 @@ import { DataverseContext } from "./general/dataverse/dataverseContext";
 import { DataverseFormRecord } from "./general/dataverse/getDataverseForms";
 import { workspaceFilePath } from "./general/paths";
 import { parseConnectionString, buildConnectionString, getOrganizationUrl } from "./general/connectionString";
+import { parseAuthType, DataverseAuthType } from "./general/dataverse/authTypes";
 
 export default class DataversePowerToolsContext {
   public dataverse: DataverseContext;
@@ -71,13 +72,18 @@ export default class DataversePowerToolsContext {
             this.projectSettings.webresourceSolutionName = this.projectSettings.solutionName;
           }
           this.connectionString = this.projectSettings.connectionString || "";
-          const name = getOrganizationUrl(this.connectionString);
-          const credentialString = await getServicePrincipalString(this, name);
-          if (credentialString === "") {
-            await createServicePrincipalString(this);
-            this.connectionString = this.projectSettings.connectionString || "";
-          } else {
-            this.connectionString += credentialString;
+          // Interactive (OAuth) connections carry no client secret — the persisted
+          // connection string is complete on its own, so don't look up a stored secret
+          // or re-run the setup wizard (which asks for the auth type again).
+          if (parseAuthType(parseConnectionString(this.connectionString).authType) !== DataverseAuthType.oauth) {
+            const name = getOrganizationUrl(this.connectionString);
+            const credentialString = await getServicePrincipalString(this, name);
+            if (credentialString === "") {
+              await createServicePrincipalString(this);
+              this.connectionString = this.projectSettings.connectionString || "";
+            } else {
+              this.connectionString += credentialString;
+            }
           }
         })
         .catch((err) => {

@@ -52,6 +52,11 @@ export async function switchEnvironment(context: DataversePowerToolsContext): Pr
     connectionString = buildAuthConnectionString({ authType: "OAuth", url: newUrl, clientId: parts.clientId });
   } else {
     connectionString = buildAuthConnectionString({ authType: "ClientSecret", url: newUrl, clientId: parts.clientId, clientSecret: parts.clientSecret });
+    // Persist the secret under the new org so readSettings can rehydrate it (the
+    // persisted connection string has the secret stripped out).
+    if (parts.clientId && parts.clientSecret) {
+      await saveServicePrincipalString(context, newUrl, parts.clientId, parts.clientSecret, tenantId);
+    }
   }
   context.connectionString = connectionString;
   context.projectSettings.connectionString = connectionString;
