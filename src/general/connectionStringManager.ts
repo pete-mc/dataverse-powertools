@@ -134,6 +134,11 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
       shouldResume: shouldResume,
     });
     context.dataverse.tenantId = state.tenantId;
+    // Interactive uses the built-in Dataverse sign-in app (same id as XrmToolBox),
+    // so there's no application id to collect — go straight to picking a solution.
+    if (state.authType === DataverseAuthType.oauth) {
+      return (input: MultiStepInput) => inputSolutionName(input, state);
+    }
     return (input: MultiStepInput) => inputApplicationId(input, state);
   }
 
@@ -145,18 +150,12 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
       step: 4,
       totalSteps: 7,
       value: state.applicationId || "",
-      prompt:
-        state.authType === DataverseAuthType.oauth
-          ? "Application (client) ID — optional; leave blank to use the default Dataverse sign-in app (same as XrmToolBox)"
-          : "Type in the Application ID",
+      prompt: "Type in the Application ID",
       validate: validationIgnore,
       shouldResume: shouldResume,
     });
     if (state.authType === DataverseAuthType.certificate) {
       return (input: MultiStepInput) => inputCertificatePath(input, state);
-    }
-    if (state.authType === DataverseAuthType.oauth) {
-      return (input: MultiStepInput) => inputSolutionName(input, state);
     }
     return (input: MultiStepInput) => inputClientSecret(input, state);
   }

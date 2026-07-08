@@ -26,13 +26,22 @@ export async function getSolutions(context: DataversePowerToolsContext): Promise
       context.dataverse?.organizationUrl +
       "/api/data/v9.1/solutions?$select=friendlyname,uniquename,solutionid,publisherid&$filter=ismanaged%20eq%20false&$expand=publisherid($select=friendlyname,customizationprefix,publisherid)";
     const response = await fetch(url, options);
+    if (!response.ok) {
+      const body = await response.text();
+      context.channel.appendLine(`Failed to list solutions: ${response.status} ${response.statusText} ${body}`);
+      context.channel.show();
+      return undefined;
+    }
     const data: any = await response.json();
-    if (data === null) {
+    if (data === null || !Array.isArray(data.value)) {
+      context.channel.appendLine(`Unexpected solutions response: ${JSON.stringify(data)}`);
       return undefined;
     }
     const solutions = data.value.map((record: SolutionResult) => new DataverseSolution(record));
     return solutions;
-  } catch {
+  } catch (e: any) {
+    context.channel.appendLine(`Error listing solutions: ${e?.message || JSON.stringify(e)}`);
+    context.channel.show();
     return undefined;
   }
 }
