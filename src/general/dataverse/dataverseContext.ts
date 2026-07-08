@@ -71,7 +71,7 @@ export class DataverseContext {
       let token: TokenResult | undefined;
       switch (authType) {
         case DataverseAuthType.oauth:
-          token = await acquireInteractiveToken(organizationUrl, this.tenantId, parts.clientId, promptIfNeeded);
+          token = await acquireInteractiveToken(organizationUrl, parts.clientId, promptIfNeeded);
           break;
         case DataverseAuthType.certificate: {
           if (!parts.certificatePath) {

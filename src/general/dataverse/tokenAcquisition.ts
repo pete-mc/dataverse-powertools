@@ -23,6 +23,14 @@ export interface TokenResult {
  */
 export const DEFAULT_INTERACTIVE_CLIENT_ID = "51f81489-12ee-4a9e-aaae-a2591f45987d";
 
+/**
+ * Interactive uses the multi-tenant "organizations" authority (not a specific
+ * tenant) so a single signed-in account is reused across the Global Discovery call
+ * and the per-environment token — the user signs in once. MSAL resolves the account's
+ * own tenant when issuing tokens.
+ */
+export const INTERACTIVE_AUTHORITY = "https://login.microsoftonline.com/organizations";
+
 interface InteractiveApp {
   pca: PublicClientApplication;
   account?: AccountInfo;
@@ -87,17 +95,25 @@ export async function acquireCertificateToken(clientId: string, tenantId: string
  * pops the browser when it genuinely has to. `promptIfNeeded` gates that browser prompt:
  * true on an explicit connect, false on background refresh.
  */
-export async function acquireInteractiveToken(organizationUrl: string, tenantId: string, clientId: string | undefined, promptIfNeeded: boolean): Promise<TokenResult | undefined> {
-  const scopes = buildDataverseScopes(organizationUrl);
+export async function acquireInteractiveToken(organizationUrl: string, clientId: string | undefined, promptIfNeeded: boolean): Promise<TokenResult | undefined> {
+  return acquireInteractiveForScopes(buildDataverseScopes(organizationUrl), clientId, promptIfNeeded);
+}
+
+/**
+ * Core interactive acquisition for any resource scope (a Dataverse org, or the Global
+ * Discovery service). Reuses one cached MSAL public-client + account per clientId so a
+ * single sign-in covers discovery and every environment: silent first, browser only
+ * when promptIfNeeded and nothing usable is cached.
+ */
+export async function acquireInteractiveForScopes(scopes: string[], clientId: string | undefined, promptIfNeeded: boolean): Promise<TokenResult | undefined> {
   if (scopes.length === 0) {
     return undefined;
   }
   const effectiveClientId = (clientId ?? "").trim() || DEFAULT_INTERACTIVE_CLIENT_ID;
-  const authority = buildAuthority(tenantId);
-  const key = `${authority}|${effectiveClientId}`;
+  const key = `${INTERACTIVE_AUTHORITY}|${effectiveClientId}`;
   let app = interactiveApps.get(key);
   if (!app) {
-    app = { pca: new PublicClientApplication({ auth: { clientId: effectiveClientId, authority } }) };
+    app = { pca: new PublicClientApplication({ auth: { clientId: effectiveClientId, authority: INTERACTIVE_AUTHORITY } }) };
     interactiveApps.set(key, app);
   }
 

@@ -4,6 +4,7 @@ import { MultiStepInput, shouldResume, validationIgnore } from "./inputControls"
 import { getSolutions } from "./dataverse/getSolutions";
 import { DataverseAuthType } from "./dataverse/authTypes";
 import { buildAuthConnectionString, getOrganizationUrl, normalizeOrganizationUrl } from "./connectionString";
+import { discoverEnvironments } from "./dataverse/globalDiscovery";
 
 export async function updateConnectionString(context: DataversePowerToolsContext) {
   let connectionString = await createServicePrincipalString(context, true);
@@ -83,7 +84,30 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
       shouldResume: shouldResume,
     })) as any;
     state.authType = pick?.target ?? DataverseAuthType.clientSecret;
+    // Interactive skips typing an org url — sign in and pick an environment instead.
+    if (state.authType === DataverseAuthType.oauth) {
+      return (input: MultiStepInput) => inputEnvironment(input, state);
+    }
     return (input: MultiStepInput) => inputURL(input, state);
+  }
+
+  async function inputEnvironment(_input: MultiStepInput, state: Partial<State>) {
+    // Sign in interactively and list environments via Global Discovery so the user
+    // picks one instead of typing an org url. Fall back to manual url entry on failure.
+    const environments = await discoverEnvironments();
+    if (!environments || environments.length === 0) {
+      context.channel.appendLine("Global Discovery returned no environments; falling back to manual entry.");
+      return (input: MultiStepInput) => inputURL(input, state);
+    }
+    const pick = await window.showQuickPick(
+      environments.map((environment) => ({ label: environment.friendlyName, description: environment.url, target: environment })),
+      { placeHolder: "Select a Dataverse environment", ignoreFocusOut: true },
+    );
+    if (!pick) {
+      return (input: MultiStepInput) => inputURL(input, state);
+    }
+    state.organisationUrl = normalizeOrganizationUrl(pick.target.url);
+    return (input: MultiStepInput) => inputSolutionName(input, state);
   }
 
   async function inputURL(input: MultiStepInput, state: Partial<State>) {
@@ -209,7 +233,7 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
     if (state.authType === DataverseAuthType.certificate) {
       return (input: MultiStepInput) => inputManualSolutionName(input, state);
     }
-    if (state.organisationUrl === undefined || state.tenantId === undefined) {
+    if (state.organisationUrl === undefined) {
       return (input: MultiStepInput) => inputManualSolutionName(input, state);
     }
     // Set up a live connection so we can list solutions. For interactive this is all
