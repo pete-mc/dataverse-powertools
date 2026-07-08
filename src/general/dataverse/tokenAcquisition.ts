@@ -7,6 +7,7 @@ import * as vscode from "vscode";
 import { ConfidentialClientApplication, PublicClientApplication, AccountInfo } from "@azure/msal-node";
 import { buildAuthority, buildDataverseScopes } from "./authTypes";
 import { CertificateCredential } from "./certificate";
+import { SIGN_IN_SUCCESS_HTML, SIGN_IN_ERROR_HTML } from "./authPages";
 
 export interface TokenResult {
   accessToken: string;
@@ -139,8 +140,8 @@ export async function acquireInteractiveForScopes(scopes: string[], clientId: st
     openBrowser: async (url: string) => {
       await vscode.env.openExternal(vscode.Uri.parse(url));
     },
-    successTemplate: "Signed in to Dataverse. You can close this tab and return to VS Code.",
-    errorTemplate: "Dataverse sign-in failed. You can close this tab and return to VS Code.",
+    successTemplate: SIGN_IN_SUCCESS_HTML,
+    errorTemplate: SIGN_IN_ERROR_HTML,
   });
   if (!result?.accessToken) {
     return undefined;
