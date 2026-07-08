@@ -373,7 +373,7 @@ export async function generateTemplates(context: DataversePowerToolsContext) {
   }
   const folderPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
   var templateFilePath = context.vscode.asAbsolutePath(path.join("templates", context.projectSettings.type));
-  const templateToCopy = JSON.parse(fs.readFileSync(templateFilePath + "\\template.json", "utf8")).find(
+  const templateToCopy = JSON.parse(fs.readFileSync(path.join(templateFilePath, "template.json"), "utf8")).find(
     (t: PowertoolsTemplate) => t.version === context.projectSettings.templateversion,
   ) as PowertoolsTemplate;
   if (!templateToCopy) {
@@ -395,7 +395,7 @@ export async function generateTemplates(context: DataversePowerToolsContext) {
   context.projectSettings.placeholders = placeholders;
   templateToCopy.files?.every(async (f) => {
     const extension = f.extension === ".tstemplate" ? ".ts" : f.extension; // This is done because the .ts files do not copy into the published extension thus we overwrite it when actually copying from extension into the code
-    var data = fs.readFileSync(templateFilePath + "\\" + f.filename + f.extension + "\\" + f.version + f.extension, "utf8");
+    var data = fs.readFileSync(path.join(templateFilePath, f.filename + f.extension, f.version + f.extension), "utf8");
     data = data.replace(/\SOLUTIONPREFIX/g, context.projectSettings.prefix || "SOLUTIONPREFIX");
     data = data.replace(/\SOLUTIONPLACEHOLDER/g, context.projectSettings.solutionName || "SOLUTIONPLACEHOLDER");
     const destPath = f.path;
@@ -425,7 +425,7 @@ export async function createTemplatedFile(
 ) {
   if (context.projectSettings.type && context.projectSettings.templateversion && vscode.workspace.workspaceFolders) {
     var fullFilePath = context.vscode.asAbsolutePath(path.join("templates", context.projectSettings.type));
-    var templates = JSON.parse(fs.readFileSync(fullFilePath + "\\template.json", "utf8")) as Array<PowertoolsTemplate>;
+    var templates = JSON.parse(fs.readFileSync(path.join(fullFilePath, "template.json"), "utf8")) as Array<PowertoolsTemplate>;
     var templateToCopy = {} as PowertoolsTemplate;
     for (const t of templates) {
       if (t.version === context.projectSettings.templateversion) {
@@ -438,7 +438,7 @@ export async function createTemplatedFile(
         const pluginTemplate = templateToCopy.files.find((x) => x.filename === sourceFilename);
         if (pluginTemplate !== undefined) {
           var data = fs.readFileSync(
-            fullFilePath + "\\" + pluginTemplate.filename + pluginTemplate.extension + "\\" + context.projectSettings.templateversion + pluginTemplate.extension,
+            path.join(fullFilePath, pluginTemplate.filename + pluginTemplate.extension, `${context.projectSettings.templateversion}${pluginTemplate.extension}`),
             "utf8",
           );
           if (vscode.workspace.workspaceFolders) {

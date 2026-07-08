@@ -23,7 +23,7 @@ export function initialiseWebresources(context: DataversePowerToolsContext): voi
   if (context.projectSettings.type && context.projectSettings.templateversion && vscode.workspace.workspaceFolders) {
     if (vscode.workspace.workspaceFolders !== undefined && context.projectSettings.templateversion && vscode.workspace.workspaceFolders) {
       var fullFilePath = context.vscode.asAbsolutePath(path.join("templates", context.projectSettings.type));
-      var templates = JSON.parse(fs.readFileSync(fullFilePath + "\\template.json", "utf8")) as Array<PowertoolsTemplate>;
+      var templates = JSON.parse(fs.readFileSync(path.join(fullFilePath, "template.json"), "utf8")) as Array<PowertoolsTemplate>;
       context.template = templates[0];
     }
   }
