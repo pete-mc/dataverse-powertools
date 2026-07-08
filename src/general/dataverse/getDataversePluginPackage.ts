@@ -111,8 +111,19 @@ async function createDataversePluginPackage(context: DataversePowerToolsContext,
     return undefined;
   }
 
-  const created = (await response.json()) as { pluginpackageid?: string };
-  return created.pluginpackageid;
+  // Dataverse returns 204 No Content on create, with the new record's id in the
+  // OData-EntityId header (there's no JSON body to parse unless return=representation
+  // was requested). Read the id from the header, falling back to a body if present.
+  const entityId = response.headers.get("OData-EntityId") ?? "";
+  const idFromHeader = entityId.match(/\(([^)]+)\)/)?.[1];
+  if (idFromHeader) {
+    return idFromHeader;
+  }
+  try {
+    return ((await response.json()) as { pluginpackageid?: string }).pluginpackageid;
+  } catch {
+    return undefined;
+  }
 }
 
 async function updateDataversePluginPackage(context: DataversePowerToolsContext, pluginPackageId: string, metadata: PluginPackageMetadata, packagePath: string): Promise<boolean> {
