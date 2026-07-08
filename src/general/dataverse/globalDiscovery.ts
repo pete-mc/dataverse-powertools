@@ -4,11 +4,12 @@
 // pick-list instead of asking the user to type an org URL.
 
 import fetch from "node-fetch";
-import { acquireInteractiveForScopes } from "./tokenAcquisition";
+import { acquireInteractiveForScopes, acquireClientSecretTokenForResource } from "./tokenAcquisition";
 
 // The tenant-level discovery endpoint (not org-specific). Its resource maps to the
 // Dataverse first-party app, so the default sign-in app's Dataverse permission covers it.
 const GLOBAL_DISCOVERY_URL = "https://globaldisco.crm.dynamics.com/api/discovery/v2.0/Instances";
+const GLOBAL_DISCOVERY_RESOURCE = "https://globaldisco.crm.dynamics.com";
 const GLOBAL_DISCOVERY_SCOPES = ["https://globaldisco.crm.dynamics.com/.default"];
 
 /** An environment ("instance") as the wizard needs it. */
@@ -47,20 +48,12 @@ export function parseInstances(json: unknown): DataverseEnvironment[] {
     .sort((a, b) => a.friendlyName.localeCompare(b.friendlyName));
 }
 
-/**
- * Sign in interactively (if needed) and return the user's Dataverse environments.
- * Returns undefined if sign-in fails or the discovery call errors.
- */
-export async function discoverEnvironments(clientId?: string): Promise<DataverseEnvironment[] | undefined> {
-  const token = await acquireInteractiveForScopes(GLOBAL_DISCOVERY_SCOPES, clientId, true);
-  if (!token?.accessToken) {
-    return undefined;
-  }
+/** Call the discovery service with an access token and parse the environments. */
+async function callDiscovery(accessToken: string): Promise<DataverseEnvironment[] | undefined> {
   try {
     const response = await fetch(GLOBAL_DISCOVERY_URL, {
       method: "GET",
-
-      headers: { Authorization: "Bearer " + token.accessToken, "Content-Type": "application/json" },
+      headers: { Authorization: "Bearer " + accessToken, "Content-Type": "application/json" },
     });
     if (!response.ok) {
       return undefined;
@@ -69,4 +62,23 @@ export async function discoverEnvironments(clientId?: string): Promise<Dataverse
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Sign in interactively (if needed) and return the user's Dataverse environments.
+ * Returns undefined if sign-in fails or the discovery call errors.
+ */
+export async function discoverEnvironments(clientId?: string): Promise<DataverseEnvironment[] | undefined> {
+  const token = await acquireInteractiveForScopes(GLOBAL_DISCOVERY_SCOPES, clientId, true);
+  return token?.accessToken ? callDiscovery(token.accessToken) : undefined;
+}
+
+/**
+ * Return the environments a service principal (client secret) can reach via discovery.
+ * App-only discovery only surfaces environments where the app is an application user,
+ * so callers should fall back to a manual url when this comes back empty.
+ */
+export async function discoverEnvironmentsWithSecret(clientId: string, clientSecret: string, tenantId: string): Promise<DataverseEnvironment[] | undefined> {
+  const token = await acquireClientSecretTokenForResource(clientId, clientSecret, tenantId, GLOBAL_DISCOVERY_RESOURCE);
+  return token?.accessToken ? callDiscovery(token.accessToken) : undefined;
 }

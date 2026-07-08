@@ -70,16 +70,16 @@ const cachePlugin: ICachePlugin = {
 };
 
 /**
- * Service principal + client secret via the v1 token endpoint (resource-style).
- * This is the original, working flow — kept byte-for-byte in behaviour.
+ * Service principal + client secret via the v1 token endpoint (resource-style), for a
+ * specific resource — a Dataverse org, or the Global Discovery service.
  */
-export async function acquireClientSecretToken(clientId: string, clientSecret: string, tenantId: string, organizationUrl: string): Promise<TokenResult | undefined> {
+export async function acquireClientSecretTokenForResource(clientId: string, clientSecret: string, tenantId: string, resource: string): Promise<TokenResult | undefined> {
   const tokenUrl = "https://login.microsoftonline.com/" + tenantId + "/oauth2/token";
   const params = new URLSearchParams();
   params.append("grant_type", "client_credentials");
   params.append("client_id", clientId);
   params.append("client_secret", clientSecret);
-  params.append("resource", organizationUrl);
+  params.append("resource", resource);
   const response = await fetch(tokenUrl, {
     method: "post",
     body: params,
@@ -92,6 +92,11 @@ export async function acquireClientSecretToken(clientId: string, clientSecret: s
   }
   const expiresInSeconds = Number(data["expires_in"]) || 0;
   return { accessToken: data["access_token"], expiresOn: new Date(Date.now() + expiresInSeconds * 1000) };
+}
+
+/** Service principal + client secret for a Dataverse org (the original working flow). */
+export async function acquireClientSecretToken(clientId: string, clientSecret: string, tenantId: string, organizationUrl: string): Promise<TokenResult | undefined> {
+  return acquireClientSecretTokenForResource(clientId, clientSecret, tenantId, organizationUrl);
 }
 
 /**

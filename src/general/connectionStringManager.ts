@@ -4,7 +4,7 @@ import { MultiStepInput, shouldResume, validationIgnore } from "./inputControls"
 import { getSolutions } from "./dataverse/getSolutions";
 import { DataverseAuthType } from "./dataverse/authTypes";
 import { buildAuthConnectionString, getOrganizationUrl, normalizeOrganizationUrl } from "./connectionString";
-import { discoverEnvironments } from "./dataverse/globalDiscovery";
+import { discoverEnvironments, discoverEnvironmentsWithSecret } from "./dataverse/globalDiscovery";
 
 export async function updateConnectionString(context: DataversePowerToolsContext) {
   let connectionString = await createServicePrincipalString(context, true);
@@ -28,7 +28,7 @@ export async function saveServicePrincipalString(context: DataversePowerToolsCon
   context.channel.appendLine("Settings Saved!");
 }
 
-export async function createServicePrincipalString(context: DataversePowerToolsContext, update: boolean = false): Promise<string> {
+export async function createServicePrincipalString(context: DataversePowerToolsContext, _update: boolean = false): Promise<string> {
   const title = "Creating the Credentials";
   const state = await collectInputs();
   const authType = state.authType ?? DataverseAuthType.clientSecret;
@@ -75,65 +75,50 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
       shouldResume: shouldResume,
     })) as any;
     state.authType = pick?.target ?? DataverseAuthType.clientSecret;
-    // Interactive skips typing an org url — sign in and pick an environment instead.
+    // Both flows discover the environment; interactive signs in first, client secret
+    // collects tenant + app id + secret first.
     if (state.authType === DataverseAuthType.oauth) {
       return (input: MultiStepInput) => inputEnvironment(input, state);
     }
-    return (input: MultiStepInput) => inputURL(input, state);
+    return (input: MultiStepInput) => inputTenantId(input, state);
   }
 
   async function inputEnvironment(_input: MultiStepInput, state: Partial<State>) {
-    // Sign in interactively and list environments via Global Discovery so the user
-    // picks one instead of typing an org url. Fall back to manual url entry on failure.
-    const environments = await discoverEnvironments();
+    // List environments via Global Discovery (interactive signs in; client secret uses
+    // its app token) so the user picks one instead of typing an org url. App-only
+    // discovery only sees environments where the app is an application user, so fall
+    // back to manual url entry when nothing comes back.
+    const environments =
+      state.authType === DataverseAuthType.oauth
+        ? await discoverEnvironments()
+        : await discoverEnvironmentsWithSecret(state.applicationId ?? "", state.clientSecret ?? "", state.tenantId ?? "");
     if (!environments || environments.length === 0) {
-      context.channel.appendLine("Global Discovery returned no environments; falling back to manual entry.");
-      return (input: MultiStepInput) => inputURL(input, state);
+      context.channel.appendLine("No environments returned from Global Discovery; enter the organisation URL manually.");
+      return (input: MultiStepInput) => inputManualUrl(input, state);
     }
     const pick = await window.showQuickPick(
       environments.map((environment) => ({ label: environment.friendlyName, description: environment.url, target: environment })),
       { placeHolder: "Select a Dataverse environment", ignoreFocusOut: true },
     );
     if (!pick) {
-      return (input: MultiStepInput) => inputURL(input, state);
+      return (input: MultiStepInput) => inputManualUrl(input, state);
     }
     state.organisationUrl = normalizeOrganizationUrl(pick.target.url);
     return (input: MultiStepInput) => inputSolutionName(input, state);
   }
 
-  async function inputURL(input: MultiStepInput, state: Partial<State>) {
-    state.organisationUrl = await input.showInputBox({
+  async function inputManualUrl(input: MultiStepInput, state: Partial<State>) {
+    const url = await input.showInputBox({
       ignoreFocusOut: true,
       title,
-      step: 1,
-      totalSteps: 6,
-      value: typeof state.organisationUrl === "string" ? state.organisationUrl.replace(/\/+$/, "") : "",
-      prompt: "Type in the Organisation URl",
+      step: 2,
+      totalSteps: 7,
+      value: state.organisationUrl || "",
+      prompt: "Type in the Organisation URL",
       validate: validationIgnore,
       shouldResume: shouldResume,
     });
-    // The "reuse existing credentials" shortcut only applies to stored client
-    // secrets; interactive connections gather their own inputs.
-    if (update || state.authType !== DataverseAuthType.clientSecret) {
-      return (input: MultiStepInput) => inputTenantId(input, state);
-    }
-    let organisationUrl = "";
-    if (state.organisationUrl !== undefined && state.organisationUrl !== "") {
-      organisationUrl = state.organisationUrl.replace(/\/+$/, "");
-    }
-    const credentialResult = await context.vscode.secrets.get(organisationUrl);
-    const splitCreds = credentialResult?.split(";");
-    if (credentialResult === undefined || splitCreds === undefined || splitCreds.length < 4) {
-      return (input: MultiStepInput) => inputTenantId(input, state);
-    }
-    const result = await window.showQuickPick(["Yes", "No"], { placeHolder: "Existing credentials found. Do you want to use the existing credentials?" });
-    if (result === "No") {
-      return (input: MultiStepInput) => inputTenantId(input, state);
-    }
-    state.applicationId = splitCreds[0].replace("ClientId=", "");
-    state.clientSecret = splitCreds[1].replace("ClientSecret=", "");
-    state.tenantId = splitCreds[2].replace("TenantID=", "");
-    context.dataverse.tenantId = state.tenantId;
+    state.organisationUrl = normalizeOrganizationUrl(url);
     return (input: MultiStepInput) => inputSolutionName(input, state);
   }
 
@@ -149,11 +134,6 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
       shouldResume: shouldResume,
     });
     context.dataverse.tenantId = state.tenantId;
-    // Interactive uses the built-in Dataverse sign-in app (same id as XrmToolBox),
-    // so there's no application id to collect — go straight to picking a solution.
-    if (state.authType === DataverseAuthType.oauth) {
-      return (input: MultiStepInput) => inputSolutionName(input, state);
-    }
     return (input: MultiStepInput) => inputApplicationId(input, state);
   }
 
@@ -183,7 +163,8 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
       validate: validationIgnore,
       shouldResume: shouldResume,
     });
-    return update ? undefined : (input: MultiStepInput) => inputSolutionName(input, state);
+    // Client secret discovers its environment after collecting credentials.
+    return (input: MultiStepInput) => inputEnvironment(input, state);
   }
 
   async function inputSolutionName(_input: MultiStepInput, state: Partial<State>) {
