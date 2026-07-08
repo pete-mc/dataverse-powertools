@@ -46,9 +46,11 @@ const interactiveApps = new Map<string, InteractiveApp>();
 // time VS Code restarts. Set once at activation via initInteractiveTokenCache.
 const MSAL_CACHE_SECRET_KEY = "dataverse-powertools.msal-cache";
 let cacheSecrets: vscode.SecretStorage | undefined;
+let cacheChannel: vscode.OutputChannel | undefined;
 
-export function initInteractiveTokenCache(secrets: vscode.SecretStorage): void {
+export function initInteractiveTokenCache(secrets: vscode.SecretStorage, channel?: vscode.OutputChannel): void {
   cacheSecrets = secrets;
+  cacheChannel = channel;
 }
 
 const cachePlugin: ICachePlugin = {
@@ -66,6 +68,7 @@ const cachePlugin: ICachePlugin = {
       return;
     }
     await cacheSecrets.store(MSAL_CACHE_SECRET_KEY, cacheContext.tokenCache.serialize());
+    cacheChannel?.appendLine("Saved interactive sign-in to secret storage.");
   },
 };
 

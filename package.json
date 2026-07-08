@@ -227,7 +227,7 @@
       },
       {
         "view": "dataversePowerToolsLocalSettings",
-        "contents": "Local Settings Menu\n[Restore Dependencies](command:dataverse-powertools.restoreDependencies)\n[Update Dataverse Authentication](command:dataverse-powertools.updateConnectionString)\n[Switch Dataverse Environment](command:dataverse-powertools.switchEnvironment)",
+        "contents": "Local Settings Menu\n[Restore Dependencies](command:dataverse-powertools.restoreDependencies)\n[Refresh Connection](command:dataverse-powertools.refreshConnection)\n[Update Dataverse Authentication](command:dataverse-powertools.updateConnectionString)\n[Switch Dataverse Environment](command:dataverse-powertools.switchEnvironment)",
         "when": "dataverse-powertools.showLoaded"
       },
       {
@@ -412,6 +412,11 @@
       {
         "command": "dataverse-powertools.switchEnvironment",
         "title": "Dataverse PowerTools: Switch Dataverse Environment",
+        "enablement": "dataverse-powertools.showLoaded"
+      },
+      {
+        "command": "dataverse-powertools.refreshConnection",
+        "title": "Dataverse PowerTools: Refresh Dataverse Connection",
         "enablement": "dataverse-powertools.showLoaded"
       },
       {

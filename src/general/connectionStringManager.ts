@@ -87,6 +87,30 @@ export async function switchEnvironment(context: DataversePowerToolsContext): Pr
   window.showInformationMessage(`Switched to ${pick.label}`);
 }
 
+/**
+ * Re-establish the Dataverse connection using the saved credentials — for when the
+ * silent connect on load didn't happen, the token has gone stale, or VS Code has been
+ * open a long time. Rehydrates the connection from settings and re-authenticates
+ * (interactive prompts a sign-in only if the cached token can't be renewed silently).
+ */
+export async function refreshConnection(context: DataversePowerToolsContext): Promise<void> {
+  await context.readSettings();
+  if (!context.connectionString) {
+    window.showErrorMessage("No Dataverse connection is configured. Run Update Dataverse Authentication first.");
+    return;
+  }
+  context.dataverse.authorizationToken = "";
+  const connected = await context.dataverse.initialize(true);
+  if (connected) {
+    context.statusBar.text = getOrganizationUrl(context.connectionString);
+    context.statusBar.show();
+    window.showInformationMessage("Reconnected to Dataverse.");
+  } else {
+    window.showErrorMessage("Could not reconnect to Dataverse. See the output for details.");
+    context.channel.show();
+  }
+}
+
 export async function getServicePrincipalString(context: DataversePowerToolsContext, name: string): Promise<string> {
   const servicePrincipal = await context.vscode.secrets.get(name);
   return servicePrincipal === undefined ? "" : servicePrincipal.split("TenantID=")[0];

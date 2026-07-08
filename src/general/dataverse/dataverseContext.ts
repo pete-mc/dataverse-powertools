@@ -18,10 +18,14 @@ export class DataverseContext {
     this.tenantId = context.projectSettings.tenantId || "";
   }
 
-  public async initialize(): Promise<boolean> {
+  /**
+   * Establish the connection. `promptIfNeeded` allows an interactive sign-in prompt —
+   * true for user-initiated setup / reconnect, false on load (connect silently from
+   * the cached token, without popping a browser on startup).
+   */
+  public async initialize(promptIfNeeded: boolean = true): Promise<boolean> {
     if (this.context.connectionString !== "") {
-      // First connect: allow an interactive sign-in prompt if the auth type needs one.
-      return await this.acquireToken(true);
+      return await this.acquireToken(promptIfNeeded);
     }
     return false;
   }
