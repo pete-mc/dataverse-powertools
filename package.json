@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.4.0",
+  "version": "0.4.1",
   "engines": {
     "vscode": "^1.93.0"
   },
@@ -606,36 +606,33 @@
     "compile": "webpack",
     "watch": "webpack --watch",
     "package": "webpack --mode production --devtool hidden-source-map",
-    "compile-tests": "tsc -p . --outDir out",
+    "compile-tests": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\" && tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
-    "lint": "eslint src --ext ts",
+    "lint": "eslint src",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:live": "vitest run --config vitest.live.config.ts",
     "test:integration": "npm run compile-tests && vscode-test",
     "pretest:ui": "npm run compile-tests && npm run compile",
-    "test:ui": "extest setup-and-run \"out/ui-test/**/*.test.js\" --mocha_config .mocharc-ui.json",
+    "test:ui": "extest setup-and-run \"out/ui-test/**/*.test.js\" --code_settings test/ui-settings.json --mocha_config .mocharc-ui.json",
     "test": "npm run test:unit && npm run test:integration",
     "deploy": "vsce publish"
   },
   "devDependencies": {
     "@types/fs-extra": "^9.0.13",
-    "@types/glob": "^7.2.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^20.17.0",
-    "@types/uuid": "^9.0.1",
     "@types/vscode": "^1.93.0",
     "@typescript-eslint/eslint-plugin": "^8.58.0",
     "@typescript-eslint/parser": "^8.58.0",
     "@vitest/coverage-v8": "^4.1.10",
     "@vscode/test-cli": "^0.0.15",
     "@vscode/test-electron": "^2.5.2",
-    "@vscode/vsce": "^2.32.0",
+    "@vscode/vsce": "^3.9.2",
     "dotenv": "^17.4.2",
-    "eslint": "^8.57.1",
+    "eslint": "^9.39.4",
     "eslint-plugin-prettier": "^5.5.5",
-    "glob": "^7.2.0",
     "mocha": "^11.7.5",
     "prettier": "^3.8.1",
     "ts-loader": "^9.2.8",
@@ -648,8 +645,7 @@
   "dependencies": {
     "fast-xml-parser": "^5.9.3",
     "fs-extra": "^10.1.0",
-    "node-fetch": "^3.2.10",
-    "uuid": "^9.0.0"
+    "node-fetch": "^3.2.10"
   },
   "overrides": {
     "serialize-javascript": "7.0.5"

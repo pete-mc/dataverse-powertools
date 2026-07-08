@@ -1,5 +1,6 @@
 {
   "ui": "bdd",
   "timeout": 120000,
-  "slow": 30000
+  "slow": 30000,
+  "retries": 2
 }

@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "crypto";
 import DataversePowerToolsContext from "../context";
 import { MultiStepInput, shouldResume, validationIgnore } from "../general/inputControls";
 import { getDataverseForms } from "../general/dataverse/getDataverseForms";
@@ -24,7 +24,7 @@ export async function addFormDecoration(context: DataversePowerToolsContext) {
 async function collectInputs(context: DataversePowerToolsContext) {
   const state = {} as Partial<State>;
   state.context = context;
-  state.id = uuidv4();
+  state.id = randomUUID();
   await MultiStepInput.run((input) => inputClassName(input, state));
   return state as State;
 }

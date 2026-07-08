@@ -44,12 +44,10 @@ function resolvePluginCsprojPath(workspacePath: string, projectName: string): st
 /**
  * Resolve a template command for execution.
  *
- * Most template commands are constant strings (run through the shell so Windows
- * `.cmd` wrappers like npm work). The plugin-v3 rewrites, however, interpolate the
- * project name / csproj path — untrusted "library input". To avoid a shell-injection
- * risk those are returned as an argv array and run with `execFile` (no shell), so the
- * values can never be interpreted as shell syntax. Only `pac`/`dotnet` (real
- * executables) are rewritten this way, so `execFile` is safe on all platforms.
+ * Most template commands are returned as-is (constant strings) and validated against
+ * ALLOWED_ARGV before execution. The plugin-v3 rewrites interpolate the project name /
+ * csproj path — untrusted "library input" — so those are returned as an argv array and
+ * run with `execFile` (no shell), where the values can't be interpreted as shell syntax.
  */
 function resolveInitCommand(command: string, workspacePath: string, context: DataversePowerToolsContext, initialising: boolean): string | string[] {
   if (!(initialising && context.projectSettings.type === ProjectTypes.plugin && context.projectSettings.templateversion === 3)) {
@@ -116,19 +114,61 @@ export async function restoreDependencies(context: DataversePowerToolsContext, i
   );
 }
 
+// The exact set of commands our bundled templates are allowed to run, as argv
+// literals. A template command (read from template.json) is only executed if it
+// matches one of these entries — and when it does, the argv handed to the child
+// process comes from THIS constant list, never from the file. That's defense in
+// depth against a tampered template.json and means no file-derived string is ever
+// passed to a shell. Keep in sync with templates/<type>/template.json.
+const ALLOWED_ARGV: ReadonlyArray<ReadonlyArray<string>> = [
+  ["dotnet", "restore"],
+  ["dotnet", "new", "tool-manifest"],
+  ["dotnet", "new", "tool-manifest", "--force"],
+  ["dotnet", "tool", "install", "paket"],
+  ["dotnet", "tool", "restore"],
+  ["dotnet", "paket", "install"],
+  ["dotnet", "add", "package", "Microsoft.CrmSdk.Workflow"],
+  ["pac", "plugin", "init", "--skip-signing"],
+  ["npm", "install", "--loglevel=error"],
+  ["npm", "install", "typescript", "--loglevel=error"],
+  // prettier-ignore
+  ["npm", "i", "eslint", "eslint-config-prettier", "@types/jest", "@typescript-eslint/eslint-plugin", "@typescript-eslint/parser", "jest", "jest-cli", "prettier", "syswide-cas", "ts-jest", "ts-loader", "webpack", "webpack-cli", "webpack-merge", "xrm-mock", "eslint-plugin-prettier", "jest-junit", "exports-loader", "--save-dev", "--loglevel=error"],
+];
+
+/**
+ * Resolve a command to the argv we'll actually run:
+ * - argv arrays (the plugin-v3 rewrites, which interpolate a project name / path) are
+ *   used as-is and run via execFile with no shell — those values can't reach a shell.
+ * - a plain command string must match an entry in ALLOWED_ARGV; the returned argv is a
+ *   copy of that constant entry, so nothing derived from template.json flows onward.
+ * Returns undefined for an unrecognised command.
+ */
+export function resolveExecArgv(command: string | string[]): string[] | undefined {
+  if (Array.isArray(command)) {
+    return command.length > 0 ? command : undefined;
+  }
+  const match = ALLOWED_ARGV.find((argv) => argv.join(" ") === command);
+  return match ? [...match] : undefined;
+}
+
 export async function restoreDepedencyExec(command: string | string[], workspacePath: string, context: DataversePowerToolsContext) {
   if (vscode.workspace.workspaceFolders === undefined) {
     return;
   }
+  const displayCommand = Array.isArray(command) ? command.join(" ") : command;
+  const argv = resolveExecArgv(command);
+  if (!argv) {
+    context.channel.appendLine(`Refusing to run unrecognised restore command: ${displayCommand}`);
+    context.channel.show();
+    return;
+  }
+
   const util = require("util");
   const cp = require("child_process");
-  const displayCommand = Array.isArray(command) ? command.join(" ") : command;
-
-  // argv arrays run with execFile (no shell); constant strings run through the shell
-  // so Windows .cmd wrappers (npm) still work.
-  const promise = Array.isArray(command)
-    ? util.promisify(cp.execFile)(command[0], command.slice(1), { cwd: workspacePath })
-    : util.promisify(cp.exec)(command, { cwd: workspacePath });
+  // Run via execFile (no shell). Windows npm/npx are .cmd wrappers that execFile can't
+  // launch without a shell — only those get shell:true, and their argv is a constant.
+  const needsShell = process.platform === "win32" && (argv[0] === "npm" || argv[0] === "npx");
+  const promise = util.promisify(cp.execFile)(argv[0], argv.slice(1), { cwd: workspacePath, shell: needsShell });
   const child = promise.child;
 
   child.stdout.on("data", function (data: any) {

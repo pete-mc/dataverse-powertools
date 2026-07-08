@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "crypto";
 import DataversePowerToolsContext, { TemplatePlaceholder } from "../context";
 import { MultiStepInput, shouldResume, validationIgnore } from "../general/inputControls";
 import { getDataverseForms } from "../general/dataverse/getDataverseForms";
@@ -19,7 +19,7 @@ export async function createWebResourceClass(context: DataversePowerToolsContext
     { placeholder: "FormName", value: outputs.formName ?? "" },
     { placeholder: "ClassName", value: outputs.className ?? "" },
     { placeholder: "FORMIDPLACEHOLDER", value: outputs.formId ?? "" },
-    { placeholder: "NEWGUID", value: uuidv4() },
+    { placeholder: "NEWGUID", value: randomUUID() },
   ] as TemplatePlaceholder[];
   await createTemplatedFile(context, "class", outputs.className ?? "", placeholders);
   var library = (await vscode.workspace.fs.readFile(vscode.Uri.file(path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, "webresources_src", "library.ts")))).toString();
@@ -33,7 +33,7 @@ export async function createWebResourceClass(context: DataversePowerToolsContext
 async function collectInputs(context: DataversePowerToolsContext) {
   const state = {} as Partial<State>;
   state.context = context;
-  state.id = uuidv4();
+  state.id = randomUUID();
   await MultiStepInput.run((input) => inputClassName(input, state));
   return state as State;
 }
