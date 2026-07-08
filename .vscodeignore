@@ -22,7 +22,7 @@ TESTING.md
 .prettierrc.json
 vsc-extension-quickstart.md
 tsconfig.json
-.eslintrc.json
+eslint.config.mjs
 *.vsix
 AGENTS.md
 CONTRIBUTING.md
