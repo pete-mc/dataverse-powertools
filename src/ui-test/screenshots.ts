@@ -24,7 +24,7 @@ async function sleep(ms: number): Promise<void> {
 async function dismissOverlays(): Promise<void> {
   try {
     await VSBrowser.instance.driver.executeScript(
-      "for (const s of ['.onboarding-a-overlay','.monaco-dialog-box','.notifications-toasts','.notification-toast']) { document.querySelectorAll(s).forEach(function(e){ e.remove(); }); }",
+      "for (const s of ['.onboarding-a-overlay','.monaco-dialog-box','.monaco-dialog-modal-block','.notifications-toasts','.notification-toast']) { document.querySelectorAll(s).forEach(function(e){ e.remove(); }); }",
     );
   } catch {
     /* ignore */

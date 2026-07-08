@@ -10,7 +10,7 @@ import { ActivityBar, VSBrowser, ViewControl } from "vscode-extension-tester";
 async function dismissOverlays(): Promise<void> {
   try {
     await VSBrowser.instance.driver.executeScript(
-      "for (const s of ['.onboarding-a-overlay','.monaco-dialog-box','.notification-toast','.notifications-toasts']) { document.querySelectorAll(s).forEach(function(e){ e.remove(); }); }",
+      "for (const s of ['.onboarding-a-overlay','.monaco-dialog-box','.monaco-dialog-modal-block','.notification-toast','.notifications-toasts']) { document.querySelectorAll(s).forEach(function(e){ e.remove(); }); }",
     );
   } catch {
     /* ignore */
