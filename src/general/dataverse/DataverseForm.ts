@@ -2,6 +2,7 @@ import fetch from "node-fetch";
 import DataversePowerToolsContext from "../../context";
 import { XMLBuilder, XMLParser } from "fast-xml-parser";
 import { Options } from "./dataverseContext";
+import { dataverseApiUrl } from "./webApi";
 
 export class DataverseForm {
   id: string;
@@ -44,7 +45,7 @@ export class DataverseForm {
     /* eslint-enable @typescript-eslint/naming-convention */
     try {
       this.context.channel.appendLine(`Loading Form: ${this.id}`);
-      const url = organisationUrl + "/api/data/v9.1/systemforms(" + this.id + ")?$select=formxml";
+      const url = dataverseApiUrl(organisationUrl, `systemforms(${this.id})?$select=formxml`);
       const response = await fetch(url, options);
       if (response.ok === false) {
         this.context.channel.appendLine(await response.text());
@@ -79,7 +80,7 @@ export class DataverseForm {
       /* eslint-enable @typescript-eslint/naming-convention */
       const formxml = (await new XMLBuilder(this.parsingOptions).build(this.form)).replace(/&quot;/g, '"');
       options.body = JSON.stringify({ formxml: formxml });
-      const url = organisationUrl + "/api/data/v9.1/systemforms(" + this.id + ")";
+      const url = dataverseApiUrl(organisationUrl, `systemforms(${this.id})`);
       const response = await fetch(url, options);
       const data: any = await response.text();
       if (data === null || data === "") {

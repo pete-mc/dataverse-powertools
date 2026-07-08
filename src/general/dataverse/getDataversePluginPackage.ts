@@ -2,6 +2,7 @@ import fetch from "node-fetch";
 import * as fs from "fs";
 import DataversePowerToolsContext from "../../context";
 import { DataverseContext, Options } from "./dataverseContext";
+import { dataverseApiUrl } from "./webApi";
 
 function escapeODataString(value: string): string {
   return value.replace(/'/g, "''");
@@ -76,7 +77,7 @@ export async function getDataversePluginPackageId(context: DataversePowerToolsCo
   }
 
   const escapedUniqueName = escapeODataString(uniqueName);
-  const url = `${auth.baseUrl}/api/data/v9.1/pluginpackages?$select=pluginpackageid,uniquename,name&$filter=uniquename eq '${escapedUniqueName}'`;
+  const url = dataverseApiUrl(auth.baseUrl, `pluginpackages?$select=pluginpackageid,uniquename,name&$filter=uniquename eq '${escapedUniqueName}'`);
   const response = await fetch(url, createRequestOptions(auth.token, "GET"));
   if (!response.ok) {
     context.channel.appendLine(await response.text());
@@ -104,7 +105,7 @@ async function createDataversePluginPackage(context: DataversePowerToolsContext,
     content: await readPackageContentBase64(packagePath),
   };
 
-  const url = `${auth.baseUrl}/api/data/v9.1/pluginpackages`;
+  const url = dataverseApiUrl(auth.baseUrl, "pluginpackages");
   const response = await fetch(url, createRequestOptions(auth.token, "POST", payload));
   if (!response.ok) {
     context.channel.appendLine(await response.text());
@@ -138,7 +139,7 @@ async function updateDataversePluginPackage(context: DataversePowerToolsContext,
     content: await readPackageContentBase64(packagePath),
   };
 
-  const url = `${auth.baseUrl}/api/data/v9.1/pluginpackages(${pluginPackageId})`;
+  const url = dataverseApiUrl(auth.baseUrl, `pluginpackages(${pluginPackageId})`);
   const response = await fetch(url, createRequestOptions(auth.token, "PATCH", payload));
   if (!response.ok) {
     context.channel.appendLine(await response.text());
@@ -176,8 +177,7 @@ export async function waitForDataversePluginAssemblyFromPackage(
   }
 
   const escapedAssemblyName = escapeODataString(assemblyName);
-  const query =
-    `${auth.baseUrl}/api/data/v9.1/pluginassemblies` + `?$select=pluginassemblyid,name` + `&$filter=_packageid_value eq ${pluginPackageId} and name eq '${escapedAssemblyName}'`;
+  const query = dataverseApiUrl(auth.baseUrl, `pluginassemblies?$select=pluginassemblyid,name&$filter=_packageid_value eq ${pluginPackageId} and name eq '${escapedAssemblyName}'`);
 
   const startTime = Date.now();
   while (Date.now() - startTime <= maxWaitMs) {
