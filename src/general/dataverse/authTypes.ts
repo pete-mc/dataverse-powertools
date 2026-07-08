@@ -7,11 +7,11 @@ import { normalizeOrganizationUrl } from "../connectionString";
 
 export enum DataverseAuthType {
   /** Service principal with a client secret (client-credentials grant). */
-  ClientSecret = "ClientSecret",
+  clientSecret = "ClientSecret",
   /** Interactive user sign-in via VS Code's built-in Microsoft auth provider. */
-  OAuth = "OAuth",
+  oauth = "OAuth",
   /** Service principal with a certificate (client-credentials grant). */
-  Certificate = "Certificate",
+  certificate = "Certificate",
 }
 
 /**
@@ -23,13 +23,13 @@ export function parseAuthType(value: string | undefined | null): DataverseAuthTy
   switch ((value ?? "").trim().toLowerCase()) {
     case "oauth":
     case "interactive":
-      return DataverseAuthType.OAuth;
+      return DataverseAuthType.oauth;
     case "certificate":
     case "cert":
-      return DataverseAuthType.Certificate;
+      return DataverseAuthType.certificate;
     case "clientsecret":
     default:
-      return DataverseAuthType.ClientSecret;
+      return DataverseAuthType.clientSecret;
   }
 }
 
@@ -51,5 +51,29 @@ export function buildDataverseScopes(organizationUrl: string | undefined | null)
 
 /** Whether an auth type needs a client secret / certificate (i.e. a confidential client). */
 export function isConfidentialClient(authType: DataverseAuthType): boolean {
-  return authType === DataverseAuthType.ClientSecret || authType === DataverseAuthType.Certificate;
+  return authType === DataverseAuthType.clientSecret || authType === DataverseAuthType.certificate;
+}
+
+/**
+ * Scopes for the interactive flow through VS Code's built-in Microsoft auth
+ * provider. Alongside the Dataverse resource scope, VS Code understands the
+ * `VSCODE_TENANT:` and `VSCODE_CLIENT_ID:` modifiers to target a specific tenant
+ * and app registration (the built-in first-party client may not have Dataverse
+ * access, so a project that supplies its own client id should use it).
+ */
+export function buildInteractiveScopes(organizationUrl: string | undefined | null, tenantId?: string | null, clientId?: string | null): string[] {
+  const scopes = buildDataverseScopes(organizationUrl);
+  if (scopes.length === 0) {
+    return scopes;
+  }
+  scopes.push("offline_access");
+  const tenant = (tenantId ?? "").trim();
+  if (tenant) {
+    scopes.push(`VSCODE_TENANT:${tenant}`);
+  }
+  const client = (clientId ?? "").trim();
+  if (client) {
+    scopes.push(`VSCODE_CLIENT_ID:${client}`);
+  }
+  return scopes;
 }

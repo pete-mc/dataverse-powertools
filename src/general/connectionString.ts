@@ -16,6 +16,8 @@ export interface ParsedConnectionString {
   clientId?: string;
   clientSecret?: string;
   tenantId?: string;
+  /** Path to the PEM certificate/key bundle for certificate-based auth. */
+  certificatePath?: string;
   /** Any keys we don't model explicitly, preserved under their lower-cased name. */
   [key: string]: string | undefined;
 }
@@ -27,6 +29,7 @@ const CANONICAL_KEYS: Record<string, keyof ParsedConnectionString> = {
   clientid: "clientId",
   clientsecret: "clientSecret",
   tenantid: "tenantId",
+  certificatepath: "certificatePath",
 };
 
 /** Emit order and display casing when reconstructing a connection string. */
@@ -36,6 +39,7 @@ const OUTPUT_LABELS: Array<[keyof ParsedConnectionString, string]> = [
   ["url", "Url"],
   ["clientId", "ClientId"],
   ["clientSecret", "ClientSecret"],
+  ["certificatePath", "CertificatePath"],
   ["tenantId", "TenantID"],
 ];
 

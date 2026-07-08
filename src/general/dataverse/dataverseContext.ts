@@ -1,6 +1,9 @@
 import fetch from "node-fetch";
 import DataversePowerToolsContext from "../../context";
 import { parseConnectionString, normalizeOrganizationUrl } from "../connectionString";
+import { parseAuthType, DataverseAuthType } from "./authTypes";
+import { acquireClientSecretToken, acquireCertificateToken, acquireInteractiveToken, TokenResult } from "./tokenAcquisition";
+import { loadCertificate } from "./certificate";
 
 export class DataverseContext {
   public authorizationToken: string = "";
@@ -18,7 +21,8 @@ export class DataverseContext {
 
   public async initialize(): Promise<boolean> {
     if (this.context.connectionString !== "") {
-      return await this.acquireToken();
+      // First connect: allow an interactive sign-in prompt if the auth type needs one.
+      return await this.acquireToken(true);
     }
     return false;
   }
@@ -45,37 +49,57 @@ export class DataverseContext {
     }, delayMs);
   }
 
+  private certificatePasswordKey(organizationUrl: string): string {
+    return `${organizationUrl}::certificatePassword`;
+  }
+
   /**
-   * Acquire (or re-acquire) an access token via the OAuth client-credentials grant.
-   * That grant does not issue refresh tokens, so "refreshing" is just re-acquiring.
-   * The previous code tried a refresh_token grant that always failed, so auto-refresh
-   * silently died and calls started 401ing once the first token expired.
+   * Acquire (or re-acquire) an access token for the connection's auth type:
+   *   - ClientSecret / Certificate: client-credentials grant (no refresh token, so
+   *     "refreshing" is just re-acquiring). MSAL signs the assertion for certificates.
+   *   - OAuth: interactive user sign-in through VS Code's Microsoft auth provider,
+   *     which owns caching and silent refresh.
+   * `promptIfNeeded` allows an interactive sign-in prompt (first connect only);
+   * background refreshes pass false so they stay silent.
    */
-  private async acquireToken(): Promise<boolean> {
+  private async acquireToken(promptIfNeeded: boolean = false): Promise<boolean> {
     try {
       const parts = parseConnectionString(this.context.connectionString);
       const organizationUrl = normalizeOrganizationUrl(parts.url);
-      const tokenUrl = "https://login.microsoftonline.com/" + this.tenantId + "/oauth2/token";
-      const params = new URLSearchParams();
-      params.append("grant_type", "client_credentials");
-      params.append("client_id", parts.clientId ?? "");
-      params.append("client_secret", parts.clientSecret ?? "");
-      params.append("resource", organizationUrl);
-      const tokenResponse = await fetch(tokenUrl, {
-        method: "post",
-        body: params,
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      });
-      const data: any = await tokenResponse.json();
-      if (data === null || data["access_token"] === undefined || data["access_token"] === null) {
-        this.setDisconnected(data);
+      const authType = parseAuthType(parts.authType);
+
+      let token: TokenResult | undefined;
+      switch (authType) {
+        case DataverseAuthType.oauth:
+          token = await acquireInteractiveToken(organizationUrl, this.tenantId, parts.clientId, promptIfNeeded);
+          break;
+        case DataverseAuthType.certificate: {
+          if (!parts.certificatePath) {
+            this.context.channel.appendLine("Certificate auth is selected but the connection has no CertificatePath.");
+            this.setDisconnected();
+            return false;
+          }
+          const passphrase = (await this.context.vscode.secrets.get(this.certificatePasswordKey(organizationUrl))) || undefined;
+          const credential = await loadCertificate(parts.certificatePath, passphrase);
+          token = await acquireCertificateToken(parts.clientId ?? "", this.tenantId, organizationUrl, credential);
+          break;
+        }
+        case DataverseAuthType.clientSecret:
+        default:
+          token = await acquireClientSecretToken(parts.clientId ?? "", parts.clientSecret ?? "", this.tenantId, organizationUrl);
+          break;
+      }
+
+      if (!token || !token.accessToken) {
+        this.setDisconnected();
         return false;
       }
-      this.authorizationToken = data["access_token"];
-      this.tokenExpiresIn = Number(data["expires_in"]) || 0;
-      this.tokenExpires = new Date();
-      this.tokenExpires.setSeconds(this.tokenExpires.getSeconds() + this.tokenExpiresIn - this.tokenExpiresInBuffer);
+
+      this.authorizationToken = token.accessToken;
+      const expiresOn = token.expiresOn ?? new Date(Date.now() + 55 * 60 * 1000);
+      this.tokenExpiresIn = Math.max(Math.floor((expiresOn.getTime() - Date.now()) / 1000), 0);
+      // Expire a little early (the buffer) so we never hand out an about-to-die token.
+      this.tokenExpires = new Date(expiresOn.getTime() - this.tokenExpiresInBuffer * 1000);
       this.organizationUrl = organizationUrl;
       this.context.statusBar.text = organizationUrl;
       this.context.statusBar.show();
