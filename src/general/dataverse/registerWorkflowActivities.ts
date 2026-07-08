@@ -2,6 +2,13 @@ import fetch from "node-fetch";
 import DataversePowerToolsContext from "../../context";
 import { addDataverseSolutionComponent } from "./addDataverseSolutionComponent";
 import { DataverseContext, Options } from "./dataverseContext";
+import { dataverseApiUrl } from "./webApi";
+
+// Callers pass "/api/data/v9.x/<resource>" relative urls; strip the version segment
+// and rebuild via the central helper so every request targets one API version.
+function toApiUrl(baseUrl: string, relativeUrl: string): string {
+  return dataverseApiUrl(baseUrl, relativeUrl.replace(/^\/?api\/data\/v9\.[0-9]\//, ""));
+}
 
 export interface WorkflowActivityRegistration {
   className: string;
@@ -72,7 +79,7 @@ async function getJson(context: DataversePowerToolsContext, relativeUrl: string)
   } as Options;
   /* eslint-enable @typescript-eslint/naming-convention */
 
-  const response = await fetch(`${baseUrl}${relativeUrl}`, options);
+  const response = await fetch(toApiUrl(baseUrl, relativeUrl), options);
   if (!response.ok) {
     context.channel.appendLine(await response.text());
     return undefined;
@@ -104,7 +111,7 @@ async function patchJson(context: DataversePowerToolsContext, relativeUrl: strin
   } as Options;
   /* eslint-enable @typescript-eslint/naming-convention */
 
-  const response = await fetch(`${baseUrl}${relativeUrl}`, options);
+  const response = await fetch(toApiUrl(baseUrl, relativeUrl), options);
   if (response.ok) {
     return true;
   }
