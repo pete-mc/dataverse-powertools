@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
 import { workspaceFilePath } from "../general/paths";
+import { parseConnectionString, normalizeOrganizationUrl } from "../general/connectionString";
 
 export async function generateTypings(context: DataversePowerToolsContext) {
   await vscode.window.withProgress(
@@ -18,13 +19,15 @@ export async function generateTypingsExecution(context: DataversePowerToolsConte
   if (vscode.workspace.workspaceFolders !== undefined) {
     const util = require("util");
     const exec = util.promisify(require("child_process").execFile);
+    const parts = parseConnectionString(context.connectionString);
+    const orgUrl = normalizeOrganizationUrl(parts.url);
     const defTypedOptions = [
-      `/url:${context.connectionString.split(";")[2].replace("Url=", "")}/XRMServices/2011/Organization.svc`,
+      `/url:${orgUrl}/XRMServices/2011/Organization.svc`,
       `/out:typings\\XRM`,
       `/ss:${context.projectSettings.solutionName}`,
-      `/mfaAppId:${context.connectionString.split(";")[3].replace("ClientId=", "")}`,
-      `/mfaReturnUrl:${context.connectionString.split(";")[2].replace("Url=", "")}`,
-      `/mfaClientSecret:${context.connectionString.split(";")[4].replace("ClientSecret=", "")}`,
+      `/mfaAppId:${parts.clientId ?? ""}`,
+      `/mfaReturnUrl:${orgUrl}`,
+      `/mfaClientSecret:${parts.clientSecret ?? ""}`,
       `/jsLib:webresources_src\\lib`,
       `/method:ClientSecret`,
       `/w:${context.projectSettings.solutionName}Web`,
