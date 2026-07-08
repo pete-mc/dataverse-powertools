@@ -12,8 +12,7 @@ export async function updateConnectionString(context: DataversePowerToolsContext
   await context.readSettings();
   // Parse the url by name rather than a fixed segment index — the segment order
   // differs across auth types (OAuth strings have no LoginPrompt).
-  context.statusBar.text = getOrganizationUrl(connectionString);
-  context.statusBar.show();
+  context.setStatusBar(getOrganizationUrl(connectionString));
 }
 
 /**
@@ -82,8 +81,7 @@ export async function switchEnvironment(context: DataversePowerToolsContext): Pr
 
   await context.writeSettings();
   await context.readSettings();
-  context.statusBar.text = getOrganizationUrl(connectionString);
-  context.statusBar.show();
+  context.setStatusBar(getOrganizationUrl(connectionString));
   window.showInformationMessage(`Switched to ${pick.label}`);
 }
 
@@ -102,8 +100,7 @@ export async function refreshConnection(context: DataversePowerToolsContext): Pr
   context.dataverse.authorizationToken = "";
   const connected = await context.dataverse.initialize(true);
   if (connected) {
-    context.statusBar.text = getOrganizationUrl(context.connectionString);
-    context.statusBar.show();
+    context.setStatusBar(getOrganizationUrl(context.connectionString));
     window.showInformationMessage("Reconnected to Dataverse.");
   } else {
     window.showErrorMessage("Could not reconnect to Dataverse. See the output for details.");

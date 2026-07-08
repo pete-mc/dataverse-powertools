@@ -89,8 +89,7 @@ export class DataverseContext {
       // Expire a little early (the buffer) so we never hand out an about-to-die token.
       this.tokenExpires = new Date(expiresOn.getTime() - this.tokenExpiresInBuffer * 1000);
       this.organizationUrl = organizationUrl;
-      this.context.statusBar.text = organizationUrl;
-      this.context.statusBar.show();
+      this.context.setStatusBar(organizationUrl);
       this.context.channel.appendLine("Connected to Dataverse");
       this.scheduleAutoRefresh();
       return true;
@@ -103,8 +102,7 @@ export class DataverseContext {
   }
 
   private setDisconnected(data?: unknown): void {
-    this.context.statusBar.text = "Dataverse Not Connected";
-    this.context.statusBar.show();
+    this.context.setStatusBar("Dataverse Not Connected");
     this.context.channel.appendLine("Error refreshing authorization token");
     if (data !== undefined) {
       this.context.channel.appendLine(JSON.stringify(data));

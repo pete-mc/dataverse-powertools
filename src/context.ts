@@ -29,6 +29,12 @@ export default class DataversePowerToolsContext {
     await vscode.commands.executeCommand("dataversePowerToolsMenu.focus");
   }
 
+  /** Set the status bar text with the Dataverse PowerTools icon so it's identifiable. */
+  setStatusBar(text: string): void {
+    this.statusBar.text = `$(database) ${text}`;
+    this.statusBar.show();
+  }
+
   private settingsFilePath(): string | undefined {
     const folders = vscode.workspace.workspaceFolders;
     if (!folders || folders.length === 0) {
