@@ -11,9 +11,12 @@ import { initialisePortals } from "./portals/initialisePortals";
 import { initialisePlugins } from "./plugins/initialisePlugins";
 import { initialisePlugins as initialisePluginsOld } from "./plugins_old/initialisePlugins";
 import { registerSystemRequirementCommands } from "./general/systemRequirements";
+import { initInteractiveTokenCache } from "./general/dataverse/tokenAcquisition";
 
 export async function activate(vscodeContext: vscode.ExtensionContext) {
   const context = new DataversePowerToolsContext(vscodeContext);
+  // Persist interactive sign-in tokens across restarts via VS Code secret storage.
+  initInteractiveTokenCache(vscodeContext.secrets, context.channel);
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.showLog", () => context.channel.show(true)));
   registerSystemRequirementCommands(context);
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.folderStateReady", false);

@@ -1,5 +1,23 @@
 import { describe, it, expect } from "vitest";
-import { parseConnectionString, normalizeOrganizationUrl, getOrganizationUrl, buildConnectionString } from "./connectionString";
+import { parseConnectionString, normalizeOrganizationUrl, getOrganizationUrl, buildConnectionString, buildAuthConnectionString } from "./connectionString";
+
+describe("buildAuthConnectionString", () => {
+  it("keeps the secret and LoginPrompt for client-secret auth", () => {
+    expect(buildAuthConnectionString({ authType: "ClientSecret", url: "https://org.crm.dynamics.com", clientId: "abc", clientSecret: "s3cr3t" })).toBe(
+      "AuthType=ClientSecret;LoginPrompt=Never;Url=https://org.crm.dynamics.com;ClientId=abc;ClientSecret=s3cr3t",
+    );
+  });
+
+  it("carries nothing sensitive for interactive auth", () => {
+    const result = buildAuthConnectionString({ authType: "OAuth", url: "https://org.crm.dynamics.com", clientId: "abc" });
+    expect(result).toBe("AuthType=OAuth;Url=https://org.crm.dynamics.com;ClientId=abc");
+    expect(result).not.toContain("ClientSecret");
+  });
+
+  it("omits an empty client id for interactive auth", () => {
+    expect(buildAuthConnectionString({ authType: "OAuth", url: "https://org.crm.dynamics.com" })).toBe("AuthType=OAuth;Url=https://org.crm.dynamics.com");
+  });
+});
 
 describe("parseConnectionString", () => {
   it("parses a full service-principal connection string", () => {
@@ -54,6 +72,13 @@ describe("parseConnectionString", () => {
 describe("normalizeOrganizationUrl / getOrganizationUrl", () => {
   it("strips trailing slashes", () => {
     expect(normalizeOrganizationUrl("https://org.crm.dynamics.com///")).toBe("https://org.crm.dynamics.com");
+  });
+
+  it("coerces http and scheme-less urls to https (Dataverse is https-only)", () => {
+    expect(normalizeOrganizationUrl("http://org.crm.dynamics.com")).toBe("https://org.crm.dynamics.com");
+    expect(normalizeOrganizationUrl("org.crm.dynamics.com")).toBe("https://org.crm.dynamics.com");
+    expect(normalizeOrganizationUrl("HTTP://org.crm.dynamics.com/")).toBe("https://org.crm.dynamics.com");
+    expect(normalizeOrganizationUrl("https://org.crm.dynamics.com")).toBe("https://org.crm.dynamics.com");
   });
 
   it("returns empty string for missing url", () => {

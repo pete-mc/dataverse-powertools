@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.4.1",
+  "version": "0.5.0",
   "engines": {
     "vscode": "^1.93.0"
   },
@@ -227,7 +227,7 @@
       },
       {
         "view": "dataversePowerToolsLocalSettings",
-        "contents": "Local Settings Menu\n[Restore Dependencies](command:dataverse-powertools.restoreDependencies)\n[Update Connection String](command:dataverse-powertools.updateConnectionString)",
+        "contents": "Local Settings Menu\n[Restore Dependencies](command:dataverse-powertools.restoreDependencies)\n[Refresh Connection](command:dataverse-powertools.refreshConnection)\n[Update Dataverse Authentication](command:dataverse-powertools.updateConnectionString)\n[Switch Dataverse Environment](command:dataverse-powertools.switchEnvironment)",
         "when": "dataverse-powertools.showLoaded"
       },
       {
@@ -406,7 +406,17 @@
       },
       {
         "command": "dataverse-powertools.updateConnectionString",
-        "title": "Dataverse PowerTools: Update Connection String",
+        "title": "Dataverse PowerTools: Update Dataverse Authentication",
+        "enablement": "dataverse-powertools.showLoaded"
+      },
+      {
+        "command": "dataverse-powertools.switchEnvironment",
+        "title": "Dataverse PowerTools: Switch Dataverse Environment",
+        "enablement": "dataverse-powertools.showLoaded"
+      },
+      {
+        "command": "dataverse-powertools.refreshConnection",
+        "title": "Dataverse PowerTools: Refresh Dataverse Connection",
         "enablement": "dataverse-powertools.showLoaded"
       },
       {
@@ -643,6 +653,7 @@
     "webpack-cli": "^4.9.2"
   },
   "dependencies": {
+    "@azure/msal-node": "^5.4.0",
     "fast-xml-parser": "^5.9.3",
     "fs-extra": "^10.1.0",
     "node-fetch": "^3.2.10"

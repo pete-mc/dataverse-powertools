@@ -70,7 +70,13 @@ export function parseConnectionString(connectionString: string | undefined | nul
   return result;
 }
 
-/** Strip trailing slashes from an organization URL (leaves the rest untouched). */
+/**
+ * Normalize an organization URL: strip trailing slashes and coerce the scheme to
+ * https. Dataverse is https-only, and its Azure AD resource principal is registered
+ * under the https URL — an http or scheme-less url makes token requests fail with
+ * AADSTS500011 ("resource principal ... not found in the tenant") because the
+ * requested resource id doesn't match. So we always return an https url.
+ */
 export function normalizeOrganizationUrl(url: string | undefined | null): string {
   if (!url) {
     return "";
@@ -81,7 +87,18 @@ export function normalizeOrganizationUrl(url: string | undefined | null): string
   while (end > 0 && trimmed.charCodeAt(end - 1) === 47 /* "/" */) {
     end -= 1;
   }
-  return trimmed.slice(0, end);
+  const stripped = trimmed.slice(0, end);
+  if (!stripped) {
+    return "";
+  }
+  const lower = stripped.toLowerCase();
+  if (lower.startsWith("https://")) {
+    return stripped;
+  }
+  if (lower.startsWith("http://")) {
+    return "https://" + stripped.slice("http://".length);
+  }
+  return "https://" + stripped;
 }
 
 /** The organization URL from a connection string, trailing slashes removed. */
@@ -113,4 +130,19 @@ export function buildConnectionString(parts: ParsedConnectionString): string {
   }
 
   return segments.join(";");
+}
+
+/**
+ * Build the connection string for a chosen auth type, emitting only the parts that
+ * type needs: ClientSecret keeps its secret + LoginPrompt; OAuth carries nothing
+ * sensitive. Empty parts are dropped by buildConnectionString.
+ */
+export function buildAuthConnectionString(params: { authType: string; url: string; clientId?: string; clientSecret?: string }): string {
+  return buildConnectionString({
+    authType: params.authType,
+    loginPrompt: params.authType === "ClientSecret" ? "Never" : undefined,
+    url: params.url,
+    clientId: params.clientId,
+    clientSecret: params.clientSecret,
+  });
 }

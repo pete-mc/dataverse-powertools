@@ -1,10 +1,10 @@
 <PowerTools.RegisterEvent[]>[
   {
     formId: "FORMIDPLACEHOLDER",
-    event: "onsave",
+    event: "onload",
     executionContext: true,
     triggerId: "NEWGUID",
-    function: "sq.ClassName.OnLoad",
+    function: "SOLUTIONPREFIX.ClassName.OnLoad",
   },
 ];
 
@@ -12,7 +12,7 @@
 export class ClassName {
   static async OnLoad(executionContext: Xrm.ExecutionContext<unknown, unknown>): Promise<void> {
     const form = <Form.TableName.Main.FormName>executionContext.getFormContext();
-    console.log(form.ui.setFormNotification("Loaded", "INFO", "demoid"));
+    form.ui.setFormNotification("ClassName loaded", "INFO", "NOTIFICATIONID");
 
     this.BindEvents(form);
     this.OnLoadLogic(form);

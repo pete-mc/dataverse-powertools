@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes } from "../context";
-import { createServicePrincipalString, updateConnectionString } from "./connectionStringManager";
+import { createServicePrincipalString, updateConnectionString, switchEnvironment, refreshConnection } from "./connectionStringManager";
 import { createNewProject } from "./generateTemplates";
 import { restoreDependencies } from "./restoreDependencies";
 import { DataverseContext } from "./dataverse/dataverseContext";
@@ -22,11 +22,14 @@ export async function generalInitialise(context: DataversePowerToolsContext) {
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.initialiseProject", () => createNewProject(context)));
   } else {
     context.dataverse = new DataverseContext(context);
-    await context.dataverse.initialize();
+    // Connect silently on load (from the cached token); don't pop a browser on startup.
+    await context.dataverse.initialize(false);
     await vscode.commands.executeCommand("setContext", "dataverse-powertools.showLoaded", true);
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createConnectionString", () => createServicePrincipalString(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.restoreDependencies", () => restoreDependencies(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.updateConnectionString", () => updateConnectionString(context)));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.switchEnvironment", () => switchEnvironment(context)));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.refreshConnection", () => refreshConnection(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.openSettings", () => context.openSettings()));
   }
 

@@ -5,6 +5,7 @@ import { MultiStepInput, shouldResume, validationIgnore } from "../general/input
 import { getDataverseForms } from "../general/dataverse/getDataverseForms";
 import { getDataverseTables } from "../general/dataverse/getDataverseTables";
 import { createTemplatedFile } from "../general/generateTemplates";
+import { buildWebResourceClassPlaceholders } from "./webResourceClassTemplate";
 import path = require("path");
 
 export async function createWebResourceClass(context: DataversePowerToolsContext) {
@@ -14,13 +15,15 @@ export async function createWebResourceClass(context: DataversePowerToolsContext
 
   const outputs = await collectInputs(context);
 
-  const placeholders = [
-    { placeholder: "TableName", value: outputs.entity ?? "" },
-    { placeholder: "FormName", value: outputs.formName ?? "" },
-    { placeholder: "ClassName", value: outputs.className ?? "" },
-    { placeholder: "FORMIDPLACEHOLDER", value: outputs.formId ?? "" },
-    { placeholder: "NEWGUID", value: randomUUID() },
-  ] as TemplatePlaceholder[];
+  const placeholders = buildWebResourceClassPlaceholders({
+    className: outputs.className ?? "",
+    entity: outputs.entity ?? "",
+    formName: outputs.formName ?? "",
+    formId: outputs.formId ?? "",
+    libraryPrefix: context.projectSettings.prefix ?? "",
+    triggerId: randomUUID(),
+    notificationId: randomUUID(),
+  });
   await createTemplatedFile(context, "class", outputs.className ?? "", placeholders);
   var library = (await vscode.workspace.fs.readFile(vscode.Uri.file(path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, "webresources_src", "library.ts")))).toString();
   library = library.trim() + ('\nexport * from "./' + outputs.className + '";\n');
@@ -33,7 +36,6 @@ export async function createWebResourceClass(context: DataversePowerToolsContext
 async function collectInputs(context: DataversePowerToolsContext) {
   const state = {} as Partial<State>;
   state.context = context;
-  state.id = randomUUID();
   await MultiStepInput.run((input) => inputClassName(input, state));
   return state as State;
 }
@@ -141,7 +143,6 @@ interface State {
   sendExecutionContext: boolean;
   functionName: string;
   className: string;
-  id: string;
   entity: string;
 }
 
