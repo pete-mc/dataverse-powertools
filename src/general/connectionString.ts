@@ -16,8 +16,6 @@ export interface ParsedConnectionString {
   clientId?: string;
   clientSecret?: string;
   tenantId?: string;
-  /** Path to the PEM certificate/key bundle for certificate-based auth. */
-  certificatePath?: string;
   /** Any keys we don't model explicitly, preserved under their lower-cased name. */
   [key: string]: string | undefined;
 }
@@ -29,7 +27,6 @@ const CANONICAL_KEYS: Record<string, keyof ParsedConnectionString> = {
   clientid: "clientId",
   clientsecret: "clientSecret",
   tenantid: "tenantId",
-  certificatepath: "certificatePath",
 };
 
 /** Emit order and display casing when reconstructing a connection string. */
@@ -39,7 +36,6 @@ const OUTPUT_LABELS: Array<[keyof ParsedConnectionString, string]> = [
   ["url", "Url"],
   ["clientId", "ClientId"],
   ["clientSecret", "ClientSecret"],
-  ["certificatePath", "CertificatePath"],
   ["tenantId", "TenantID"],
 ];
 
@@ -137,18 +133,16 @@ export function buildConnectionString(parts: ParsedConnectionString): string {
 }
 
 /**
- * Build the connection string for a chosen auth type, emitting only the parts
- * that type needs: ClientSecret keeps its secret + LoginPrompt; Certificate carries
- * a CertificatePath (the passphrase lives in secret storage, never here); OAuth
- * carries nothing sensitive. Empty parts are dropped by buildConnectionString.
+ * Build the connection string for a chosen auth type, emitting only the parts that
+ * type needs: ClientSecret keeps its secret + LoginPrompt; OAuth carries nothing
+ * sensitive. Empty parts are dropped by buildConnectionString.
  */
-export function buildAuthConnectionString(params: { authType: string; url: string; clientId?: string; clientSecret?: string; certificatePath?: string }): string {
+export function buildAuthConnectionString(params: { authType: string; url: string; clientId?: string; clientSecret?: string }): string {
   return buildConnectionString({
     authType: params.authType,
     loginPrompt: params.authType === "ClientSecret" ? "Never" : undefined,
     url: params.url,
     clientId: params.clientId,
     clientSecret: params.clientSecret,
-    certificatePath: params.certificatePath,
   });
 }

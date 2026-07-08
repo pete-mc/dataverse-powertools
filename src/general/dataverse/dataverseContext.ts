@@ -2,8 +2,7 @@ import fetch from "node-fetch";
 import DataversePowerToolsContext from "../../context";
 import { parseConnectionString, normalizeOrganizationUrl } from "../connectionString";
 import { parseAuthType, DataverseAuthType } from "./authTypes";
-import { acquireClientSecretToken, acquireCertificateToken, acquireInteractiveToken, TokenResult } from "./tokenAcquisition";
-import { loadCertificate } from "./certificate";
+import { acquireClientSecretToken, acquireInteractiveToken, TokenResult } from "./tokenAcquisition";
 
 export class DataverseContext {
   public authorizationToken: string = "";
@@ -49,16 +48,12 @@ export class DataverseContext {
     }, delayMs);
   }
 
-  private certificatePasswordKey(organizationUrl: string): string {
-    return `${organizationUrl}::certificatePassword`;
-  }
-
   /**
    * Acquire (or re-acquire) an access token for the connection's auth type:
-   *   - ClientSecret / Certificate: client-credentials grant (no refresh token, so
-   *     "refreshing" is just re-acquiring). MSAL signs the assertion for certificates.
-   *   - OAuth: interactive user sign-in through VS Code's Microsoft auth provider,
-   *     which owns caching and silent refresh.
+   *   - ClientSecret: client-credentials grant (no refresh token, so "refreshing" is
+   *     just re-acquiring).
+   *   - OAuth: interactive user sign-in via MSAL's loopback flow, which owns caching
+   *     and silent refresh.
    * `promptIfNeeded` allows an interactive sign-in prompt (first connect only);
    * background refreshes pass false so they stay silent.
    */
@@ -73,17 +68,6 @@ export class DataverseContext {
         case DataverseAuthType.oauth:
           token = await acquireInteractiveToken(organizationUrl, parts.clientId, promptIfNeeded);
           break;
-        case DataverseAuthType.certificate: {
-          if (!parts.certificatePath) {
-            this.context.channel.appendLine("Certificate auth is selected but the connection has no CertificatePath.");
-            this.setDisconnected();
-            return false;
-          }
-          const passphrase = (await this.context.vscode.secrets.get(this.certificatePasswordKey(organizationUrl))) || undefined;
-          const credential = await loadCertificate(parts.certificatePath, passphrase);
-          token = await acquireCertificateToken(parts.clientId ?? "", this.tenantId, organizationUrl, credential);
-          break;
-        }
         case DataverseAuthType.clientSecret:
         default:
           token = await acquireClientSecretToken(parts.clientId ?? "", parts.clientSecret ?? "", this.tenantId, organizationUrl);

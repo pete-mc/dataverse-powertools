@@ -4,9 +4,8 @@
 
 import fetch from "node-fetch";
 import * as vscode from "vscode";
-import { ConfidentialClientApplication, PublicClientApplication, AccountInfo } from "@azure/msal-node";
-import { buildAuthority, buildDataverseScopes } from "./authTypes";
-import { CertificateCredential } from "./certificate";
+import { PublicClientApplication, AccountInfo } from "@azure/msal-node";
+import { buildDataverseScopes } from "./authTypes";
 import { SIGN_IN_SUCCESS_HTML, SIGN_IN_ERROR_HTML } from "./authPages";
 
 export interface TokenResult {
@@ -65,28 +64,6 @@ export async function acquireClientSecretToken(clientId: string, clientSecret: s
   }
   const expiresInSeconds = Number(data["expires_in"]) || 0;
   return { accessToken: data["access_token"], expiresOn: new Date(Date.now() + expiresInSeconds * 1000) };
-}
-
-/**
- * Service principal + certificate via MSAL (client-credentials grant). MSAL builds
- * and signs the client assertion from the private key + thumbprint for us.
- */
-export async function acquireCertificateToken(clientId: string, tenantId: string, organizationUrl: string, credential: CertificateCredential): Promise<TokenResult | undefined> {
-  const app = new ConfidentialClientApplication({
-    auth: {
-      clientId,
-      authority: buildAuthority(tenantId),
-      clientCertificate: {
-        thumbprint: credential.thumbprint,
-        privateKey: credential.privateKey,
-      },
-    },
-  });
-  const result = await app.acquireTokenByClientCredential({ scopes: buildDataverseScopes(organizationUrl) });
-  if (!result || !result.accessToken) {
-    return undefined;
-  }
-  return { accessToken: result.accessToken, expiresOn: result.expiresOn ?? null };
 }
 
 /**

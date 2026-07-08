@@ -11,7 +11,7 @@ export async function updateConnectionString(context: DataversePowerToolsContext
   await context.writeSettings();
   await context.readSettings();
   // Parse the url by name rather than a fixed segment index — the segment order
-  // differs across auth types (OAuth/Certificate strings have no LoginPrompt).
+  // differs across auth types (OAuth strings have no LoginPrompt).
   context.statusBar.text = getOrganizationUrl(connectionString);
   context.statusBar.show();
 }
@@ -33,15 +33,7 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
   const state = await collectInputs();
   const authType = state.authType ?? DataverseAuthType.clientSecret;
   let connectionString: string;
-  if (authType === DataverseAuthType.certificate) {
-    // The certificate passphrase goes to secret storage, keyed the same way the
-    // token flow reads it back; the connection string only carries the file path.
-    if (state.certificatePassword) {
-      await context.vscode.secrets.store(normalizeOrganizationUrl(state.organisationUrl) + "::certificatePassword", state.certificatePassword);
-    }
-    connectionString = buildAuthConnectionString({ authType: "Certificate", url: state.organisationUrl, clientId: state.applicationId, certificatePath: state.certificatePath });
-    context.connectionString = connectionString;
-  } else if (authType === DataverseAuthType.oauth) {
+  if (authType === DataverseAuthType.oauth) {
     connectionString = buildAuthConnectionString({ authType: "OAuth", url: state.organisationUrl, clientId: state.applicationId });
     context.connectionString = connectionString;
   } else {
@@ -77,9 +69,8 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
       totalSteps: 7,
       placeholder: "Select the authentication type",
       items: [
-        { label: "Service principal (client secret)", target: DataverseAuthType.clientSecret },
         { label: "Interactive sign-in", target: DataverseAuthType.oauth },
-        { label: "Service principal (certificate)", target: DataverseAuthType.certificate },
+        { label: "Service principal (client secret)", target: DataverseAuthType.clientSecret },
       ],
       shouldResume: shouldResume,
     })) as any;
@@ -122,7 +113,7 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
       shouldResume: shouldResume,
     });
     // The "reuse existing credentials" shortcut only applies to stored client
-    // secrets; interactive/certificate connections gather their own inputs.
+    // secrets; interactive connections gather their own inputs.
     if (update || state.authType !== DataverseAuthType.clientSecret) {
       return (input: MultiStepInput) => inputTenantId(input, state);
     }
@@ -178,9 +169,6 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
       validate: validationIgnore,
       shouldResume: shouldResume,
     });
-    if (state.authType === DataverseAuthType.certificate) {
-      return (input: MultiStepInput) => inputCertificatePath(input, state);
-    }
     return (input: MultiStepInput) => inputClientSecret(input, state);
   }
 
@@ -198,41 +186,8 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
     return update ? undefined : (input: MultiStepInput) => inputSolutionName(input, state);
   }
 
-  async function inputCertificatePath(input: MultiStepInput, state: Partial<State>) {
-    state.certificatePath = await input.showInputBox({
-      ignoreFocusOut: true,
-      title,
-      step: 5,
-      totalSteps: 7,
-      value: state.certificatePath || "",
-      prompt: "Path to the certificate file (PEM containing the private key + certificate)",
-      validate: validationIgnore,
-      shouldResume: shouldResume,
-    });
-    return (input: MultiStepInput) => inputCertificatePassword(input, state);
-  }
-
-  async function inputCertificatePassword(input: MultiStepInput, state: Partial<State>) {
-    state.certificatePassword = await input.showInputBox({
-      ignoreFocusOut: true,
-      title,
-      step: 6,
-      totalSteps: 7,
-      value: "",
-      prompt: "Certificate password (leave blank if the private key is not encrypted)",
-      validate: validationIgnore,
-      shouldResume: shouldResume,
-    });
-    return update ? undefined : (input: MultiStepInput) => inputSolutionName(input, state);
-  }
-
   async function inputSolutionName(_input: MultiStepInput, state: Partial<State>) {
     state.solutionName = undefined;
-    // Certificate can't list solutions here yet — its passphrase isn't in secret
-    // storage until the wizard finishes — so it still uses manual entry.
-    if (state.authType === DataverseAuthType.certificate) {
-      return (input: MultiStepInput) => inputManualSolutionName(input, state);
-    }
     if (state.organisationUrl === undefined) {
       return (input: MultiStepInput) => inputManualSolutionName(input, state);
     }
@@ -337,8 +292,6 @@ interface State {
   totalSteps: number;
   name: string;
   clientSecret: string;
-  certificatePath: string;
-  certificatePassword: string;
   solutionName: string;
   prefix: string;
   saveCredential: boolean;
