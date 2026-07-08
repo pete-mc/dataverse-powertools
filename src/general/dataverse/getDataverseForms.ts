@@ -1,6 +1,7 @@
 import fetch from "node-fetch";
 import { Options } from "./dataverseContext";
 import DataversePowerToolsContext from "../../context";
+import { dataverseApiUrl } from "./webApi";
 
 export async function getDataverseForms(context: DataversePowerToolsContext, entity: string): Promise<DataverseFormRecord[]> {
   if (!context.dataverse.isValid) {
@@ -21,9 +22,10 @@ export async function getDataverseForms(context: DataversePowerToolsContext, ent
     return [];
   }
   try {
-    const url =
-      context.dataverse?.organizationUrl +
-      `/api/data/v9.2/msdyn_solutioncomponentsummaries?$filter=((msdyn_componenttype%20eq%2060))%20and%20(msdyn_primaryentityname%20eq%20%27${entity}%27)&$select=msdyn_name,msdyn_objectid,msdyn_componenttypename`;
+    const url = dataverseApiUrl(
+      context.dataverse?.organizationUrl,
+      `msdyn_solutioncomponentsummaries?$filter=((msdyn_componenttype%20eq%2060))%20and%20(msdyn_primaryentityname%20eq%20%27${entity}%27)&$select=msdyn_name,msdyn_objectid,msdyn_componenttypename`,
+    );
     const response = await fetch(url, options);
     const data: any = await response.json();
     if (data === null) {

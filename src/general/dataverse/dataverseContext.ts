@@ -3,6 +3,7 @@ import DataversePowerToolsContext from "../../context";
 import { parseConnectionString, normalizeOrganizationUrl } from "../connectionString";
 import { parseAuthType, DataverseAuthType } from "./authTypes";
 import { acquireClientSecretToken, acquireInteractiveToken, TokenResult } from "./tokenAcquisition";
+import { dataverseApiUrl } from "./webApi";
 
 export class DataverseContext {
   public authorizationToken: string = "";
@@ -123,7 +124,7 @@ export class DataverseContext {
     };
     /* eslint-enable @typescript-eslint/naming-convention */
     try {
-      const url = this.organizationUrl + "/api/data/v9.1/PublishAllXml";
+      const url = dataverseApiUrl(this.organizationUrl, "PublishAllXml");
       const response = await fetch(url, options);
       if (!response.ok) {
         const responseText = await response.text();
@@ -153,7 +154,7 @@ export class DataverseContext {
     };
     /* eslint-enable @typescript-eslint/naming-convention */
     try {
-      const url = this.organizationUrl + "/api/data/v9.1/PublishXml";
+      const url = dataverseApiUrl(this.organizationUrl, "PublishXml");
       const response = await fetch(url, options);
       if (!response.ok) {
         const responseText = await response.text();

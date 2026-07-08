@@ -2,6 +2,7 @@ import fetch from "node-fetch";
 import * as fs from "fs";
 import DataversePowerToolsContext from "../../context";
 import { DataverseContext, Options } from "./dataverseContext";
+import { dataverseApiUrl } from "./webApi";
 
 function escapeODataString(value: string): string {
   return value.replace(/'/g, "''");
@@ -43,7 +44,7 @@ export async function getDataversePluginAssemblyId(context: DataversePowerToolsC
 
   try {
     const escapedAssemblyName = escapeODataString(assemblyName);
-    const url = `${context.dataverse.organizationUrl}/api/data/v9.1/pluginassemblies?$select=pluginassemblyid,name&$filter=name eq '${escapedAssemblyName}'`;
+    const url = dataverseApiUrl(context.dataverse.organizationUrl, `pluginassemblies?$select=pluginassemblyid,name&$filter=name eq '${escapedAssemblyName}'`);
     const response = await fetch(url, options);
     if (!response.ok) {
       const errorText = await response.text();
@@ -99,7 +100,7 @@ export async function createDataversePluginAssembly(context: DataversePowerTools
   /* eslint-enable @typescript-eslint/naming-convention */
 
   try {
-    const url = `${context.dataverse.organizationUrl}/api/data/v9.1/pluginassemblies`;
+    const url = dataverseApiUrl(context.dataverse.organizationUrl, "pluginassemblies");
     const response = await fetch(url, options);
     if (!response.ok) {
       context.channel.appendLine(await response.text());
@@ -158,7 +159,7 @@ export async function updateDataversePluginAssemblyContent(context: DataversePow
   /* eslint-enable @typescript-eslint/naming-convention */
 
   try {
-    const url = `${context.dataverse.organizationUrl}/api/data/v9.1/pluginassemblies(${assemblyId})`;
+    const url = dataverseApiUrl(context.dataverse.organizationUrl, `pluginassemblies(${assemblyId})`);
     const response = await fetch(url, options);
     if (!response.ok) {
       const errorText = await response.text();

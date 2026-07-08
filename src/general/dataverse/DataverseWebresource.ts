@@ -1,6 +1,7 @@
 import fetch from "node-fetch";
 import DataversePowerToolsContext from "../../context";
 import { Options } from "./dataverseContext";
+import { dataverseApiUrl } from "./webApi";
 
 export class DataverseWebresource {
   id: string | undefined;
@@ -20,7 +21,7 @@ export class DataverseWebresource {
     }
 
     const escapedName = this.name.replace(/'/g, "''");
-    const url = `${organisationUrl}/api/data/v9.1/webresourceset?$select=webresourceid,name&$filter=name eq '${escapedName}'`;
+    const url = dataverseApiUrl(organisationUrl, `webresourceset?$select=webresourceid,name&$filter=name eq '${escapedName}'`);
 
     /* eslint-disable @typescript-eslint/naming-convention */
     const options = {
@@ -71,7 +72,7 @@ export class DataverseWebresource {
     } as Options;
     /* eslint-enable @typescript-eslint/naming-convention */
 
-    const url = this.id ? `${organisationUrl}/api/data/v9.1/webresourceset(${this.id})` : `${organisationUrl}/api/data/v9.1/webresourceset`;
+    const url = this.id ? dataverseApiUrl(organisationUrl, `webresourceset(${this.id})`) : dataverseApiUrl(organisationUrl, "webresourceset");
     const response = await fetch(url, options);
 
     if (!response.ok) {
@@ -119,7 +120,7 @@ export class DataverseWebresource {
     } as Options;
     /* eslint-enable @typescript-eslint/naming-convention */
 
-    const response = await fetch(`${organisationUrl}/api/data/v9.1/AddSolutionComponent`, options);
+    const response = await fetch(dataverseApiUrl(organisationUrl, "AddSolutionComponent"), options);
     if (response.ok) {
       return;
     }

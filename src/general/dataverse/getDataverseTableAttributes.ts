@@ -1,6 +1,7 @@
 import fetch from "node-fetch";
 import { DataverseContext, Options } from "./dataverseContext";
 import DataversePowerToolsContext from "../../context";
+import { dataverseApiUrl } from "./webApi";
 
 export async function getDataverseTableAttributes(context: DataversePowerToolsContext, tableLogicalName: string): Promise<string[]> {
   if (!context.dataverse) {
@@ -26,7 +27,7 @@ export async function getDataverseTableAttributes(context: DataversePowerToolsCo
   /* eslint-enable @typescript-eslint/naming-convention */
 
   try {
-    const url = `${context.dataverse.organizationUrl}/api/data/v9.1/EntityDefinitions(LogicalName='${escapedTableLogicalName}')/Attributes?$select=LogicalName&$filter=AttributeOf eq null`;
+    const url = dataverseApiUrl(context.dataverse.organizationUrl, `EntityDefinitions(LogicalName='${escapedTableLogicalName}')/Attributes?$select=LogicalName&$filter=AttributeOf eq null`);
     const response = await fetch(url, options);
     if (!response.ok) {
       const data: any = await response.text();

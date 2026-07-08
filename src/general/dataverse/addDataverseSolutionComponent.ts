@@ -1,6 +1,7 @@
 import fetch from "node-fetch";
 import DataversePowerToolsContext from "../../context";
 import { DataverseContext, Options } from "./dataverseContext";
+import { dataverseApiUrl } from "./webApi";
 
 async function ensureDataverseContext(context: DataversePowerToolsContext): Promise<boolean> {
   if (!context.dataverse) {
@@ -47,7 +48,7 @@ export async function addDataverseSolutionComponent(context: DataversePowerTools
   } as Options;
   /* eslint-enable @typescript-eslint/naming-convention */
 
-  const response = await fetch(`${context.dataverse.organizationUrl}/api/data/v9.1/AddSolutionComponent`, options);
+  const response = await fetch(dataverseApiUrl(context.dataverse.organizationUrl, "AddSolutionComponent"), options);
   if (response.ok) {
     return true;
   }
@@ -84,7 +85,7 @@ async function resolveSolutionComponentTypeByObjectId(context: DataversePowerToo
   } as Options;
   /* eslint-enable @typescript-eslint/naming-convention */
 
-  const response = await fetch(`${context.dataverse.organizationUrl}/api/data/v9.1/solutioncomponents?$select=componenttype,objectid&$filter=objectid eq ${componentId}`, options);
+  const response = await fetch(dataverseApiUrl(context.dataverse.organizationUrl, `solutioncomponents?$select=componenttype,objectid&$filter=objectid eq ${componentId}`), options);
 
   if (!response.ok) {
     context.channel.appendLine(await response.text());

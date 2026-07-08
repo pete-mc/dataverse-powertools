@@ -1,6 +1,7 @@
 import fetch from "node-fetch";
 import { DataverseContext, Options } from "./dataverseContext";
 import DataversePowerToolsContext from "../../context";
+import { dataverseApiUrl } from "./webApi";
 
 export async function getDataverseMessages(context: DataversePowerToolsContext): Promise<string[]> {
   if (!context.dataverse) {
@@ -19,7 +20,7 @@ export async function getDataverseMessages(context: DataversePowerToolsContext):
   /* eslint-enable @typescript-eslint/naming-convention */
 
   try {
-    const url = context.dataverse?.organizationUrl + "/api/data/v9.1/sdkmessages?$select=name&$filter=isprivate eq false";
+    const url = dataverseApiUrl(context.dataverse?.organizationUrl, "sdkmessages?$select=name&$filter=isprivate eq false");
     const response = await fetch(url, options);
     if (!response.ok) {
       const data: any = await response.text();
