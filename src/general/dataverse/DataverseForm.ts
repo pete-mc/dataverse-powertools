@@ -32,7 +32,7 @@ export class DataverseForm {
       this.context.channel.appendLine("Could not connect to dataverse.");
       return;
     }
-    const organisationUrl = this.context.connectionString.split(";")[2].replace("Url=", "");
+    const organisationUrl = this.context.dataverse.organizationUrl;
     /* eslint-disable @typescript-eslint/naming-convention */
     const options = {
       headers: {
@@ -65,7 +65,7 @@ export class DataverseForm {
       this.context.channel.appendLine("Could not connect to dataverse.");
       return;
     }
-    const organisationUrl = this.context.connectionString.split(";")[2].replace("Url=", "");
+    const organisationUrl = this.context.dataverse.organizationUrl;
     try {
       /* eslint-disable @typescript-eslint/naming-convention */
       const options = {
