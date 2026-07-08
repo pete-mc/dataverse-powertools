@@ -205,27 +205,32 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
 
   async function inputSolutionName(_input: MultiStepInput, state: Partial<State>) {
     state.solutionName = undefined;
-    // Auto-listing solutions needs a live client-secret token in hand. For
-    // interactive/certificate the token isn't available mid-wizard (interactive
-    // would prompt a sign-in here; the cert passphrase isn't stored yet), so fall
-    // back to manual entry and let the real token flow prove itself afterwards.
-    if (state.authType !== DataverseAuthType.clientSecret) {
+    // Certificate can't list solutions here yet — its passphrase isn't in secret
+    // storage until the wizard finishes — so it still uses manual entry.
+    if (state.authType === DataverseAuthType.certificate) {
       return (input: MultiStepInput) => inputManualSolutionName(input, state);
     }
-    if (state.organisationUrl === undefined || state.tenantId === undefined || state.applicationId === undefined || state.clientSecret === undefined) {
+    if (state.organisationUrl === undefined || state.tenantId === undefined) {
       return (input: MultiStepInput) => inputManualSolutionName(input, state);
     }
-    context.connectionString = `AuthType=ClientSecret;LoginPrompt=Never;Url=${state.organisationUrl};ClientId=${state.applicationId};ClientSecret=${state.clientSecret}`;
+    // Set up a live connection so we can list solutions. For interactive this is all
+    // that's needed — getSolutions -> initialize triggers the browser sign-in here.
+    if (state.authType === DataverseAuthType.oauth) {
+      context.connectionString = buildAuthConnectionString({ authType: "OAuth", url: state.organisationUrl, clientId: state.applicationId });
+    } else {
+      if (state.applicationId === undefined || state.clientSecret === undefined) {
+        return (input: MultiStepInput) => inputManualSolutionName(input, state);
+      }
+      context.connectionString = `AuthType=ClientSecret;LoginPrompt=Never;Url=${state.organisationUrl};ClientId=${state.applicationId};ClientSecret=${state.clientSecret}`;
+    }
     context.projectSettings.tenantId = state.tenantId;
     const solutions = await getSolutions(context);
     if (!solutions) {
       return (input: MultiStepInput) => inputManualSolutionName(input, state);
     }
-    let quickPickArray = [];
-    for (const solution of solutions) {
-      quickPickArray.push({ label: solution.displayName, target: solution });
-    }
+    const quickPickArray = solutions.map((solution) => ({ label: solution.displayName, target: solution }));
     const result = await window.showQuickPick(quickPickArray, { placeHolder: "Select a CRM/Dynamics Solution." });
+    // Infer the publisher prefix from the chosen solution so we don't have to ask.
     state.solutionName = result?.target.uniqueName;
     state.prefix = result?.target.publisherPrefix;
     window.showInformationMessage(`Solution Selected: ${result?.label}`);
