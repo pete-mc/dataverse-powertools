@@ -4,6 +4,18 @@
         "restoreCommands": [
             {
                 "command": "npm install --loglevel=error"
+            },
+            {
+                "command": "dotnet new tool-manifest"
+            },
+            {
+                "command": "dotnet tool install paket"
+            },
+            {
+                "command": "dotnet tool restore"
+            },
+            {
+                "command": "dotnet paket install"
             }
         ],
         "initCommands": [
@@ -19,6 +31,18 @@
                 "path": [],
                 "filename": ".eslintrc",
                 "extension": ".json",
+                "version": 1
+            },
+            {
+                "path": [],
+                "filename": "nuget",
+                "extension": ".config",
+                "version": 1
+            },
+            {
+                "path": [],
+                "filename": "paket",
+                "extension": ".dependencies",
                 "version": 1
             },
             {

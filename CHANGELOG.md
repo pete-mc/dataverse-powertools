@@ -8,6 +8,7 @@ All notable changes to the "dataverse-powertools" extension will be documented i
 - Fixed plugin deploy failing with `spawn pwsh ENOENT`: the plugin package is now sanitized (forbidden SDK assemblies stripped) with an in-process zip library instead of shelling out to PowerShell, so it no longer requires PowerShell Core and works cross-platform.
 - Fixed new Web Resources projects failing to create with an `npm ERESOLVE` error — TypeScript is now pinned to v5 (a bare install resolved to TypeScript 7, which conflicts with the ESLint TypeScript plugin's peer range).
 - Fixed the early-bound side panel showing "error loading" until VS Code was reloaded after creating a project — the tree view provider is now registered immediately on project creation.
+- Fixed typings generation failing with `XrmDefinitelyTyped.exe ENOENT`: new Web Resources projects now restore the `Delegate.XrmDefinitelyTyped` tool via paket (the restore step had been missing from the template), and the command now reports a clear, actionable error if the tool still isn't present.
 
 ## 0.5.1
 
