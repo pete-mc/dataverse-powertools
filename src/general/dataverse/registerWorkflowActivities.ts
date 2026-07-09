@@ -4,12 +4,6 @@ import { addDataverseSolutionComponent } from "./addDataverseSolutionComponent";
 import { DataverseContext, Options } from "./dataverseContext";
 import { dataverseApiUrl, logDataverseHttpError } from "./webApi";
 
-// Callers pass "/api/data/v9.x/<resource>" relative urls; strip the version segment
-// and rebuild via the central helper so every request targets one API version.
-function toApiUrl(baseUrl: string, relativeUrl: string): string {
-  return dataverseApiUrl(baseUrl, relativeUrl.replace(/^\/?api\/data\/v9\.[0-9]\//, ""));
-}
-
 export interface WorkflowActivityRegistration {
   className: string;
   fullTypeName: string;
@@ -79,7 +73,7 @@ async function getJson(context: DataversePowerToolsContext, relativeUrl: string)
   } as Options;
   /* eslint-enable @typescript-eslint/naming-convention */
 
-  const response = await fetch(toApiUrl(baseUrl, relativeUrl), options);
+  const response = await fetch(dataverseApiUrl(baseUrl, relativeUrl), options);
   if (!response.ok) {
     await logDataverseHttpError(context.channel, `GET ${relativeUrl}`, response);
     return undefined;
@@ -111,7 +105,7 @@ async function patchJson(context: DataversePowerToolsContext, relativeUrl: strin
   } as Options;
   /* eslint-enable @typescript-eslint/naming-convention */
 
-  const response = await fetch(toApiUrl(baseUrl, relativeUrl), options);
+  const response = await fetch(dataverseApiUrl(baseUrl, relativeUrl), options);
   if (response.ok) {
     return true;
   }
@@ -124,7 +118,7 @@ async function resolveWorkflowPluginType(context: DataversePowerToolsContext, as
   const escapedTypeName = escapeODataString(fullTypeName);
   const data = await getJson(
     context,
-    `/api/data/v9.1/plugintypes?$select=plugintypeid,typename,name,friendlyname,description,workflowactivitygroupname&$filter=_pluginassemblyid_value eq ${assemblyId} and typename eq '${escapedTypeName}'`,
+    `plugintypes?$select=plugintypeid,typename,name,friendlyname,description,workflowactivitygroupname&$filter=_pluginassemblyid_value eq ${assemblyId} and typename eq '${escapedTypeName}'`,
   );
 
   const records = Array.isArray(data?.value) ? data.value : [];
@@ -179,7 +173,7 @@ async function resolveWorkflowPluginTypeFromAssembly(
 ): Promise<ResolvedWorkflowPluginType | undefined> {
   const data = await getJson(
     context,
-    `/api/data/v9.1/plugintypes?$select=plugintypeid,typename,name,friendlyname,description,workflowactivitygroupname&$filter=_pluginassemblyid_value eq ${assemblyId}`,
+    `plugintypes?$select=plugintypeid,typename,name,friendlyname,description,workflowactivitygroupname&$filter=_pluginassemblyid_value eq ${assemblyId}`,
   );
 
   const records: any[] = Array.isArray(data?.value) ? data.value : [];
@@ -258,7 +252,7 @@ export async function registerWorkflowActivities(
 
     const payload = getWorkflowPatchPayload(resolved.snapshot, workflow);
     if (Object.keys(payload).length > 0) {
-      const patched = await patchJson(context, `/api/data/v9.1/plugintypes(${resolved.plugintypeid})`, payload);
+      const patched = await patchJson(context, `plugintypes(${resolved.plugintypeid})`, payload);
       if (patched) {
         updated++;
         context.channel.appendLine(`Updated workflow activity '${workflowLabel}' (${workflow.className}).`);
