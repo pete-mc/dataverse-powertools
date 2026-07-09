@@ -95,19 +95,7 @@
             },
             {
                 "path": ["webresources_src"],
-                "filename": "class",
-                "extension": ".tstemplate",
-                "version": 1
-            },
-            {
-                "path": ["webresources_src"],
                 "filename": "library",
-                "extension": ".tstemplate",
-                "version": 1
-            },
-            {
-                "path": ["webresources_src", "__tests__"],
-                "filename": "sample.test",
                 "extension": ".tstemplate",
                 "version": 1
             },

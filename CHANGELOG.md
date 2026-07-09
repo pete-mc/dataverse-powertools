@@ -11,6 +11,7 @@ All notable changes to the "dataverse-powertools" extension will be documented i
 - Fixed typings generation failing with `XrmDefinitelyTyped.exe ENOENT`: new Web Resources projects now restore the `Delegate.XrmDefinitelyTyped` tool via paket (the restore step had been missing from the template), and the command now reports a clear, actionable error if the tool still isn't present.
 - Fixed service-principal projects failing to reconnect on load ("Dataverse Not Connected", "Error refreshing authorization token", and broken typings): when reassembling the connection string from the stored settings and the secret-storage credentials, the client id was glued onto the URL with no separator (`Url=<url>ClientId=…`). The parts are now merged through the shared connection-string builder so the separators are always correct.
 - Fixed a new Web Resources project not building cleanly out of the box: the scaffolded `webresources_src/library.ts` re-exported a non-existent `./account` module. It is now an empty stub that `Create Web Resource Class` appends each new class to.
+- Fixed the webpack build of a fresh Web Resources project failing on the scaffolded sample files: `class.ts` and `sample.test.ts` were copied in with unreplaced placeholders (`Form.TableName.Main.FormName`, `import '../ClassName'`), which ts-loader type-checked and rejected. They are templates for the Create Class/Test commands, not scaffold files, so a new project no longer ships them.
 
 ## 0.5.1
 
