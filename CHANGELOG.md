@@ -2,6 +2,11 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.5.3
+
+- Testing: unit-tested the Dataverse Web API layer (table / form / message / attribute / solution fetchers) — URL construction, response parsing, and error handling — and added a coverage threshold that CI now enforces as a regression gate (#80).
+- Internal: removed the now-redundant per-file `toApiUrl` wrappers so all Dataverse Web API calls go through the single `dataverseApiUrl` helper directly — one API-version source of truth (finishes #77). No behaviour change.
+
 ## 0.5.2
 
 - Fixed early-bound generation failing with `spawn EINVAL`: on Windows `pac` is a `.cmd` shim that recent Node versions refuse to spawn directly, so all `pac` calls (early-bound/model builder, portals, solutions) now run through `cmd.exe /c pac …`.
