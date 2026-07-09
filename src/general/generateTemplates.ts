@@ -173,7 +173,15 @@ async function ensurePluginV3Solution(context: DataversePowerToolsContext, works
   }
 
   if (!fs.existsSync(rootSlnPath)) {
-    await execFileAsync("dotnet", ["new", "sln", "--name", solutionName, "--format", "sln"], workspacePath);
+    // `--format sln` forces the classic .sln (newer SDKs can emit .slnx), but that
+    // option only exists on .NET SDK 9+; on SDK 8 `dotnet new sln --format sln` errors
+    // with "'--format' is not a valid option". Try it, and fall back to the plain
+    // command (which already defaults to .sln) on older SDKs.
+    try {
+      await execFileAsync("dotnet", ["new", "sln", "--name", solutionName, "--format", "sln"], workspacePath);
+    } catch {
+      await execFileAsync("dotnet", ["new", "sln", "--name", solutionName], workspacePath);
+    }
     context.channel.appendLine(`Created solution file: ${solutionName}.sln`);
   }
 

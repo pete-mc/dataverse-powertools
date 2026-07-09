@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import path = require("path");
 import fs = require("fs");
 import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes } from "../context";
+import { pacInvocation } from "./pac";
 
 function isPacPluginInit(argv: string[]): boolean {
   return argv[0]?.toLowerCase() === "pac" && argv[1]?.toLowerCase() === "plugin" && argv[2]?.toLowerCase() === "init";
@@ -168,10 +169,21 @@ export async function restoreDepedencyExec(command: string | string[], workspace
 
   const util = require("util");
   const cp = require("child_process");
-  // Run via execFile (no shell). Windows npm/npx are .cmd wrappers that execFile can't
-  // launch without a shell — only those get shell:true, and their argv is a constant.
-  const needsShell = process.platform === "win32" && (argv[0] === "npm" || argv[0] === "npx");
-  const promise = util.promisify(cp.execFile)(argv[0], argv.slice(1), { cwd: workspacePath, shell: needsShell });
+  // Decide how to spawn. On Windows `pac` is a .cmd shim with no bare `pac`/`pac.exe`,
+  // so execFile can't launch it directly (spawn pac ENOENT) — route it through
+  // `cmd.exe /c pac …` via pacInvocation (the same helper the modelbuilder path uses).
+  // npm/npx are also Windows .cmd wrappers; give those shell:true. Argv is constant.
+  let spawnCommand = argv[0];
+  let spawnArgs = argv.slice(1);
+  let needsShell = false;
+  if (argv[0] === "pac") {
+    const inv = pacInvocation(argv.slice(1));
+    spawnCommand = inv.command;
+    spawnArgs = inv.args;
+  } else if (process.platform === "win32" && (argv[0] === "npm" || argv[0] === "npx")) {
+    needsShell = true;
+  }
+  const promise = util.promisify(cp.execFile)(spawnCommand, spawnArgs, { cwd: workspacePath, shell: needsShell });
   const child = promise.child;
 
   child.stdout.on("data", function (data: any) {

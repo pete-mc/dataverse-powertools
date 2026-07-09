@@ -349,4 +349,11 @@ export class E2EClient {
     const data: any = await res.json();
     return data.value?.[0]?.pluginpackageid;
   }
+
+  async deletePluginPackage(uniqueName: string): Promise<void> {
+    const id = await this.findPluginPackageId(uniqueName);
+    if (id) {
+      await this.request("DELETE", `pluginpackages(${id})`);
+    }
+  }
 }
