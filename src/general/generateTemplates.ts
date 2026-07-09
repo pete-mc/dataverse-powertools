@@ -399,6 +399,12 @@ export async function generateTemplates(context: DataversePowerToolsContext) {
   }
   context.projectSettings.placeholders = placeholders;
   templateToCopy.files?.every(async (f) => {
+    // Files marked scaffold:false are on-demand templates for the Create * commands
+    // (class / sample.test), not project scaffolding — don't copy them into a new
+    // project (they carry ClassName/TableName placeholders only those commands fill in).
+    if (f.scaffold === false) {
+      return true;
+    }
     const extension = f.extension === ".tstemplate" ? ".ts" : f.extension; // This is done because the .ts files do not copy into the published extension thus we overwrite it when actually copying from extension into the code
     var data = fs.readFileSync(path.join(templateFilePath, f.filename + f.extension, f.version + f.extension), "utf8");
     data = data.replace(/\SOLUTIONPREFIX/g, context.projectSettings.prefix || "SOLUTIONPREFIX");
@@ -417,6 +423,7 @@ export async function generateTemplates(context: DataversePowerToolsContext) {
     }
     await fs.promises.mkdir(path.dirname(destPathString), { recursive: true });
     await vscode.workspace.fs.writeFile(vscode.Uri.file(destPathString), Buffer.from(data, "utf8"));
+    return true;
   });
   context.channel.appendLine("Template generation complete");
 }

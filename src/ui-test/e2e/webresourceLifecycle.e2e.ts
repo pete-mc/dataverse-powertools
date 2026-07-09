@@ -124,9 +124,23 @@ describe("Web resources lifecycle (e2e)", function () {
     await sleep(25000); // build + upsert + publish
     await dismissOverlays();
 
+    // Deploy is build + upsert + publish; poll rather than assume it's done after one
+    // fixed wait, so a slow publish or a transient network blip doesn't fail the run.
     const client = new E2EClient(env!);
     await client.connect();
-    const id = await client.findWebresourceId(libraryName());
+    let id: string | undefined;
+    const deadline = Date.now() + 90000;
+    do {
+      try {
+        id = await client.findWebresourceId(libraryName());
+      } catch {
+        id = undefined; // transient network error — keep polling
+      }
+      if (id) {
+        break;
+      }
+      await sleep(5000);
+    } while (Date.now() < deadline);
     expect(id, `${libraryName()} exists in Dataverse`).to.not.equal(undefined);
   });
 

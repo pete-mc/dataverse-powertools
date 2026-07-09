@@ -40,6 +40,11 @@ function scaffoldWebresourceProject(dir: string, prefix: string, solutionName: s
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(dir, { recursive: true });
   for (const f of template.files) {
+    // Mirror generateTemplates: scaffold:false files are on-demand Create-* templates
+    // (class / sample.test) with unfilled placeholders — never copied into a new project.
+    if (f.scaffold === false) {
+      continue;
+    }
     const ext = f.extension === ".tstemplate" ? ".ts" : f.extension;
     let data = fs.readFileSync(path.join(templateDir, f.filename + f.extension, f.version + f.extension), "utf8");
     data = data.replace(/SOLUTIONPREFIX/g, prefix).replace(/SOLUTIONPLACEHOLDER/g, solutionName);

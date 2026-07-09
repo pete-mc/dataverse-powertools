@@ -181,6 +181,10 @@ interface File {
   filename: string;
   extension: string;
   version: number;
+  // When false, the file is a template used on-demand by a Create * command
+  // (createTemplatedFile looks it up by filename) but is NOT copied into a new
+  // project by generateTemplates. Defaults to true (scaffolded) when omitted.
+  scaffold?: boolean;
 }
 
 interface Placeholder {
