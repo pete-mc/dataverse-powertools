@@ -44,6 +44,14 @@ When adding tests, keep the naming/UI conventions distinct so the runners don't
 cross-pick files: `.spec.ts` (unit) vs `.test.ts` under `test/suite` (integration)
 vs `.test.ts` under `ui-test` (UI).
 
+**End-to-end lifecycle suites** (see [TESTING.md](TESTING.md#end-to-end-lifecycle-suites)):
+`npm run test:live` also runs headless command-level lifecycle tests
+(`test/live/webresourceScaffoldLifecycle.spec.ts`, `pluginLifecycle.spec.ts`) that drive
+scaffold→restore→typings→build→deploy with no UI — the reliable way to verify the two
+flows. `npm run test:e2e` (`src/ui-test/e2e/*.e2e.ts`) drives the literal VS Code wizard
+via Selenium; **run it only in an isolated Windows VM** (`scripts/setup-vm-e2e.ps1`) —
+on a shared desktop Selenium's keystrokes get corrupted by whatever else has focus.
+
 ## Traps specific to this repo
 
 - **Commands are declared in two places.** A new command needs both runtime
