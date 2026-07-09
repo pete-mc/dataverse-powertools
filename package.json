@@ -217,12 +217,12 @@
       },
       {
         "view": "dataversePowerToolsMenu",
-        "contents": "Webresource Menu\n[Create New Class](command:dataverse-powertools.createWebResourceClass)\n[Create New Test](command:dataverse-powertools.createWebResourceTest)\n[Build Web Resources](command:dataverse-powertools.buildWebresources)\n[Build & Deploy Web Resources](command:dataverse-powertools.deployWebresources)\n[Generate Typings](command:dataverse-powertools.generateTypings)\n[Add Form Registration](command:dataverse-powertools.addFormDecoration)\n[Register Form Events](command:dataverse-powertools.saveFormData)\n[Upgrade from Spkl](command:dataverse-powertools.upgradeFromSpkl)",
+        "contents": "Webresource Menu\n[Create New Class](command:dataverse-powertools.createWebResourceClass)\n[Create New Test](command:dataverse-powertools.createWebResourceTest)\n[Build Web Resources](command:dataverse-powertools.buildWebresources)\n[Build & Deploy Web Resources](command:dataverse-powertools.deployWebresources)\n[Debug Web Resources (local)](command:dataverse-powertools.debugWebresources)\n[Generate Typings](command:dataverse-powertools.generateTypings)\n[Add Form Registration](command:dataverse-powertools.addFormDecoration)\n[Register Form Events](command:dataverse-powertools.saveFormData)\n[Upgrade from Spkl](command:dataverse-powertools.upgradeFromSpkl)",
         "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource && dataverse-powertools.hasSpkl"
       },
       {
         "view": "dataversePowerToolsMenu",
-        "contents": "Webresource Menu\n[Create New Class](command:dataverse-powertools.createWebResourceClass)\n[Create New Test](command:dataverse-powertools.createWebResourceTest)\n[Build Web Resources](command:dataverse-powertools.buildWebresources)\n[Build & Deploy Web Resources](command:dataverse-powertools.deployWebresources)\n[Generate Typings](command:dataverse-powertools.generateTypings)\n[Add Form Registration](command:dataverse-powertools.addFormDecoration)\n[Register Form Events](command:dataverse-powertools.saveFormData)",
+        "contents": "Webresource Menu\n[Create New Class](command:dataverse-powertools.createWebResourceClass)\n[Create New Test](command:dataverse-powertools.createWebResourceTest)\n[Build Web Resources](command:dataverse-powertools.buildWebresources)\n[Build & Deploy Web Resources](command:dataverse-powertools.deployWebresources)\n[Debug Web Resources (local)](command:dataverse-powertools.debugWebresources)\n[Generate Typings](command:dataverse-powertools.generateTypings)\n[Add Form Registration](command:dataverse-powertools.addFormDecoration)\n[Register Form Events](command:dataverse-powertools.saveFormData)",
         "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource && !dataverse-powertools.hasSpkl"
       },
       {
@@ -501,6 +501,16 @@
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
       },
       {
+        "command": "dataverse-powertools.debugWebresources",
+        "title": "Dataverse PowerTools: Debug Web Resources (serve local build into the live app)",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
+      },
+      {
+        "command": "dataverse-powertools.stopDebugWebresources",
+        "title": "Dataverse PowerTools: Stop Debugging Web Resources",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
+      },
+      {
         "command": "dataverse-powertools.createPluginClass",
         "title": "Dataverse PowerTools: Create Plugin Class",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
@@ -609,7 +619,24 @@
         "command": "dataverse-powertools.installRequiredGlobals",
         "title": "Dataverse PowerTools: Add Missing npm Globals"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Dataverse PowerTools",
+      "properties": {
+        "dataverse-powertools.debugBrowser": {
+          "type": "string",
+          "enum": ["auto", "msedge", "chrome"],
+          "enumDescriptions": ["Prefer Microsoft Edge, fall back to Chrome", "Use Microsoft Edge", "Use Google Chrome"],
+          "default": "auto",
+          "markdownDescription": "Which browser the **Debug Web Resources** command launches under the DevTools Protocol. A persistent profile is used so your Dataverse login is remembered between sessions."
+        },
+        "dataverse-powertools.debugBrowserPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Optional full path to the Edge/Chrome executable used by **Debug Web Resources**. Leave blank to auto-detect a supported browser."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
@@ -633,6 +660,7 @@
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",
+    "@types/chrome-remote-interface": "^0.34.0",
     "@types/fs-extra": "^9.0.13",
     "@types/jest": "^30.0.0",
     "@types/mocha": "^10.0.10",
@@ -668,6 +696,7 @@
   "dependencies": {
     "@azure/msal-node": "^5.4.0",
     "adm-zip": "^0.5.18",
+    "chrome-remote-interface": "^0.34.0",
     "fast-xml-parser": "^5.9.3",
     "fs-extra": "^10.1.0",
     "node-fetch": "^3.2.10"
