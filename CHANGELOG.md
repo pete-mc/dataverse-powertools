@@ -2,6 +2,36 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.5.1
+
+- Fixed new plugin-package creation, which failed on Dataverse's `204 No Content` response — the id is now read from the `OData-EntityId` header instead of parsing an empty body.
+- Centralised all Dataverse Web API calls through a single URL/version helper so requests no longer target mixed API versions; fixed the organisation URL used by form registration and the connection-string parsing in typings generation (#77).
+- Replaced hard-coded `\\` path separators in template generation with `path.join`, fixing webresource/template scaffolding off-Windows (#73).
+- Portal commands now parse the `pac` CLI table by anchoring on its column headers instead of whitespace/index scraping, so an environment display name (or any spaced value) and pac column-width changes no longer break website selection (#75).
+- Dataverse HTTP errors are now surfaced consistently — every list/register/form call logs the operation, status, and response body (and one form-listing call that silently swallowed failures now reports them) (#76).
+- Added success logging when webresources and plugin packages are pushed, so the output channel confirms what was created/updated/deployed (#76).
+- Testing: added an opt-in live end-to-end tier (form decoration, solution pack/unpack/export via `pac`, plugin scaffold + `dotnet build` + package push) that self-skips without credentials, expanded the ExTester UI coverage, and hardened overlay handling in UI/screenshot runs (#65, #80).
+
+## 0.5.0
+
+- Added interactive Dataverse sign-in (MSAL loopback public-client flow using Microsoft's well-known Dataverse sample app id — no app registration required): sign in once, pick your environment from a Global Discovery list, pick a solution (publisher prefix inferred), with a branded loopback success/error page (#62).
+- Service-principal (client secret) auth is now credentials-first with the same environment picker.
+- Token cache is persisted to VS Code secret storage; the extension connects silently on load and re-authenticates on genuine expiry without re-entering environment/solution details.
+- Added a "Switch Dataverse Environment" command (change environments without re-entering credentials) and a "Refresh Connection" command; renamed the connection command to "Update Dataverse Authentication".
+- Status bar item now shows a `$(database)` icon so the connection reads as Dataverse PowerTools.
+- Dropped certificate auth (a back-end/CI pattern, not an interactive-coding path).
+- Fixed the generated webresource class template: form registration now matches the `OnLoad` function, the library global uses the solution prefix, and the form name is handled correctly (#70).
+
+## 0.4.0
+
+- Migrated solution commands from `spkl.exe` to the Power Platform CLI (`pac`), so extract/pack/deploy run on Windows, macOS, and Linux; removed hard-coded Windows path separators that broke settings I/O off-Windows (`spkl` now only remains in the deprecated `plugins_old` path).
+- Fixed token auto-refresh dying ~1h into a session (client-credentials was using a `refresh_token` grant that always failed).
+- `npm ls -g` output is now parsed even on non-zero exit, so installed globals aren't reported as missing.
+- Webresource build/deploy is now awaited and gated on the build result (was detached), with corrected ANSI stripping and a narrower error match.
+- Publish operations now check `response.ok` and log failures instead of swallowing them; added shared, unit-tested connection-string and path helpers.
+- Added a test foundation (unit / integration / UI layers plus an opt-in live tier) with a CI gate — publishing to the Marketplace is now gated on lint + compile + unit + integration passing.
+- Rewrote the README as a concise Marketplace store page with real UI screenshots, and rebuilt the wiki to match the current feature set.
+
 ## 0.3.2
 
 - Added plugin unit testing support, including setup, test class generation, and test execution commands.
