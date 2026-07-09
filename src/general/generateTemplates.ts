@@ -11,6 +11,7 @@ import { buildProject } from "../plugins_old/buildPlugin";
 import { generateTypings } from "../webresources/generateTypings";
 import { initialisePlugins as initialisePluginsOld } from "../plugins_old/initialisePlugins";
 import { initialisePlugins as initialisePluginsNew } from "../plugins/initialisePlugins";
+import { pluginTableSelector as pluginTableSelectorV3 } from "../plugins/pluginTables";
 import { promptAndSetupPluginUnitTesting } from "../plugins/unitTesting";
 import { initialiseWebresources } from "../webresources/initialiseWebresources";
 import { createWebResourceClass } from "../webresources/createWebresourceClass";
@@ -337,6 +338,10 @@ export async function createNewProject(context: DataversePowerToolsContext) {
         case ProjectTypes.plugin:
           if (context.projectSettings.templateversion === 3) {
             await initialisePluginsNew(context);
+            // Register the early-bound settings tree provider now, mirroring activation
+            // (extension.ts initialise). Without this the side panel shows "error
+            // loading" for a freshly created project until VS Code is reloaded.
+            await pluginTableSelectorV3(context);
             context.channel.appendLine("Plugin project initialised using pac plugin init --skip-signing.");
           } else {
             await createSNKKey(context);

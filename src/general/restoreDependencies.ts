@@ -130,7 +130,10 @@ const ALLOWED_ARGV: ReadonlyArray<ReadonlyArray<string>> = [
   ["dotnet", "add", "package", "Microsoft.CrmSdk.Workflow"],
   ["pac", "plugin", "init", "--skip-signing"],
   ["npm", "install", "--loglevel=error"],
-  ["npm", "install", "typescript", "--loglevel=error"],
+  // Pin to TypeScript 5.x: @typescript-eslint/* v8 (installed below) peers on
+  // typescript ">=4.8.4 <6.1.0", and a bare install now resolves to TypeScript 7,
+  // which fails `npm i` with ERESOLVE.
+  ["npm", "install", "typescript@^5", "--loglevel=error"],
   // prettier-ignore
   ["npm", "i", "eslint", "eslint-config-prettier", "@types/jest", "@typescript-eslint/eslint-plugin", "@typescript-eslint/parser", "jest", "jest-cli", "prettier", "syswide-cas", "ts-jest", "ts-loader", "webpack", "webpack-cli", "webpack-merge", "xrm-mock", "eslint-plugin-prettier", "jest-junit", "exports-loader", "--save-dev", "--loglevel=error"],
 ];

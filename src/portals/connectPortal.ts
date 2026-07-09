@@ -3,6 +3,7 @@ import * as cp from "child_process";
 import DataversePowerToolsContext from "../context";
 import { window } from "vscode";
 import { getOrganizationUrl } from "../general/connectionString";
+import { pacInvocation } from "../general/pac";
 import { parsePacAuthList, findAuthProfileForUrl, parsePacPagesList } from "./pacOutput";
 import path = require("path");
 
@@ -31,27 +32,11 @@ async function execFileAsync(file: string, args: string[], cwd?: string): Promis
   });
 }
 
-async function resolvePacExecutable(): Promise<string> {
-  if (process.platform !== "win32") {
-    return "pac";
-  }
-
-  try {
-    const { stdout } = await execFileAsync("where", ["pac"]);
-    const firstMatch = stdout
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .find((line) => line.length > 0);
-
-    return firstMatch || "pac";
-  } catch {
-    return "pac";
-  }
-}
-
-async function runPac(context: DataversePowerToolsContext, pacExecutable: string, args: string[]) {
+// Run a pac command and return stdout; pac.ts handles the Windows .cmd invocation.
+async function runPac(context: DataversePowerToolsContext, args: string[]) {
   const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  const { stdout, stderr } = await execFileAsync(pacExecutable, args, workspacePath);
+  const { command, args: invocationArgs } = pacInvocation(args);
+  const { stdout, stderr } = await execFileAsync(command, invocationArgs, workspacePath);
   if (stderr) {
     context.channel.appendLine(stderr);
   }
@@ -60,15 +45,14 @@ async function runPac(context: DataversePowerToolsContext, pacExecutable: string
 
 export async function getPACLocation(context: DataversePowerToolsContext, command: string) {
   if (vscode.workspace.workspaceFolders !== undefined) {
-    const pacExecutable = await resolvePacExecutable();
-    await connectPortalExec(context, pacExecutable, command);
+    await connectPortalExec(context, command);
   }
 }
 
-export async function createPACConnection(context: DataversePowerToolsContext, pacLocation: string, url: string) {
+export async function createPACConnection(context: DataversePowerToolsContext, url: string) {
   if (vscode.workspace.workspaceFolders !== undefined) {
     try {
-      const stdout = await runPac(context, pacLocation, ["auth", "create", "--url", url]);
+      const stdout = await runPac(context, ["auth", "create", "--url", url]);
       if (stdout !== null && stdout !== "") {
         context.channel.appendLine(stdout);
         context.channel.show();
@@ -81,17 +65,17 @@ export async function createPACConnection(context: DataversePowerToolsContext, p
   }
 }
 
-export async function connectPortalExec(context: DataversePowerToolsContext, pacLocation: string, _command: string) {
+export async function connectPortalExec(context: DataversePowerToolsContext, _command: string) {
   if (vscode.workspace.workspaceFolders !== undefined) {
     try {
-      const stdout = await runPac(context, pacLocation, ["auth", "list"]);
+      const stdout = await runPac(context, ["auth", "list"]);
       if (stdout !== null && stdout !== "") {
         context.channel.appendLine(stdout);
         const targetUrl = getOrganizationUrl(context.connectionString);
         const profile = findAuthProfileForUrl(parsePacAuthList(stdout), targetUrl);
         if (!profile) {
           vscode.window.showErrorMessage("Error finding matching portal.");
-          await createPACConnection(context, pacLocation, targetUrl);
+          await createPACConnection(context, targetUrl);
         } else {
           // Prefer selecting by profile name; fall back to its index when unnamed.
           const selector = profile.name ? ["-n", profile.name] : profile.index !== undefined ? ["--index", String(profile.index)] : undefined;
@@ -101,7 +85,7 @@ export async function connectPortalExec(context: DataversePowerToolsContext, pac
           }
           context.channel.appendLine(`Selecting auth profile: ${profile.name || `#${profile.index}`}`);
           context.channel.show();
-          await selectEnvironment(context, pacLocation, selector);
+          await selectEnvironment(context, selector);
         }
       }
     } catch (error: any) {
@@ -112,15 +96,15 @@ export async function connectPortalExec(context: DataversePowerToolsContext, pac
   }
 }
 
-export async function selectEnvironment(context: DataversePowerToolsContext, pacLocation: string, selector: string[]) {
+export async function selectEnvironment(context: DataversePowerToolsContext, selector: string[]) {
   if (vscode.workspace.workspaceFolders !== undefined) {
     try {
-      const stdout = await runPac(context, pacLocation, ["auth", "select", ...selector]);
+      const stdout = await runPac(context, ["auth", "select", ...selector]);
       if (stdout !== null && stdout !== "") {
         context.channel.appendLine(stdout);
         context.channel.show();
       }
-      await downloadPortal(context, pacLocation);
+      await downloadPortal(context);
     } catch (error: any) {
       vscode.window.showErrorMessage("Error finding Portals.");
       context.channel.appendLine(error?.error?.message || error?.message || JSON.stringify(error));
@@ -129,11 +113,11 @@ export async function selectEnvironment(context: DataversePowerToolsContext, pac
   }
 }
 
-export async function downloadPortal(context: DataversePowerToolsContext, pacLocation: string) {
+export async function downloadPortal(context: DataversePowerToolsContext) {
   if (vscode.workspace.workspaceFolders !== undefined) {
     const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
     try {
-      const stdout = await runPac(context, pacLocation, ["pages", "list"]);
+      const stdout = await runPac(context, ["pages", "list"]);
       if (stdout !== null && stdout !== "") {
         context.channel.appendLine(stdout);
         const pages = parsePacPagesList(stdout);
@@ -151,7 +135,7 @@ export async function downloadPortal(context: DataversePowerToolsContext, pacLoc
 
         context.channel.appendLine(`${result.label}, ${result.target}`);
         const downloadPath = path.join(workspacePath, "portalpublish");
-        const downloadOutput = await runPac(context, pacLocation, ["pages", "download", "-id", result.target, "-p", downloadPath]);
+        const downloadOutput = await runPac(context, ["pages", "download", "-id", result.target, "-p", downloadPath]);
         if (downloadOutput !== null && downloadOutput !== "") {
           context.channel.appendLine(downloadOutput);
         }

@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.5.1",
+  "version": "0.5.2",
   "engines": {
     "vscode": "^1.93.0"
   },
@@ -630,6 +630,7 @@
     "deploy": "vsce publish"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.8",
     "@types/fs-extra": "^9.0.13",
     "@types/mocha": "^10.0.10",
     "@types/node": "^20.17.0",
@@ -654,6 +655,7 @@
   },
   "dependencies": {
     "@azure/msal-node": "^5.4.0",
+    "adm-zip": "^0.5.18",
     "fast-xml-parser": "^5.9.3",
     "fs-extra": "^10.1.0",
     "node-fetch": "^3.2.10"

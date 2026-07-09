@@ -8,7 +8,7 @@
         ],
         "initCommands": [
             {
-                "command": "npm install typescript --loglevel=error"
+                "command": "npm install typescript@^5 --loglevel=error"
             },
             {
                 "command": "npm i eslint eslint-config-prettier @types/jest @typescript-eslint/eslint-plugin @typescript-eslint/parser jest jest-cli prettier syswide-cas ts-jest ts-loader webpack webpack-cli webpack-merge xrm-mock eslint-plugin-prettier jest-junit exports-loader --save-dev --loglevel=error"

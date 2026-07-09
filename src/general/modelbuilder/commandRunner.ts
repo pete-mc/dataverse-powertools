@@ -1,4 +1,5 @@
 import * as cp from "child_process";
+import { pacInvocation } from "../pac";
 
 interface ExecResult {
   stdout: string;
@@ -17,19 +18,8 @@ export function execFileAsync(file: string, args: string[], cwd?: string): Promi
   });
 }
 
-export async function resolvePacExecutable(): Promise<string> {
-  if (process.platform !== "win32") {
-    return "pac";
-  }
-
-  try {
-    const { stdout } = await execFileAsync("where", ["pac"]);
-    const firstMatch = stdout
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .find((line) => line.length > 0);
-    return firstMatch || "pac";
-  } catch {
-    return "pac";
-  }
+/** Run a `pac` command, capturing stdout/stderr. See pac.ts for the Windows .cmd handling. */
+export async function runPac(args: string[], cwd?: string): Promise<ExecResult> {
+  const { command, args: invocationArgs } = pacInvocation(args);
+  return execFileAsync(command, invocationArgs, cwd);
 }

@@ -1,9 +1,9 @@
 import * as cp from "child_process";
 import * as fs from "fs";
-import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
+import AdmZip = require("adm-zip");
 import { addDataverseSolutionComponentByObjectId } from "../general/dataverse/addDataverseSolutionComponent";
 import { PluginPackageMetadata, upsertDataversePluginPackage, waitForDataversePluginAssemblyFromPackage } from "../general/dataverse/getDataversePluginPackage";
 import { PluginStepRegistration, registerPluginSteps } from "../general/dataverse/registerPluginSteps";
@@ -35,14 +35,6 @@ function execFileAsync(file: string, args: string[], cwd?: string): Promise<Exec
       resolve({ stdout, stderr });
     });
   });
-}
-
-function escapePowerShellSingleQuoted(text: string): string {
-  return text.replace(/'/g, "''");
-}
-
-async function runPowerShellScript(script: string, cwd?: string): Promise<ExecResult> {
-  return execFileAsync("pwsh", ["-NoProfile", "-Command", script], cwd);
 }
 
 async function findBuildTarget(workspacePath: string): Promise<string | undefined> {
@@ -86,41 +78,33 @@ async function walkDirectory(rootPath: string): Promise<string[]> {
   return results;
 }
 
+// A .nupkg is a zip; strip the SDK assemblies Dataverse rejects, in-process. This
+// used to shell out to PowerShell's Expand-Archive/Compress-Archive, which broke
+// with "spawn pwsh ENOENT" wherever PowerShell Core isn't installed (and wasn't
+// cross-platform). adm-zip needs no external tool.
 async function sanitizeBuiltPackage(context: DataversePowerToolsContext, packagePath: string): Promise<void> {
-  const tempRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "dataverse-powertools-package-"));
-  try {
-    const escapedPackagePath = escapePowerShellSingleQuoted(packagePath);
-    const escapedTempRoot = escapePowerShellSingleQuoted(tempRoot);
-    await runPowerShellScript(`Expand-Archive -Path '${escapedPackagePath}' -DestinationPath '${escapedTempRoot}' -Force`);
+  const forbiddenAssemblyNames = new Set(["microsoft.xrm.sdk.dll", "microsoft.crm.sdk.proxy.dll", "microsoft.xrm.sdk.workflow.dll"]);
 
-    const forbiddenAssemblyNames = new Set(["microsoft.xrm.sdk.dll", "microsoft.crm.sdk.proxy.dll", "microsoft.xrm.sdk.workflow.dll"]);
-
-    const extractedFiles = await walkDirectory(tempRoot);
-    const removedFiles: string[] = [];
-    for (const extractedFilePath of extractedFiles) {
-      const fileName = path.basename(extractedFilePath).toLowerCase();
-      if (!forbiddenAssemblyNames.has(fileName)) {
-        continue;
-      }
-
-      await fs.promises.rm(extractedFilePath, { force: true });
-      removedFiles.push(fileName);
+  const zip = new AdmZip(packagePath);
+  const removedFiles: string[] = [];
+  for (const entry of zip.getEntries()) {
+    if (entry.isDirectory) {
+      continue;
     }
-
-    if (removedFiles.length === 0) {
-      return;
+    const fileName = path.basename(entry.entryName).toLowerCase();
+    if (!forbiddenAssemblyNames.has(fileName)) {
+      continue;
     }
-
-    context.channel.appendLine(`Sanitizing package by removing forbidden SDK assemblies: ${Array.from(new Set(removedFiles)).join(", ")}.`);
-
-    const escapedPackageWildcard = escapePowerShellSingleQuoted(path.join(tempRoot, "*"));
-    await runPowerShellScript(
-      `if (Test-Path '${escapedPackagePath}') { Remove-Item '${escapedPackagePath}' -Force }; ` +
-        `Compress-Archive -Path '${escapedPackageWildcard}' -DestinationPath '${escapedPackagePath}' -Force`,
-    );
-  } finally {
-    await fs.promises.rm(tempRoot, { recursive: true, force: true });
+    zip.deleteFile(entry);
+    removedFiles.push(fileName);
   }
+
+  if (removedFiles.length === 0) {
+    return;
+  }
+
+  context.channel.appendLine(`Sanitizing package by removing forbidden SDK assemblies: ${Array.from(new Set(removedFiles)).join(", ")}.`);
+  zip.writeZip(packagePath);
 }
 
 async function findBuiltAssemblyPath(workspacePath: string, csprojPath: string): Promise<string | undefined> {
