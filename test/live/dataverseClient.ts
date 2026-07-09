@@ -44,7 +44,7 @@ export class LiveDataverseClient {
   }
 
   private async request(method: string, path: string, body?: unknown) {
-    return fetch(`${this.env.url}/${API_VERSION}/${path}`, {
+    const init = {
       method,
       /* eslint-disable @typescript-eslint/naming-convention */
       headers: {
@@ -56,7 +56,20 @@ export class LiveDataverseClient {
       },
       /* eslint-enable @typescript-eslint/naming-convention */
       body: body === undefined ? undefined : JSON.stringify(body),
-    });
+    };
+    // Retry transient connection resets (write ECONNRESET etc.). The test Dataverse
+    // endpoint occasionally drops a connection mid-request; a few quick retries keep the
+    // live suite from failing on a network blip rather than a real error.
+    let lastErr: unknown;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        return await fetch(`${this.env.url}/${API_VERSION}/${path}`, init);
+      } catch (err) {
+        lastErr = err;
+        await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
+      }
+    }
+    throw lastErr;
   }
 
   async whoAmI(): Promise<{ UserId: string }> {

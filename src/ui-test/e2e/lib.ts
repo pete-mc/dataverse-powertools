@@ -290,7 +290,7 @@ export class E2EClient {
 
   private async request(method: string, resourcePath: string): Promise<Response> {
     /* eslint-disable @typescript-eslint/naming-convention */
-    return fetch(`${this.env.url.replace(/\/+$/, "")}/${API_VERSION}/${resourcePath}`, {
+    const init = {
       method,
       headers: {
         Authorization: `Bearer ${this.token}`,
@@ -298,8 +298,21 @@ export class E2EClient {
         "OData-MaxVersion": "4.0",
         "OData-Version": "4.0",
       },
-    });
+    };
     /* eslint-enable @typescript-eslint/naming-convention */
+    const url = `${this.env.url.replace(/\/+$/, "")}/${API_VERSION}/${resourcePath}`;
+    // Retry transient connection resets (write ECONNRESET etc.) so a network blip in
+    // the before-hook solution lookup doesn't fail the whole suite.
+    let lastErr: unknown;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        return await fetch(url, init);
+      } catch (err) {
+        lastErr = err;
+        await sleep(1000 * (attempt + 1));
+      }
+    }
+    throw lastErr;
   }
 
   /** The friendly (display) name for a solution's unique name — the wizard lists solutions by friendly name. */
