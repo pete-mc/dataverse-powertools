@@ -2,7 +2,7 @@ import fetch from "node-fetch";
 import * as fs from "fs";
 import DataversePowerToolsContext from "../../context";
 import { DataverseContext, Options } from "./dataverseContext";
-import { dataverseApiUrl } from "./webApi";
+import { dataverseApiUrl, logDataverseHttpError, logDataverseError } from "./webApi";
 
 function escapeODataString(value: string): string {
   return value.replace(/'/g, "''");
@@ -47,8 +47,7 @@ export async function getDataversePluginAssemblyId(context: DataversePowerToolsC
     const url = dataverseApiUrl(context.dataverse.organizationUrl, `pluginassemblies?$select=pluginassemblyid,name&$filter=name eq '${escapedAssemblyName}'`);
     const response = await fetch(url, options);
     if (!response.ok) {
-      const errorText = await response.text();
-      context.channel.appendLine(errorText);
+      const errorText = await logDataverseHttpError(context.channel, `look up plugin assembly '${assemblyName}'`, response);
       if (isStrongNameRequiredError(errorText)) {
         logStrongNameRequiredGuidance(context);
       }
@@ -61,7 +60,8 @@ export async function getDataversePluginAssemblyId(context: DataversePowerToolsC
     }
 
     return data.value[0]?.pluginassemblyid;
-  } catch {
+  } catch (e) {
+    logDataverseError(context.channel, `look up plugin assembly '${assemblyName}'`, e);
     return undefined;
   }
 }
@@ -103,13 +103,17 @@ export async function createDataversePluginAssembly(context: DataversePowerTools
     const url = dataverseApiUrl(context.dataverse.organizationUrl, "pluginassemblies");
     const response = await fetch(url, options);
     if (!response.ok) {
-      context.channel.appendLine(await response.text());
+      const errorText = await logDataverseHttpError(context.channel, `create plugin assembly '${assemblyName}'`, response);
+      if (isStrongNameRequiredError(errorText)) {
+        logStrongNameRequiredGuidance(context);
+      }
       return undefined;
     }
 
     const created = (await response.json()) as { pluginassemblyid?: string };
     return created.pluginassemblyid;
-  } catch {
+  } catch (e) {
+    logDataverseError(context.channel, `create plugin assembly '${assemblyName}'`, e);
     return undefined;
   }
 }
@@ -162,8 +166,7 @@ export async function updateDataversePluginAssemblyContent(context: DataversePow
     const url = dataverseApiUrl(context.dataverse.organizationUrl, `pluginassemblies(${assemblyId})`);
     const response = await fetch(url, options);
     if (!response.ok) {
-      const errorText = await response.text();
-      context.channel.appendLine(errorText);
+      const errorText = await logDataverseHttpError(context.channel, "update plugin assembly content", response);
       if (isStrongNameRequiredError(errorText)) {
         logStrongNameRequiredGuidance(context);
       }
@@ -171,7 +174,8 @@ export async function updateDataversePluginAssemblyContent(context: DataversePow
     }
 
     return true;
-  } catch {
+  } catch (e) {
+    logDataverseError(context.channel, "update plugin assembly content", e);
     return false;
   }
 }

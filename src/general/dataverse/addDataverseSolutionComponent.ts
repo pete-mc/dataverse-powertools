@@ -1,7 +1,7 @@
 import fetch from "node-fetch";
 import DataversePowerToolsContext from "../../context";
 import { DataverseContext, Options } from "./dataverseContext";
-import { dataverseApiUrl } from "./webApi";
+import { dataverseApiUrl, logDataverseHttpError } from "./webApi";
 
 async function ensureDataverseContext(context: DataversePowerToolsContext): Promise<boolean> {
   if (!context.dataverse) {
@@ -59,7 +59,11 @@ export async function addDataverseSolutionComponent(context: DataversePowerTools
     return true;
   }
 
-  context.channel.appendLine(responseText);
+  // Body already consumed for the "already in solution" check above, so format the
+  // failure inline in the same shape as logDataverseHttpError rather than re-reading.
+  const status = `${response.status}${response.statusText ? ` ${response.statusText}` : ""}`.trim();
+  context.channel.appendLine(`Failed to add component to solution '${solutionUniqueName}': ${status}${responseText ? ` — ${responseText}` : ""}`);
+  context.channel.show();
   return false;
 }
 
@@ -88,7 +92,7 @@ async function resolveSolutionComponentTypeByObjectId(context: DataversePowerToo
   const response = await fetch(dataverseApiUrl(context.dataverse.organizationUrl, `solutioncomponents?$select=componenttype,objectid&$filter=objectid eq ${componentId}`), options);
 
   if (!response.ok) {
-    context.channel.appendLine(await response.text());
+    await logDataverseHttpError(context.channel, `resolve solution component type for '${componentId}'`, response);
     return undefined;
   }
 

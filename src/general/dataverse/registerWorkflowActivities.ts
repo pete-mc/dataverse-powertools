@@ -2,7 +2,7 @@ import fetch from "node-fetch";
 import DataversePowerToolsContext from "../../context";
 import { addDataverseSolutionComponent } from "./addDataverseSolutionComponent";
 import { DataverseContext, Options } from "./dataverseContext";
-import { dataverseApiUrl } from "./webApi";
+import { dataverseApiUrl, logDataverseHttpError } from "./webApi";
 
 // Callers pass "/api/data/v9.x/<resource>" relative urls; strip the version segment
 // and rebuild via the central helper so every request targets one API version.
@@ -81,7 +81,7 @@ async function getJson(context: DataversePowerToolsContext, relativeUrl: string)
 
   const response = await fetch(toApiUrl(baseUrl, relativeUrl), options);
   if (!response.ok) {
-    context.channel.appendLine(await response.text());
+    await logDataverseHttpError(context.channel, `GET ${relativeUrl}`, response);
     return undefined;
   }
 
@@ -116,7 +116,7 @@ async function patchJson(context: DataversePowerToolsContext, relativeUrl: strin
     return true;
   }
 
-  context.channel.appendLine(await response.text());
+  await logDataverseHttpError(context.channel, `PATCH ${relativeUrl}`, response);
   return false;
 }
 

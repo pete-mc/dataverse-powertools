@@ -1,7 +1,7 @@
 import fetch from "node-fetch";
 import { DataverseContext, Options } from "./dataverseContext";
 import DataversePowerToolsContext from "../../context";
-import { dataverseApiUrl } from "./webApi";
+import { dataverseApiUrl, logDataverseHttpError, logDataverseError } from "./webApi";
 
 export async function getDataverseMessages(context: DataversePowerToolsContext): Promise<string[]> {
   if (!context.dataverse) {
@@ -23,8 +23,7 @@ export async function getDataverseMessages(context: DataversePowerToolsContext):
     const url = dataverseApiUrl(context.dataverse?.organizationUrl, "sdkmessages?$select=name&$filter=isprivate eq false");
     const response = await fetch(url, options);
     if (!response.ok) {
-      const data: any = await response.text();
-      context.channel.appendLine(data);
+      await logDataverseHttpError(context.channel, "load messages", response);
       return [];
     }
     const data: any = await response.json();
@@ -39,7 +38,8 @@ export async function getDataverseMessages(context: DataversePowerToolsContext):
       .sort((a: string, b: string) => (a > b ? 1 : -1));
 
     return messages;
-  } catch {
+  } catch (e) {
+    logDataverseError(context.channel, "load messages", e);
     return [];
   }
 }

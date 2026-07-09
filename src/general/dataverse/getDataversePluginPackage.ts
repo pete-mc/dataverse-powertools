@@ -2,7 +2,7 @@ import fetch from "node-fetch";
 import * as fs from "fs";
 import DataversePowerToolsContext from "../../context";
 import { DataverseContext, Options } from "./dataverseContext";
-import { dataverseApiUrl } from "./webApi";
+import { dataverseApiUrl, logDataverseHttpError } from "./webApi";
 
 function escapeODataString(value: string): string {
   return value.replace(/'/g, "''");
@@ -80,7 +80,7 @@ export async function getDataversePluginPackageId(context: DataversePowerToolsCo
   const url = dataverseApiUrl(auth.baseUrl, `pluginpackages?$select=pluginpackageid,uniquename,name&$filter=uniquename eq '${escapedUniqueName}'`);
   const response = await fetch(url, createRequestOptions(auth.token, "GET"));
   if (!response.ok) {
-    context.channel.appendLine(await response.text());
+    await logDataverseHttpError(context.channel, `look up plugin package '${uniqueName}'`, response);
     return undefined;
   }
 
@@ -108,7 +108,7 @@ async function createDataversePluginPackage(context: DataversePowerToolsContext,
   const url = dataverseApiUrl(auth.baseUrl, "pluginpackages");
   const response = await fetch(url, createRequestOptions(auth.token, "POST", payload));
   if (!response.ok) {
-    context.channel.appendLine(await response.text());
+    await logDataverseHttpError(context.channel, `create plugin package '${metadata.uniqueName}'`, response);
     return undefined;
   }
 
@@ -142,7 +142,7 @@ async function updateDataversePluginPackage(context: DataversePowerToolsContext,
   const url = dataverseApiUrl(auth.baseUrl, `pluginpackages(${pluginPackageId})`);
   const response = await fetch(url, createRequestOptions(auth.token, "PATCH", payload));
   if (!response.ok) {
-    context.channel.appendLine(await response.text());
+    await logDataverseHttpError(context.channel, `update plugin package '${metadata.uniqueName}'`, response);
     return false;
   }
 
@@ -189,7 +189,7 @@ export async function waitForDataversePluginAssemblyFromPackage(
   while (Date.now() - startTime <= maxWaitMs) {
     const response = await fetch(query, createRequestOptions(auth.token, "GET"));
     if (!response.ok) {
-      context.channel.appendLine(await response.text());
+      await logDataverseHttpError(context.channel, `wait for plugin assembly '${assemblyName}'`, response);
       return undefined;
     }
 

@@ -1,7 +1,7 @@
 import fetch from "node-fetch";
 import { DataverseContext, Options } from "./dataverseContext";
 import DataversePowerToolsContext from "../../context";
-import { dataverseApiUrl } from "./webApi";
+import { dataverseApiUrl, logDataverseHttpError, logDataverseError } from "./webApi";
 
 export async function getDataverseTableAttributes(context: DataversePowerToolsContext, tableLogicalName: string): Promise<string[]> {
   if (!context.dataverse) {
@@ -27,11 +27,13 @@ export async function getDataverseTableAttributes(context: DataversePowerToolsCo
   /* eslint-enable @typescript-eslint/naming-convention */
 
   try {
-    const url = dataverseApiUrl(context.dataverse.organizationUrl, `EntityDefinitions(LogicalName='${escapedTableLogicalName}')/Attributes?$select=LogicalName&$filter=AttributeOf eq null`);
+    const url = dataverseApiUrl(
+      context.dataverse.organizationUrl,
+      `EntityDefinitions(LogicalName='${escapedTableLogicalName}')/Attributes?$select=LogicalName&$filter=AttributeOf eq null`,
+    );
     const response = await fetch(url, options);
     if (!response.ok) {
-      const data: any = await response.text();
-      context.channel.appendLine(data);
+      await logDataverseHttpError(context.channel, `load attributes for table '${tableLogicalName}'`, response);
       return [];
     }
 
@@ -45,7 +47,8 @@ export async function getDataverseTableAttributes(context: DataversePowerToolsCo
       .map((name: string | undefined) => (typeof name === "string" ? name.trim() : ""))
       .filter((name: string) => name.length > 0)
       .sort((a: string, b: string) => a.localeCompare(b));
-  } catch {
+  } catch (e) {
+    logDataverseError(context.channel, `load attributes for table '${tableLogicalName}'`, e);
     return [];
   }
 }

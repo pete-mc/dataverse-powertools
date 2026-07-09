@@ -1,7 +1,7 @@
 import fetch from "node-fetch";
 import { DataverseContext, Options } from "./dataverseContext";
 import DataversePowerToolsContext from "../../context";
-import { dataverseApiUrl } from "./webApi";
+import { dataverseApiUrl, logDataverseHttpError, logDataverseError } from "./webApi";
 
 export async function getDataverseTables(context: DataversePowerToolsContext): Promise<string[]> {
   if (!context.dataverse) {
@@ -21,8 +21,7 @@ export async function getDataverseTables(context: DataversePowerToolsContext): P
     const url = dataverseApiUrl(context.dataverse?.organizationUrl, "EntityDefinitions?$select=LogicalName");
     const response = await fetch(url, options);
     if (!response.ok) {
-      const data: any = await response.text();
-      context.channel.appendLine(data);
+      await logDataverseHttpError(context.channel, "load tables", response);
       return [];
     }
     const data: any = await response.json();
@@ -34,7 +33,8 @@ export async function getDataverseTables(context: DataversePowerToolsContext): P
       .map((name: string | undefined) => (typeof name === "string" ? name.trim() : ""))
       .filter((name: string) => name.length > 0);
     return tables;
-  } catch {
+  } catch (e) {
+    logDataverseError(context.channel, "load tables", e);
     return [];
   }
 }

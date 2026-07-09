@@ -2,7 +2,7 @@ import fetch from "node-fetch";
 import DataversePowerToolsContext from "../../context";
 import { addDataverseSolutionComponent } from "./addDataverseSolutionComponent";
 import { DataverseContext, Options } from "./dataverseContext";
-import { dataverseApiUrl } from "./webApi";
+import { dataverseApiUrl, logDataverseHttpError } from "./webApi";
 
 // The helpers below take "/api/data/v9.x/<resource>" relative urls; strip the version
 // segment and rebuild via the central helper so every request targets one API version.
@@ -63,7 +63,7 @@ async function getJson(context: DataversePowerToolsContext, relativeUrl: string)
 
   const response = await fetch(toApiUrl(baseUrl, relativeUrl), options);
   if (!response.ok) {
-    context.channel.appendLine(await response.text());
+    await logDataverseHttpError(context.channel, `GET ${relativeUrl}`, response);
     return undefined;
   }
 
@@ -95,7 +95,7 @@ async function sendJson(context: DataversePowerToolsContext, method: "POST" | "P
 
   const response = await fetch(toApiUrl(baseUrl, relativeUrl), options);
   if (!response.ok) {
-    context.channel.appendLine(await response.text());
+    await logDataverseHttpError(context.channel, `${method} ${relativeUrl}`, response);
     return undefined;
   }
 
@@ -200,7 +200,7 @@ async function doesStepExistById(context: DataversePowerToolsContext, stepId: st
     return false;
   }
 
-  context.channel.appendLine(await response.text());
+  await logDataverseHttpError(context.channel, `check plugin step '${stepId}'`, response);
   return false;
 }
 
