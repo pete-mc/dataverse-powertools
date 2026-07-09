@@ -10,6 +10,8 @@
 // widest cell and prints each header at that column's start offset, so slicing data
 // rows at the header offsets is stable regardless of spacing or in-cell spaces.
 
+import { stripTrailingSlashes } from "../general/dataverse/webApi";
+
 export interface PacTableRow {
   [header: string]: string;
 }
@@ -124,12 +126,7 @@ export function parsePacAuthList(output: string): PacAuthProfile[] {
  * undefined if none line up.
  */
 export function findAuthProfileForUrl(profiles: PacAuthProfile[], environmentUrl: string): PacAuthProfile | undefined {
-  const normalize = (value: string): string =>
-    value
-      .trim()
-      .replace(/^https?:\/\//i, "")
-      .replace(/\/+$/, "")
-      .toLowerCase();
+  const normalize = (value: string): string => stripTrailingSlashes(value.trim().replace(/^https?:\/\//i, "")).toLowerCase();
   const target = normalize(environmentUrl);
   if (!target) {
     return undefined;

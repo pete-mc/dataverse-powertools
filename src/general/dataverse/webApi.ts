@@ -4,6 +4,26 @@
 /** The Web API version the extension targets. */
 export const DATAVERSE_API_VERSION = "v9.2";
 
+const SLASH = "/".charCodeAt(0);
+
+/** Remove trailing "/" characters. Non-regex (linear) to avoid backtracking on input. */
+export function stripTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === SLASH) {
+    end--;
+  }
+  return value.slice(0, end);
+}
+
+/** Remove leading "/" characters. Non-regex (linear) to avoid backtracking on input. */
+export function stripLeadingSlashes(value: string): string {
+  let start = 0;
+  while (start < value.length && value.charCodeAt(start) === SLASH) {
+    start++;
+  }
+  return value.slice(start);
+}
+
 /**
  * Build a Dataverse Web API URL from the organization URL and a resource path, e.g.
  * dataverseApiUrl("https://org.crm.dynamics.com", "WhoAmI") ->
@@ -11,8 +31,8 @@ export const DATAVERSE_API_VERSION = "v9.2";
  * slashes on either part.
  */
 export function dataverseApiUrl(organizationUrl: string | undefined | null, resourcePath: string): string {
-  const base = (organizationUrl ?? "").replace(/\/+$/, "");
-  const resource = (resourcePath ?? "").replace(/^\/+/, "");
+  const base = stripTrailingSlashes(organizationUrl ?? "");
+  const resource = stripLeadingSlashes(resourcePath ?? "");
   return `${base}/api/data/${DATAVERSE_API_VERSION}/${resource}`;
 }
 
