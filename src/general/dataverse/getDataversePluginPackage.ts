@@ -153,10 +153,16 @@ export async function upsertDataversePluginPackage(context: DataversePowerToolsC
   const existingId = await getDataversePluginPackageId(context, metadata.uniqueName);
   if (existingId) {
     const updated = await updateDataversePluginPackage(context, existingId, metadata, packagePath);
+    if (updated) {
+      context.channel.appendLine(`Plugin package '${metadata.uniqueName}' (v${metadata.version}) updated in Dataverse.`);
+    }
     return { pluginPackageId: existingId, created: false, updated };
   }
 
   const createdId = await createDataversePluginPackage(context, metadata, packagePath);
+  if (createdId) {
+    context.channel.appendLine(`Plugin package '${metadata.uniqueName}' (v${metadata.version}) created in Dataverse (${createdId}).`);
+  }
   return { pluginPackageId: createdId, created: !!createdId, updated: false };
 }
 

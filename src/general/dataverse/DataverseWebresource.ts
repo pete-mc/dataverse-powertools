@@ -80,6 +80,7 @@ export class DataverseWebresource {
       const action = this.id ? "update" : "create";
       throw new Error(`Failed to ${action} webresource ${this.name}: ${responseText}`);
     }
+    this.context.channel.appendLine(`Webresource '${this.name}' ${this.id ? "updated" : "created"} in Dataverse.`);
   }
 
   public async addToSolution(solutionUniqueName: string): Promise<void> {
@@ -122,6 +123,7 @@ export class DataverseWebresource {
 
     const response = await fetch(dataverseApiUrl(organisationUrl, "AddSolutionComponent"), options);
     if (response.ok) {
+      this.context.channel.appendLine(`Added webresource '${this.name}' to solution '${solutionUniqueName}'.`);
       return;
     }
 
