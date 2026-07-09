@@ -9,6 +9,10 @@ describe("resolveExecArgv (restore command allowlist)", () => {
     // typescript is pinned to v5 so it doesn't resolve to v7 and break the @typescript-eslint peer.
     expect(resolveExecArgv("npm install typescript@^5 --loglevel=error")).toEqual(["npm", "install", "typescript@^5", "--loglevel=error"]);
     expect(resolveExecArgv("npm install typescript --loglevel=error")).toBeUndefined();
+    // paket is pinned to 9.0.2 (latest 10.x is broken on the .NET 8 SDK); the allowlist
+    // must match the pinned command in templates/<type>/template.json exactly.
+    expect(resolveExecArgv("dotnet tool install paket --version 9.0.2")).toEqual(["dotnet", "tool", "install", "paket", "--version", "9.0.2"]);
+    expect(resolveExecArgv("dotnet tool install paket")).toBeUndefined();
   });
 
   it("passes through argv arrays (the interpolated plugin-v3 rewrites)", () => {

@@ -5,6 +5,7 @@
 // locally before a release with `npm run test:e2e`.
 import * as path from "path";
 import * as fs from "fs";
+import * as os from "os";
 import { VSBrowser, Workbench, InputBox } from "vscode-extension-tester";
 
 export const repoRoot = path.resolve(__dirname, "..", "..", "..");
@@ -139,6 +140,55 @@ export async function pickFirst(timeoutMs = 30000): Promise<void> {
   await sleep(2500);
 }
 
+/** Normalise a Dataverse org url for comparison (strip trailing slash, lowercase). */
+function normalizeUrl(u: string): string {
+  return u.trim().replace(/\/+$/, "").toLowerCase();
+}
+
+/**
+ * Select the quick-pick item that matches `value` by label OR description. The
+ * environment step labels items by friendly name ("Peter McDonald's Environment")
+ * and puts the org url in the *description*, so selecting by the url — which is all
+ * the test knows — must look at the description, not just the label (ExTester's
+ * selectQuickPick matches labels). Falls back to a label match, then the first item.
+ */
+async function selectPickMatching(input: InputBox, value: string): Promise<boolean> {
+  const target = normalizeUrl(value);
+  const picks = await input.getQuickPicks();
+  for (const p of picks) {
+    let label = "";
+    let desc = "";
+    try {
+      label = await p.getLabel();
+    } catch {
+      label = "";
+    }
+    try {
+      desc = (await p.getDescription()) ?? "";
+    } catch {
+      desc = "";
+    }
+    const nd = normalizeUrl(desc);
+    const descMatch = nd.length > 0 && (nd === target || nd.includes(target) || target.includes(nd));
+    const labelMatch = normalizeUrl(label) === target || label === value;
+    if (descMatch || labelMatch) {
+      await p.select();
+      return true;
+    }
+  }
+  // Fallbacks: ExTester's own label matcher, then the first item.
+  try {
+    await input.selectQuickPick(value);
+    return true;
+  } catch {
+    if (picks.length > 0) {
+      await picks[0].select();
+      return true;
+    }
+  }
+  return false;
+}
+
 /**
  * Answer a step that may be EITHER a quick pick or a text input. The wizard's
  * environment step, for example, is a quick pick when Global Discovery returns
@@ -147,9 +197,11 @@ export async function pickFirst(timeoutMs = 30000): Promise<void> {
  */
 export async function answerFlexible(value: string, timeoutMs = 30000): Promise<void> {
   const input = await waitForInput(timeoutMs);
-  const pickCount = await waitForPicks(input, 5000);
+  // Global Discovery is a network round-trip; give the picks room to populate before
+  // deciding this is the manual-url text box.
+  const pickCount = await waitForPicks(input, 10000);
   if (pickCount > 0) {
-    await input.selectQuickPick(value);
+    await selectPickMatching(input, value);
   } else {
     for (let attempt = 0; attempt < 4; attempt++) {
       await input.setText(value);
@@ -195,9 +247,18 @@ export async function waitForFile(filePath: string, timeoutMs: number, intervalM
   return fs.existsSync(filePath);
 }
 
-/** Wipe and recreate a workspace directory under sandbox/ for a clean project. */
+/**
+ * Wipe and recreate a clean workspace directory for an e2e project.
+ *
+ * MUST live outside this repo tree. A webresource project has no package.json, so
+ * `npm install` walks up the directory tree looking for one; nested under the repo it
+ * finds the repo's own package.json and installs into the repo's node_modules instead
+ * of the project's — so the project's local deps never appear and the webpack build
+ * can't resolve them. Using the OS temp dir isolates the project (test/live does the
+ * same, via os.tmpdir()).
+ */
 export function freshWorkspace(name: string): string {
-  const dir = path.resolve(repoRoot, "sandbox", "e2e", name);
+  const dir = path.join(os.tmpdir(), "dvpt-e2e", name);
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(dir, { recursive: true });
   return dir;

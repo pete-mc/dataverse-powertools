@@ -124,7 +124,7 @@ const ALLOWED_ARGV: ReadonlyArray<ReadonlyArray<string>> = [
   ["dotnet", "restore"],
   ["dotnet", "new", "tool-manifest"],
   ["dotnet", "new", "tool-manifest", "--force"],
-  ["dotnet", "tool", "install", "paket"],
+  ["dotnet", "tool", "install", "paket", "--version", "9.0.2"],
   ["dotnet", "tool", "restore"],
   ["dotnet", "paket", "install"],
   ["dotnet", "add", "package", "Microsoft.CrmSdk.Workflow"],
