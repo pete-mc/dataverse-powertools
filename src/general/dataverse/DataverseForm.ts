@@ -2,6 +2,7 @@ import fetch from "node-fetch";
 import DataversePowerToolsContext from "../../context";
 import { XMLBuilder, XMLParser } from "fast-xml-parser";
 import { Options } from "./dataverseContext";
+import { dataverseApiUrl, logDataverseHttpError, logDataverseError } from "./webApi";
 
 export class DataverseForm {
   id: string;
@@ -32,7 +33,7 @@ export class DataverseForm {
       this.context.channel.appendLine("Could not connect to dataverse.");
       return;
     }
-    const organisationUrl = this.context.connectionString.split(";")[2].replace("Url=", "");
+    const organisationUrl = this.context.dataverse.organizationUrl;
     /* eslint-disable @typescript-eslint/naming-convention */
     const options = {
       headers: {
@@ -44,10 +45,10 @@ export class DataverseForm {
     /* eslint-enable @typescript-eslint/naming-convention */
     try {
       this.context.channel.appendLine(`Loading Form: ${this.id}`);
-      const url = organisationUrl + "/api/data/v9.1/systemforms(" + this.id + ")?$select=formxml";
+      const url = dataverseApiUrl(organisationUrl, `systemforms(${this.id})?$select=formxml`);
       const response = await fetch(url, options);
       if (response.ok === false) {
-        this.context.channel.appendLine(await response.text());
+        await logDataverseHttpError(this.context.channel, `load form '${this.id}'`, response);
         return;
       }
       const data: any = await response.json();
@@ -56,7 +57,7 @@ export class DataverseForm {
       }
       this.form = await new XMLParser(this.parsingOptions).parse(data.formxml);
     } catch (e) {
-      this.context.channel.appendLine(JSON.stringify(e));
+      logDataverseError(this.context.channel, `load form '${this.id}'`, e);
     }
   }
 
@@ -65,7 +66,7 @@ export class DataverseForm {
       this.context.channel.appendLine("Could not connect to dataverse.");
       return;
     }
-    const organisationUrl = this.context.connectionString.split(";")[2].replace("Url=", "");
+    const organisationUrl = this.context.dataverse.organizationUrl;
     try {
       /* eslint-disable @typescript-eslint/naming-convention */
       const options = {
@@ -79,16 +80,15 @@ export class DataverseForm {
       /* eslint-enable @typescript-eslint/naming-convention */
       const formxml = (await new XMLBuilder(this.parsingOptions).build(this.form)).replace(/&quot;/g, '"');
       options.body = JSON.stringify({ formxml: formxml });
-      const url = organisationUrl + "/api/data/v9.1/systemforms(" + this.id + ")";
+      const url = dataverseApiUrl(organisationUrl, `systemforms(${this.id})`);
       const response = await fetch(url, options);
-      const data: any = await response.text();
-      if (data === null || data === "") {
-        this.context.channel.appendLine(`Saved Form: ${this.id}`);
+      if (!response.ok) {
+        await logDataverseHttpError(this.context.channel, `save form '${this.id}'`, response);
         return;
       }
-      this.context.channel.appendLine(data);
+      this.context.channel.appendLine(`Saved Form: ${this.id}`);
     } catch (e) {
-      this.context.channel.appendLine(JSON.stringify(e));
+      logDataverseError(this.context.channel, `save form '${this.id}'`, e);
     }
   }
 }

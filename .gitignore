@@ -9,6 +9,10 @@ test-resources/
 templates/plugin/plugin.csproj/obj/
 templates/plugin/plugins_src.csproj/obj/
 templates/plugin/plugins_srctest.csproj/obj/
+templates/plugin/PROJECTNAMESPACE.csproj/obj/
+templates/plugin/PROJECTNAMESPACE_tests.csproj/obj/
+templates/plugin/**/bin/
+templates/plugin/**/obj/
 WindowsCredentialManager/bin/
 WindowsCredentialManager/obj/
 

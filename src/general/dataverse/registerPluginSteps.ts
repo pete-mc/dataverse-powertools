@@ -2,6 +2,13 @@ import fetch from "node-fetch";
 import DataversePowerToolsContext from "../../context";
 import { addDataverseSolutionComponent } from "./addDataverseSolutionComponent";
 import { DataverseContext, Options } from "./dataverseContext";
+import { dataverseApiUrl, logDataverseHttpError } from "./webApi";
+
+// The helpers below take "/api/data/v9.x/<resource>" relative urls; strip the version
+// segment and rebuild via the central helper so every request targets one API version.
+function toApiUrl(baseUrl: string, relativeUrl: string): string {
+  return dataverseApiUrl(baseUrl, relativeUrl.replace(/^\/?api\/data\/v9\.[0-9]\//, ""));
+}
 
 export interface PluginStepRegistration {
   className: string;
@@ -54,9 +61,9 @@ async function getJson(context: DataversePowerToolsContext, relativeUrl: string)
   } as Options;
   /* eslint-enable @typescript-eslint/naming-convention */
 
-  const response = await fetch(`${baseUrl}${relativeUrl}`, options);
+  const response = await fetch(toApiUrl(baseUrl, relativeUrl), options);
   if (!response.ok) {
-    context.channel.appendLine(await response.text());
+    await logDataverseHttpError(context.channel, `GET ${relativeUrl}`, response);
     return undefined;
   }
 
@@ -86,9 +93,9 @@ async function sendJson(context: DataversePowerToolsContext, method: "POST" | "P
   } as Options;
   /* eslint-enable @typescript-eslint/naming-convention */
 
-  const response = await fetch(`${baseUrl}${relativeUrl}`, options);
+  const response = await fetch(toApiUrl(baseUrl, relativeUrl), options);
   if (!response.ok) {
-    context.channel.appendLine(await response.text());
+    await logDataverseHttpError(context.channel, `${method} ${relativeUrl}`, response);
     return undefined;
   }
 
@@ -184,7 +191,7 @@ async function doesStepExistById(context: DataversePowerToolsContext, stepId: st
   } as Options;
   /* eslint-enable @typescript-eslint/naming-convention */
 
-  const response = await fetch(`${baseUrl}/api/data/v9.1/sdkmessageprocessingsteps(${stepId})?$select=sdkmessageprocessingstepid`, options);
+  const response = await fetch(toApiUrl(baseUrl, `/api/data/v9.1/sdkmessageprocessingsteps(${stepId})?$select=sdkmessageprocessingstepid`), options);
   if (response.ok) {
     return true;
   }
@@ -193,7 +200,7 @@ async function doesStepExistById(context: DataversePowerToolsContext, stepId: st
     return false;
   }
 
-  context.channel.appendLine(await response.text());
+  await logDataverseHttpError(context.channel, `check plugin step '${stepId}'`, response);
   return false;
 }
 

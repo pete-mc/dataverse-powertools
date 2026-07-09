@@ -2,6 +2,8 @@ import * as vscode from "vscode";
 import * as cp from "child_process";
 import DataversePowerToolsContext from "../context";
 import { window } from "vscode";
+import { getOrganizationUrl } from "../general/connectionString";
+import { parsePacAuthList, findAuthProfileForUrl, parsePacPagesList } from "./pacOutput";
 import path = require("path");
 
 export async function connectPortal(context: DataversePowerToolsContext, command: string) {
@@ -84,19 +86,22 @@ export async function connectPortalExec(context: DataversePowerToolsContext, pac
     try {
       const stdout = await runPac(context, pacLocation, ["auth", "list"]);
       if (stdout !== null && stdout !== "") {
-        const connectionStringSplit = context.connectionString.substring(context.connectionString.indexOf("Url=") + 4, context.connectionString.length - 1);
-        const name = connectionStringSplit.split(";")[0];
-        const arrayOfString = stdout.replace(/\s\s+/g, " ").split(" ");
-        const indexOfName = arrayOfString.findIndex((x) => x.includes(name)) - 1;
-        const nameOfPortal = arrayOfString[indexOfName];
-        context.channel.appendLine(nameOfPortal || "");
-        context.channel.show();
         context.channel.appendLine(stdout);
-        if (!nameOfPortal) {
+        const targetUrl = getOrganizationUrl(context.connectionString);
+        const profile = findAuthProfileForUrl(parsePacAuthList(stdout), targetUrl);
+        if (!profile) {
           vscode.window.showErrorMessage("Error finding matching portal.");
-          await createPACConnection(context, pacLocation, name);
+          await createPACConnection(context, pacLocation, targetUrl);
         } else {
-          await selectEnvironment(context, pacLocation, nameOfPortal);
+          // Prefer selecting by profile name; fall back to its index when unnamed.
+          const selector = profile.name ? ["-n", profile.name] : profile.index !== undefined ? ["--index", String(profile.index)] : undefined;
+          if (!selector) {
+            vscode.window.showErrorMessage("Error finding matching portal.");
+            return;
+          }
+          context.channel.appendLine(`Selecting auth profile: ${profile.name || `#${profile.index}`}`);
+          context.channel.show();
+          await selectEnvironment(context, pacLocation, selector);
         }
       }
     } catch (error: any) {
@@ -107,27 +112,15 @@ export async function connectPortalExec(context: DataversePowerToolsContext, pac
   }
 }
 
-export async function selectEnvironment(context: DataversePowerToolsContext, pacLocation: string, name: string) {
+export async function selectEnvironment(context: DataversePowerToolsContext, pacLocation: string, selector: string[]) {
   if (vscode.workspace.workspaceFolders !== undefined) {
     try {
-      const stdout = await runPac(context, pacLocation, ["auth", "select", "-n", name]);
+      const stdout = await runPac(context, pacLocation, ["auth", "select", ...selector]);
       if (stdout !== null && stdout !== "") {
-        const connectionStringSplit = context.connectionString.substring(context.connectionString.indexOf("Url=") + 4, context.connectionString.length - 1);
-        const currentName = connectionStringSplit.split(";")[0];
-        const arrayOfString = stdout.replace(/\s\s+/g, " ").split(" ");
-        const indexOfName = arrayOfString.findIndex((x) => x === currentName) - 1;
-        const nameOfPortal = arrayOfString[indexOfName];
-        context.channel.appendLine(nameOfPortal || "");
+        context.channel.appendLine(stdout);
         context.channel.show();
-
-        const authListOutput = await runPac(context, pacLocation, ["auth", "list"]);
-        if (authListOutput !== null && authListOutput !== "") {
-          context.channel.appendLine(nameOfPortal || "");
-          context.channel.show();
-          context.channel.appendLine(authListOutput);
-          await downloadPortal(context, pacLocation);
-        }
       }
+      await downloadPortal(context, pacLocation);
     } catch (error: any) {
       vscode.window.showErrorMessage("Error finding Portals.");
       context.channel.appendLine(error?.error?.message || error?.message || JSON.stringify(error));
@@ -142,12 +135,14 @@ export async function downloadPortal(context: DataversePowerToolsContext, pacLoc
     try {
       const stdout = await runPac(context, pacLocation, ["pages", "list"]);
       if (stdout !== null && stdout !== "") {
-        const arrayOfString = stdout.replace(/\s\s+/g, "\r").split("\r");
-        const indexBeforeInformation = arrayOfString.findIndex((x) => x === "Friendly Name") + 1;
-        const quickPickArray: { label: string; target: string }[] = [];
-        for (let i = indexBeforeInformation; i <= arrayOfString.length - 2; i += 3) {
-          quickPickArray.push({ label: arrayOfString[i + 2], target: arrayOfString[i + 1] });
+        context.channel.appendLine(stdout);
+        const pages = parsePacPagesList(stdout);
+        if (pages.length === 0) {
+          vscode.window.showErrorMessage("No Power Pages websites were found in this environment.");
+          context.channel.show();
+          return;
         }
+        const quickPickArray = pages.map((page) => ({ label: page.friendlyName || page.websiteId, target: page.websiteId }));
 
         const result = await window.showQuickPick(quickPickArray, { placeHolder: "Select a Power Pages website." });
         if (!result?.target) {
@@ -159,10 +154,8 @@ export async function downloadPortal(context: DataversePowerToolsContext, pacLoc
         const downloadOutput = await runPac(context, pacLocation, ["pages", "download", "-id", result.target, "-p", downloadPath]);
         if (downloadOutput !== null && downloadOutput !== "") {
           context.channel.appendLine(downloadOutput);
-          context.channel.show();
         }
         context.channel.show();
-        context.channel.appendLine(stdout);
       }
     } catch (error: any) {
       vscode.window.showErrorMessage("Error finding Portals.");

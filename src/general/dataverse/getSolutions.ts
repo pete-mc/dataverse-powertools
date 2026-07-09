@@ -1,6 +1,7 @@
 import fetch from "node-fetch";
 import { DataverseContext, Options } from "./dataverseContext";
 import DataversePowerToolsContext from "../../context";
+import { dataverseApiUrl, logDataverseHttpError, logDataverseError } from "./webApi";
 
 export async function getSolutions(context: DataversePowerToolsContext): Promise<DataverseSolution[] | undefined> {
   /* eslint-disable @typescript-eslint/naming-convention */
@@ -22,14 +23,13 @@ export async function getSolutions(context: DataversePowerToolsContext): Promise
     return undefined;
   }
   try {
-    const url =
-      context.dataverse?.organizationUrl +
-      "/api/data/v9.1/solutions?$select=friendlyname,uniquename,solutionid,publisherid&$filter=ismanaged%20eq%20false&$expand=publisherid($select=friendlyname,customizationprefix,publisherid)";
+    const url = dataverseApiUrl(
+      context.dataverse?.organizationUrl,
+      "solutions?$select=friendlyname,uniquename,solutionid,publisherid&$filter=ismanaged%20eq%20false&$expand=publisherid($select=friendlyname,customizationprefix,publisherid)",
+    );
     const response = await fetch(url, options);
     if (!response.ok) {
-      const body = await response.text();
-      context.channel.appendLine(`Failed to list solutions: ${response.status} ${response.statusText} ${body}`);
-      context.channel.show();
+      await logDataverseHttpError(context.channel, "list solutions", response);
       return undefined;
     }
     const data: any = await response.json();
@@ -39,9 +39,8 @@ export async function getSolutions(context: DataversePowerToolsContext): Promise
     }
     const solutions = data.value.map((record: SolutionResult) => new DataverseSolution(record));
     return solutions;
-  } catch (e: any) {
-    context.channel.appendLine(`Error listing solutions: ${e?.message || JSON.stringify(e)}`);
-    context.channel.show();
+  } catch (e) {
+    logDataverseError(context.channel, "list solutions", e);
     return undefined;
   }
 }

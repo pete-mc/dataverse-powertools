@@ -1,6 +1,7 @@
 import fetch from "node-fetch";
 import DataversePowerToolsContext from "../../context";
 import { DataverseContext, Options } from "./dataverseContext";
+import { dataverseApiUrl, logDataverseHttpError } from "./webApi";
 
 async function ensureDataverseContext(context: DataversePowerToolsContext): Promise<boolean> {
   if (!context.dataverse) {
@@ -47,7 +48,7 @@ export async function addDataverseSolutionComponent(context: DataversePowerTools
   } as Options;
   /* eslint-enable @typescript-eslint/naming-convention */
 
-  const response = await fetch(`${context.dataverse.organizationUrl}/api/data/v9.1/AddSolutionComponent`, options);
+  const response = await fetch(dataverseApiUrl(context.dataverse.organizationUrl, "AddSolutionComponent"), options);
   if (response.ok) {
     return true;
   }
@@ -58,7 +59,11 @@ export async function addDataverseSolutionComponent(context: DataversePowerTools
     return true;
   }
 
-  context.channel.appendLine(responseText);
+  // Body already consumed for the "already in solution" check above, so format the
+  // failure inline in the same shape as logDataverseHttpError rather than re-reading.
+  const status = `${response.status}${response.statusText ? ` ${response.statusText}` : ""}`.trim();
+  context.channel.appendLine(`Failed to add component to solution '${solutionUniqueName}': ${status}${responseText ? ` — ${responseText}` : ""}`);
+  context.channel.show();
   return false;
 }
 
@@ -84,10 +89,10 @@ async function resolveSolutionComponentTypeByObjectId(context: DataversePowerToo
   } as Options;
   /* eslint-enable @typescript-eslint/naming-convention */
 
-  const response = await fetch(`${context.dataverse.organizationUrl}/api/data/v9.1/solutioncomponents?$select=componenttype,objectid&$filter=objectid eq ${componentId}`, options);
+  const response = await fetch(dataverseApiUrl(context.dataverse.organizationUrl, `solutioncomponents?$select=componenttype,objectid&$filter=objectid eq ${componentId}`), options);
 
   if (!response.ok) {
-    context.channel.appendLine(await response.text());
+    await logDataverseHttpError(context.channel, `resolve solution component type for '${componentId}'`, response);
     return undefined;
   }
 
