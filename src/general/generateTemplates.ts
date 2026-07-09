@@ -11,6 +11,7 @@ import { buildProject } from "../plugins_old/buildPlugin";
 import { generateTypings } from "../webresources/generateTypings";
 import { initialisePlugins as initialisePluginsOld } from "../plugins_old/initialisePlugins";
 import { initialisePlugins as initialisePluginsNew } from "../plugins/initialisePlugins";
+import { pluginTableSelector as pluginTableSelectorV3 } from "../plugins/pluginTables";
 import { promptAndSetupPluginUnitTesting } from "../plugins/unitTesting";
 import { initialiseWebresources } from "../webresources/initialiseWebresources";
 import { createWebResourceClass } from "../webresources/createWebresourceClass";
@@ -172,7 +173,15 @@ async function ensurePluginV3Solution(context: DataversePowerToolsContext, works
   }
 
   if (!fs.existsSync(rootSlnPath)) {
-    await execFileAsync("dotnet", ["new", "sln", "--name", solutionName, "--format", "sln"], workspacePath);
+    // `--format sln` forces the classic .sln (newer SDKs can emit .slnx), but that
+    // option only exists on .NET SDK 9+; on SDK 8 `dotnet new sln --format sln` errors
+    // with "'--format' is not a valid option". Try it, and fall back to the plain
+    // command (which already defaults to .sln) on older SDKs.
+    try {
+      await execFileAsync("dotnet", ["new", "sln", "--name", solutionName, "--format", "sln"], workspacePath);
+    } catch {
+      await execFileAsync("dotnet", ["new", "sln", "--name", solutionName], workspacePath);
+    }
     context.channel.appendLine(`Created solution file: ${solutionName}.sln`);
   }
 
@@ -337,6 +346,10 @@ export async function createNewProject(context: DataversePowerToolsContext) {
         case ProjectTypes.plugin:
           if (context.projectSettings.templateversion === 3) {
             await initialisePluginsNew(context);
+            // Register the early-bound settings tree provider now, mirroring activation
+            // (extension.ts initialise). Without this the side panel shows "error
+            // loading" for a freshly created project until VS Code is reloaded.
+            await pluginTableSelectorV3(context);
             context.channel.appendLine("Plugin project initialised using pac plugin init --skip-signing.");
           } else {
             await createSNKKey(context);
@@ -394,6 +407,12 @@ export async function generateTemplates(context: DataversePowerToolsContext) {
   }
   context.projectSettings.placeholders = placeholders;
   templateToCopy.files?.every(async (f) => {
+    // Files marked scaffold:false are on-demand templates for the Create * commands
+    // (class / sample.test), not project scaffolding — don't copy them into a new
+    // project (they carry ClassName/TableName placeholders only those commands fill in).
+    if (f.scaffold === false) {
+      return true;
+    }
     const extension = f.extension === ".tstemplate" ? ".ts" : f.extension; // This is done because the .ts files do not copy into the published extension thus we overwrite it when actually copying from extension into the code
     var data = fs.readFileSync(path.join(templateFilePath, f.filename + f.extension, f.version + f.extension), "utf8");
     data = data.replace(/\SOLUTIONPREFIX/g, context.projectSettings.prefix || "SOLUTIONPREFIX");
@@ -412,6 +431,7 @@ export async function generateTemplates(context: DataversePowerToolsContext) {
     }
     await fs.promises.mkdir(path.dirname(destPathString), { recursive: true });
     await vscode.workspace.fs.writeFile(vscode.Uri.file(destPathString), Buffer.from(data, "utf8"));
+    return true;
   });
   context.channel.appendLine("Template generation complete");
 }

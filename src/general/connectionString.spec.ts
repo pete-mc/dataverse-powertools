@@ -1,5 +1,38 @@
 import { describe, it, expect } from "vitest";
-import { parseConnectionString, normalizeOrganizationUrl, getOrganizationUrl, buildConnectionString, buildAuthConnectionString } from "./connectionString";
+import {
+  parseConnectionString,
+  normalizeOrganizationUrl,
+  getOrganizationUrl,
+  buildConnectionString,
+  buildAuthConnectionString,
+  mergeCredentialConnectionString,
+} from "./connectionString";
+
+describe("mergeCredentialConnectionString", () => {
+  it("inserts the separator when the persisted base has no trailing ';' (the reload auth bug)", () => {
+    // The stored dataverse-powertools.json keeps secrets out and ends at Url with no ';'.
+    const base = "AuthType=ClientSecret;LoginPrompt=Never;Url=https://org32218dcd.crm11.dynamics.com";
+    // Secret storage returns ClientId/ClientSecret (TenantID already stripped).
+    const credentials = "ClientId=f906614e-e545-4be0-a5e6-e802941fb305;ClientSecret=sh-secret;";
+    expect(mergeCredentialConnectionString(base, credentials)).toBe(
+      "AuthType=ClientSecret;LoginPrompt=Never;Url=https://org32218dcd.crm11.dynamics.com;ClientId=f906614e-e545-4be0-a5e6-e802941fb305;ClientSecret=sh-secret",
+    );
+  });
+
+  it("produces a string whose parsed url and clientId are clean (not glued together)", () => {
+    const merged = mergeCredentialConnectionString("AuthType=ClientSecret;LoginPrompt=Never;Url=https://org.crm.dynamics.com", "ClientId=abc;ClientSecret=xyz;");
+    const parts = parseConnectionString(merged);
+    expect(parts.url).toBe("https://org.crm.dynamics.com");
+    expect(parts.clientId).toBe("abc");
+    expect(parts.clientSecret).toBe("xyz");
+  });
+
+  it("tolerates a base that already ends with ';'", () => {
+    expect(mergeCredentialConnectionString("AuthType=ClientSecret;Url=https://org.crm.dynamics.com;", "ClientId=abc;ClientSecret=xyz;")).toBe(
+      "AuthType=ClientSecret;Url=https://org.crm.dynamics.com;ClientId=abc;ClientSecret=xyz",
+    );
+  });
+});
 
 describe("buildAuthConnectionString", () => {
   it("keeps the secret and LoginPrompt for client-secret auth", () => {

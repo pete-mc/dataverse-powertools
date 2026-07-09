@@ -4,6 +4,7 @@ import * as path from "path";
 import * as cp from "child_process";
 import DataversePowerToolsContext from "../context";
 import { parseConnectionString, normalizeOrganizationUrl } from "../general/connectionString";
+import { pacInvocation } from "../general/pac";
 import { pacAuthCreateArgs, pacAuthDeleteArgs, ServicePrincipalAuth } from "./pacArgs";
 import { parseSolutionConfig, SolutionConfig } from "./solutionConfig";
 
@@ -19,8 +20,11 @@ interface PacResult {
 }
 
 function runPac(args: string[], cwd: string): Promise<PacResult> {
+  // On Windows pac is a .cmd shim that execFile can't spawn directly (EINVAL); pac.ts
+  // routes it through cmd.exe /c with an args array.
+  const { command, args: invocationArgs } = pacInvocation(args);
   return new Promise((resolve) => {
-    cp.execFile("pac", args, { cwd, maxBuffer: 1024 * 1024 * 10 }, (error: any, stdout: string, stderr: string) => {
+    cp.execFile(command, invocationArgs, { cwd, maxBuffer: 1024 * 1024 * 10 }, (error: any, stdout: string, stderr: string) => {
       const code = error ? (typeof error.code === "number" ? error.code : 1) : 0;
       resolve({ code, stdout: stdout ?? "", stderr: stderr ?? "" });
     });

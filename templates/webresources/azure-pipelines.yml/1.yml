@@ -24,7 +24,7 @@ steps:
 - task: PowerShell@2
   inputs:
     targetType: 'inline'
-    script: 'dotnet new tool-manifest; dotnet tool install paket; dotnet tool restore; dotnet paket install; npm install'
+    script: 'dotnet new tool-manifest; dotnet tool install paket --version 9.0.2; dotnet tool restore; dotnet paket install; npm install'
   displayName: 'Restore Dependencies'
 
 - task: PowerShell@2

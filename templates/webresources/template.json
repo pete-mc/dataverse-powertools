@@ -4,11 +4,23 @@
         "restoreCommands": [
             {
                 "command": "npm install --loglevel=error"
+            },
+            {
+                "command": "dotnet new tool-manifest"
+            },
+            {
+                "command": "dotnet tool install paket --version 9.0.2"
+            },
+            {
+                "command": "dotnet tool restore"
+            },
+            {
+                "command": "dotnet paket install"
             }
         ],
         "initCommands": [
             {
-                "command": "npm install typescript --loglevel=error"
+                "command": "npm install typescript@^5 --loglevel=error"
             },
             {
                 "command": "npm i eslint eslint-config-prettier @types/jest @typescript-eslint/eslint-plugin @typescript-eslint/parser jest jest-cli prettier syswide-cas ts-jest ts-loader webpack webpack-cli webpack-merge xrm-mock eslint-plugin-prettier jest-junit exports-loader --save-dev --loglevel=error"
@@ -19,6 +31,18 @@
                 "path": [],
                 "filename": ".eslintrc",
                 "extension": ".json",
+                "version": 1
+            },
+            {
+                "path": [],
+                "filename": "nuget",
+                "extension": ".config",
+                "version": 1
+            },
+            {
+                "path": [],
+                "filename": "paket",
+                "extension": ".dependencies",
                 "version": 1
             },
             {
@@ -71,21 +95,23 @@
             },
             {
                 "path": ["webresources_src"],
-                "filename": "class",
-                "extension": ".tstemplate",
-                "version": 1
-            },
-            {
-                "path": ["webresources_src"],
                 "filename": "library",
                 "extension": ".tstemplate",
                 "version": 1
             },
             {
+                "path": ["webresources_src"],
+                "filename": "class",
+                "extension": ".tstemplate",
+                "version": 1,
+                "scaffold": false
+            },
+            {
                 "path": ["webresources_src", "__tests__"],
                 "filename": "sample.test",
                 "extension": ".tstemplate",
-                "version": 1
+                "version": 1,
+                "scaffold": false
             },
             {
                 "path": ["typings"],

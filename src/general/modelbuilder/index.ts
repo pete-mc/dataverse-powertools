@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 import DataversePowerToolsContext from "../../context";
-import { execFileAsync, resolvePacExecutable } from "./commandRunner";
+import { runPac } from "./commandRunner";
 import {
   applyDefaults,
   ensurePluginModelBuilderSettingsLoaded,
@@ -34,10 +34,9 @@ async function createSettingsTemplateFile(context: DataversePowerToolsContext, n
     return;
   }
 
-  const pacExecutable = await resolvePacExecutable();
   const args = ["modelbuilder", "build", "--namespace", namespace, "--serviceContextName", serviceContextName, "--outdirectory", outputDirectory, "--writesettingsTemplateFile"];
 
-  const { stdout, stderr } = await execFileAsync(pacExecutable, args, workspacePath);
+  const { stdout, stderr } = await runPac(args, workspacePath);
   if (stdout) {
     context.channel.appendLine(stdout);
   }
@@ -200,7 +199,6 @@ export async function generateEarlyBoundV3(context: DataversePowerToolsContext) 
   }
 
   const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-  const pacExecutable = await resolvePacExecutable();
   const args = [
     "modelbuilder",
     "build",
@@ -271,7 +269,7 @@ export async function generateEarlyBoundV3(context: DataversePowerToolsContext) 
     },
     async () => {
       try {
-        const { stdout, stderr } = await execFileAsync(pacExecutable, args, workspacePath);
+        const { stdout, stderr } = await runPac(args, workspacePath);
         if (stdout) {
           context.channel.appendLine(stdout);
         }

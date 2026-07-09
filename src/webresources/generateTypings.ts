@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import * as fs from "fs";
 import DataversePowerToolsContext from "../context";
 import { workspaceFilePath } from "../general/paths";
 import { parseConnectionString, normalizeOrganizationUrl } from "../general/connectionString";
@@ -45,14 +46,30 @@ export async function generateTypingsExecution(context: DataversePowerToolsConte
       );
     }
 
-    try {
-      const promise = exec(
-        workspaceFilePath(vscode.workspace.workspaceFolders[0].uri.fsPath, "packages", "Delegate.XrmDefinitelyTyped", "content", "XrmDefinitelyTyped", "XrmDefinitelyTyped.exe"),
-        defTypedOptions,
-        {
-          cwd: vscode.workspace.workspaceFolders[0].uri.fsPath,
-        },
+    const executablePath = workspaceFilePath(
+      vscode.workspace.workspaceFolders[0].uri.fsPath,
+      "packages",
+      "Delegate.XrmDefinitelyTyped",
+      "content",
+      "XrmDefinitelyTyped",
+      "XrmDefinitelyTyped.exe",
+    );
+
+    if (!fs.existsSync(executablePath)) {
+      context.channel.appendLine(`XrmDefinitelyTyped was not found at ${executablePath}.`);
+      context.channel.appendLine(
+        "It is restored from the Delegate.XrmDefinitelyTyped NuGet package via paket. Run the project restore (dotnet tool restore && dotnet paket install), or recreate the project so the paket dependency is present.",
       );
+      context.channel.appendLine("Note: XrmDefinitelyTyped is a Windows-only .NET Framework tool, so typings generation currently requires Windows.");
+      context.channel.show();
+      vscode.window.showErrorMessage("XrmDefinitelyTyped is not installed. See the Dataverse PowerTools output for how to restore it.");
+      return;
+    }
+
+    try {
+      const promise = exec(executablePath, defTypedOptions, {
+        cwd: vscode.workspace.workspaceFolders[0].uri.fsPath,
+      });
       const child = promise.child;
       child.stdout.on("data", function (data: any) {
         context.channel.appendLine(data);

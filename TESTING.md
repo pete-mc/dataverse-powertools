@@ -64,3 +64,42 @@ extension host (F5 / `Run Extension`).
 To run live tests in GitHub Actions, add the same values as repository secrets and
 export them as `DVPT_TEST_*` env vars in a dedicated, opt-in job. Keep them out of
 the default PR job so forks and secret-less runs still pass.
+
+## End-to-end lifecycle suites
+
+Two levels of end-to-end, both against the live test env:
+
+### Command-level (headless, no editor) — `npm run test:live`
+
+`test/live/webresourceScaffoldLifecycle.spec.ts` and `test/live/pluginLifecycle.spec.ts`
+drive the whole product lifecycle **without any UI**, so they are reliable and never
+fight the desktop for focus:
+
+- **Web resources:** scaffold from the real template → run the restore commands (npm +
+  paket) → run XrmDefinitelyTyped for typings → webpack build → deploy through the
+  extension's own code → verify + clean up.
+- **Plugins:** `pac plugin init` → early-bound via `pac modelbuilder` (through the
+  extension's `pacInvocation` helper) → `dotnet build` (net462) → package push → verify.
+
+They self-skip without creds + `npm`/`dotnet`/`webpack`/`pac`. This is the fastest way
+to confirm the two flows actually work; run before every release.
+
+### Literal-UI (ExTester) — `npm run test:e2e`
+
+`src/ui-test/e2e/*.e2e.ts` drives the **real VS Code window** (wizard clicks, quick
+picks, commands) via Selenium. Because Selenium types into whatever window has focus,
+this must run on a desktop nothing else is using — otherwise stray keystrokes corrupt
+the run (a client id lands in the URL field, etc.). **Run it in an isolated Windows VM**,
+never on your working desktop:
+
+1. Fresh Windows VM (VMware/Hyper-V). Install the toolchain once:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File scripts\setup-vm-e2e.ps1
+   ```
+   (Node, .NET SDK, .NET Framework 4.x dev pack, Git, pac, global webpack/typescript.)
+2. Clone this repo in the VM and copy your gitignored `sandbox/.env` into it (never
+   commit it).
+3. `npm install`, then `npm run test:e2e`. Keep the VM logged in and the console visible
+   — Selenium needs an interactive desktop. Self-skips without `sandbox/.env`.
+
+The suite is `*.e2e.ts` (not the CI `*.test.js` glob), so it stays out of CI.

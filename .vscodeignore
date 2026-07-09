@@ -19,6 +19,7 @@ TESTING.md
 .env
 .env.example
 .mocharc-ui.json
+.mocharc-e2e.json
 .prettierrc.json
 vsc-extension-quickstart.md
 tsconfig.json
