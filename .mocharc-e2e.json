@@ -1,0 +1,6 @@
+{
+  "ui": "bdd",
+  "timeout": 900000,
+  "reporter": "spec",
+  "slow": 60000
+}
