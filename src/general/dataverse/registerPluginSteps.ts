@@ -4,12 +4,6 @@ import { addDataverseSolutionComponent } from "./addDataverseSolutionComponent";
 import { DataverseContext, Options } from "./dataverseContext";
 import { dataverseApiUrl, logDataverseHttpError } from "./webApi";
 
-// The helpers below take "/api/data/v9.x/<resource>" relative urls; strip the version
-// segment and rebuild via the central helper so every request targets one API version.
-function toApiUrl(baseUrl: string, relativeUrl: string): string {
-  return dataverseApiUrl(baseUrl, relativeUrl.replace(/^\/?api\/data\/v9\.[0-9]\//, ""));
-}
-
 export interface PluginStepRegistration {
   className: string;
   fullTypeName: string;
@@ -61,7 +55,7 @@ async function getJson(context: DataversePowerToolsContext, relativeUrl: string)
   } as Options;
   /* eslint-enable @typescript-eslint/naming-convention */
 
-  const response = await fetch(toApiUrl(baseUrl, relativeUrl), options);
+  const response = await fetch(dataverseApiUrl(baseUrl, relativeUrl), options);
   if (!response.ok) {
     await logDataverseHttpError(context.channel, `GET ${relativeUrl}`, response);
     return undefined;
@@ -93,7 +87,7 @@ async function sendJson(context: DataversePowerToolsContext, method: "POST" | "P
   } as Options;
   /* eslint-enable @typescript-eslint/naming-convention */
 
-  const response = await fetch(toApiUrl(baseUrl, relativeUrl), options);
+  const response = await fetch(dataverseApiUrl(baseUrl, relativeUrl), options);
   if (!response.ok) {
     await logDataverseHttpError(context.channel, `${method} ${relativeUrl}`, response);
     return undefined;
@@ -108,10 +102,7 @@ async function sendJson(context: DataversePowerToolsContext, method: "POST" | "P
 
 async function resolvePluginTypeId(context: DataversePowerToolsContext, assemblyId: string, fullTypeName: string): Promise<string | undefined> {
   const escapedTypeName = escapeODataString(fullTypeName);
-  const data = await getJson(
-    context,
-    `/api/data/v9.1/plugintypes?$select=plugintypeid,typename&$filter=_pluginassemblyid_value eq ${assemblyId} and typename eq '${escapedTypeName}'`,
-  );
+  const data = await getJson(context, `plugintypes?$select=plugintypeid,typename&$filter=_pluginassemblyid_value eq ${assemblyId} and typename eq '${escapedTypeName}'`);
 
   if (!data?.value || !Array.isArray(data.value) || data.value.length === 0) {
     return undefined;
@@ -122,7 +113,7 @@ async function resolvePluginTypeId(context: DataversePowerToolsContext, assembly
 
 async function resolveSdkMessageId(context: DataversePowerToolsContext, messageName: string): Promise<string | undefined> {
   const escapedMessageName = escapeODataString(messageName);
-  const data = await getJson(context, `/api/data/v9.1/sdkmessages?$select=sdkmessageid,name&$filter=name eq '${escapedMessageName}'`);
+  const data = await getJson(context, `sdkmessages?$select=sdkmessageid,name&$filter=name eq '${escapedMessageName}'`);
   if (!data?.value || !Array.isArray(data.value) || data.value.length === 0) {
     return undefined;
   }
@@ -138,7 +129,7 @@ async function resolveSdkMessageFilterId(context: DataversePowerToolsContext, sd
   const escapedEntityName = escapeODataString(entityLogicalName);
   const data = await getJson(
     context,
-    `/api/data/v9.1/sdkmessagefilters?$select=sdkmessagefilterid,primaryobjecttypecode&$filter=_sdkmessageid_value eq ${sdkMessageId} and primaryobjecttypecode eq '${escapedEntityName}'`,
+    `sdkmessagefilters?$select=sdkmessagefilterid,primaryobjecttypecode&$filter=_sdkmessageid_value eq ${sdkMessageId} and primaryobjecttypecode eq '${escapedEntityName}'`,
   );
 
   if (!data?.value || !Array.isArray(data.value) || data.value.length === 0) {
@@ -159,7 +150,7 @@ async function resolveExistingStepId(context: DataversePowerToolsContext, step: 
   const escapedStepName = escapeODataString(step.stepName);
   const data = await getJson(
     context,
-    `/api/data/v9.1/sdkmessageprocessingsteps?$select=sdkmessageprocessingstepid,name&$filter=_plugintypeid_value eq ${pluginTypeId} and _sdkmessageid_value eq ${sdkMessageId} and name eq '${escapedStepName}'`,
+    `sdkmessageprocessingsteps?$select=sdkmessageprocessingstepid,name&$filter=_plugintypeid_value eq ${pluginTypeId} and _sdkmessageid_value eq ${sdkMessageId} and name eq '${escapedStepName}'`,
   );
 
   if (!data?.value || !Array.isArray(data.value) || data.value.length === 0) {
@@ -191,7 +182,7 @@ async function doesStepExistById(context: DataversePowerToolsContext, stepId: st
   } as Options;
   /* eslint-enable @typescript-eslint/naming-convention */
 
-  const response = await fetch(toApiUrl(baseUrl, `/api/data/v9.1/sdkmessageprocessingsteps(${stepId})?$select=sdkmessageprocessingstepid`), options);
+  const response = await fetch(dataverseApiUrl(baseUrl, `sdkmessageprocessingsteps(${stepId})?$select=sdkmessageprocessingstepid`), options);
   if (response.ok) {
     return true;
   }
@@ -215,10 +206,7 @@ interface ExistingStepSnapshot {
 }
 
 async function getExistingStepSnapshot(context: DataversePowerToolsContext, stepId: string): Promise<ExistingStepSnapshot | undefined> {
-  const data = await getJson(
-    context,
-    `/api/data/v9.1/sdkmessageprocessingsteps(${stepId})?$select=sdkmessageprocessingstepid,name,rank,stage,mode,filteringattributes,_sdkmessagefilterid_value`,
-  );
+  const data = await getJson(context, `sdkmessageprocessingsteps(${stepId})?$select=sdkmessageprocessingstepid,name,rank,stage,mode,filteringattributes,_sdkmessagefilterid_value`);
 
   if (!data) {
     return undefined;
@@ -345,7 +333,7 @@ export async function registerPluginSteps(
       const requiresUpdate = existingSnapshot ? stepNeedsUpdate(existingSnapshot, step, sdkMessageFilterId) : true;
 
       if (requiresUpdate) {
-        const updateResponse = await sendJson(context, "PATCH", `/api/data/v9.1/sdkmessageprocessingsteps(${existingStepId})`, stepPayload);
+        const updateResponse = await sendJson(context, "PATCH", `sdkmessageprocessingsteps(${existingStepId})`, stepPayload);
         if (updateResponse !== undefined) {
           updated++;
         } else {
@@ -366,7 +354,7 @@ export async function registerPluginSteps(
       continue;
     }
 
-    const createResponse = await sendJson(context, "POST", "/api/data/v9.1/sdkmessageprocessingsteps", stepPayload);
+    const createResponse = await sendJson(context, "POST", "sdkmessageprocessingsteps", stepPayload);
     const createdStepId = createResponse?.sdkmessageprocessingstepid;
     if (createResponse !== undefined && createdStepId) {
       created++;
