@@ -133,6 +133,19 @@ export function buildConnectionString(parts: ParsedConnectionString): string {
 }
 
 /**
+ * Merge a persisted base connection string (AuthType/LoginPrompt/Url — secrets kept
+ * out of the settings file) with a `ClientId=…;ClientSecret=…` credential string from
+ * secret storage. Uses the parser/builder so separators are always correct: a plain
+ * string concat glued `Url=<url>` and `ClientId=…` together when the base had no
+ * trailing `;`, producing an invalid string that broke auth + typings on every reload.
+ */
+export function mergeCredentialConnectionString(base: string | undefined | null, credentialString: string | undefined | null): string {
+  const baseParts = parseConnectionString(base);
+  const creds = parseConnectionString(credentialString);
+  return buildConnectionString({ ...baseParts, clientId: creds.clientId, clientSecret: creds.clientSecret });
+}
+
+/**
  * Build the connection string for a chosen auth type, emitting only the parts that
  * type needs: ClientSecret keeps its secret + LoginPrompt; OAuth carries nothing
  * sensitive. Empty parts are dropped by buildConnectionString.

@@ -9,6 +9,7 @@ All notable changes to the "dataverse-powertools" extension will be documented i
 - Fixed new Web Resources projects failing to create with an `npm ERESOLVE` error — TypeScript is now pinned to v5 (a bare install resolved to TypeScript 7, which conflicts with the ESLint TypeScript plugin's peer range).
 - Fixed the early-bound side panel showing "error loading" until VS Code was reloaded after creating a project — the tree view provider is now registered immediately on project creation.
 - Fixed typings generation failing with `XrmDefinitelyTyped.exe ENOENT`: new Web Resources projects now restore the `Delegate.XrmDefinitelyTyped` tool via paket (the restore step had been missing from the template), and the command now reports a clear, actionable error if the tool still isn't present.
+- Fixed service-principal projects failing to reconnect on load ("Dataverse Not Connected", "Error refreshing authorization token", and broken typings): when reassembling the connection string from the stored settings and the secret-storage credentials, the client id was glued onto the URL with no separator (`Url=<url>ClientId=…`). The parts are now merged through the shared connection-string builder so the separators are always correct.
 
 ## 0.5.1
 

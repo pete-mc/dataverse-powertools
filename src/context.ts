@@ -4,7 +4,7 @@ import { createServicePrincipalString, getServicePrincipalString, getProjectType
 import { DataverseContext } from "./general/dataverse/dataverseContext";
 import { DataverseFormRecord } from "./general/dataverse/getDataverseForms";
 import { workspaceFilePath } from "./general/paths";
-import { parseConnectionString, buildConnectionString, getOrganizationUrl } from "./general/connectionString";
+import { parseConnectionString, buildConnectionString, getOrganizationUrl, mergeCredentialConnectionString } from "./general/connectionString";
 import { parseAuthType, DataverseAuthType } from "./general/dataverse/authTypes";
 
 export default class DataversePowerToolsContext {
@@ -88,7 +88,11 @@ export default class DataversePowerToolsContext {
               await createServicePrincipalString(this);
               this.connectionString = this.projectSettings.connectionString || "";
             } else {
-              this.connectionString += credentialString;
+              // Merge the stored base (AuthType/Url/…) with the secret-storage
+              // ClientId/ClientSecret. A plain `+=` glued `Url=<url>` and `ClientId=…`
+              // together (the persisted base has no trailing `;`), producing an invalid
+              // connection string that broke auth and typings on every reload.
+              this.connectionString = mergeCredentialConnectionString(this.projectSettings.connectionString, credentialString);
             }
           }
         })
