@@ -90,6 +90,12 @@ describe("Dataverse PowerTools connect + log", function () {
     await sleep(6000);
     await dismissOverlays();
 
+    // Real build + deploy: runs `webpack --config webpack.dev.js` in the fixture
+    // (emits bin/dvpt_library.js), then upserts it to the live env via the Web API.
+    await new Workbench().executeCommand("Dataverse PowerTools: Build and Deploy Webresources");
+    await sleep(20000); // webpack build + HTTP upsert + publish
+    await dismissOverlays();
+
     await new Workbench().executeCommand("Dataverse PowerTools: Show Log");
     await sleep(3000);
     const img = await VSBrowser.instance.driver.takeScreenshot();
