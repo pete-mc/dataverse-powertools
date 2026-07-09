@@ -25,9 +25,15 @@ if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
   Write-Error "winget not found. Install 'App Installer' from the Microsoft Store, then re-run."
 }
 
+# All packages below live in the 'winget' community source. Pin to it with --source so
+# winget never touches the 'msstore' source, which on a fresh VM often fails cert
+# validation (0x8a15005e) — usually because the VM clock is wrong. If you still hit that
+# error, fix the VM's date/time first (Settings > Time & Language > set automatically).
+try { winget source update --name winget --accept-source-agreements | Out-Null } catch { }
+
 function Install-WinGet($id) {
   Write-Host "== winget install $id =="
-  winget install -e --id $id --accept-source-agreements --accept-package-agreements --silent
+  winget install -e --id $id --source winget --accept-source-agreements --accept-package-agreements --silent
 }
 
 Install-WinGet "OpenJS.NodeJS.LTS"
