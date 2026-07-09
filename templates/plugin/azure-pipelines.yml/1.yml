@@ -12,7 +12,7 @@ steps:
   displayName: Restore dependencies
   inputs:
     targetType: 'inline'
-    script: 'dotnet restore; dotnet new tool-manifest; dotnet tool install paket; dotnet tool restore; dotnet paket init; dotnet paket install'
+    script: 'dotnet restore; dotnet new tool-manifest; dotnet tool install paket --version 9.0.2; dotnet tool restore; dotnet paket init; dotnet paket install'
 
 - task: PowerShell@2
   displayName: Generate earlybound

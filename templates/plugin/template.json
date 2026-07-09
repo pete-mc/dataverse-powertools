@@ -131,7 +131,7 @@
         "command": "dotnet new tool-manifest --force"
       },
       {
-        "command": "dotnet tool install paket"
+        "command": "dotnet tool install paket --version 9.0.2"
       },
       {
         "command": "dotnet tool restore"
@@ -237,7 +237,7 @@
         "command": "dotnet new tool-manifest --force"
       },
       {
-        "command": "dotnet tool install paket"
+        "command": "dotnet tool install paket --version 9.0.2"
       },
       {
         "command": "dotnet tool restore"

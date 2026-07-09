@@ -48,7 +48,7 @@
         "command": "dotnet new tool-manifest"
       },
       {
-        "command": "dotnet tool install paket"
+        "command": "dotnet tool install paket --version 9.0.2"
       },
       {
         "command": "dotnet tool restore"
