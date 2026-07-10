@@ -3,6 +3,7 @@
 // scope logic it relies on is in authTypes.ts and is unit-tested there.
 
 import fetch from "node-fetch";
+import * as fs from "fs";
 import * as vscode from "vscode";
 import { PublicClientApplication, AccountInfo, ICachePlugin, TokenCacheContext } from "@azure/msal-node";
 import { buildDataverseScopes } from "./authTypes";
@@ -53,8 +54,27 @@ export function initInteractiveTokenCache(secrets: vscode.SecretStorage, channel
   cacheChannel = channel;
 }
 
+// Test-only seam: when DVPT_TEST_MSAL_CACHE_FILE points at a file, the MSAL cache is read/written
+// there instead of VS Code secret storage. This lets automated e2e tests pre-seed an
+// interactive-user sign-in (acquired headlessly beforehand) so the connect wizard authenticates
+// silently, with no browser to drive. It is inert unless that env var is explicitly set, so it
+// never affects real users.
+const testCacheFile = (): string | undefined => process.env.DVPT_TEST_MSAL_CACHE_FILE || undefined;
+
 const cachePlugin: ICachePlugin = {
   beforeCacheAccess: async (cacheContext: TokenCacheContext) => {
+    const file = testCacheFile();
+    if (file) {
+      try {
+        const data = fs.readFileSync(file, "utf8");
+        if (data) {
+          cacheContext.tokenCache.deserialize(data);
+        }
+      } catch {
+        /* no seeded cache yet */
+      }
+      return;
+    }
     if (!cacheSecrets) {
       return;
     }
@@ -64,7 +84,19 @@ const cachePlugin: ICachePlugin = {
     }
   },
   afterCacheAccess: async (cacheContext: TokenCacheContext) => {
-    if (!cacheSecrets || !cacheContext.cacheHasChanged) {
+    if (!cacheContext.cacheHasChanged) {
+      return;
+    }
+    const file = testCacheFile();
+    if (file) {
+      try {
+        fs.writeFileSync(file, cacheContext.tokenCache.serialize());
+      } catch {
+        /* best effort */
+      }
+      return;
+    }
+    if (!cacheSecrets) {
       return;
     }
     await cacheSecrets.store(MSAL_CACHE_SECRET_KEY, cacheContext.tokenCache.serialize());

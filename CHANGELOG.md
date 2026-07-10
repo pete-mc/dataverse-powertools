@@ -2,6 +2,10 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.5.5
+
+- Internal/testing: added end-to-end coverage for the interactive (OAuth) sign-in path — including a full wizard run that scaffolds and deploys a plugin under interactive auth — and hardened the live Edge/Chrome debug-web-resources test harness. A guarded, test-only MSAL cache seam (active only when `DVPT_TEST_MSAL_CACHE_FILE` is set) makes the interactive connect silent during automated tests; it is inert in normal use. No user-facing change.
+
 ## 0.5.4
 
 - New: **Debug Web Resources** — run your local webpack bundle _inside the live model-driven app_ with hot reload and VS Code debugging, instead of republishing on every change. A dedicated Edge/Chrome instance is launched under the DevTools Protocol and its request for the deployed bundle is fulfilled from your local `bin/` build; `webpack --watch` rebuilds on save and the form reloads, and the JS debugger attaches for breakpoints. Nothing is written to Dataverse — the swap is ephemeral and browser-scoped (#64).
