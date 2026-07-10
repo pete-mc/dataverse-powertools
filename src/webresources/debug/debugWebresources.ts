@@ -171,8 +171,17 @@ export async function debugWebResources(context: DataversePowerToolsContext): Pr
 
     // 5. Connect CDP and intercept the bundle request.
     client = await connectCdpWithRetry(port, 20000);
-    const { Fetch, Page } = client;
+    const { Fetch, Page, Network } = client;
     await Page.enable();
+    // Model-driven apps register a service worker (/uclient/sw.js) that serves web-resource
+    // bundles from a "WebResources" Cache Storage keyed by the versioned /%7b..%7d/webresources/
+    // URL. That cache sits ABOVE the network layer, so page-level Fetch interception never sees a
+    // form's bundle request and the deployed copy wins — even with the HTTP cache disabled.
+    // Bypassing the service worker forces every request onto the network, where interception can
+    // fulfil it from local disk. Without this, Debug Web Resources works for a direct web-resource
+    // URL but NOT for real form onload scripts (found via a live Account-form test, #64).
+    await Network.enable();
+    await Network.setBypassServiceWorker({ bypass: true });
     await Fetch.enable({ patterns: [{ urlPattern: bundleCdpPattern(bundleName), requestStage: "Request" }] });
 
     Fetch.requestPaused(async (params) => {
@@ -206,6 +215,10 @@ export async function debugWebResources(context: DataversePowerToolsContext): Pr
     });
 
     client.on("disconnect", () => void stopDebugWebResources());
+
+    // Anything the app loaded between navigation and interception arming came from the service
+    // worker/cache; reload once (bypassing cache) so those resources come back through interception.
+    await Page.reload({ ignoreCache: true });
 
     // 6. Hot refresh: on rebuild, reload the page (debounced).
     fs.mkdirSync(binDir, { recursive: true });
