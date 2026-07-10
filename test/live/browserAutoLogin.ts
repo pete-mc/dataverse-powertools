@@ -151,7 +151,14 @@ export async function autoLoginBrowser(port: number, opts: AutoLoginOptions): Pr
   // targets and the default pick isn't always the login tab.
   const targets = await CDP.List({ port });
   const pages = targets.filter((t) => t.type === "page");
-  const target = pages.find((t) => t.url.includes("login.microsoftonline.com") || t.url.includes(opts.orgHost)) || pages.find((t) => t.url.startsWith("http")) || pages[0];
+  const hostOf = (u: string): string => {
+    try {
+      return new URL(u).hostname;
+    } catch {
+      return "";
+    }
+  };
+  const target = pages.find((t) => hostOf(t.url) === "login.microsoftonline.com" || hostOf(t.url) === opts.orgHost) || pages.find((t) => t.url.startsWith("http")) || pages[0];
   const client = await CDP({ port, target });
   try {
     await client.Runtime.enable();

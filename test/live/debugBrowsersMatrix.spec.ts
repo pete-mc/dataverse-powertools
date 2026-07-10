@@ -184,7 +184,7 @@ suite("Debug Web Resources — Edge + Chrome unattended (#64)", () => {
         // Sign the profile in first (clean browser, no interception attached) so the debug
         // session opens already authenticated — like a real developer's persistent profile.
         const resolved = resolveBrowser(browser, undefined, { platform: process.platform, env: process.env, exists: fs.existsSync });
-        log(`[${browser}] pre-authenticating profile as ${u.username}`);
+        log(`[${browser}] pre-authenticating the debug profile with the interactive test user`);
         const authed = await preAuthenticateProfile(resolved.executablePath, profileDir, e.url, { username: u.username, password: u.password, orgHost, log });
         expect(authed, `pre-auth failed on ${browser}`).toBe(true);
 
