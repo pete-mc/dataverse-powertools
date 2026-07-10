@@ -2,6 +2,12 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.5.4
+
+- New: **Debug Web Resources** — run your local webpack bundle _inside the live model-driven app_ with hot reload and VS Code debugging, instead of republishing on every change. A dedicated Edge/Chrome instance is launched under the DevTools Protocol and its request for the deployed bundle is fulfilled from your local `bin/` build; `webpack --watch` rebuilds on save and the form reloads, and the JS debugger attaches for breakpoints. Nothing is written to Dataverse — the swap is ephemeral and browser-scoped (#64).
+- Fixed Debug Web Resources not taking effect on real forms: model-driven apps serve web resources from a service-worker cache above the network layer, so interception now bypasses that service worker to ensure the live form runs your local code.
+- Security: resolved CodeQL findings in existing code — reworked two ReDoS-prone regexes, spawn a constant `cmd.exe` instead of an environment-provided one, and validate/sanitize the organization URL and plugin project name before they are passed to external tools. No behaviour change for valid input.
+
 ## 0.5.3
 
 - Testing: unit-tested the Dataverse Web API layer (table / form / message / attribute / solution fetchers) — URL construction, response parsing, and error handling — and added a coverage threshold that CI now enforces as a regression gate (#80).

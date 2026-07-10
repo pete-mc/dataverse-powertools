@@ -216,15 +216,14 @@ async function findBuiltPackagePath(workspacePath: string, csprojPath: string, p
 function sanitizeUniqueNameSegment(value: string): string {
   return value
     .replace(/[^A-Za-z0-9_]/g, "_")
-    .replace(/_+/g, "_")
-    .replace(/^_+|_+$/g, "");
+    .replace(/_+/g, "_") // collapse runs first, so the trims below only ever see a single underscore (avoids polynomial backtracking)
+    .replace(/^_/, "")
+    .replace(/_$/, "");
 }
 
 function normalizeCustomizationPrefix(prefix: string | undefined): string {
-  const sanitized = (prefix || "")
-    .trim()
-    .replace(/[^A-Za-z0-9]/g, "")
-    .replace(/_+$/g, "");
+  // `[^A-Za-z0-9]` already removes underscores, so no separate trailing-underscore trim is needed.
+  const sanitized = (prefix || "").trim().replace(/[^A-Za-z0-9]/g, "");
 
   if (!sanitized) {
     return "dpt";

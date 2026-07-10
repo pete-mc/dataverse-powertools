@@ -24,10 +24,10 @@ describe("pacInvocation", () => {
     expect(pacInvocation(["auth", "list"])).toEqual({ command: "cmd.exe", args: ["/c", "pac", "auth", "list"] });
   });
 
-  it("honours ComSpec when set", () => {
+  it("uses a constant cmd.exe and ignores %ComSpec% so the spawned command can't be redirected by the environment", () => {
     setPlatform("win32");
-    process.env.ComSpec = "C:\\Windows\\System32\\cmd.exe";
-    expect(pacInvocation(["modelbuilder", "build"]).command).toBe("C:\\Windows\\System32\\cmd.exe");
+    process.env.ComSpec = "C:\\attacker\\evil.exe";
+    expect(pacInvocation(["modelbuilder", "build"]).command).toBe("cmd.exe");
   });
 
   it("passes pac arguments through untouched", () => {

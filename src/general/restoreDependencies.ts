@@ -16,6 +16,16 @@ function isDotnetAddWorkflowPackage(argv: string[]): boolean {
   return argv[0]?.toLowerCase() === "dotnet" && argv[1]?.toLowerCase() === "add" && argv[2]?.toLowerCase() === "package" && argv[3]?.toLowerCase() === "microsoft.crmsdk.workflow";
 }
 
+/**
+ * Constrain a plugin project name to characters valid in a folder/project name before it is
+ * interpolated into a file path and passed to `dotnet` — strips path separators and any shell
+ * metacharacters, so untrusted project settings can't escape the intended directory or command.
+ */
+function sanitizeProjectName(name: string | undefined): string {
+  const cleaned = (name || "").trim().replace(/[^A-Za-z0-9_.-]/g, "");
+  return cleaned || "Plugin";
+}
+
 function resolvePluginCsprojPath(workspacePath: string, projectName: string): string {
   const projectDirectory = path.join(workspacePath, projectName);
   const preferredPath = path.join(projectDirectory, `${projectName}.csproj`);
@@ -55,7 +65,7 @@ function resolveInitCommand(command: string, workspacePath: string, context: Dat
     return command;
   }
 
-  const projectName = (context.projectSettings.pluginProjectName || "Plugin").trim() || "Plugin";
+  const projectName = sanitizeProjectName(context.projectSettings.pluginProjectName);
   const argv = command.split(/\s+/).filter((token) => token.length > 0);
 
   if (isPacPluginInit(argv)) {

@@ -10,6 +10,7 @@ import { generateTypings } from "./generateTypings";
 import { saveFormData } from "./saveFormData";
 import { formIntersectSelector } from "./tableIntersects/tableIntersects";
 import { upgradeFromSpkl } from "./upgradeFromSpkl";
+import { debugWebResources, stopDebugWebResources } from "./debug/debugWebresources";
 
 export function initialiseWebresources(context: DataversePowerToolsContext): void {
   vscode.commands.executeCommand("setContext", "dataverse-powertools.isPlugin", false);
@@ -36,4 +37,9 @@ export function initialiseWebresources(context: DataversePowerToolsContext): voi
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.addFormDecoration", () => addFormDecoration(context)));
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.saveFormData", () => saveFormData(context)));
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.upgradeFromSpkl", () => upgradeFromSpkl(context)));
+  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.debugWebresources", () => debugWebResources(context)));
+  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.stopDebugWebresources", () => stopDebugWebResources()));
+  // Ensure a running debug session (browser, webpack --watch, CDP) is torn down if the
+  // extension deactivates or the workspace reloads.
+  context.vscode.subscriptions.push({ dispose: () => void stopDebugWebResources() });
 }
