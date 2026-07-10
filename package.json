@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.5.3",
+  "version": "0.5.4",
   "engines": {
     "vscode": "^1.93.0"
   },
@@ -625,8 +625,16 @@
       "properties": {
         "dataverse-powertools.debugBrowser": {
           "type": "string",
-          "enum": ["auto", "msedge", "chrome"],
-          "enumDescriptions": ["Prefer Microsoft Edge, fall back to Chrome", "Use Microsoft Edge", "Use Google Chrome"],
+          "enum": [
+            "auto",
+            "msedge",
+            "chrome"
+          ],
+          "enumDescriptions": [
+            "Prefer Microsoft Edge, fall back to Chrome",
+            "Use Microsoft Edge",
+            "Use Google Chrome"
+          ],
           "default": "auto",
           "markdownDescription": "Which browser the **Debug Web Resources** command launches under the DevTools Protocol. A persistent profile is used so your Dataverse login is remembered between sessions."
         },
