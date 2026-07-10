@@ -10,7 +10,7 @@ import { LiveDataverseClient } from "./dataverseClient";
 import { DataverseWebresource } from "../../src/general/dataverse/DataverseWebresource";
 import { DataverseForm } from "../../src/general/dataverse/DataverseForm";
 import { debugWebResources, stopDebugWebResources } from "../../src/webresources/debug/debugWebresources";
-import { preAuthenticateProfile, findDebugPortByProfile } from "./browserAutoLogin";
+import { preAuthenticateProfile, autoLoginBrowser, findDebugPortByProfile } from "./browserAutoLogin";
 import { resolveBrowser } from "../../src/webresources/debug/browserResolver";
 import DataversePowerToolsContext from "../../src/context";
 
@@ -88,35 +88,74 @@ async function unregisterHandler(ctx: DataversePowerToolsContext): Promise<void>
   await form.saveForm();
 }
 
-async function bannerOnForm(port: number, recordUrl: string): Promise<string> {
+const BANNER_RE = `document.body.innerText.match(/LOCAL v2[^<\\n]*|LOCAL v1[^<\\n]*|DEPLOYED — banner from the SERVER copy/)`;
+
+/** Open a persistent CDP client on the page, with the service worker bypassed so the form's bundle
+ *  request goes to the network where the feature's interception sees it (otherwise the SW cache
+ *  serves it and no banner reflects the local build). The client stays open so the bypass persists
+ *  through the load — closing it would revert the override mid-navigation. */
+async function openPageClient(port: number): Promise<CDP.Client> {
   const targets = await CDP.List({ port });
-  const page = targets.find((t) => t.type === "page");
+  const pages = targets.filter((t) => t.type === "page");
+  const page = pages.find((t) => /dynamics|crm|main\.aspx/i.test(t.url)) || pages.find((t) => t.url.startsWith("http")) || pages[0];
   const client = await CDP({ port, target: page });
+  await client.Page.enable();
+  await client.Network.enable();
+  await client.Runtime.enable();
+  await client.Network.setBypassServiceWorker({ bypass: true });
+  return client;
+}
+
+async function pollBannerOn(client: CDP.Client, timeoutMs: number, want?: string): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  let last = "(none)";
+  while (Date.now() < deadline) {
+    const v = (await client.Runtime.evaluate({ expression: `(${BANNER_RE}||['(none)'])[0]`, returnByValue: true })).result.value as string;
+    if (v && v !== "(none)") {
+      last = v;
+      if (!want || v.includes(want)) {
+        return v;
+      }
+    }
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+  return last;
+}
+
+async function bannerOnForm(port: number, recordUrl: string): Promise<string> {
+  const client = await openPageClient(port);
   try {
-    await client.Page.enable();
-    await client.Runtime.enable();
     await client.Page.navigate({ url: recordUrl });
-    await new Promise((r) => setTimeout(r, 18000));
-    return (await client.Runtime.evaluate({
-      expression: `(document.body.innerText.match(/LOCAL v2[^<]*|LOCAL v1[^<]*|DEPLOYED — banner from the SERVER copy/)||['(none)'])[0]`,
-      returnByValue: true,
-    })).result.value as string;
+    const banner = await pollBannerOn(client, 60000); // form + onload notification can lag a cold load
+    if (banner === "(none)") {
+      // Diagnose why no banner rendered (form/library/onload state).
+      const d = (
+        await client.Runtime.evaluate({
+          expression: `JSON.stringify((()=>{const perf=performance.getEntriesByType('resource').map(e=>e.name).filter(n=>/dvpt_library/i.test(n));return{url:location.href.slice(0,90),title:document.title,bundle:perf,hasXrm:typeof Xrm!=='undefined',bodyLen:(document.body?document.body.innerText.length:0)};})())`,
+          returnByValue: true,
+        })
+      ).result.value as string;
+      log(`no-banner diag: ${d}`);
+    }
+    return banner;
   } finally {
     await client.close();
   }
 }
 
 async function reloadedBanner(port: number): Promise<string> {
-  await new Promise((r) => setTimeout(r, 9000)); // let the feature's debounced hot-reload happen
+  // Let the feature's debounced fs.watch reload fire + settle first. Do NOT open a
+  // bypass-toggling client while the feature is reloading — on Chrome that races the feature's
+  // CDP session and can drop it (tearing down the debug session). Read-only client, no bypass.
+  await new Promise((r) => setTimeout(r, 9000));
   const targets = await CDP.List({ port });
-  const page = targets.find((t) => t.type === "page");
+  const pages = targets.filter((t) => t.type === "page");
+  const page = pages.find((t) => /dynamics|crm|main\.aspx/i.test(t.url)) || pages[0];
+  if (!page) return "(none)";
   const client = await CDP({ port, target: page });
   try {
     await client.Runtime.enable();
-    return (await client.Runtime.evaluate({
-      expression: `(document.body.innerText.match(/LOCAL v2[^<]*|LOCAL v1[^<]*|DEPLOYED — banner from the SERVER copy/)||['(none)'])[0]`,
-      returnByValue: true,
-    })).result.value as string;
+    return await pollBannerOn(client, 45000, "LOCAL v2");
   } finally {
     await client.close();
   }
@@ -139,10 +178,16 @@ suite("Debug Web Resources — Edge + Chrome unattended (#64)", () => {
     await client.publishAll();
     await registerHandler(setupCtx);
     await client.publishAll();
+    // PublishAllXml returns before the published form/web-resource are fully served by the app,
+    // so let the customisations settle before a browser opens the form (otherwise the onload
+    // handler/library may not yet be live and no banner renders).
+    await new Promise((r) => setTimeout(r, 15000));
     // Any existing account record (a create form triggers a beforeunload dialog on reload).
     const res: any = await (await fetch(`${e.url}/api/data/v9.2/accounts?$select=accountid&$top=1`, { headers: { Authorization: `Bearer ${client.accessToken}`, Accept: "application/json" } })).json();
     const accountId = res.value?.[0]?.accountid;
-    recordUrl = `${e.url}/main.aspx?appid=${APP_ID}&pagetype=entityrecord&etn=account${accountId ? `&id=${accountId}` : ""}`;
+    // Force the specific form we registered the handler on (&formid=) — Dynamics otherwise opens
+    // the user's last-used account form, which may not be FORM_ID.
+    recordUrl = `${e.url}/main.aspx?appid=${APP_ID}&pagetype=entityrecord&etn=account&formid=${FORM_ID}${accountId ? `&id=${accountId}` : ""}`;
     log(`Setup complete. Account form registered; record: ${accountId ?? "(new)"}`);
   }, 180000);
 
@@ -192,6 +237,12 @@ suite("Debug Web Resources — Edge + Chrome unattended (#64)", () => {
         await debugWebResources(ctx);
         const port = await findDebugPortByProfile(profileDir);
         log(`[${browser}] debug session on port ${port}`);
+
+        // Belt-and-braces: the pre-auth session cookie doesn't always persist into the reopened
+        // profile, so make sure the feature's browser is actually signed in (returns immediately if
+        // it already is) before we open the form — otherwise it sits on the AAD sign-in page.
+        const signedIn = await autoLoginBrowser(port, { username: u.username, password: u.password, orgHost, log, timeoutMs: 90000 });
+        expect(signedIn, `feature browser did not reach the org on ${browser}`).toBe(true);
 
         const first = await bannerOnForm(port, recordUrl);
         log(`[${browser}] banner on first load: ${first}`);
