@@ -92,13 +92,28 @@ export function normalizeOrganizationUrl(url: string | undefined | null): string
     return "";
   }
   const lower = stripped.toLowerCase();
+  let normalized: string;
   if (lower.startsWith("https://")) {
-    return stripped;
+    normalized = stripped;
+  } else if (lower.startsWith("http://")) {
+    normalized = "https://" + stripped.slice("http://".length);
+  } else {
+    normalized = "https://" + stripped;
   }
-  if (lower.startsWith("http://")) {
-    return "https://" + stripped.slice("http://".length);
+
+  // Defence in depth: this URL is later handed to external tools (e.g. XrmDefinitelyTyped).
+  // Constrain it to a well-formed https URL whose host is a plain hostname — anything else
+  // can't be a real Dataverse org and must not flow downstream where it could carry unexpected
+  // characters. Reject (return "") rather than pass a suspicious value through.
+  try {
+    const parsed = new URL(normalized);
+    if (parsed.protocol !== "https:" || !/^[A-Za-z0-9.-]+$/.test(parsed.hostname)) {
+      return "";
+    }
+  } catch {
+    return "";
   }
-  return "https://" + stripped;
+  return normalized;
 }
 
 /** The organization URL from a connection string, trailing slashes removed. */

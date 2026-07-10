@@ -11,7 +11,9 @@
 /** The child_process command + args to run `pac` with the given pac arguments. */
 export function pacInvocation(args: string[]): { command: string; args: string[] } {
   if (process.platform === "win32") {
-    return { command: process.env.ComSpec || "cmd.exe", args: ["/c", "pac", ...args] };
+    // A constant executable name (not read from %ComSpec%) so the command being spawned can
+    // never be redirected by the environment; cmd.exe is resolved from the system directory.
+    return { command: "cmd.exe", args: ["/c", "pac", ...args] };
   }
   return { command: "pac", args };
 }
