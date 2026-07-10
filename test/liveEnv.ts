@@ -63,6 +63,28 @@ export function loadLiveEnv(): LiveEnv | undefined {
   };
 }
 
+export interface InteractiveTestUser {
+  username: string;
+  password: string;
+}
+
+/**
+ * The MFA-exempt interactive ("Authenticated") test user (DVPT_TEST_USERNAME /
+ * DVPT_TEST_PASSWORD), used to exercise the OAuth/interactive auth path — both the
+ * extension's connection and unattended browser sign-in for Edge/Chrome. Returns
+ * undefined when not configured, so tests that need it self-skip rather than fail.
+ * The account must be excluded from MFA/conditional access (headless ROPC can't
+ * satisfy an MFA challenge) and hold a Dataverse System Customizer/Administrator role.
+ */
+export function loadInteractiveTestUser(): InteractiveTestUser | undefined {
+  const username = process.env.DVPT_TEST_USERNAME?.trim();
+  const password = process.env.DVPT_TEST_PASSWORD;
+  if (!username || !password) {
+    return undefined;
+  }
+  return { username, password };
+}
+
 export interface TestSolutionConfig {
   solutionUniqueName: string;
   solutionFriendlyName: string;
