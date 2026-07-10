@@ -158,7 +158,7 @@ suite("Interactive (OAuth) auth → real Dataverse", () => {
   it(
     "acquires an interactive user token and writes to Dataverse with it",
     async () => {
-      log(`acquiring interactive token as ${u.username} …`);
+      log(`acquiring an interactive-user token …`);
       const res = await acquireInteractiveToken(e.url, undefined, true);
       expect(res?.accessToken, "interactive token acquisition returned nothing").toBeTruthy();
       token = res!.accessToken;
