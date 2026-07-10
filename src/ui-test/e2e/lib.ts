@@ -6,7 +6,7 @@
 import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
-import { VSBrowser, Workbench, InputBox } from "vscode-extension-tester";
+import { VSBrowser, Workbench, InputBox, BottomBarPanel } from "vscode-extension-tester";
 
 export const repoRoot = path.resolve(__dirname, "..", "..", "..");
 
@@ -233,6 +233,99 @@ export async function answer(value: string, byLabel = false, timeoutMs = 30000):
 /** Run a command by its palette title (e.g. "Dataverse PowerTools: Generate Typings"). */
 export async function runCommand(title: string): Promise<void> {
   await new Workbench().executeCommand(title);
+}
+
+/**
+ * Poll the "dataverse-powertools" output channel until every expected string is present (or
+ * timeout). Used to gate each UI step on the command's REAL log output before advancing to the
+ * next — so the test only proceeds once the extension reports the step actually succeeded.
+ * Returns the channel text on success, or undefined on timeout.
+ */
+export async function waitForOutput(expected: string | string[], timeoutMs = 120000, channel = "dataverse-powertools"): Promise<string | undefined> {
+  const wants = Array.isArray(expected) ? expected : [expected];
+  let view;
+  try {
+    view = await new BottomBarPanel().openOutputView();
+  } catch {
+    return undefined;
+  }
+  const start = Date.now();
+  while (Date.now() - start <= timeoutMs) {
+    let text = "";
+    try {
+      await view.selectChannel(channel);
+      text = await view.getText();
+    } catch {
+      // The output view churns while a long command runs; just retry.
+    }
+    if (text && wants.every((w) => text.includes(w))) {
+      return text;
+    }
+    await sleep(2500);
+  }
+  return undefined;
+}
+
+/** Markers that mean the extension reported a failure — seeing any of these means STOP, don't wait. */
+const DEFAULT_FAIL_MARKERS = ["Error creating", "Exception", "Unhandled", "Traceback", "npm error", "MSBuild error", "failed with exit code", "Could not obtain"];
+
+/**
+ * Gate a UI step on its REAL log output, failing fast when it's wrong.
+ *
+ * Polls the "dataverse-powertools" output channel and:
+ *  - RESOLVES with the channel text once every `expected` string is present;
+ *  - THROWS immediately if a failure marker appears before the expected output (so a wrong result
+ *    stops the test right away instead of burning the whole timeout);
+ *  - THROWS on timeout, with a tail of what the channel actually showed for diagnosis.
+ *
+ * This is the enforcement of "wait for the output you expect and if it is wrong, stop" — callers
+ * `await expectOutput(...)` between steps and a mismatch aborts the run rather than silently advancing.
+ */
+export async function expectOutput(expected: string | string[], opts: { timeoutMs?: number; failMarkers?: string[]; channel?: string; step?: string } = {}): Promise<string> {
+  const wants = Array.isArray(expected) ? expected : [expected];
+  const timeoutMs = opts.timeoutMs ?? 120000;
+  const failMarkers = opts.failMarkers ?? DEFAULT_FAIL_MARKERS;
+  const channel = opts.channel ?? "dataverse-powertools";
+  const label = opts.step ? `[${opts.step}] ` : "";
+  const tail = (t: string) => t.split(/\r?\n/).slice(-25).join("\n");
+
+  let view;
+  try {
+    view = await new BottomBarPanel().openOutputView();
+  } catch (e) {
+    throw new Error(`${label}could not open the output view to read "${wants.join(" & ")}": ${String(e)}`);
+  }
+  const start = Date.now();
+  let lastText = "";
+  while (Date.now() - start <= timeoutMs) {
+    try {
+      await view.selectChannel(channel);
+      lastText = await view.getText();
+    } catch {
+      // The output view churns while a long command runs; just retry.
+    }
+    if (lastText) {
+      if (wants.every((w) => lastText.includes(w))) {
+        return lastText;
+      }
+      const hit = failMarkers.find((m) => lastText.includes(m));
+      if (hit) {
+        throw new Error(`${label}expected output "${wants.join(" & ")}" but the log reported a failure ("${hit}").\n--- log tail ---\n${tail(lastText)}`);
+      }
+    }
+    await sleep(2500);
+  }
+  throw new Error(`${label}timed out after ${Math.round(timeoutMs / 1000)}s waiting for "${wants.join(" & ")}".\n--- log tail ---\n${tail(lastText) || "(channel was empty)"}`);
+}
+
+/** Clear the output channel so the next step's assertions don't match stale text. */
+export async function clearOutput(): Promise<void> {
+  try {
+    const view = await new BottomBarPanel().openOutputView();
+    await view.clearText();
+  } catch {
+    /* best effort */
+  }
 }
 
 /** Poll until `filePath` exists (or timeout). Returns true if it appeared. */

@@ -4,6 +4,29 @@ import fs = require("fs");
 import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes } from "../context";
 import { pacInvocation } from "./pac";
 
+// Lines from restore tooling (npm mostly) that are noise to a user watching the output channel:
+// funding solicitations, audit summaries, deprecation notices. Stripped so the log shows only what
+// the restore actually did.
+const RESTORE_NOISE = [
+  /packages? are looking for funding/i,
+  /run `npm fund`/i,
+  /npm audit/i,
+  /found \d+ (low|moderate|high|critical|vulnerabilit)/i,
+  /\d+ vulnerabilit/i,
+  /to address (all|these|the) (issues|vulnerabilit)/i,
+  /^npm (warn|notice|WARN|notice)/i,
+  /npm warn deprecated/i,
+  /this is deprecated/i,
+];
+
+/** Strip funding/audit/deprecation noise from a chunk of restore output. Returns "" if nothing left. */
+export function filterRestoreNoise(text: string): string {
+  return text
+    .split(/\r?\n/)
+    .filter((line) => line.trim().length > 0 && !RESTORE_NOISE.some((re) => re.test(line)))
+    .join("\n");
+}
+
 function isPacPluginInit(argv: string[]): boolean {
   return argv[0]?.toLowerCase() === "pac" && argv[1]?.toLowerCase() === "plugin" && argv[2]?.toLowerCase() === "init";
 }
@@ -196,7 +219,8 @@ export async function restoreDepedencyExec(command: string | string[], workspace
   const promise = util.promisify(cp.execFile)(spawnCommand, spawnArgs, { cwd: workspacePath, shell: needsShell });
   const child = promise.child;
 
-  child.stdout.on("data", function (data: any) {
+  child.stdout.on("data", function (rawData: any) {
+    const data = filterRestoreNoise(String(rawData ?? ""));
     if (!data) {
       return;
     }
@@ -213,10 +237,13 @@ export async function restoreDepedencyExec(command: string | string[], workspace
     }
   });
 
-  child.stderr.on("data", function (data: any) {
-    vscode.window.showErrorMessage("Error restoring " + displayCommand + ". See output for details.");
-    context.channel.appendLine(data);
-    context.channel.show();
+  child.stderr.on("data", function (rawData: any) {
+    // Tools write warnings/progress to stderr too, so don't treat every line as an error (a real
+    // failure rejects the awaited promise below). Just surface the non-noise lines in the log.
+    const data = filterRestoreNoise(String(rawData ?? ""));
+    if (data) {
+      context.channel.appendLine(data);
+    }
   });
 
   await promise;

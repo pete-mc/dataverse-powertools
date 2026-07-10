@@ -647,7 +647,9 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run package",
+    "vscode:prepublish": "npm run fetch-typings-tool && npm run package",
+    "fetch-typings-tool": "node scripts/fetchTypingsTool.mjs",
+    "postinstall": "node scripts/fetchTypingsTool.mjs",
     "compile": "webpack",
     "watch": "webpack --watch",
     "package": "webpack --mode production --devtool hidden-source-map",

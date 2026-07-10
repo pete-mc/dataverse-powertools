@@ -41,6 +41,7 @@ export async function runWebresourceBuild(context: DataversePowerToolsContext): 
     return false;
   }
 
+  context.channel.appendLine("Building Complete");
   vscode.window.showInformationMessage("Building Complete");
   return true;
 }

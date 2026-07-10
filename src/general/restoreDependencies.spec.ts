@@ -1,5 +1,27 @@
 import { describe, it, expect } from "vitest";
-import { resolveExecArgv } from "./restoreDependencies";
+import { resolveExecArgv, filterRestoreNoise } from "./restoreDependencies";
+
+describe("filterRestoreNoise (user-facing log hygiene)", () => {
+  it("strips npm funding/audit noise but keeps real content", () => {
+    const raw = ["added 214 packages in 6s", "", "37 packages are looking for funding", "  run `npm fund` for details", "found 0 vulnerabilities", "up to date"].join("\n");
+    expect(filterRestoreNoise(raw)).toBe("added 214 packages in 6s\nup to date");
+  });
+
+  it("drops npm warn/notice/deprecated lines", () => {
+    const raw = "npm warn deprecated foo@1.0.0: use bar\nnpm notice New version available\nBuild succeeded";
+    expect(filterRestoreNoise(raw)).toBe("Build succeeded");
+  });
+
+  it("returns empty string when a chunk is all noise or blank", () => {
+    expect(filterRestoreNoise("\n\n  \n")).toBe("");
+    expect(filterRestoreNoise("12 packages are looking for funding")).toBe("");
+  });
+
+  it("keeps genuine error lines intact", () => {
+    const raw = "npm error code ERESOLVE\nError: could not resolve dependency";
+    expect(filterRestoreNoise(raw)).toBe(raw);
+  });
+});
 
 describe("resolveExecArgv (restore command allowlist)", () => {
   it("resolves known template commands to argv from the constant allowlist", () => {
