@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
 import { stripAnsi, buildOutputHasErrors } from "./buildOutput";
+import { activeComponentRoot } from "../components/componentDiscovery";
 
 // Build with `npx` so the project's LOCAL webpack devDependency is used. A bare `webpack` resolves
 // only against the system PATH and fails with "'webpack' is not recognized" wherever there is no
@@ -17,15 +18,15 @@ export const WEBRESOURCE_BUILD_COMMAND = "npx webpack --config webpack.dev.js";
  * and the caller can safely `await` this before deploying.
  */
 export async function runWebresourceBuild(context: DataversePowerToolsContext): Promise<boolean> {
-  const folders = vscode.workspace.workspaceFolders;
-  if (!folders || folders.length === 0) {
+  const componentRoot = activeComponentRoot(context);
+  if (!componentRoot) {
     vscode.window.showErrorMessage("No workspace folder is open.");
     return false;
   }
 
   const util = require("util");
   const exec = util.promisify(require("child_process").exec);
-  const workspacePath = folders[0].uri.fsPath;
+  const workspacePath = componentRoot;
 
   let output: string;
   try {

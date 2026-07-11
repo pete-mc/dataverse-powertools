@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
 import { pacSolutionImportArgs, pacSolutionPackArgs } from "./pacArgs";
 import { ensurePacAuth, getEnvironmentUrl, loadSolutionConfig, runPacSolution } from "./pacRunner";
+import { activeComponentRoot } from "../components/componentDiscovery";
 
 export async function deploySolution(context: DataversePowerToolsContext) {
   await vscode.window.withProgress(
@@ -16,12 +17,11 @@ export async function deploySolution(context: DataversePowerToolsContext) {
 }
 
 export async function deploySolutionExec(context: DataversePowerToolsContext): Promise<boolean> {
-  const folders = vscode.workspace.workspaceFolders;
-  if (!folders || folders.length === 0) {
+  const workspacePath = activeComponentRoot(context);
+  if (!workspacePath) {
     vscode.window.showErrorMessage("No workspace folder is open.");
     return false;
   }
-  const workspacePath = folders[0].uri.fsPath;
 
   const config = await loadSolutionConfig(context, workspacePath);
   if (!config) {

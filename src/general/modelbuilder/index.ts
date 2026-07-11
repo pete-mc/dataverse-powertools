@@ -13,9 +13,10 @@ import {
   saveModelBuilderSettingsFile,
 } from "./settingsFile";
 import { configureEditableSettings, editSingleSetting, ModelBuilderSettingKey } from "./ui";
+import { activeComponentRoot } from "../../components/componentDiscovery";
 
 async function createSettingsTemplateFile(context: DataversePowerToolsContext, namespace: string, serviceContextName: string, outputDirectory: string): Promise<void> {
-  const workspacePath = getWorkspacePath();
+  const workspacePath = getWorkspacePath(context);
   if (!workspacePath) {
     return;
   }
@@ -30,7 +31,7 @@ async function createSettingsTemplateFile(context: DataversePowerToolsContext, n
     }
   }
 
-  const settingsFilePath = getModelBuilderFilePath();
+  const settingsFilePath = getModelBuilderFilePath(context);
   if (!settingsFilePath) {
     return;
   }
@@ -120,7 +121,7 @@ export async function configureModelBuilderSettings(context: DataversePowerTools
       // pac modelbuilder reads org metadata — authenticate the extension's pac
       // profile first (previously this relied on whatever profile was active,
       // which failed on machines without one and could target the wrong org).
-      const workspacePath = getWorkspacePath();
+      const workspacePath = getWorkspacePath(context);
       if (workspacePath) {
         await ensurePacAuthForCurrentConnection(context, workspacePath);
       }
@@ -136,7 +137,7 @@ export async function configureModelBuilderSettings(context: DataversePowerTools
       vscode.window.showWarningMessage("Could not generate default template via pac. Continuing with built-in defaults.");
     }
 
-    const generatedTemplate = await readModelBuilderSettingsFile();
+    const generatedTemplate = await readModelBuilderSettingsFile(context);
     baseSettings = applyDefaults({
       ...generatedTemplate,
       namespace: modelNamespace,
@@ -148,7 +149,7 @@ export async function configureModelBuilderSettings(context: DataversePowerTools
 
     context.projectSettings.pluginModelBuilder = baseSettings;
     try {
-      await saveModelBuilderSettingsFile(baseSettings);
+      await saveModelBuilderSettingsFile(baseSettings, context);
     } catch (error: any) {
       context.channel.appendLine(`Unable to save modelbuilder.json: ${JSON.stringify(error)}`);
       vscode.window.showErrorMessage("Could not save modelbuilder.json. Ensure there is not a folder named modelbuilder.json in the workspace root.");
@@ -165,7 +166,7 @@ export async function configureModelBuilderSettings(context: DataversePowerTools
 
   context.projectSettings.pluginModelBuilder = configuredSettings;
   try {
-    await saveModelBuilderSettingsFile(configuredSettings);
+    await saveModelBuilderSettingsFile(configuredSettings, context);
   } catch (error: any) {
     context.channel.appendLine(`Unable to save modelbuilder.json: ${JSON.stringify(error)}`);
     vscode.window.showErrorMessage("Could not save modelbuilder.json. Ensure there is not a folder named modelbuilder.json in the workspace root.");
@@ -186,7 +187,7 @@ export async function editModelBuilderSetting(context: DataversePowerToolsContex
   }
 
   context.projectSettings.pluginModelBuilder = updated;
-  await saveModelBuilderSettingsFile(updated);
+  await saveModelBuilderSettingsFile(updated, context);
   await context.writeSettings();
   await updatePluginModelBuilderSettingsContext(context);
   return true;
@@ -212,7 +213,7 @@ export async function generateEarlyBoundV3(context: DataversePowerToolsContext) 
     return;
   }
 
-  const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+  const workspacePath = activeComponentRoot(context)!;
   const args = [
     "modelbuilder",
     "build",

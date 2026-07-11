@@ -6,7 +6,10 @@ import DataversePowerToolsContext, { PluginModelBuilderSettings } from "../../co
 export const MODEL_BUILDER_FILENAME = "modelbuilder.json";
 export const LOG_LEVELS = ["Off", "Error", "Warning", "Information", "Verbose"];
 
-export function getWorkspacePath(): string | undefined {
+export function getWorkspacePath(context?: DataversePowerToolsContext): string | undefined {
+  if (context?.activeComponent) {
+    return context.activeComponent.root;
+  }
   if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
     return undefined;
   }
@@ -14,8 +17,8 @@ export function getWorkspacePath(): string | undefined {
   return vscode.workspace.workspaceFolders[0].uri.fsPath;
 }
 
-export function getModelBuilderFilePath(): string | undefined {
-  const workspacePath = getWorkspacePath();
+export function getModelBuilderFilePath(context?: DataversePowerToolsContext): string | undefined {
+  const workspacePath = getWorkspacePath(context);
   if (!workspacePath) {
     return undefined;
   }
@@ -83,8 +86,8 @@ export function applyDefaults(settings: Partial<PluginModelBuilderSettings>): Pl
   };
 }
 
-export async function readModelBuilderSettingsFile(): Promise<PluginModelBuilderSettings | undefined> {
-  const filePath = getModelBuilderFilePath();
+export async function readModelBuilderSettingsFile(context?: DataversePowerToolsContext): Promise<PluginModelBuilderSettings | undefined> {
+  const filePath = getModelBuilderFilePath(context);
   if (!filePath) {
     return undefined;
   }
@@ -103,8 +106,8 @@ export async function readModelBuilderSettingsFile(): Promise<PluginModelBuilder
   }
 }
 
-export async function saveModelBuilderSettingsFile(settings: PluginModelBuilderSettings): Promise<void> {
-  const filePath = getModelBuilderFilePath();
+export async function saveModelBuilderSettingsFile(settings: PluginModelBuilderSettings, context?: DataversePowerToolsContext): Promise<void> {
+  const filePath = getModelBuilderFilePath(context);
   if (!filePath) {
     return;
   }
@@ -124,12 +127,12 @@ export async function saveModelBuilderSettingsFile(settings: PluginModelBuilderS
 }
 
 export async function ensurePluginModelBuilderSettingsLoaded(context: DataversePowerToolsContext) {
-  let loadedSettings = await readModelBuilderSettingsFile();
+  let loadedSettings = await readModelBuilderSettingsFile(context);
   let migratedLegacySettings = false;
 
   if (!loadedSettings && context.projectSettings.pluginModelBuilder) {
     loadedSettings = applyDefaults(context.projectSettings.pluginModelBuilder);
-    await saveModelBuilderSettingsFile(loadedSettings);
+    await saveModelBuilderSettingsFile(loadedSettings, context);
     context.channel.appendLine("Migrated plugin modelbuilder settings to modelbuilder.json.");
     migratedLegacySettings = true;
   }

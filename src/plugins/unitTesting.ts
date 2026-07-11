@@ -4,6 +4,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
 import { findPrimaryPluginCsproj } from "./projectPaths";
+import { activeComponentRoot } from "../components/componentDiscovery";
 
 type UnitTestFramework = "mstest" | "xunit" | "nunit";
 
@@ -27,12 +28,8 @@ function execFileAsync(file: string, args: string[], cwd?: string): Promise<Exec
   });
 }
 
-async function getWorkspacePath(): Promise<string | undefined> {
-  if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
-    return undefined;
-  }
-
-  return vscode.workspace.workspaceFolders[0].uri.fsPath;
+async function getWorkspacePath(context: DataversePowerToolsContext): Promise<string | undefined> {
+  return activeComponentRoot(context);
 }
 
 async function runDotnet(context: DataversePowerToolsContext, args: string[], cwd: string): Promise<boolean> {
@@ -343,7 +340,7 @@ async function ensureDataverseUnitTestPackage(context: DataversePowerToolsContex
 }
 
 export async function setupPluginUnitTesting(context: DataversePowerToolsContext, selectedFramework?: UnitTestFramework): Promise<boolean> {
-  const workspacePath = await getWorkspacePath();
+  const workspacePath = await getWorkspacePath(context);
   if (!workspacePath) {
     vscode.window.showErrorMessage("No workspace folder is open.");
     return false;
@@ -417,7 +414,7 @@ export async function promptAndSetupPluginUnitTesting(context: DataversePowerToo
 }
 
 export async function runPluginUnitTests(context: DataversePowerToolsContext): Promise<void> {
-  const workspacePath = await getWorkspacePath();
+  const workspacePath = await getWorkspacePath(context);
   if (!workspacePath) {
     vscode.window.showErrorMessage("No workspace folder is open.");
     return;
@@ -465,7 +462,7 @@ function resolveTestTargetDirectory(targetUri: vscode.Uri | undefined, fallbackD
 }
 
 export async function createPluginTest(context: DataversePowerToolsContext, targetUri?: vscode.Uri): Promise<void> {
-  const workspacePath = await getWorkspacePath();
+  const workspacePath = await getWorkspacePath(context);
   if (!workspacePath) {
     vscode.window.showErrorMessage("No workspace folder is open.");
     return;

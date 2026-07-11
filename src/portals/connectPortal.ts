@@ -6,6 +6,7 @@ import { getOrganizationUrl } from "../general/connectionString";
 import { pacInvocation } from "../general/pac";
 import { parsePacAuthList, findAuthProfileForUrl, parsePacPagesList } from "./pacOutput";
 import path = require("path");
+import { activeComponentRoot } from "../components/componentDiscovery";
 
 export async function connectPortal(context: DataversePowerToolsContext, command: string) {
   await vscode.window.withProgress(
@@ -34,7 +35,7 @@ async function execFileAsync(file: string, args: string[], cwd?: string): Promis
 
 // Run a pac command and return stdout; pac.ts handles the Windows .cmd invocation.
 async function runPac(context: DataversePowerToolsContext, args: string[]) {
-  const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  const workspacePath = activeComponentRoot(context);
   const { command, args: invocationArgs } = pacInvocation(args);
   const { stdout, stderr } = await execFileAsync(command, invocationArgs, workspacePath);
   if (stderr) {
@@ -115,7 +116,7 @@ export async function selectEnvironment(context: DataversePowerToolsContext, sel
 
 export async function downloadPortal(context: DataversePowerToolsContext) {
   if (vscode.workspace.workspaceFolders !== undefined) {
-    const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+    const workspacePath = activeComponentRoot(context) ?? vscode.workspace.workspaceFolders[0].uri.fsPath;
     try {
       const stdout = await runPac(context, ["pages", "list"]);
       if (stdout !== null && stdout !== "") {

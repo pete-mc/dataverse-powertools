@@ -4,6 +4,7 @@ import * as path from "path";
 import { DataverseWebresource } from "../general/dataverse/DataverseWebresource";
 import { runWebresourceBuild } from "./webpackBuild";
 import { saveFormDataExec } from "./saveFormData";
+import { activeComponentRoot } from "../components/componentDiscovery";
 
 export async function deployWebresources(context: DataversePowerToolsContext) {
   await vscode.window.withProgress(
@@ -85,9 +86,9 @@ export async function deploy(context: DataversePowerToolsContext, options?: { pu
           }
         }
 
-        const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+        const workspacePath = activeComponentRoot(context) ?? vscode.workspace.workspaceFolders[0].uri.fsPath;
         const binPath = path.join(workspacePath, "bin");
-        const filesToDeploy = await vscode.workspace.findFiles("bin/**", "**/{node_modules,.git}/**");
+        const filesToDeploy = await vscode.workspace.findFiles(new vscode.RelativePattern(workspacePath, "bin/**"), "**/{node_modules,.git}/**");
         const solutionUniqueName = context.projectSettings.webresourceSolutionName || context.projectSettings.solutionName;
 
         if (filesToDeploy.length === 0) {
