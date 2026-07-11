@@ -2,7 +2,21 @@ import * as path from "path";
 import * as fs from "fs";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
-import { loadE2EEnv, freshWorkspace, answerText, answerFlexible, pickByLabel, pickFirst, runCommand, waitForFile, dismissOverlays, sleep, E2EClient } from "./lib";
+import {
+  loadE2EEnv,
+  freshWorkspace,
+  answerText,
+  answerFlexible,
+  pickByLabel,
+  pickFirst,
+  runCommand,
+  waitForFile,
+  clearOutput,
+  expectOutput,
+  dismissOverlays,
+  sleep,
+  E2EClient,
+} from "./lib";
 
 // End-to-end: create a Web Resources project via the real wizard using INTERACTIVE (OAuth) sign-in,
 // then generate typings, create a class + test, build, and deploy — the full lifecycle under
@@ -118,6 +132,20 @@ describe("Web resources lifecycle — interactive auth (e2e)", function () {
       await sleep(5000);
     } while (Date.now() < deadline);
     expect(id, `${libraryName()} exists in Dataverse`).to.not.equal(undefined);
+  });
+
+  it("registers the form events under interactive auth (gated on the log)", async () => {
+    await clearOutput();
+    await runCommand("Dataverse PowerTools: Register Form Events");
+    // The exact path that failed for interactive users: form register + publish gated on a tenantId
+    // that OAuth sign-in never sets, reporting "Could not connect to dataverse." (then silently
+    // no-op'ing the publish). Gate on "Publish Complete" and fail fast on the old symptom.
+    await expectOutput("Publish Complete", {
+      timeoutMs: 180000,
+      failMarkers: ["Could not connect to dataverse.", "Error registering events."],
+      step: "register form events (interactive)",
+    });
+    await sleep(10000);
   });
 
   after(async function () {

@@ -664,9 +664,10 @@
     "pretest:ui": "npm run compile-tests && npm run compile",
     "test:ui": "extest setup-and-run \"out/ui-test/**/*.test.js\" --code_settings test/ui-settings.json --mocha_config .mocharc-ui.json",
     "pretest:e2e": "npm run compile-tests && npm run compile",
-    "test:e2e": "extest setup-and-run \"out/ui-test/e2e/**/*.e2e.js\" --code_settings test/ui-settings.json --extensions_dir sandbox/ext-dir-clean --mocha_config .mocharc-e2e.json",
+    "test:e2e": "node scripts/runE2E.mjs",
     "test": "npm run test:unit && npm run test:integration",
-    "deploy": "vsce publish"
+    "deploy": "vsce publish",
+    "seed-interactive-cache": "node scripts/preAcquireInteractiveCache.mjs"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",
