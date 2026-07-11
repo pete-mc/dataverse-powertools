@@ -2,6 +2,7 @@ import fetch from "node-fetch";
 import DataversePowerToolsContext from "../../context";
 import { parseConnectionString, normalizeOrganizationUrl } from "../connectionString";
 import { parseAuthType, DataverseAuthType } from "./authTypes";
+import { canCallDataverseApi } from "./connectionReady";
 import { acquireClientSecretToken, acquireInteractiveToken, TokenResult } from "./tokenAcquisition";
 import { dataverseApiUrl } from "./webApi";
 
@@ -111,7 +112,11 @@ export class DataverseContext {
   }
 
   public async publishAllCustomisations(): Promise<void> {
-    if (!this.tenantId || !this.organizationUrl || !this.context.connectionString || !this.isValid) {
+    // No tenantId requirement — it is empty under interactive (OAuth) sign-in and is only used by
+    // the service-principal token path. Gating on it silently skipped the publish (so "Register Form
+    // Events" never completed) for interactive users; the token via getAuthorizationToken() works
+    // for both auth types.
+    if (!canCallDataverseApi({ organizationUrl: this.organizationUrl, isValid: this.isValid }) || !this.context.connectionString) {
       return;
     }
     /* eslint-disable @typescript-eslint/naming-convention */
@@ -140,7 +145,8 @@ export class DataverseContext {
    * @member {string} customisationXml#publishSingleCustomisation
    */
   public async publishSingleCustomisation(parameterXml: string): Promise<void> {
-    if (!this.tenantId || !this.organizationUrl || !this.context.connectionString || !this.isValid) {
+    // Same as publishAllCustomisations — no tenantId gate (empty under interactive auth).
+    if (!canCallDataverseApi({ organizationUrl: this.organizationUrl, isValid: this.isValid }) || !this.context.connectionString) {
       return;
     }
     /* eslint-disable @typescript-eslint/naming-convention */
