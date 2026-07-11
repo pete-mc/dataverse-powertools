@@ -31,10 +31,11 @@ let activeSession: ActiveDebugSession | undefined;
 // "'webpack' is not recognized" without a global install). Exported so a unit test pins the `npx`
 // launcher against a regression back to bare `webpack` (the e2e VM's global webpack masks it).
 export const WEBPACK_WATCH_LAUNCHER = "npx";
-// --devtool inline-source-map overrides older templates' eval-source-map so
-// browser breakpoints BIND to the TypeScript reliably (#96) — eval-wrapped maps
-// bind late/never in js-debug attach sessions.
-export const WEBPACK_WATCH_ARGS = ["webpack", "--config", "webpack.dev.js", "--watch", "--devtool", "inline-source-map"];
+// Breakpoint binding (#96) comes from the TEMPLATE's inline-source-map dev
+// config. Do NOT force --devtool here: overriding a project's own devtool
+// changed the watch output mid-session and broke the comprehensive e2e's
+// serve-local step; existing projects switch by editing webpack.dev.js.
+export const WEBPACK_WATCH_ARGS = ["webpack", "--config", "webpack.dev.js", "--watch"];
 
 function findFreePort(): Promise<number> {
   return new Promise((resolve, reject) => {
