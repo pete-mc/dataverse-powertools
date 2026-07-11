@@ -3,6 +3,7 @@ import * as vscode from "vscode";
 import { DataverseForm } from "../general/dataverse/DataverseForm";
 import { randomUUID } from "crypto";
 import { parseRegisterEvents, RegisterEventDecoration } from "./registerEventParser";
+import { activeComponentRoot } from "../components/componentDiscovery";
 
 export async function saveFormData(context: DataversePowerToolsContext): Promise<void> {
   await vscode.window.withProgress(
@@ -32,7 +33,10 @@ export async function saveFormData(context: DataversePowerToolsContext): Promise
 export async function saveFormDataExec(context: DataversePowerToolsContext, options?: { publish?: boolean }): Promise<boolean> {
   context.channel.appendLine("Saving Forms...");
 
-  const files = await vscode.workspace.findFiles("webresources_src/**/*.ts");
+  const componentRoot = activeComponentRoot(context);
+  const files = componentRoot
+    ? await vscode.workspace.findFiles(new vscode.RelativePattern(componentRoot, "webresources_src/**/*.ts"))
+    : await vscode.workspace.findFiles("webresources_src/**/*.ts");
   const registerEvents: RegisterEventDecoration[] = [];
   let malformedBlocks = 0;
   for (const file of files) {
@@ -60,7 +64,9 @@ export async function saveFormDataExec(context: DataversePowerToolsContext, opti
   );
 
   //get library filename from the project webpack.common.js
-  const webpackConfig = await vscode.workspace.findFiles("webpack.common.js");
+  const webpackConfig = componentRoot
+    ? await vscode.workspace.findFiles(new vscode.RelativePattern(componentRoot, "webpack.common.js"))
+    : await vscode.workspace.findFiles("webpack.common.js");
   const webpackConfigDocument = await vscode.workspace.openTextDocument(webpackConfig[0]);
   const webpackConfigText = webpackConfigDocument.getText();
   const libraryName = webpackConfigText.match(/(?<=output: {\s*filename: ['"]).*?(?=['"],)/)?.[0];

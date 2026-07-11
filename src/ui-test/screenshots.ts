@@ -166,6 +166,11 @@ describe("Dataverse PowerTools screenshots", function () {
     await prompt.cancel();
   });
 
+  it("captures the multi-component workspace panel (#47)", async () => {
+    await openProject("multi");
+    await snapSidebar("multi-component");
+  });
+
   it("captures the plugin project menu", async () => {
     await openProject("plugin");
     await snapSidebar("plugin-menu");

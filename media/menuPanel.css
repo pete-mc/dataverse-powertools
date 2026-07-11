@@ -20,6 +20,16 @@ body {
   margin-bottom: 10px;
 }
 
+.card.slim {
+  padding: 6px 10px;
+  background-color: transparent;
+  border-style: dashed;
+}
+
+.card.slim button.action {
+  margin: 0;
+}
+
 .card.session {
   background-color: var(--vscode-inputValidation-warningBackground, var(--vscode-editorWidget-background));
   border-color: var(--vscode-inputValidation-warningBorder, var(--vscode-widget-border));
@@ -348,6 +358,29 @@ a.download {
 a.download:hover {
   color: var(--vscode-textLink-activeForeground, var(--vscode-textLink-foreground));
   text-decoration: underline;
+}
+
+/* Loading spinner (detecting state) */
+.spinner-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spinner {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--vscode-descriptionForeground);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: dvpt-spin 0.9s linear infinite;
+}
+
+@keyframes dvpt-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Footer */

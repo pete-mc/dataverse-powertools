@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import fs = require("fs");
 import path = require("path");
 import DataversePowerToolsContext from "../context";
+import { activeComponentRoot } from "../components/componentDiscovery";
 
 interface SpklWebresourceProfile {
   solution?: string;
@@ -16,7 +17,7 @@ export async function upgradeFromSpkl(context: DataversePowerToolsContext): Prom
     return;
   }
 
-  const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+  const workspacePath = activeComponentRoot(context) ?? vscode.workspace.workspaceFolders[0].uri.fsPath;
   const spklPath = path.join(workspacePath, "spkl.json");
   if (!fs.existsSync(spklPath)) {
     vscode.commands.executeCommand("setContext", "dataverse-powertools.hasSpkl", false);

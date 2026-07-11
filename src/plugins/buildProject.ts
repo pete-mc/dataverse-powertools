@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
+import { activeComponentRoot } from "../components/componentDiscovery";
 
 interface ExecResult {
   stdout: string;
@@ -46,12 +47,11 @@ async function findBuildTarget(workspacePath: string): Promise<string | undefine
 }
 
 export async function buildProject(context: DataversePowerToolsContext): Promise<void> {
-  if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+  const workspacePath = activeComponentRoot(context);
+  if (!workspacePath) {
     vscode.window.showErrorMessage("No workspace folder is open.");
     return;
   }
-
-  const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
   const buildTarget = await findBuildTarget(workspacePath);
   const args = ["build"];
 

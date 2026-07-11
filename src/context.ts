@@ -7,6 +7,7 @@ import { workspaceFilePath } from "./general/paths";
 import { parseConnectionString, buildConnectionString, getOrganizationUrl, mergeCredentialConnectionString } from "./general/connectionString";
 import { parseAuthType, DataverseAuthType } from "./general/dataverse/authTypes";
 import { ProjectTypes } from "./projectTypes/registry";
+import type { DiscoveredComponent } from "./components/discovery";
 
 // The enum now lives in the project-type registry (single source of truth,
 // #47/#100); re-exported here so existing imports keep working.
@@ -25,6 +26,12 @@ export default class DataversePowerToolsContext {
   public folderStateReady: boolean = false;
   /** Set by the actions panel (#100); call after any state change the panel renders. */
   public refreshPanel?: () => void;
+  /** Every component in the workspace (#47): folders holding dataverse-powertools.json,
+   * root first. A single-project workspace has exactly the root component. */
+  public components: DiscoveredComponent[] = [];
+  /** The component the current command invocation targets (set on scoped facade
+   * contexts by componentScopedContext; undefined = root/legacy behaviour). */
+  public activeComponent?: DiscoveredComponent;
   constructor(vscodeContext: vscode.ExtensionContext) {
     this.vscode = vscodeContext;
     this.channel = vscode.window.createOutputChannel("dataverse-powertools");
@@ -45,6 +52,11 @@ export default class DataversePowerToolsContext {
   }
 
   private settingsFilePath(): string | undefined {
+    // Component-scoped contexts read/write THEIR settings file (#47); the base
+    // context keeps today's workspace-root behaviour.
+    if (this.activeComponent) {
+      return workspaceFilePath(this.activeComponent.root, this.settingsFilename);
+    }
     const folders = vscode.workspace.workspaceFolders;
     if (!folders || folders.length === 0) {
       return undefined;

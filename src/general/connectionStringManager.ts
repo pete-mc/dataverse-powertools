@@ -83,6 +83,9 @@ export async function switchEnvironment(context: DataversePowerToolsContext): Pr
   await context.writeSettings();
   await context.readSettings();
   context.setStatusBar(getOrganizationUrl(connectionString));
+  // Re-render the panel so the environment + solution reflect the switch
+  // immediately — previously stale until a reload (#102).
+  context.refreshPanel?.();
   window.showInformationMessage(`Switched to ${pick.label}`);
 }
 
@@ -162,7 +165,7 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
       totalSteps: 7,
       placeholder: "Select the authentication type",
       items: [
-        { label: "Interactive sign-in", target: DataverseAuthType.oauth },
+        { label: "OAuth", target: DataverseAuthType.oauth },
         { label: "Service principal (client secret)", target: DataverseAuthType.clientSecret },
       ],
       shouldResume: shouldResume,

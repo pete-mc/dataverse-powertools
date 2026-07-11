@@ -1,62 +1,18 @@
 import DataversePowerToolsContext from "../context";
 import * as vscode from "vscode";
-import { configureModelBuilderSettings, generateEarlyBoundV3, loadPluginModelBuilderSettings, updatePluginModelBuilderSettingsContext } from "../general/modelbuilder";
-import { buildProject } from "./buildProject";
-import { buildAndDeploy } from "./buildAndDeploy";
-import { createPluginClass, createWorkflowClass } from "./createClasses";
-import { addClassDecoration, updateFilteringAttributes } from "./decorations";
+import { loadPluginModelBuilderSettings, updatePluginModelBuilderSettingsContext } from "../general/modelbuilder";
 import { registerDecorationCodeLens } from "./decorationsCodeLens";
-import { createPluginTest, promptAndSetupPluginUnitTesting, runPluginUnitTests } from "./unitTesting";
 import { createPluginTestController } from "./pluginTestController";
-import { runTracked } from "../panel/operationTracker";
 
-function registerPlaceholderCommand(context: DataversePowerToolsContext, commandId: string, message: string) {
-  context.vscode.subscriptions.push(
-    vscode.commands.registerCommand(commandId, () => {
-      context.channel.appendLine(`[Plugin Placeholder] ${message}`);
-      vscode.window.showInformationMessage(message);
-    }),
-  );
-}
-
+// Per-type setup for plugin (v3) components: context keys, model-builder
+// settings, CodeLens, test controller. Commands register once globally in
+// projectTypes/activation.ts (#47) — never here.
 export async function initialisePlugins(context: DataversePowerToolsContext): Promise<void> {
   vscode.commands.executeCommand("setContext", "dataverse-powertools.isPlugin", true);
   vscode.commands.executeCommand("setContext", "dataverse-powertools.isPluginV3", true);
-  vscode.commands.executeCommand("setContext", "dataverse-powertools.isWebResource", false);
-  vscode.commands.executeCommand("setContext", "dataverse-powertools.isSolution", false);
-  vscode.commands.executeCommand("setContext", "dataverse-powertools.isPortal", false);
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.hasPluginUnitTesting", !!context.projectSettings.pluginUnitTestingEnabled);
   await loadPluginModelBuilderSettings(context);
   void updatePluginModelBuilderSettingsContext(context);
-
-  context.vscode.subscriptions.push(
-    vscode.commands.registerCommand("dataverse-powertools.generateEarlyBound", () => runTracked(context, "Generate early bound", () => generateEarlyBoundV3(context))),
-  );
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.configurePluginEarlyBound", () => configureModelBuilderSettings(context)));
-  context.vscode.subscriptions.push(
-    vscode.commands.registerCommand("dataverse-powertools.buildAndDeploy", () => runTracked(context, "Build & deploy package", () => buildAndDeploy(context))),
-  );
-  context.vscode.subscriptions.push(
-    vscode.commands.registerCommand("dataverse-powertools.buildDeployPlugin", () => runTracked(context, "Build & deploy package", () => buildAndDeploy(context))),
-  );
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildProject", () => runTracked(context, "Build", () => buildProject(context))));
-  context.vscode.subscriptions.push(
-    vscode.commands.registerCommand("dataverse-powertools.buildDeployWorkflow", () => runTracked(context, "Build & deploy workflow", () => buildAndDeploy(context))),
-  );
-  context.vscode.subscriptions.push(
-    vscode.commands.registerCommand("dataverse-powertools.createPluginClass", (resourceUri?: vscode.Uri) => createPluginClass(context, resourceUri)),
-  );
-  context.vscode.subscriptions.push(
-    vscode.commands.registerCommand("dataverse-powertools.createWorkflowClass", (resourceUri?: vscode.Uri) => createWorkflowClass(context, resourceUri)),
-  );
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.setupPluginUnitTesting", () => promptAndSetupPluginUnitTesting(context)));
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.runPluginTests", () => runTracked(context, "Tests", () => runPluginUnitTests(context))));
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createPluginTest", (resourceUri?: vscode.Uri) => createPluginTest(context, resourceUri)));
-  registerPlaceholderCommand(context, "dataverse-powertools.createSNKKey", "This template uses pac plugin init --skip-signing; SNK generation is not required by default.");
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.addClassDecoration", () => addClassDecoration(context)));
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.addPluginDecoration", () => addClassDecoration(context)));
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.addWorkflowDecoration", () => addClassDecoration(context)));
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.updateFilteringAttributes", () => updateFilteringAttributes(context)));
   registerDecorationCodeLens(context);
   // Surface the plugin's .NET tests in the native Test Explorer (#84).
   createPluginTestController(context);

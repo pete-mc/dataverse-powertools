@@ -7,14 +7,15 @@ import DataversePowerToolsContext from "../context";
 import { resolveTestProjectPath } from "./unitTesting";
 import { parseDotnetListTests } from "./parseDotnetListTests";
 import { parseTrx, TrxTestResult } from "./parseTrx";
+import { activeComponentRoot } from "../components/componentDiscovery";
 
 // Test Explorer integration for a plugin project's .NET tests (#84). Discovers tests via
 // `dotnet test --list-tests`, runs them via `dotnet test --logger trx` and parses the TRX for live
 // per-test results, and offers a Debug profile that launches the test host under the .NET debugger.
 // `dotnet` is a real executable (not a .cmd shim), so it is spawned directly.
 
-function workspaceRoot(): string | undefined {
-  return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+function workspaceRoot(context: DataversePowerToolsContext): string | undefined {
+  return activeComponentRoot(context);
 }
 
 function runDotnetCapture(args: string[], cwd: string): Promise<{ stdout: string; stderr: string }> {
@@ -47,7 +48,7 @@ function methodItem(controller: vscode.TestController, className: string, fqn: s
 }
 
 async function discover(context: DataversePowerToolsContext, controller: vscode.TestController): Promise<void> {
-  const cwd = workspaceRoot();
+  const cwd = workspaceRoot(context);
   if (!cwd) {
     return;
   }
@@ -115,7 +116,7 @@ async function runHandler(
   token: vscode.CancellationToken,
   debug: boolean,
 ): Promise<void> {
-  const cwd = workspaceRoot();
+  const cwd = workspaceRoot(context);
   if (!cwd) {
     return;
   }

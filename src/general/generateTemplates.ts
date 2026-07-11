@@ -9,6 +9,7 @@ import { restoreDependencies } from "./restoreDependencies";
 import { getProjectTypeActivation } from "../projectTypes/activation";
 import { getTemplateFolderForType } from "../projectTypes/registry";
 import { addPrivateAssetsToWorkflowPackage, ensureReadmePackaging, defaultPluginReadme } from "../plugins/csprojTransforms";
+import { activeComponentRoot } from "../components/componentDiscovery";
 
 function sanitizeProjectName(input: string): string {
   const trimmed = input.trim();
@@ -213,7 +214,7 @@ async function normalizePluginV3Layout(context: DataversePowerToolsContext): Pro
     return;
   }
 
-  const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+  const workspacePath = activeComponentRoot(context) ?? vscode.workspace.workspaceFolders[0].uri.fsPath;
   const projectName = context.projectSettings.pluginProjectName || "Plugin";
   const projectDirectory = path.join(workspacePath, projectName);
   if (!fs.existsSync(projectDirectory)) {
@@ -342,6 +343,13 @@ export async function createNewProject(context: DataversePowerToolsContext) {
     },
     async () => {
       await getProjectType(context);
+      // Dismissing the first wizard step cancels the wizard — previously the
+      // flow carried on, prompting for auth and writing a TYPELESS settings
+      // file (caught by the e2e when a focus flap closed the quick pick).
+      if (!context.projectSettings.type) {
+        context.channel.appendLine("Project creation cancelled — no project type selected.");
+        return;
+      }
       await createServicePrincipalString(context);
       await promptPluginProjectName(context);
       await promptPluginPackageName(context);
@@ -363,13 +371,13 @@ export async function createNewProject(context: DataversePowerToolsContext) {
   vscode.window.showInformationMessage("Project created");
 }
 
-export async function generateTemplates(context: DataversePowerToolsContext) {
+export async function generateTemplates(context: DataversePowerToolsContext, targetDir?: string) {
   //inital system checks
   if (!context.projectSettings.type || !context.projectSettings.templateversion || !vscode.workspace.workspaceFolders) {
     vscode.window.showErrorMessage(!vscode.workspace.workspaceFolders ? "No folder open" : "No template type selected");
     return;
   }
-  const folderPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+  const folderPath = targetDir ?? activeComponentRoot(context) ?? vscode.workspace.workspaceFolders[0].uri.fsPath;
   var templateFilePath = context.vscode.asAbsolutePath(path.join("templates", getTemplateFolderForType(context.projectSettings.type)!));
   const templateToCopy = JSON.parse(fs.readFileSync(path.join(templateFilePath, "template.json"), "utf8")).find(
     (t: PowertoolsTemplate) => t.version === context.projectSettings.templateversion,
@@ -447,7 +455,7 @@ export async function createTemplatedFile(
             "utf8",
           );
           if (vscode.workspace.workspaceFolders) {
-            const folderPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+            const folderPath = activeComponentRoot(context) ?? vscode.workspace.workspaceFolders[0].uri.fsPath;
             const destPath = pluginTemplate.path;
             destPath.unshift(folderPath);
             let fileExtension = pluginTemplate.extension;

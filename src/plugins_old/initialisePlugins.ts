@@ -1,26 +1,12 @@
 import DataversePowerToolsContext from "../context";
 import * as vscode from "vscode";
-import { addPluginDecoration } from "./addStepDecoration";
-import { addWorkflowDecoration } from "./addWorkflowDecoration";
-import { buildDeployPlugin } from "./buildDeployPlugin";
-import { buildDeployWorkflow } from "./buildDeployWorkflow";
-import { buildProject } from "./buildPlugin";
-import { createPluginClass, createWorkflowClass } from "./createPluginClass";
-import { generateEarlyBound, createSNKKey } from "./earlybound";
 
+// Per-type setup for legacy (template < 3) plugin projects — deprecated, kept
+// for existing workspaces. Commands register once globally in
+// projectTypes/activation.ts (#47), which routes plugin commands to the legacy
+// implementations when templateversion < 3 — never register commands here.
 export function initialisePlugins(context: DataversePowerToolsContext): void {
+  void context;
   vscode.commands.executeCommand("setContext", "dataverse-powertools.isPlugin", true);
   vscode.commands.executeCommand("setContext", "dataverse-powertools.isPluginV3", false);
-  vscode.commands.executeCommand("setContext", "dataverse-powertools.isWebResource", false);
-  vscode.commands.executeCommand("setContext", "dataverse-powertools.isSolution", false);
-  vscode.commands.executeCommand("setContext", "dataverse-powertools.isPortal", false);
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.generateEarlyBound", () => generateEarlyBound(context)));
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildDeployPlugin", () => buildDeployPlugin(context)));
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildProject", () => buildProject(context)));
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.buildDeployWorkflow", () => buildDeployWorkflow(context)));
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createPluginClass", () => createPluginClass(context)));
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createWorkflowClass", () => createWorkflowClass(context)));
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.createSNKKey", () => createSNKKey(context)));
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.addPluginDecoration", () => addPluginDecoration(context)));
-  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.addWorkflowDecoration", () => addWorkflowDecoration(context)));
 }

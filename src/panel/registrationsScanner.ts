@@ -2,6 +2,8 @@ import * as vscode from "vscode";
 import fs = require("fs");
 import DataversePowerToolsContext from "../context";
 import { parseRegisterEvents, lineOfOffset } from "../webresources/registerEventParser";
+import { componentsOfType } from "../components/discovery";
+import { ProjectTypes } from "../projectTypes/registry";
 
 // Workspace scan of <PowerTools.RegisterEvent[]> decorations for the actions
 // panel's registrations card (#100 v2). Cached; rescanned on activation and on
@@ -14,6 +16,8 @@ export interface ScannedRegistration {
   file: string;
   /** 0-based line of the decoration, for go-to-file. */
   line: number;
+  /** Owning web-resource component root; undefined for legacy workspace-wide scans (#47). */
+  componentRoot?: string;
 }
 
 let cache: ScannedRegistration[] = [];
@@ -24,12 +28,22 @@ export function getScannedRegistrations(): ScannedRegistration[] {
 
 export async function scanFormRegistrations(context: DataversePowerToolsContext): Promise<void> {
   try {
-    const files = await vscode.workspace.findFiles("webresources_src/**/*.ts", "**/node_modules/**");
+    // One scan per web-resource component (#47); a legacy workspace with no
+    // discovered components falls back to the workspace-wide glob.
+    const roots = componentsOfType(context.components ?? [], ProjectTypes.webresource).map((c) => c.root);
+    const globs =
+      roots.length > 0
+        ? roots.map((root) => ({ root, pattern: new vscode.RelativePattern(root, "webresources_src/**/*.ts") as vscode.GlobPattern }))
+        : [{ root: undefined as string | undefined, pattern: "webresources_src/**/*.ts" as vscode.GlobPattern }];
+
     const found: ScannedRegistration[] = [];
-    for (const file of files) {
-      const text = await fs.promises.readFile(file.fsPath, "utf8");
-      for (const event of parseRegisterEvents(text).events) {
-        found.push({ functionName: event.function, event: event.event, file: file.fsPath, line: lineOfOffset(text, event.offset) });
+    for (const { root, pattern } of globs) {
+      const files = await vscode.workspace.findFiles(pattern, "**/node_modules/**");
+      for (const file of files) {
+        const text = await fs.promises.readFile(file.fsPath, "utf8");
+        for (const event of parseRegisterEvents(text).events) {
+          found.push({ functionName: event.function, event: event.event, file: file.fsPath, line: lineOfOffset(text, event.offset), componentRoot: root });
+        }
       }
     }
     found.sort((a, b) => a.functionName.localeCompare(b.functionName) || a.event.localeCompare(b.event));

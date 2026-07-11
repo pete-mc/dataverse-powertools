@@ -4,6 +4,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
 import { findPrimaryPluginCsproj } from "./projectPaths";
+import { activeComponentRoot } from "../components/componentDiscovery";
 
 const requiredWorkflowPackage = "Microsoft.CrmSdk.Workflow";
 const fallbackWorkflowPackage = "Microsoft.CrmSdk.CoreAssemblies";
@@ -45,16 +46,12 @@ function sanitizeClassName(input: string): string {
   return cleaned;
 }
 
-async function getWorkspacePath(): Promise<string | undefined> {
-  if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
-    return undefined;
-  }
-
-  return vscode.workspace.workspaceFolders[0].uri.fsPath;
+async function getWorkspacePath(context: DataversePowerToolsContext): Promise<string | undefined> {
+  return activeComponentRoot(context);
 }
 
-async function resolveTargetDirectoryPath(targetUri?: vscode.Uri): Promise<string | undefined> {
-  const workspacePath = await getWorkspacePath();
+async function resolveTargetDirectoryPath(context: DataversePowerToolsContext, targetUri?: vscode.Uri): Promise<string | undefined> {
+  const workspacePath = await getWorkspacePath(context);
   if (!workspacePath) {
     return undefined;
   }
@@ -206,7 +203,7 @@ async function ensureWorkflowPackages(context: DataversePowerToolsContext, works
 }
 
 export async function createPluginClass(context: DataversePowerToolsContext, targetUri?: vscode.Uri): Promise<void> {
-  const workspacePath = await getWorkspacePath();
+  const workspacePath = await getWorkspacePath(context);
   if (!workspacePath) {
     vscode.window.showErrorMessage("No workspace folder is open.");
     return;
@@ -218,7 +215,7 @@ export async function createPluginClass(context: DataversePowerToolsContext, tar
   // Without an Explorer target, default to the plugin PROJECT directory — the
   // v3 layout nests the csproj, and a class at the workspace root would never
   // be compiled into the assembly.
-  const targetDirectory = targetUri ? await resolveTargetDirectoryPath(targetUri) : pluginProjectDirectory;
+  const targetDirectory = targetUri ? await resolveTargetDirectoryPath(context, targetUri) : pluginProjectDirectory;
   if (!targetDirectory) {
     vscode.window.showErrorMessage("Could not resolve destination folder.");
     return;
@@ -262,7 +259,7 @@ async function ensureWorkflowBase(context: DataversePowerToolsContext, workspace
 }
 
 export async function createWorkflowClass(context: DataversePowerToolsContext, targetUri?: vscode.Uri): Promise<void> {
-  const workspacePath = await getWorkspacePath();
+  const workspacePath = await getWorkspacePath(context);
   if (!workspacePath) {
     vscode.window.showErrorMessage("No workspace folder is open.");
     return;
@@ -272,7 +269,7 @@ export async function createWorkflowClass(context: DataversePowerToolsContext, t
   const pluginProjectDirectory = pluginCsprojPath ? path.dirname(pluginCsprojPath) : workspacePath;
 
   // Same default as createPluginClass: the class must live under the project.
-  const targetDirectory = targetUri ? await resolveTargetDirectoryPath(targetUri) : pluginProjectDirectory;
+  const targetDirectory = targetUri ? await resolveTargetDirectoryPath(context, targetUri) : pluginProjectDirectory;
   if (!targetDirectory) {
     vscode.window.showErrorMessage("Could not resolve destination folder.");
     return;

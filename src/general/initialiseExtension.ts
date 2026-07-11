@@ -1,6 +1,8 @@
 import * as vscode from "vscode";
 import DataversePowerToolsContext, { PowertoolsTemplate } from "../context";
 import { isSupportedProjectType } from "../projectTypes/registry";
+import { discoverWorkspaceComponents } from "../components/componentDiscovery";
+import { addComponent } from "../components/addComponent";
 import { createServicePrincipalString, updateConnectionString, switchEnvironment, refreshConnection } from "./connectionStringManager";
 import { createNewProject } from "./generateTemplates";
 import { restoreDependencies } from "./restoreDependencies";
@@ -10,7 +12,11 @@ import { scanSystemRequirements } from "./systemRequirements";
 export async function generalInitialise(context: DataversePowerToolsContext) {
   await scanSystemRequirements(context);
   await context.readSettings();
-  await vscode.commands.executeCommand("setContext", "dataverse-powertools.hasSupportedProjectType", isSupportedProjectType(context.projectSettings?.type));
+  // Discover every component in the workspace (#47) — a single project is just
+  // the root component; commands resolve their target component at invocation.
+  await discoverWorkspaceComponents(context);
+  const hasSupportedComponent = context.components.some((c) => isSupportedProjectType(c.settings.type)) || isSupportedProjectType(context.projectSettings?.type);
+  await vscode.commands.executeCommand("setContext", "dataverse-powertools.hasSupportedProjectType", hasSupportedComponent);
 
   if (context.projectSettings?.connectionString === undefined || context.projectSettings?.connectionString === "" || context.projectSettings?.connectionString === null) {
     await vscode.commands.executeCommand("setContext", "dataverse-powertools.showLoaded", false);
@@ -26,6 +32,7 @@ export async function generalInitialise(context: DataversePowerToolsContext) {
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.switchEnvironment", () => switchEnvironment(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.refreshConnection", () => refreshConnection(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.openSettings", () => context.openSettings()));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.addComponent", () => addComponent(context)));
   }
 
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.detectingFolderSettings", false);

@@ -1,17 +1,9 @@
 import DataversePowerToolsContext from "../context";
 import * as vscode from "vscode";
-import { connectPortal } from "./connectPortal";
-import { runTracked } from "../panel/operationTracker";
 
+// Per-type setup for portal components. Commands register once globally in
+// projectTypes/activation.ts (#47) — never here.
 export function initialisePortals(context: DataversePowerToolsContext): void {
-  vscode.commands.executeCommand("setContext", "dataverse-powertools.isPlugin", false);
-  vscode.commands.executeCommand("setContext", "dataverse-powertools.isWebResource", false);
-  vscode.commands.executeCommand("setContext", "dataverse-powertools.isSolution", false);
+  void context;
   vscode.commands.executeCommand("setContext", "dataverse-powertools.isPortal", true);
-  context.vscode.subscriptions.push(
-    vscode.commands.registerCommand("dataverse-powertools.connectPortal", () => runTracked(context, "Connect portal", () => connectPortal(context, "connect"))),
-  );
-  context.vscode.subscriptions.push(
-    vscode.commands.registerCommand("dataverse-powertools.downloadPortal", () => runTracked(context, "Download portal", () => connectPortal(context, "download"))),
-  );
 }

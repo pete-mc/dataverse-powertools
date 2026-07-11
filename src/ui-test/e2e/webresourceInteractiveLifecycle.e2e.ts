@@ -81,8 +81,8 @@ describe("Web resources lifecycle — interactive auth (e2e)", function () {
     await runCommand("Dataverse PowerTools: Initialise Project");
     log("project type");
     await pickByLabel("Web Resources");
-    log("auth type: Interactive sign-in");
-    await pickByLabel("Interactive sign-in");
+    log("auth type: OAuth");
+    await pickByLabel("OAuth");
     log("environment (silent sign-in + discovery)");
     await answerFlexible(env!.url, 120000);
     log(`solution (${solutionFriendlyName})`);

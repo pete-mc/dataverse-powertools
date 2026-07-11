@@ -4,6 +4,7 @@ import fs = require("fs");
 import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes } from "../context";
 import { getTemplateFolderForType } from "../projectTypes/registry";
 import { pacInvocation } from "./pac";
+import { activeComponentRoot } from "../components/componentDiscovery";
 
 // Lines from restore tooling (npm mostly) that are noise to a user watching the output channel:
 // funding solicitations, audit summaries, deprecation notices. Stripped so the log shows only what
@@ -125,7 +126,7 @@ export async function restoreDependencies(context: DataversePowerToolsContext, i
       }
       context.template = templateToCopy;
       if (vscode.workspace.workspaceFolders !== undefined && context.template !== undefined && context.template.restoreCommands) {
-        const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+        const workspacePath = activeComponentRoot(context) ?? vscode.workspace.workspaceFolders[0].uri.fsPath;
         const restoreCommands = initialising ? context.template?.initCommands || [] : context.template?.restoreCommands || [];
         for (const c of restoreCommands) {
           const resolvedCommand = resolveInitCommand(c.command, workspacePath, context, initialising);

@@ -10,6 +10,7 @@ import { resolveBrowser, BrowserPreference } from "./browserResolver";
 import { buildBrowserArgs } from "./browserArgs";
 import { isWebresourceBundleUrl, bundleCdpPattern, bundleContentType } from "./webresourceUrlMatch";
 import { buildAttachDebugConfig } from "./debugConfig";
+import { activeComponentRoot } from "../../components/componentDiscovery";
 
 // "Debug Web Resources": run the local webpack bundle *inside the real model-driven app*.
 // A dedicated Edge/Chrome instance is launched under the DevTools Protocol; the browser's
@@ -101,7 +102,7 @@ export async function debugWebResources(context: DataversePowerToolsContext): Pr
     return;
   }
   const workspaceFolder = folders[0];
-  const workspacePath = workspaceFolder.uri.fsPath;
+  const workspacePath = activeComponentRoot(context) ?? workspaceFolder.uri.fsPath;
 
   // Need a live connection to know the org URL to open.
   if (!context.dataverse || !context.dataverse.isValid) {

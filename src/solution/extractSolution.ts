@@ -3,6 +3,7 @@ import DataversePowerToolsContext from "../context";
 import { pacSolutionExportArgs, pacSolutionUnpackArgs } from "./pacArgs";
 import { managedZipPath } from "./solutionConfig";
 import { ensurePacAuth, getEnvironmentUrl, loadSolutionConfig, runPacSolution } from "./pacRunner";
+import { activeComponentRoot } from "../components/componentDiscovery";
 
 export async function extractSolution(context: DataversePowerToolsContext) {
   vscode.window.showInformationMessage("Extracting Solution");
@@ -18,12 +19,11 @@ export async function extractSolution(context: DataversePowerToolsContext) {
 }
 
 export async function extractSolutionExec(context: DataversePowerToolsContext): Promise<boolean> {
-  const folders = vscode.workspace.workspaceFolders;
-  if (!folders || folders.length === 0) {
+  const workspacePath = activeComponentRoot(context);
+  if (!workspacePath) {
     vscode.window.showErrorMessage("No workspace folder is open.");
     return false;
   }
-  const workspacePath = folders[0].uri.fsPath;
 
   const config = await loadSolutionConfig(context, workspacePath);
   if (!config) {

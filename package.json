@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.7.0",
+  "version": "0.7.1",
   "engines": {
     "vscode": "^1.93.0"
   },
@@ -519,6 +519,11 @@
         "command": "dataverse-powertools.upgradeFromSpkl",
         "title": "Dataverse PowerTools: Upgrade from Spkl",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource && dataverse-powertools.hasSpkl"
+      },
+      {
+        "command": "dataverse-powertools.addComponent",
+        "title": "Dataverse PowerTools: Add Component",
+        "enablement": "dataverse-powertools.showLoaded"
       },
       {
         "command": "dataverse-powertools.showLog",

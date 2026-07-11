@@ -7,6 +7,7 @@ import { MultiStepInput, shouldResume, validationIgnore } from "../general/input
 import { getDataverseTables } from "../general/dataverse/getDataverseTables";
 import { getDataverseTableAttributes } from "../general/dataverse/getDataverseTableAttributes";
 import { ExecutionModeEnum, IsolationModeEnum, MessageNameEnum, PluginState, StageEnum, WorkflowState } from "../typings/decorations";
+import { activeComponentRoot } from "../components/componentDiscovery";
 
 function getEol(document: vscode.TextDocument): string {
   return document.eol === vscode.EndOfLine.CRLF ? "\r\n" : "\n";
@@ -57,11 +58,10 @@ function findDecorationInsertionLine(document: vscode.TextDocument, classLine: n
 }
 
 async function ensureCrmPluginRegistrationSupport(context: DataversePowerToolsContext): Promise<void> {
-  if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+  const workspacePath = activeComponentRoot(context);
+  if (!workspacePath) {
     return;
   }
-
-  const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
   const registrationAttributePath = path.join(workspacePath, "CrmPluginRegistrationAttribute.generated.cs");
   if (fs.existsSync(registrationAttributePath)) {
     return;

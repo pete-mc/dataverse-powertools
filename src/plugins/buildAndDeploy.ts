@@ -8,6 +8,7 @@ import { addDataverseSolutionComponentByObjectId } from "../general/dataverse/ad
 import { PluginPackageMetadata, upsertDataversePluginPackage, waitForDataversePluginAssemblyFromPackage } from "../general/dataverse/getDataversePluginPackage";
 import { PluginStepRegistration, registerPluginSteps } from "../general/dataverse/registerPluginSteps";
 import { findPrimaryPluginCsproj, hasDeployablePluginTypes } from "./projectPaths";
+import { activeComponentRoot } from "../components/componentDiscovery";
 import { registerWorkflowActivities, WorkflowActivityRegistration } from "../general/dataverse/registerWorkflowActivities";
 
 interface ExecResult {
@@ -508,12 +509,11 @@ async function discoverRegistrations(workspacePath: string): Promise<ParsedDecor
 }
 
 export async function buildAndDeploy(context: DataversePowerToolsContext): Promise<void> {
-  if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+  const workspacePath = activeComponentRoot(context);
+  if (!workspacePath) {
     vscode.window.showErrorMessage("No workspace folder is open.");
     return;
   }
-
-  const workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath;
 
   await vscode.window.withProgress(
     {

@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as cp from "child_process";
 import DataversePowerToolsContext from "../context";
 import { parseJestJson, extractJestJson, JestAssertion } from "./parseJestJson";
+import { activeComponentRoot } from "../components/componentDiscovery";
 
 // Test Explorer integration for a Web Resources project's Jest tests (#84). Discovers the test files,
 // runs them via the project's LOCAL jest (through `npx`, like the webpack build), and reports live
@@ -10,8 +11,8 @@ import { parseJestJson, extractJestJson, JestAssertion } from "./parseJestJson";
 
 const TEST_GLOB = "webresources_src/__tests__/**/*.ts";
 
-function workspaceRoot(): string | undefined {
-  return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+function workspaceRoot(context: DataversePowerToolsContext): string | undefined {
+  return activeComponentRoot(context);
 }
 
 /** Spawn `npx jest …` cross-platform: on Windows go through cmd.exe (jest/npx are .cmd shims that
@@ -88,7 +89,7 @@ async function runHandler(
   token: vscode.CancellationToken,
   debug: boolean,
 ): Promise<void> {
-  const cwd = workspaceRoot();
+  const cwd = workspaceRoot(context);
   if (!cwd) {
     return;
   }
