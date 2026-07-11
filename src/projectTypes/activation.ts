@@ -14,6 +14,7 @@ import { promptAndSetupPluginUnitTesting, runPluginUnitTests, createPluginTest }
 import { buildProject } from "../plugins/buildProject";
 import { buildAndDeploy } from "../plugins/buildAndDeploy";
 import { addClassDecoration, updateFilteringAttributes } from "../plugins/decorations";
+import { viewPluginTraceLogs } from "../plugins/traceLogs";
 import { generateEarlyBoundV3, configureModelBuilderSettings } from "../general/modelbuilder";
 import { initialisePlugins as initialisePluginsOld } from "../plugins_old/initialisePlugins";
 import { pluginTableSelector as pluginTableSelectorOld } from "../plugins_old/pluginTables";
@@ -127,6 +128,7 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
         (context) => addWorkflowDecoration(context),
       ),
       "dataverse-powertools.updateFilteringAttributes": (context) => updateFilteringAttributes(context),
+      "dataverse-powertools.viewPluginTraceLogs": (context) => viewPluginTraceLogs(context),
     },
     async onProjectScaffolded(context) {
       if (isPluginV3(context)) {

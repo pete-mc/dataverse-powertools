@@ -2,6 +2,11 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.7.2 (pre-release)
+
+- **Reliable live web-resource debugging (#96).** Re-running **Debug Web Resources** now stops the previous session and starts fresh (no more reload-VS-Code-between-runs); stopping the debugger from VS Code's toolbar tears down the whole stack (browser, webpack watch, CDP interception); breakpoints bind reliably to your TypeScript — the debug watch build forces `inline-source-map` even for projects whose `webpack.dev.js` still says `eval-source-map` (new projects scaffold with inline maps).
+- **View Plugin Trace Logs (#63, phase 1).** Pull the latest `plugintracelog` records straight into VS Code: pick from a list (✔/✖, message, entity, duration) and read the formatted trace — metadata table, exception details, and the `ITracingService` output — as a markdown document. In the plugin card's ⋯ menu and the Command Palette. Profiler capture/replay is tracked on #63 for a later wave.
+
 ## 0.7.1 (pre-release)
 
 - **Multi-component workspaces (#47).** One repo can now hold several components in subfolders — e.g. a plugin project AND a web-resources project — each with its own `dataverse-powertools.json`. Subfolder components **inherit the root connection** (their settings file carries no credentials); the Actions panel shows **one card per component** with per-component status and actions; Explorer right-click commands target the component that owns the clicked file; ambiguous palette commands offer a quick-pick. Today's single-project workspaces are the root-component case and behave identically. Use the new **Add Component** command (panel or palette) to scaffold a component into a subfolder — a repo becomes multi-component the first time you do.

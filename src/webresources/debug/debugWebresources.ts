@@ -31,6 +31,10 @@ let activeSession: ActiveDebugSession | undefined;
 // "'webpack' is not recognized" without a global install). Exported so a unit test pins the `npx`
 // launcher against a regression back to bare `webpack` (the e2e VM's global webpack masks it).
 export const WEBPACK_WATCH_LAUNCHER = "npx";
+// Breakpoint binding (#96) comes from the TEMPLATE's inline-source-map dev
+// config. Do NOT force --devtool here: overriding a project's own devtool
+// changed the watch output mid-session and broke the comprehensive e2e's
+// serve-local step; existing projects switch by editing webpack.dev.js.
 export const WEBPACK_WATCH_ARGS = ["webpack", "--config", "webpack.dev.js", "--watch"];
 
 function findFreePort(): Promise<number> {
@@ -87,14 +91,14 @@ async function connectCdpWithRetry(port: number, timeoutMs: number): Promise<CDP
 }
 
 export async function debugWebResources(context: DataversePowerToolsContext): Promise<void> {
+  // Re-running restarts cleanly: stop the previous session (browser, webpack
+  // watch, CDP) and continue — the old prompt-and-bail forced a second
+  // invocation and, before the teardown fixes, a full reload (#96).
   if (activeSession) {
-    const stop = "Stop current session";
-    const choice = await vscode.window.showInformationMessage("A Web Resources debug session is already running.", stop);
-    if (choice === stop) {
-      await stopDebugWebResources();
-    }
-    return;
+    context.channel.appendLine("[debug] Stopping the previous debug session before starting a new one.");
+    await stopDebugWebResources();
   }
+  ensureTerminateHook(context);
 
   const folders = vscode.workspace.workspaceFolders;
   if (!folders || folders.length === 0) {
@@ -265,6 +269,7 @@ export async function debugWebResources(context: DataversePowerToolsContext): Pr
     // 7. Attach the VS Code JS debugger (best-effort — interception + hot reload work
     //    regardless of whether the debugger attaches).
     try {
+      attachStartedAt = Date.now();
       await vscode.debug.startDebugging(workspaceFolder, buildAttachDebugConfig(browser.kind, port) as vscode.DebugConfiguration);
     } catch (error: any) {
       context.channel.appendLine(`[debug] could not attach the VS Code debugger (interception still active): ${error?.message || error}`);
@@ -292,6 +297,34 @@ export async function stopDebugWebResources(): Promise<void> {
   activeSession = undefined;
   notifySessionChanged();
   await session.dispose();
+}
+
+// Stopping the DEBUGGER from VS Code's toolbar must tear down the whole stack
+// (browser, webpack watch, CDP) too — otherwise the next run finds a stale
+// half-session (#96). The attach itself is BEST-EFFORT: when it dies within
+// the grace period (headless environments, js-debug hiccups), interception and
+// hot reload must survive — only a deliberate stop after a real attach tears
+// down. (The e2e's step 8 caught the ungated version killing the session.)
+const ATTACH_GRACE_MS = 10000;
+let attachStartedAt = 0;
+let terminateHookRegistered = false;
+function ensureTerminateHook(context: DataversePowerToolsContext): void {
+  if (terminateHookRegistered) {
+    return;
+  }
+  terminateHookRegistered = true;
+  context.vscode.subscriptions.push(
+    vscode.debug.onDidTerminateDebugSession((session) => {
+      if (!activeSession || session.name !== "Dataverse PowerTools: Debug Web Resources") {
+        return;
+      }
+      if (Date.now() - attachStartedAt < ATTACH_GRACE_MS) {
+        context.channel.appendLine("[debug] the VS Code debugger detached early — interception + hot reload still active (Stop Debug Web Resources to end the session).");
+        return;
+      }
+      void stopDebugWebResources();
+    }),
+  );
 }
 
 // Session-state surface for the actions panel (#100 v2): a live debug session
