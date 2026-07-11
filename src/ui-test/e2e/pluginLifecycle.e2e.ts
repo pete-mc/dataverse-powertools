@@ -92,6 +92,13 @@ describe("Plugin lifecycle (e2e)", function () {
     await answerText("1.0.0");
     log("waiting for restores + setup-unit-testing prompt");
     await pickByLabel("No", 600000); // "set up unit testing?" — pac plugin init + restore run first
+    // New projects scaffold without pac's sample Plugin1.cs; the wizard offers to
+    // create a real class instead — accept, as a user would (Build Package &
+    // Deploy refuses to push an assembly with no plugin types).
+    log("create-plugin-class prompt");
+    await pickByLabel("Yes", 300000);
+    log("plugin class name");
+    await answerText("E2EPluginClass");
     await sleep(4000);
     await dismissOverlays();
 
@@ -99,6 +106,8 @@ describe("Plugin lifecycle (e2e)", function () {
     // renames Plugin.csproj -> <projectName>.csproj inside the <projectName> folder.
     expect(await waitForFile(path.join(workspace, "dataverse-powertools.json"), 60000), "dataverse-powertools.json").to.equal(true);
     expect(await waitForFile(path.join(workspace, projectName, `${projectName}.csproj`), 300000), `${projectName}/${projectName}.csproj`).to.equal(true);
+    expect(await waitForFile(path.join(workspace, projectName, "E2EPluginClass.cs"), 120000), `${projectName}/E2EPluginClass.cs`).to.equal(true);
+    expect(fs.existsSync(path.join(workspace, projectName, "Plugin1.cs")), "pac sample Plugin1.cs removed").to.equal(false);
   });
 
   it("builds and deploys the plugin package to Dataverse", async () => {

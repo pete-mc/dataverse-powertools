@@ -2,7 +2,29 @@ import { describe, it, expect, afterEach } from "vitest";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { isTestProjectPath, findPrimaryPluginCsproj, walkDirectory } from "./projectPaths";
+import { isTestProjectPath, findPrimaryPluginCsproj, walkDirectory, lineDeclaresDeployablePluginType } from "./projectPaths";
+
+describe("lineDeclaresDeployablePluginType", () => {
+  it("matches a concrete plugin class from the template", () => {
+    expect(lineDeclaresDeployablePluginType("    public class ContactSync : PluginBase")).toBe(true);
+  });
+
+  it("matches workflow activities and direct IPlugin implementors", () => {
+    expect(lineDeclaresDeployablePluginType("public class MyActivity : WorkflowBase")).toBe(true);
+    expect(lineDeclaresDeployablePluginType("public sealed class Raw : IPlugin")).toBe(true);
+    expect(lineDeclaresDeployablePluginType("public class Direct : CodeActivity")).toBe(true);
+  });
+
+  it("does not match the abstract bases themselves (empty scaffold = not deployable)", () => {
+    expect(lineDeclaresDeployablePluginType("public abstract class PluginBase : IPlugin")).toBe(false);
+    expect(lineDeclaresDeployablePluginType("public abstract class WorkflowBase : CodeActivity")).toBe(false);
+  });
+
+  it("does not match unrelated classes", () => {
+    expect(lineDeclaresDeployablePluginType("public class Helper : IDisposable")).toBe(false);
+    expect(lineDeclaresDeployablePluginType("public class Plain")).toBe(false);
+  });
+});
 
 describe("isTestProjectPath", () => {
   it("treats *.Tests.csproj as a test project", () => {

@@ -212,14 +212,17 @@ export async function createPluginClass(context: DataversePowerToolsContext, tar
     return;
   }
 
-  const targetDirectory = await resolveTargetDirectoryPath(targetUri);
+  const pluginCsprojPath = await findPrimaryPluginCsproj(workspacePath, context.projectSettings.pluginProjectName);
+  const pluginProjectDirectory = pluginCsprojPath ? path.dirname(pluginCsprojPath) : workspacePath;
+
+  // Without an Explorer target, default to the plugin PROJECT directory — the
+  // v3 layout nests the csproj, and a class at the workspace root would never
+  // be compiled into the assembly.
+  const targetDirectory = targetUri ? await resolveTargetDirectoryPath(targetUri) : pluginProjectDirectory;
   if (!targetDirectory) {
     vscode.window.showErrorMessage("Could not resolve destination folder.");
     return;
   }
-
-  const pluginCsprojPath = await findPrimaryPluginCsproj(workspacePath, context.projectSettings.pluginProjectName);
-  const pluginProjectDirectory = pluginCsprojPath ? path.dirname(pluginCsprojPath) : workspacePath;
 
   const nameInput = await vscode.window.showInputBox({ prompt: "Enter the plugin class name" });
   if (!nameInput) {
@@ -265,14 +268,15 @@ export async function createWorkflowClass(context: DataversePowerToolsContext, t
     return;
   }
 
-  const targetDirectory = await resolveTargetDirectoryPath(targetUri);
+  const pluginCsprojPath = await findPrimaryPluginCsproj(workspacePath, context.projectSettings.pluginProjectName);
+  const pluginProjectDirectory = pluginCsprojPath ? path.dirname(pluginCsprojPath) : workspacePath;
+
+  // Same default as createPluginClass: the class must live under the project.
+  const targetDirectory = targetUri ? await resolveTargetDirectoryPath(targetUri) : pluginProjectDirectory;
   if (!targetDirectory) {
     vscode.window.showErrorMessage("Could not resolve destination folder.");
     return;
   }
-
-  const pluginCsprojPath = await findPrimaryPluginCsproj(workspacePath, context.projectSettings.pluginProjectName);
-  const pluginProjectDirectory = pluginCsprojPath ? path.dirname(pluginCsprojPath) : workspacePath;
 
   const nameInput = await vscode.window.showInputBox({ prompt: "Enter the workflow class name" });
   if (!nameInput) {
