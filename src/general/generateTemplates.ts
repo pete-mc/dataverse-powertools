@@ -343,6 +343,13 @@ export async function createNewProject(context: DataversePowerToolsContext) {
     },
     async () => {
       await getProjectType(context);
+      // Dismissing the first wizard step cancels the wizard — previously the
+      // flow carried on, prompting for auth and writing a TYPELESS settings
+      // file (caught by the e2e when a focus flap closed the quick pick).
+      if (!context.projectSettings.type) {
+        context.channel.appendLine("Project creation cancelled — no project type selected.");
+        return;
+      }
       await createServicePrincipalString(context);
       await promptPluginProjectName(context);
       await promptPluginPackageName(context);
