@@ -45,3 +45,6 @@ jobs:
         with:
           pat: ${{ secrets.VSCE_PAT }}
           registryUrl: https://marketplace.visualstudio.com
+          # Ship as PRE-RELEASE while the multi-component/panel wave stabilises;
+          # users on release stay on 0.7.0 until a stable is published.
+          preRelease: true

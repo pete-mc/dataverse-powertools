@@ -2,6 +2,14 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.7.1 (pre-release)
+
+- **Multi-component workspaces (#47).** One repo can now hold several components in subfolders — e.g. a plugin project AND a web-resources project — each with its own `dataverse-powertools.json`. Subfolder components **inherit the root connection** (their settings file carries no credentials); the Actions panel shows **one card per component** with per-component status and actions; Explorer right-click commands target the component that owns the clicked file; ambiguous palette commands offer a quick-pick. Today's single-project workspaces are the root-component case and behave identically. Use the new **Add Component** command (panel or palette) to scaffold a component into a subfolder — a repo becomes multi-component the first time you do.
+- **Fixed: early-bound generation under OAuth (#103).** When pac has no auth profiles, the extension now creates one for your org (`pac auth create --environment …`, a browser sign-in may open) instead of failing with *No profiles were found*; a failed pac run reports clearly instead of an `ENOENT scandir` exception.
+- **pac runs without a shell (#104).** `pac` invocations locate the real `pac.exe` (PATH / dotnet tools) and spawn it directly; `cmd.exe /c` remains only as a fallback.
+- **UI polish (#102).** Animated spinner while detecting the project; the panel updates immediately after **Switch Dataverse Environment**; the interactive auth option is now labelled **OAuth**.
+- Published as a **pre-release** — switch to the pre-release channel in the Marketplace to try it.
+
 ## 0.7.0
 
 - **New Actions panel (#100).** The activity-bar menu is now a card-based panel with live state instead of a static button list: an **environment card** (connected indicator, auth type, optional DEV/TEST/PROD badge via `environmentLabel` in `dataverse-powertools.json`, switch/auth actions), a **project card** with one primary action (e.g. *Deploy to \<org\>*), everyday buttons and a ⋯ overflow (including *Restore dependencies*), a **status line and Recent feed** showing running/succeeded/failed operations, a **Form Registrations card** (web resources) listing every `RegisterEvent` decoration in your source with click-to-open, a **live debug-session card** with a Stop button, and system requirements that collapse to a footer ✓ once green. The Local Settings and System Requirements views merged into the panel.
