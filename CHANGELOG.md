@@ -2,6 +2,10 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.6.1
+
+- Docs + packaging only: refreshed the contributor docs (testing/dev notes) and stopped shipping the internal `CLAUDE.md` in the published VSIX (`AGENTS.md`/`TESTING.md` were already excluded). No functional change.
+
 ## 0.6.0
 
 - **Native Test Explorer for your project's tests (#84).** Plugin (.NET) and Web Resource (Jest) tests now appear in VS Code's Testing side bar with per-test status, run/debug from the tree or the gutter, and click-through from a failure to the assertion — instead of a wall of text in the output channel. Plugin tests run via `dotnet test` (TRX-parsed results, debuggable under the .NET debugger); web-resource tests run via the project's local Jest (`--json` with source locations, debuggable under the Node debugger). The existing **Run Tests** command still works.

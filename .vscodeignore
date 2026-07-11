@@ -27,6 +27,7 @@ tsconfig.json
 eslint.config.mjs
 *.vsix
 AGENTS.md
+CLAUDE.md
 CONTRIBUTING.md
 **/*.map
 **/*.ts

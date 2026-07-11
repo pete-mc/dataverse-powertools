@@ -75,9 +75,10 @@ Two levels of end-to-end, both against the live test env:
 drive the whole product lifecycle **without any UI**, so they are reliable and never
 fight the desktop for focus:
 
-- **Web resources:** scaffold from the real template → run the restore commands (npm +
-  paket) → run XrmDefinitelyTyped for typings → webpack build → deploy through the
-  extension's own code → verify + clean up.
+- **Web resources:** scaffold from the real template → `npm install` restore → generate
+  typings with the bundled **net8** XrmDefinitelyTyped tool (token-auth via `DVPT_TOKEN`, no
+  paket / no `.exe`) → webpack build (local webpack via `npx`, against `tsconfig.build.json`) →
+  deploy through the extension's own code → verify + clean up.
 - **Plugins:** `pac plugin init` → early-bound via `pac modelbuilder` (through the
   extension's `pacInvocation` helper) → `dotnet build` (net462) → package push → verify.
 
@@ -96,10 +97,55 @@ never on your working desktop:
    ```powershell
    powershell -ExecutionPolicy Bypass -File scripts\setup-vm-e2e.ps1
    ```
-   (Node, .NET SDK, .NET Framework 4.x dev pack, Git, pac, global webpack/typescript.)
+   (Node, .NET SDK, .NET Framework 4.x dev pack, Git, pac.) webpack/jest/typescript are
+   **not** needed globally — every project installs them locally and the extension runs
+   them via `npx`.
 2. Clone this repo in the VM and copy your gitignored `sandbox/.env` into it (never
-   commit it).
+   commit it). For the interactive suites, also set `DVPT_TEST_USERNAME` /
+   `DVPT_TEST_PASSWORD` to an **MFA-exempt** test user in `sandbox/.env`.
 3. `npm install`, then `npm run test:e2e`. Keep the VM logged in and the console visible
    — Selenium needs an interactive desktop. Self-skips without `sandbox/.env`.
 
 The suite is `*.e2e.ts` (not the CI `*.test.js` glob), so it stays out of CI.
+
+**How `test:e2e` is wired.** The script runs **`scripts/runE2E.mjs`**, which:
+1. **Seeds an MSAL token cache** (`scripts/preAcquireInteractiveCache.mjs`) headlessly via the
+   ROPC flow (`acquireTokenByUsernamePassword`) with the MFA-exempt user, matching the
+   extension's public client + `organizations` authority, and sets `DVPT_TEST_MSAL_CACHE_FILE`
+   for the ExTester process. The extension has a test-only cache seam
+   ([tokenAcquisition.ts](src/general/dataverse/tokenAcquisition.ts)) that reads/writes that
+   file instead of secret storage, so the **interactive (OAuth) sign-in is silent** inside
+   ExTester (there is no browser to drive). Seeding is best-effort — no creds → the interactive
+   suites `this.skip()` and the service-principal suites still run.
+2. Runs ExTester over the suites. To validate a single file:
+   `node scripts/runE2E.mjs "out/ui-test/e2e/<name>.e2e.js"` (needs `npm run compile-tests`
+   first for `out/`).
+
+**Suites** (`src/ui-test/e2e/`):
+- `pluginLifecycle` / `pluginInteractiveLifecycle` — scaffold + build + deploy a plugin under
+  service-principal / interactive auth.
+- `webresourceLifecycle` / `webresourceInteractiveLifecycle` — init → typings → class+test →
+  build → deploy (+ Register Form Events on the interactive one).
+- `webresourceComprehensive` — the full 8-step journey, each step **gated on the extension's own
+  log line** via `expectOutput()` (a wrong/missing/failed line stops the run): init → net8
+  typings → class+test with a form registration → build → build & deploy → register form events
+  → open the live app in a browser and confirm the DEPLOYED code runs → **Debug Web Resources**
+  locally + edit source and confirm hot reload. Steps 7–8 drive a real browser (CDP) and need
+  the interactive user; they self-skip without it.
+
+**VM hygiene (the box is ~8GB).** ExTester + the net8 typings fetch + webpack + a browser is
+near the memory ceiling, and orphans accumulate across runs. If a run starts cascading
+(`ECONNREFUSED` to the webdriver, a blank Debug step, or a typings/build timeout that normally
+passes), suspect memory — **reap orphaned processes and re-run**:
+```powershell
+# orphaned webpack --watch, ExTester VS Code, and debug/verify browsers — NOT the user's own VS Code
+Get-CimInstance Win32_Process -Filter "Name='node.exe'"  | ? { $_.CommandLine -match 'webpack' }        | % { Stop-Process -Id $_.ProcessId -Force }
+Get-CimInstance Win32_Process -Filter "Name='Code.exe'"  | ? { $_.CommandLine -match 'test-resources' }  | % { Stop-Process -Id $_.ProcessId -Force }
+Get-Process msedge -ErrorAction SilentlyContinue | Stop-Process -Force
+```
+The Debug Web Resources feature tree-kills its `webpack --watch` on stop, and the comprehensive
+suite reaps stragglers in `before`, but a killed run still leaves orphans. Typings normally
+completes in ~35s; a multi-minute timeout means starvation, not a slow tool. In a *very long*
+working session the full ~17-min run may get killed partway — validate in shorter slices
+(e.g. one suite at a time) or start a fresh session. Never kill the user's own VS Code
+(`AppData\Local\Programs\Microsoft VS Code`).
