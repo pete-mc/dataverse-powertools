@@ -30,12 +30,15 @@ afterEach(() => {
 
 describe("findPacExecutable", () => {
   it("returns the first PATH entry containing pac.exe", () => {
-    const exists = (candidate: string) => candidate === path.join("C:\\tools", "pac.exe");
-    expect(findPacExecutable(["C:\\other", "C:\\tools", "C:\\more"].join(path.delimiter), exists)).toBe(path.join("C:\\tools", "pac.exe"));
+    // Platform-agnostic: CI runs POSIX, dev runs Windows — build with path.join/delimiter.
+    const dirs = ["other", "tools", "more"].map((d) => path.join(os.tmpdir(), d));
+    const hit = path.join(dirs[1], "pac.exe");
+    const exists = (candidate: string) => candidate === hit;
+    expect(findPacExecutable(dirs.join(path.delimiter), exists)).toBe(hit);
   });
 
   it("returns undefined when no entry has pac.exe (or PATH is empty)", () => {
-    expect(findPacExecutable("C:\\a;C:\\b", () => false)).toBeUndefined();
+    expect(findPacExecutable(["a", "b"].map((d) => path.join(os.tmpdir(), d)).join(path.delimiter), () => false)).toBeUndefined();
     expect(findPacExecutable(undefined, () => true)).toBeUndefined();
   });
 });
