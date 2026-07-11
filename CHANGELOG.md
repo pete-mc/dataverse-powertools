@@ -2,6 +2,15 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.5.6
+
+- **Cross-platform web-resource typings (#78, fixes #91).** Typings generation now uses a bundled **net8** build of XrmDefinitelyTyped run via `dotnet`, replacing the Windows-only `XrmDefinitelyTyped.exe`. It authenticates with the access token the extension already holds, so it works on **any OS** and under **both** service-principal and interactive (OAuth) sign-in — the latter previously failed with a "clientId cannot be null" error (#91) because the old tool was invoked with an empty client secret.
+- **Faster project init.** New Web Resources projects no longer restore the redundant `Delegate.XrmDefinitelyTyped` package via paket (its only purpose was the old `.exe`); scaffolded `azure-pipelines.yml` builds against committed typings instead of regenerating them.
+- **Cleaner output.** Restore and typings output channels strip npm funding/audit/deprecation noise, restore no longer raises a false error popup on non-fatal stderr, and typings/build now log a clear completion line.
+- **Fixed "'webpack' is not recognized" when building/deploying web resources.** Build, Build & Deploy, and Debug Web Resources now invoke the project's local webpack via `npx` instead of a bare `webpack`, so they work without a global webpack install (the template installs it locally).
+- **Fixed "Could not connect to dataverse." on Register Form Events (and silent publish) under interactive sign-in.** The form-registration and publish-customizations paths gated on a `tenantId` that interactive (OAuth) connections never set — they now gate on the live connection only (matching the deploy path), so they work under both service-principal and interactive auth.
+- **Fixed a Debug Web Resources resource leak.** Stopping a debug session now terminates the whole process tree, so the `webpack --watch` child no longer keeps running (and rebuilding) after the session stops.
+
 ## 0.5.5
 
 - Internal/testing: added end-to-end coverage for the interactive (OAuth) sign-in path — including a full wizard run that scaffolds and deploys a plugin under interactive auth — and hardened the live Edge/Chrome debug-web-resources test harness. A guarded, test-only MSAL cache seam (active only when `DVPT_TEST_MSAL_CACHE_FILE` is set) makes the interactive connect silent during automated tests; it is inert in normal use. No user-facing change.

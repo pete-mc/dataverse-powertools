@@ -6,7 +6,7 @@
 import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
-import { VSBrowser, Workbench, InputBox } from "vscode-extension-tester";
+import { VSBrowser, Workbench, InputBox, BottomBarPanel } from "vscode-extension-tester";
 
 export const repoRoot = path.resolve(__dirname, "..", "..", "..");
 
@@ -17,6 +17,9 @@ export interface E2EEnv {
   clientSecret: string;
   solutionName: string;
   prefix: string;
+  /** MFA-exempt interactive user for the browser sign-in in the comprehensive e2e (optional). */
+  username?: string;
+  password?: string;
 }
 
 /** Load credentials from the gitignored sandbox/.env. Returns undefined if incomplete. */
@@ -43,6 +46,8 @@ export function loadE2EEnv(): E2EEnv | undefined {
     clientSecret: raw.DVPT_TEST_CLIENT_SECRET ?? "",
     solutionName: raw.DVPT_TEST_SOLUTION_NAME || "dvpttests",
     prefix: raw.DVPT_TEST_PREFIX || "dvpt",
+    username: raw.DVPT_TEST_USERNAME || process.env.DVPT_TEST_USERNAME || undefined,
+    password: raw.DVPT_TEST_PASSWORD || process.env.DVPT_TEST_PASSWORD || undefined,
   };
   if (!env.url || !env.tenantId || !env.clientId || !env.clientSecret) {
     return undefined;
@@ -129,6 +134,31 @@ export async function pickByLabel(label: string, timeoutMs = 30000): Promise<voi
   const input = await waitForInput(timeoutMs);
   await waitForPicks(input, Math.min(timeoutMs, 30000));
   await input.selectQuickPick(label);
+  await sleep(2500);
+}
+
+/** Select a quick-pick item by an EXACT label match (filters first, then picks the item whose
+ *  label equals `label`). Needed for the table step, where "account" is a substring of many
+ *  logical names and a loose matcher could pick "accountleads" etc. */
+export async function pickExactLabel(label: string, timeoutMs = 30000): Promise<void> {
+  const input = await waitForInput(timeoutMs);
+  await waitForPicks(input, Math.min(timeoutMs, 30000));
+  try {
+    await input.setText(label);
+    await sleep(1500);
+  } catch {
+    /* some pickers don't accept typing; fall through to enumeration */
+  }
+  const picks = await input.getQuickPicks();
+  for (const p of picks) {
+    const l = await p.getLabel().catch(() => "");
+    if (l === label) {
+      await p.select();
+      await sleep(2500);
+      return;
+    }
+  }
+  await input.selectQuickPick(label); // fallback to ExTester's matcher
   await sleep(2500);
 }
 
@@ -235,6 +265,99 @@ export async function runCommand(title: string): Promise<void> {
   await new Workbench().executeCommand(title);
 }
 
+/**
+ * Poll the "dataverse-powertools" output channel until every expected string is present (or
+ * timeout). Used to gate each UI step on the command's REAL log output before advancing to the
+ * next — so the test only proceeds once the extension reports the step actually succeeded.
+ * Returns the channel text on success, or undefined on timeout.
+ */
+export async function waitForOutput(expected: string | string[], timeoutMs = 120000, channel = "dataverse-powertools"): Promise<string | undefined> {
+  const wants = Array.isArray(expected) ? expected : [expected];
+  let view;
+  try {
+    view = await new BottomBarPanel().openOutputView();
+  } catch {
+    return undefined;
+  }
+  const start = Date.now();
+  while (Date.now() - start <= timeoutMs) {
+    let text = "";
+    try {
+      await view.selectChannel(channel);
+      text = await view.getText();
+    } catch {
+      // The output view churns while a long command runs; just retry.
+    }
+    if (text && wants.every((w) => text.includes(w))) {
+      return text;
+    }
+    await sleep(2500);
+  }
+  return undefined;
+}
+
+/** Markers that mean the extension reported a failure — seeing any of these means STOP, don't wait. */
+const DEFAULT_FAIL_MARKERS = ["Error creating", "Exception", "Unhandled", "Traceback", "npm error", "MSBuild error", "failed with exit code", "Could not obtain"];
+
+/**
+ * Gate a UI step on its REAL log output, failing fast when it's wrong.
+ *
+ * Polls the "dataverse-powertools" output channel and:
+ *  - RESOLVES with the channel text once every `expected` string is present;
+ *  - THROWS immediately if a failure marker appears before the expected output (so a wrong result
+ *    stops the test right away instead of burning the whole timeout);
+ *  - THROWS on timeout, with a tail of what the channel actually showed for diagnosis.
+ *
+ * This is the enforcement of "wait for the output you expect and if it is wrong, stop" — callers
+ * `await expectOutput(...)` between steps and a mismatch aborts the run rather than silently advancing.
+ */
+export async function expectOutput(expected: string | string[], opts: { timeoutMs?: number; failMarkers?: string[]; channel?: string; step?: string } = {}): Promise<string> {
+  const wants = Array.isArray(expected) ? expected : [expected];
+  const timeoutMs = opts.timeoutMs ?? 120000;
+  const failMarkers = opts.failMarkers ?? DEFAULT_FAIL_MARKERS;
+  const channel = opts.channel ?? "dataverse-powertools";
+  const label = opts.step ? `[${opts.step}] ` : "";
+  const tail = (t: string) => t.split(/\r?\n/).slice(-25).join("\n");
+
+  let view;
+  try {
+    view = await new BottomBarPanel().openOutputView();
+  } catch (e) {
+    throw new Error(`${label}could not open the output view to read "${wants.join(" & ")}": ${String(e)}`);
+  }
+  const start = Date.now();
+  let lastText = "";
+  while (Date.now() - start <= timeoutMs) {
+    try {
+      await view.selectChannel(channel);
+      lastText = await view.getText();
+    } catch {
+      // The output view churns while a long command runs; just retry.
+    }
+    if (lastText) {
+      if (wants.every((w) => lastText.includes(w))) {
+        return lastText;
+      }
+      const hit = failMarkers.find((m) => lastText.includes(m));
+      if (hit) {
+        throw new Error(`${label}expected output "${wants.join(" & ")}" but the log reported a failure ("${hit}").\n--- log tail ---\n${tail(lastText)}`);
+      }
+    }
+    await sleep(2500);
+  }
+  throw new Error(`${label}timed out after ${Math.round(timeoutMs / 1000)}s waiting for "${wants.join(" & ")}".\n--- log tail ---\n${tail(lastText) || "(channel was empty)"}`);
+}
+
+/** Clear the output channel so the next step's assertions don't match stale text. */
+export async function clearOutput(): Promise<void> {
+  try {
+    const view = await new BottomBarPanel().openOutputView();
+    await view.clearText();
+  } catch {
+    /* best effort */
+  }
+}
+
 /** Poll until `filePath` exists (or timeout). Returns true if it appeared. */
 export async function waitForFile(filePath: string, timeoutMs: number, intervalMs = 2000): Promise<boolean> {
   const start = Date.now();
@@ -258,8 +381,21 @@ export async function waitForFile(filePath: string, timeoutMs: number, intervalM
  * same, via os.tmpdir()).
  */
 export function freshWorkspace(name: string): string {
-  const dir = path.join(os.tmpdir(), "dvpt-e2e", name);
-  fs.rmSync(dir, { recursive: true, force: true });
+  const base = path.join(os.tmpdir(), "dvpt-e2e");
+  let dir = path.join(base, name);
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+  } catch {
+    // A previous run's process (webpack --watch, a browser) may still hold a lock on the dir as it
+    // shuts down — EPERM. Rather than fail the whole suite in its before-hook, fall back to a
+    // uniquely-suffixed workspace so a back-to-back re-run isn't blocked.
+    dir = path.join(base, `${name}-${process.pid}-${Date.now()}`);
+    try {
+      fs.rmSync(dir, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+  }
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -339,6 +475,30 @@ export class E2EClient {
     if (id) {
       await this.request("DELETE", `webresourceset(${id})`);
     }
+  }
+
+  /** A model-driven app id to open forms in (deterministic form URLs need one). Prefers an app
+   *  whose name contains "Sales"/"Customer Service"/"Hub"; falls back to the first app. */
+  async getModelDrivenAppId(): Promise<string | undefined> {
+    const res = await this.request("GET", `appmodules?$select=appmoduleid,name&$filter=statecode eq 0`);
+    if (!res.ok) {
+      return undefined;
+    }
+    const data: any = await res.json();
+    const apps: any[] = data.value ?? [];
+    const preferred = apps.find((a) => /sales|customer service|hub/i.test(a.name ?? ""));
+    return (preferred ?? apps[0])?.appmoduleid;
+  }
+
+  /** The id of any existing record in an entity set (e.g. "accounts"), so a form opens on a real
+   *  record — a create form triggers a beforeunload dialog on hot-reload. */
+  async getFirstRecordId(entitySet: string, primaryIdField: string): Promise<string | undefined> {
+    const res = await this.request("GET", `${entitySet}?$select=${primaryIdField}&$top=1`);
+    if (!res.ok) {
+      return undefined;
+    }
+    const data: any = await res.json();
+    return data.value?.[0]?.[primaryIdField];
   }
 
   async findPluginPackageId(uniqueName: string): Promise<string | undefined> {

@@ -37,3 +37,6 @@ coverage/
 .mcp.json
 .mcp.json.*
 .mcp.json.example
+
+# Fetched at build time from the XrmDefinitelyTyped fork release (scripts/fetchTypingsTool.mjs)
+tools/xrmdefinitelytyped/

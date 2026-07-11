@@ -3,6 +3,7 @@ import DataversePowerToolsContext from "../../context";
 import { XMLBuilder, XMLParser } from "fast-xml-parser";
 import { Options } from "./dataverseContext";
 import { dataverseApiUrl, logDataverseHttpError, logDataverseError } from "./webApi";
+import { canCallDataverseApi } from "./connectionReady";
 
 export class DataverseForm {
   id: string;
@@ -29,11 +30,15 @@ export class DataverseForm {
   }
 
   public async getFormData(): Promise<void> {
-    if (!this.context.projectSettings.tenantId || !this.context.dataverse || !this.context.dataverse?.isValid) {
+    // Gate on the live connection + org URL only — NOT projectSettings.tenantId, which is a
+    // service-principal concept that interactive (OAuth) sign-in never populates. Requiring it
+    // broke "Register Form Events" under interactive auth with "Could not connect to dataverse."
+    // even though the connection was valid (the deploy path already guards this way).
+    const organisationUrl = this.context.dataverse?.organizationUrl;
+    if (!canCallDataverseApi({ organizationUrl: organisationUrl, isValid: this.context.dataverse?.isValid })) {
       this.context.channel.appendLine("Could not connect to dataverse.");
       return;
     }
-    const organisationUrl = this.context.dataverse.organizationUrl;
     /* eslint-disable @typescript-eslint/naming-convention */
     const options = {
       headers: {
@@ -62,11 +67,12 @@ export class DataverseForm {
   }
 
   public async saveForm(): Promise<void> {
-    if (!this.context.projectSettings.tenantId || !this.context.dataverse || !this.context.dataverse?.isValid) {
+    // Same connection gate as getFormData — no tenantId requirement (see the note there).
+    const organisationUrl = this.context.dataverse?.organizationUrl;
+    if (!canCallDataverseApi({ organizationUrl: organisationUrl, isValid: this.context.dataverse?.isValid })) {
       this.context.channel.appendLine("Could not connect to dataverse.");
       return;
     }
-    const organisationUrl = this.context.dataverse.organizationUrl;
     try {
       /* eslint-disable @typescript-eslint/naming-convention */
       const options = {
