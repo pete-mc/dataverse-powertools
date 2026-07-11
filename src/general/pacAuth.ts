@@ -135,17 +135,37 @@ export async function ensurePacAuth(context: DataversePowerToolsContext, workspa
 /**
  * Auth-type aware variant: service-principal connections (re)create the
  * extension's profile; interactive (OAuth) connections have no client secret to
- * hand pac, so the user's own active pac profile is used (logged so a wrong-org
- * profile is diagnosable). Never gate on tenantId alone — interactive
- * connections don't carry one (see CLAUDE.md, #90/#91).
+ * hand pac, so pac's own interactive auth is used — and when NO profile exists,
+ * one is created for the user (`pac auth create --environment <org>`, which may
+ * open a browser sign-in) instead of failing with "No profiles were found"
+ * (#103). Never gate on tenantId alone — interactive connections don't carry
+ * one (see CLAUDE.md, #90/#91).
  */
 export async function ensurePacAuthForCurrentConnection(context: DataversePowerToolsContext, workspacePath: string): Promise<boolean> {
-  const isOAuth = parseAuthType(parseConnectionString(context.connectionString).authType) === DataverseAuthType.oauth;
-  if (isOAuth) {
-    context.channel.appendLine(
-      "Interactive (OAuth) connection: pac uses your active pac auth profile. If pac reports no authenticated profiles, run: pac auth create --environment <your org url>",
-    );
+  const parts = parseConnectionString(context.connectionString);
+  const isOAuth = parseAuthType(parts.authType) === DataverseAuthType.oauth;
+  if (!isOAuth) {
+    return ensurePacAuth(context, workspacePath);
+  }
+
+  const environmentUrl = normalizeOrganizationUrl(parts.url);
+  const list = await runPacResult(["auth", "list"], workspacePath);
+  const hasProfiles = list.code === 0 && !/no profiles/i.test(`${list.stdout}\n${list.stderr}`);
+  if (hasProfiles) {
+    context.channel.appendLine("Interactive (OAuth) connection: pac uses your active pac auth profile.");
     return true;
   }
-  return ensurePacAuth(context, workspacePath);
+
+  if (!environmentUrl || !ENVIRONMENT_URL_PATTERN.test(environmentUrl)) {
+    context.channel.appendLine("No pac auth profile exists and the organisation URL looks malformed — run 'pac auth create --environment <your org url>' manually.");
+    vscode.window.showErrorMessage("pac has no authentication profile; see the Dataverse PowerTools output.");
+    return false;
+  }
+
+  context.channel.appendLine(`No pac auth profiles found — creating one for ${environmentUrl} (a browser sign-in may open).`);
+  const created = await runPacLogged(context, ["auth", "create", "--environment", environmentUrl], workspacePath);
+  if (!created) {
+    vscode.window.showErrorMessage("pac auth create failed. See the Dataverse PowerTools output for details.");
+  }
+  return created;
 }

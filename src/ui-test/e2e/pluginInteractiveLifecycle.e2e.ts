@@ -68,8 +68,8 @@ describe("Plugin lifecycle — interactive auth (e2e)", function () {
     await runCommand("Dataverse PowerTools: Initialise Project");
     log("project type");
     await pickByLabel("Plugins");
-    log("auth type: Interactive sign-in");
-    await pickByLabel("Interactive sign-in");
+    log("auth type: OAuth");
+    await pickByLabel("OAuth");
     // Interactive signs in silently from the pre-seeded cache, then lists environments via Global
     // Discovery — no tenant/clientId/clientSecret prompts. Pick the environment by its URL.
     log("environment (silent sign-in + discovery)");

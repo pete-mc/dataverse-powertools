@@ -45,6 +45,12 @@ async function createSettingsTemplateFile(context: DataversePowerToolsContext, n
     context.channel.appendLine(stderr);
   }
 
+  // pac failing (e.g. no auth) can leave the output directory uncreated — turn
+  // that into the clear caught-and-logged error, not a raw ENOENT scandir (#103).
+  if (!fs.existsSync(outputPath)) {
+    throw new Error(`pac modelbuilder produced no output in ${outputPath} — see the pac output above.`);
+  }
+
   const generatedJsonFiles = (await fs.promises.readdir(outputPath))
     .filter((file) => file.toLowerCase().endsWith(".json"))
     .filter((file) => !existingJsonFiles.has(file.toLowerCase()));

@@ -40,7 +40,7 @@ export interface RegistrationRow {
 export const MAX_REGISTRATION_ROWS = 8;
 
 export type Card =
-  | { kind: "notice"; id: string; text: string }
+  | { kind: "notice"; id: string; text: string; spinner?: boolean }
   | { kind: "getStarted"; id: "getStarted"; text: string; actions: MenuAction[] }
   | { kind: "requirements"; id: "requirements"; scanning: boolean; rows: RequirementRow[]; recheck?: MenuAction }
   | {
@@ -165,7 +165,7 @@ function environmentCard(state: PanelState): Card {
     id: "environment",
     name: environmentName(state.organizationUrl),
     url: (state.organizationUrl ?? "").replace(/^[a-z]+:\/\//i, ""),
-    authLabel: state.authType === "oauth" ? "Interactive (OAuth)" : "Service Principal",
+    authLabel: state.authType === "oauth" ? "OAuth" : "Service Principal",
     label: state.environmentLabel,
     connected: state.connected,
     switchAction: { command: "dataverse-powertools.switchEnvironment", label: "Switch" },
@@ -201,7 +201,7 @@ function footerFor(state: PanelState, cards: Card[]): MenuModel["footer"] {
 
 export function buildMenuModel(state: PanelState): MenuModel {
   if (state.detecting) {
-    const cards: Card[] = [{ kind: "notice", id: "detecting", text: "Detecting folder settings..." }];
+    const cards: Card[] = [{ kind: "notice", id: "detecting", text: "Getting things ready — detecting your Dataverse project…", spinner: true }];
     return { cards, footer: footerFor(state, cards) };
   }
 

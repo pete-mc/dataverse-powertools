@@ -350,6 +350,29 @@ a.download:hover {
   text-decoration: underline;
 }
 
+/* Loading spinner (detecting state) */
+.spinner-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spinner {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--vscode-descriptionForeground);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: dvpt-spin 0.9s linear infinite;
+}
+
+@keyframes dvpt-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Footer */
 .panel-footer {
   display: flex;

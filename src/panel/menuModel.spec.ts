@@ -69,7 +69,7 @@ describe("environment card", () => {
     const env = card(state({ authType: "oauth", connected: false }), "environment");
     expect(env.name).toBe("contoso");
     expect(env.url).toBe("contoso.crm.dynamics.com");
-    expect(env.authLabel).toBe("Interactive (OAuth)");
+    expect(env.authLabel).toBe("OAuth");
     expect(env.connected).toBe(false);
     expect(env.switchAction.command).toBe("dataverse-powertools.switchEnvironment");
     // Restore Dependencies is a project action, not a connection action (manual-testing feedback).

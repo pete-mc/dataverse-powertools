@@ -87,7 +87,16 @@
 
   function renderNotice(card) {
     const c = el("section", "card");
-    c.appendChild(el("p", "status", card.text));
+    if (card.spinner) {
+      const row = el("p", "status spinner-row");
+      const spinner = el("span", "spinner");
+      spinner.setAttribute("aria-hidden", "true");
+      row.appendChild(spinner);
+      row.appendChild(el("span", null, card.text));
+      c.appendChild(row);
+    } else {
+      c.appendChild(el("p", "status", card.text));
+    }
     return c;
   }
 
