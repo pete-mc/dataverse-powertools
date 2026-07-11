@@ -82,6 +82,8 @@ describe("Web resources lifecycle (e2e)", function () {
     await answerFlexible(env!.url);
     log(`solution (${solutionFriendlyName})`);
     await pickByLabel(solutionFriendlyName);
+    log("output mode prompt");
+    await pickByLabel("Single bundled library (recommended)", 600000); // output mode (#88) — restores run first
     log("waiting for restores + create-webresource prompt");
     await pickByLabel("No", 600000); // "create a new webresource?" — restores + typings run first
     await sleep(4000);

@@ -25,9 +25,16 @@ export async function createWebResourceClass(context: DataversePowerToolsContext
     notificationId: randomUUID(),
   });
   await createTemplatedFile(context, "class", outputs.className ?? "", placeholders);
-  var library = (await vscode.workspace.fs.readFile(vscode.Uri.file(path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, "webresources_src", "library.ts")))).toString();
-  library = library.trim() + ('\nexport * from "./' + outputs.className + '";\n');
-  await vscode.workspace.fs.writeFile(vscode.Uri.file(path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, "webresources_src", "library.ts")), Buffer.from(library, "utf8"));
+  // In perFile output mode (#88) every source file is its own entry — the
+  // library.ts re-export barrel only exists for the bundled mode.
+  if (context.projectSettings.webresourceOutput !== "perFile") {
+    var library = (await vscode.workspace.fs.readFile(vscode.Uri.file(path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, "webresources_src", "library.ts")))).toString();
+    library = library.trim() + ('\nexport * from "./' + outputs.className + '";\n');
+    await vscode.workspace.fs.writeFile(
+      vscode.Uri.file(path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, "webresources_src", "library.ts")),
+      Buffer.from(library, "utf8"),
+    );
+  }
 
   const testsPlaceholders = [{ placeholder: "ClassName", value: outputs.className ?? "" }] as TemplatePlaceholder[];
   await createTemplatedFile(context, "sample.test", (outputs.className ?? "") + ".test", testsPlaceholders);

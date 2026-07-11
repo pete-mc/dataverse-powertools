@@ -2,9 +2,29 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 const Webpack = require("webpack");
 const Path = require("path");
+const Fs = require("fs");
+
+// Output mode (#88): "bundle" (default) emits one SOLUTIONPREFIX_library.js from
+// library.ts; "perFile" emits one SOLUTIONPREFIX_<name>.js per top-level
+// webresources_src/*.ts (excluding library.ts, lib/ and __tests__), each merging
+// its exports onto the SOLUTIONPREFIX global so form calls stay PREFIX.Class.Fn.
+const settings = (() => {
+  try {
+    return JSON.parse(Fs.readFileSync(Path.resolve(__dirname, "dataverse-powertools.json"), "utf8"));
+  } catch {
+    return {};
+  }
+})();
+const perFile = settings.webresourceOutput === "perFile";
+const perFileEntries = () =>
+  Object.fromEntries(
+    Fs.readdirSync(Path.resolve(__dirname, "webresources_src"))
+      .filter((f) => f.endsWith(".ts") && !f.endsWith(".d.ts") && f !== "library.ts")
+      .map((f) => [f.replace(/\.ts$/, ""), "./webresources_src/" + f]),
+  );
 
 module.exports = {
-  entry: "./webresources_src/library.ts",
+  entry: perFile ? perFileEntries() : "./webresources_src/library.ts",
   module: {
     rules: [
       {
@@ -29,11 +49,18 @@ module.exports = {
   resolve: {
     extensions: [".tsx", ".ts", ".js"],
   },
-  output: {
-    filename: "SOLUTIONPREFIX_library.js",
-    library: ["SOLUTIONPREFIX"], //used to call functions on forms eg: LIBRARYPREFIX.Class.Function
-    libraryTarget: "var",
-  },
+  output: perFile
+    ? {
+        filename: "SOLUTIONPREFIX_[name].js",
+        // assign-properties merges each file's exports onto the SOLUTIONPREFIX
+        // global, so forms still call SOLUTIONPREFIX.Class.Function.
+        library: { name: "SOLUTIONPREFIX", type: "assign-properties" },
+      }
+    : {
+        filename: "SOLUTIONPREFIX_library.js",
+        library: ["SOLUTIONPREFIX"], //used to call functions on forms eg: LIBRARYPREFIX.Class.Function
+        libraryTarget: "var",
+      },
   plugins: [
     new Webpack.ProvidePlugin({
       XrmQuery: [Path.resolve(__dirname, "./webresources_src/lib/dg.xrmquery.web.min"), "XrmQuery"],
