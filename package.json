@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.7.2",
+  "version": "0.7.3",
   "engines": {
     "vscode": "^1.93.0"
   },
@@ -529,6 +529,11 @@
         "command": "dataverse-powertools.viewPluginTraceLogs",
         "title": "Dataverse PowerTools: View Plugin Trace Logs",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
+        "command": "dataverse-powertools.uploadPortal",
+        "title": "Dataverse PowerTools: Upload Portal",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPortal"
       },
       {
         "command": "dataverse-powertools.showLog",

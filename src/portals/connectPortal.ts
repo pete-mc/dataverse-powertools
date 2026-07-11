@@ -1,151 +1,132 @@
 import * as vscode from "vscode";
-import * as cp from "child_process";
+import * as fs from "fs";
 import DataversePowerToolsContext from "../context";
-import { window } from "vscode";
-import { getOrganizationUrl } from "../general/connectionString";
-import { pacInvocation } from "../general/pac";
-import { parsePacAuthList, findAuthProfileForUrl, parsePacPagesList } from "./pacOutput";
-import path = require("path");
+import { parsePacPagesList, PacPage } from "./pacOutput";
+import { pacPagesListArgs, pacPagesDownloadArgs, pacPagesUploadArgs } from "./pacPagesArgs";
+import { ensurePacAuthForCurrentConnection, runPacLogged, runPacResult } from "../general/pacAuth";
 import { activeComponentRoot } from "../components/componentDiscovery";
+import path = require("path");
 
-export async function connectPortal(context: DataversePowerToolsContext, command: string) {
+// Power Pages round-trip on pac (#74): list/download/upload against the shared
+// dataverse-powertools pac auth profile (same model as solutions/modelbuilder),
+// pure arg builders, tolerant list parsing, and the selected site + download
+// folder remembered in dataverse-powertools.json.
+
+export type PortalMode = "connect" | "download" | "upload";
+
+function portalDownloadDirectory(context: DataversePowerToolsContext, workspacePath: string): string {
+  return path.join(workspacePath, (context.projectSettings.portalDownloadPath as string) || "portalpublish");
+}
+
+async function pickSite(context: DataversePowerToolsContext, workspacePath: string): Promise<PacPage | undefined> {
+  const list = await runPacResult(pacPagesListArgs(), workspacePath);
+  if (list.stdout) {
+    context.channel.appendLine(list.stdout);
+  }
+  if (list.code !== 0) {
+    if (list.stderr) {
+      context.channel.appendLine(list.stderr);
+    }
+    context.channel.show();
+    vscode.window.showErrorMessage("pac pages list failed. See the Dataverse PowerTools output.");
+    return undefined;
+  }
+  const sites = parsePacPagesList(list.stdout);
+  if (sites.length === 0) {
+    vscode.window.showErrorMessage("No Power Pages websites were found in this environment.");
+    return undefined;
+  }
+  const remembered = context.projectSettings.portalWebsiteId as string | undefined;
+  const pick = await vscode.window.showQuickPick(
+    sites.map((site) => ({
+      label: (site.websiteId === remembered ? "$(star-full) " : "") + (site.friendlyName || site.websiteId),
+      description: site.websiteId,
+      target: site,
+    })),
+    { placeHolder: "Select a Power Pages website" },
+  );
+  if (!pick) {
+    return undefined;
+  }
+  // Remember the site so download/upload target it without re-picking.
+  context.projectSettings.portalWebsiteId = pick.target.websiteId;
+  context.projectSettings.portalWebsiteName = pick.target.friendlyName;
+  await context.writeSettings();
+  context.refreshPanel?.();
+  return pick.target;
+}
+
+export async function connectPortal(context: DataversePowerToolsContext, mode: PortalMode): Promise<void> {
+  const workspacePath = activeComponentRoot(context);
+  if (!workspacePath) {
+    vscode.window.showErrorMessage("Open a workspace folder first.");
+    return;
+  }
+
   await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
-      title: "Connecting Portal...",
+      title: mode === "upload" ? "Uploading Power Pages site..." : mode === "download" ? "Downloading Power Pages site..." : "Connecting to Power Pages...",
     },
     async () => {
-      await getPACLocation(context, command);
+      // Shared pac auth: service principals (re)create the extension's profile;
+      // OAuth creates one interactively when none exists (#103 behaviour).
+      if (!(await ensurePacAuthForCurrentConnection(context, workspacePath))) {
+        return;
+      }
+
+      if (mode === "connect") {
+        const site = await pickSite(context, workspacePath);
+        if (site) {
+          vscode.window.showInformationMessage(`Connected to ${site.friendlyName || site.websiteId} — Download / Upload now target this site.`);
+        }
+        return;
+      }
+
+      if (mode === "download") {
+        let websiteId = context.projectSettings.portalWebsiteId as string | undefined;
+        if (!websiteId) {
+          websiteId = (await pickSite(context, workspacePath))?.websiteId;
+        }
+        if (!websiteId) {
+          return;
+        }
+        const downloadPath = portalDownloadDirectory(context, workspacePath);
+        const ok = await runPacLogged(context, pacPagesDownloadArgs({ websiteId, path: downloadPath, overwrite: true }), workspacePath);
+        if (ok) {
+          vscode.window.showInformationMessage(`Power Pages site downloaded to ${path.basename(downloadPath)}.`);
+        } else {
+          vscode.window.showErrorMessage("pac pages download failed. See the Dataverse PowerTools output.");
+        }
+        return;
+      }
+
+      // upload
+      const uploadRoot = portalDownloadDirectory(context, workspacePath);
+      // pac pages download nests the site in a subfolder of the target path;
+      // upload wants the folder containing website.yml. Use it directly when
+      // present, else the single site subfolder.
+      let uploadPath = uploadRoot;
+      if (!fs.existsSync(path.join(uploadRoot, "website.yml"))) {
+        const subfolders = fs.existsSync(uploadRoot) ? fs.readdirSync(uploadRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory()) : [];
+        const siteFolder = subfolders.find((entry) => fs.existsSync(path.join(uploadRoot, entry.name, "website.yml")));
+        if (!siteFolder) {
+          vscode.window.showErrorMessage(`No downloaded site found under ${uploadRoot} — run Download Portal first.`);
+          return;
+        }
+        uploadPath = path.join(uploadRoot, siteFolder.name);
+      }
+      const ok = await runPacLogged(context, pacPagesUploadArgs({ path: uploadPath }), workspacePath);
+      if (ok) {
+        vscode.window.showInformationMessage("Power Pages site uploaded.");
+      } else {
+        vscode.window.showErrorMessage("pac pages upload failed. See the Dataverse PowerTools output.");
+      }
     },
   );
 }
 
-async function execFileAsync(file: string, args: string[], cwd?: string): Promise<{ stdout: string; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    cp.execFile(file, args, { cwd }, (error, stdout, stderr) => {
-      if (error) {
-        reject({ error, stdout, stderr });
-        return;
-      }
-
-      resolve({ stdout, stderr });
-    });
-  });
-}
-
-// Run a pac command and return stdout; pac.ts handles the Windows .cmd invocation.
-async function runPac(context: DataversePowerToolsContext, args: string[]) {
-  const workspacePath = activeComponentRoot(context);
-  const { command, args: invocationArgs } = pacInvocation(args);
-  const { stdout, stderr } = await execFileAsync(command, invocationArgs, workspacePath);
-  if (stderr) {
-    context.channel.appendLine(stderr);
-  }
-  return stdout;
-}
-
-export async function getPACLocation(context: DataversePowerToolsContext, command: string) {
-  if (vscode.workspace.workspaceFolders !== undefined) {
-    await connectPortalExec(context, command);
-  }
-}
-
-export async function createPACConnection(context: DataversePowerToolsContext, url: string) {
-  if (vscode.workspace.workspaceFolders !== undefined) {
-    try {
-      const stdout = await runPac(context, ["auth", "create", "--url", url]);
-      if (stdout !== null && stdout !== "") {
-        context.channel.appendLine(stdout);
-        context.channel.show();
-      }
-    } catch (error: any) {
-      vscode.window.showErrorMessage("Error creating auth.");
-      context.channel.appendLine(error?.error?.message || error?.message || JSON.stringify(error));
-      context.channel.show();
-    }
-  }
-}
-
-export async function connectPortalExec(context: DataversePowerToolsContext, _command: string) {
-  if (vscode.workspace.workspaceFolders !== undefined) {
-    try {
-      const stdout = await runPac(context, ["auth", "list"]);
-      if (stdout !== null && stdout !== "") {
-        context.channel.appendLine(stdout);
-        const targetUrl = getOrganizationUrl(context.connectionString);
-        const profile = findAuthProfileForUrl(parsePacAuthList(stdout), targetUrl);
-        if (!profile) {
-          vscode.window.showErrorMessage("Error finding matching portal.");
-          await createPACConnection(context, targetUrl);
-        } else {
-          // Prefer selecting by profile name; fall back to its index when unnamed.
-          const selector = profile.name ? ["-n", profile.name] : profile.index !== undefined ? ["--index", String(profile.index)] : undefined;
-          if (!selector) {
-            vscode.window.showErrorMessage("Error finding matching portal.");
-            return;
-          }
-          context.channel.appendLine(`Selecting auth profile: ${profile.name || `#${profile.index}`}`);
-          context.channel.show();
-          await selectEnvironment(context, selector);
-        }
-      }
-    } catch (error: any) {
-      vscode.window.showErrorMessage("Error finding Portals.");
-      context.channel.appendLine(error?.error?.message || error?.message || JSON.stringify(error));
-      context.channel.show();
-    }
-  }
-}
-
-export async function selectEnvironment(context: DataversePowerToolsContext, selector: string[]) {
-  if (vscode.workspace.workspaceFolders !== undefined) {
-    try {
-      const stdout = await runPac(context, ["auth", "select", ...selector]);
-      if (stdout !== null && stdout !== "") {
-        context.channel.appendLine(stdout);
-        context.channel.show();
-      }
-      await downloadPortal(context);
-    } catch (error: any) {
-      vscode.window.showErrorMessage("Error finding Portals.");
-      context.channel.appendLine(error?.error?.message || error?.message || JSON.stringify(error));
-      context.channel.show();
-    }
-  }
-}
-
-export async function downloadPortal(context: DataversePowerToolsContext) {
-  if (vscode.workspace.workspaceFolders !== undefined) {
-    const workspacePath = activeComponentRoot(context) ?? vscode.workspace.workspaceFolders[0].uri.fsPath;
-    try {
-      const stdout = await runPac(context, ["pages", "list"]);
-      if (stdout !== null && stdout !== "") {
-        context.channel.appendLine(stdout);
-        const pages = parsePacPagesList(stdout);
-        if (pages.length === 0) {
-          vscode.window.showErrorMessage("No Power Pages websites were found in this environment.");
-          context.channel.show();
-          return;
-        }
-        const quickPickArray = pages.map((page) => ({ label: page.friendlyName || page.websiteId, target: page.websiteId }));
-
-        const result = await window.showQuickPick(quickPickArray, { placeHolder: "Select a Power Pages website." });
-        if (!result?.target) {
-          return;
-        }
-
-        context.channel.appendLine(`${result.label}, ${result.target}`);
-        const downloadPath = path.join(workspacePath, "portalpublish");
-        const downloadOutput = await runPac(context, ["pages", "download", "-id", result.target, "-p", downloadPath]);
-        if (downloadOutput !== null && downloadOutput !== "") {
-          context.channel.appendLine(downloadOutput);
-        }
-        context.channel.show();
-      }
-    } catch (error: any) {
-      vscode.window.showErrorMessage("Error finding Portals.");
-      context.channel.appendLine(error?.error?.message || error?.message || JSON.stringify(error));
-      context.channel.show();
-    }
-  }
+/** Back-compat wrapper: the old signature took "connect" | "download". */
+export async function downloadPortal(context: DataversePowerToolsContext): Promise<void> {
+  await connectPortal(context, "download");
 }

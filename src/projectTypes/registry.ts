@@ -181,11 +181,14 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
     templateFolder: "portal",
     defaultTemplateVersion: 1,
     contextKey: "isPortal",
-    commandIds: [`${prefix}connectPortal`, `${prefix}downloadPortal`],
+    commandIds: [`${prefix}connectPortal`, `${prefix}downloadPortal`, `${prefix}uploadPortal`],
     menu() {
       return {
-        primary: { command: `${prefix}connectPortal`, label: "Connect to {environment}" },
-        secondary: [{ command: `${prefix}downloadPortal`, label: "Download" }],
+        primary: { command: `${prefix}downloadPortal`, label: "Download from {environment}" },
+        secondary: [
+          { command: `${prefix}uploadPortal`, label: "Upload" },
+          { command: `${prefix}connectPortal`, label: "Select site" },
+        ],
         overflow: [],
       };
     },
