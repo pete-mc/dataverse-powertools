@@ -30,4 +30,4 @@ AGENTS.md
 CLAUDE.md
 CONTRIBUTING.md
 **/*.map
-**/*.ts
+**/*.tstest-resources/**
