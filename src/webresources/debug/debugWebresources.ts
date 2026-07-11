@@ -26,6 +26,12 @@ interface ActiveDebugSession {
 
 let activeSession: ActiveDebugSession | undefined;
 
+// Watch-build with `npx` so the project's LOCAL webpack is used (a bare `webpack` fails with
+// "'webpack' is not recognized" without a global install). Exported so a unit test pins the `npx`
+// launcher against a regression back to bare `webpack` (the e2e VM's global webpack masks it).
+export const WEBPACK_WATCH_LAUNCHER = "npx";
+export const WEBPACK_WATCH_ARGS = ["webpack", "--config", "webpack.dev.js", "--watch"];
+
 function findFreePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
@@ -166,8 +172,9 @@ export async function debugWebResources(context: DataversePowerToolsContext): Pr
   };
 
   await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: "Starting Web Resources debug session…" }, async () => {
-    // 1. Rebuild-on-save. webpack is a .cmd shim on Windows, so it needs a shell.
-    webpackProc = cp.spawn("webpack", ["--config", "webpack.dev.js", "--watch"], {
+    // 1. Rebuild-on-save via the project's LOCAL webpack (see WEBPACK_WATCH_LAUNCHER). npx/webpack
+    //    are .cmd shims on Windows, so this needs a shell there.
+    webpackProc = cp.spawn(WEBPACK_WATCH_LAUNCHER, WEBPACK_WATCH_ARGS, {
       cwd: workspacePath,
       shell: process.platform === "win32",
     });

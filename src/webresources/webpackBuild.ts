@@ -2,6 +2,12 @@ import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
 import { stripAnsi, buildOutputHasErrors } from "./buildOutput";
 
+// Build with `npx` so the project's LOCAL webpack devDependency is used. A bare `webpack` resolves
+// only against the system PATH and fails with "'webpack' is not recognized" wherever there is no
+// global install — which the extension never creates. Exported so a unit test pins the `npx` prefix
+// (the e2e VM has a global webpack that would otherwise mask a regression back to bare `webpack`).
+export const WEBRESOURCE_BUILD_COMMAND = "npx webpack --config webpack.dev.js";
+
 /**
  * Runs the webresource webpack build and resolves to `true` on success.
  *
@@ -23,7 +29,7 @@ export async function runWebresourceBuild(context: DataversePowerToolsContext): 
 
   let output: string;
   try {
-    const { stdout, stderr } = await exec("webpack --config webpack.dev.js", { cwd: workspacePath });
+    const { stdout, stderr } = await exec(WEBRESOURCE_BUILD_COMMAND, { cwd: workspacePath });
     output = `${stdout ?? ""}\n${stderr ?? ""}`;
   } catch (error: any) {
     const failureOutput = `${error?.stdout ?? ""}\n${error?.stderr ?? ""}`;
