@@ -107,6 +107,14 @@ export function resolveComponents(workspaceRoot: string, settingsFiles: { path: 
     }
   }
 
+  // Mirror readSettings' back-fill so subfolder web-resource components behave
+  // like the root one (context.ts applies this only to the root settings file).
+  for (const component of components) {
+    if (!component.settings["webresourceSolutionName"] && component.settings.solutionName) {
+      component.settings["webresourceSolutionName"] = component.settings.solutionName;
+    }
+  }
+
   return { components, malformed };
 }
 
