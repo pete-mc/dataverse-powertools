@@ -11,6 +11,7 @@ import { saveFormData } from "./saveFormData";
 import { formIntersectSelector } from "./tableIntersects/tableIntersects";
 import { upgradeFromSpkl } from "./upgradeFromSpkl";
 import { debugWebResources, stopDebugWebResources } from "./debug/debugWebresources";
+import { createWebresourceTestController } from "./webresourceTestController";
 
 export function initialiseWebresources(context: DataversePowerToolsContext): void {
   vscode.commands.executeCommand("setContext", "dataverse-powertools.isPlugin", false);
@@ -42,4 +43,6 @@ export function initialiseWebresources(context: DataversePowerToolsContext): voi
   // Ensure a running debug session (browser, webpack --watch, CDP) is torn down if the
   // extension deactivates or the workspace reloads.
   context.vscode.subscriptions.push({ dispose: () => void stopDebugWebResources() });
+  // Surface the project's Jest tests in the native Test Explorer (#84).
+  createWebresourceTestController(context);
 }

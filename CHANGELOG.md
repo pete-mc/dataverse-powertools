@@ -2,6 +2,10 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.6.0
+
+- **Native Test Explorer for your project's tests (#84).** Plugin (.NET) and Web Resource (Jest) tests now appear in VS Code's Testing side bar with per-test status, run/debug from the tree or the gutter, and click-through from a failure to the assertion — instead of a wall of text in the output channel. Plugin tests run via `dotnet test` (TRX-parsed results, debuggable under the .NET debugger); web-resource tests run via the project's local Jest (`--json` with source locations, debuggable under the Node debugger). The existing **Run Tests** command still works.
+
 ## 0.5.7
 
 - **Fixed webresource Build failing with `TS2688: Cannot find type definition file for '@types/jest'`** (#95). The production webpack build now compiles against a dedicated `tsconfig.build.json` (types dropped, tests excluded), so it no longer type-checks your Jest tests or needs `@types/jest` in the project's local `node_modules` — which it wasn't when the project lived inside another node project / a workspace / a pnpm layout. The generated XRM typings still load normally.

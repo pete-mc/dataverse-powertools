@@ -61,7 +61,7 @@ function normalizePathForSettings(relativePath: string): string {
   return relativePath.replace(/\\/g, "/");
 }
 
-async function resolveTestProjectPath(context: DataversePowerToolsContext, workspacePath: string): Promise<string | undefined> {
+export async function resolveTestProjectPath(context: DataversePowerToolsContext, workspacePath: string): Promise<string | undefined> {
   const configuredPath = context.projectSettings.pluginUnitTestingProject;
   if (configuredPath) {
     const absolute = path.join(workspacePath, configuredPath);
