@@ -19,16 +19,30 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dest = path.join(root, "tools", "xrmdefinitelytyped");
 const marker = path.join(dest, "XrmDefinitelyTyped.dll");
 
+// On `postinstall` a download blip must not hard-fail `npm install` (CI/contributors only need the
+// tool for typings generation + packaging, not for building/testing). When invoked explicitly via
+// `npm run fetch-typings-tool` (which `vscode:prepublish` does), a failure IS fatal so a VSIX is
+// never packaged without the tool.
+const lenient = process.env.npm_lifecycle_event === "postinstall";
+const fail = (msg) => {
+  console.error(`[fetch-typings-tool] ${msg}`);
+  process.exit(lenient ? 0 : 1);
+};
+
 if (fs.existsSync(marker) && !process.env.DVPT_FORCE_TOOL_FETCH) {
   console.log("[fetch-typings-tool] tool already present — skipping download");
   process.exit(0);
 }
 
 console.log("[fetch-typings-tool] downloading", TOOL_URL);
-const res = await fetch(TOOL_URL);
+let res;
+try {
+  res = await fetch(TOOL_URL);
+} catch (e) {
+  fail(`download error: ${e?.message ?? e}${lenient ? " — skipping (run `npm run fetch-typings-tool` before packaging)" : ""}`);
+}
 if (!res.ok) {
-  console.error(`[fetch-typings-tool] download failed: ${res.status} ${res.statusText}`);
-  process.exit(1);
+  fail(`download failed: ${res.status} ${res.statusText}`);
 }
 const buf = Buffer.from(await res.arrayBuffer());
 fs.rmSync(dest, { recursive: true, force: true });

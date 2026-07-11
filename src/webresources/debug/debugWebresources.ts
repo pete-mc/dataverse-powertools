@@ -244,6 +244,9 @@ export async function debugWebResources(context: DataversePowerToolsContext): Pr
     }
 
     activeSession = { dispose };
+    // Surface the DevTools port so it's unambiguous which browser is the debug session (a developer
+    // can attach their own tools; the e2e reads it here rather than guessing among browser processes).
+    context.channel.appendLine(`[debug] DevTools endpoint on port ${port}`);
     context.channel.appendLine(
       `Web Resources debug session started with ${browser.kind === "chrome" ? "Chrome" : "Edge"}. Log in, open your form, and edits will hot-reload the local ${bundleName}.`,
     );

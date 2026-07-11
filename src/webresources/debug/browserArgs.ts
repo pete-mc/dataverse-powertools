@@ -16,5 +16,18 @@ export interface BrowserLaunchOptions {
  * persistent login profile.
  */
 export function buildBrowserArgs(options: BrowserLaunchOptions): string[] {
-  return [`--remote-debugging-port=${options.port}`, `--user-data-dir=${options.userDataDir}`, "--no-first-run", "--no-default-browser-check", "--new-window", options.url];
+  return [
+    `--remote-debugging-port=${options.port}`,
+    `--user-data-dir=${options.userDataDir}`,
+    "--no-first-run",
+    "--no-default-browser-check",
+    // Keep the app fully live while it sits behind VS Code: Chromium throttles background tabs'
+    // timers/rendering, which stalls the model-driven app (and even the sign-in) when the browser
+    // isn't the focused window. These keep hot-reload and the live app responsive when backgrounded.
+    "--disable-background-timer-throttling",
+    "--disable-backgrounding-occluded-windows",
+    "--disable-renderer-backgrounding",
+    "--new-window",
+    options.url,
+  ];
 }

@@ -17,6 +17,9 @@ export interface E2EEnv {
   clientSecret: string;
   solutionName: string;
   prefix: string;
+  /** MFA-exempt interactive user for the browser sign-in in the comprehensive e2e (optional). */
+  username?: string;
+  password?: string;
 }
 
 /** Load credentials from the gitignored sandbox/.env. Returns undefined if incomplete. */
@@ -43,6 +46,8 @@ export function loadE2EEnv(): E2EEnv | undefined {
     clientSecret: raw.DVPT_TEST_CLIENT_SECRET ?? "",
     solutionName: raw.DVPT_TEST_SOLUTION_NAME || "dvpttests",
     prefix: raw.DVPT_TEST_PREFIX || "dvpt",
+    username: raw.DVPT_TEST_USERNAME || process.env.DVPT_TEST_USERNAME || undefined,
+    password: raw.DVPT_TEST_PASSWORD || process.env.DVPT_TEST_PASSWORD || undefined,
   };
   if (!env.url || !env.tenantId || !env.clientId || !env.clientSecret) {
     return undefined;
@@ -129,6 +134,31 @@ export async function pickByLabel(label: string, timeoutMs = 30000): Promise<voi
   const input = await waitForInput(timeoutMs);
   await waitForPicks(input, Math.min(timeoutMs, 30000));
   await input.selectQuickPick(label);
+  await sleep(2500);
+}
+
+/** Select a quick-pick item by an EXACT label match (filters first, then picks the item whose
+ *  label equals `label`). Needed for the table step, where "account" is a substring of many
+ *  logical names and a loose matcher could pick "accountleads" etc. */
+export async function pickExactLabel(label: string, timeoutMs = 30000): Promise<void> {
+  const input = await waitForInput(timeoutMs);
+  await waitForPicks(input, Math.min(timeoutMs, 30000));
+  try {
+    await input.setText(label);
+    await sleep(1500);
+  } catch {
+    /* some pickers don't accept typing; fall through to enumeration */
+  }
+  const picks = await input.getQuickPicks();
+  for (const p of picks) {
+    const l = await p.getLabel().catch(() => "");
+    if (l === label) {
+      await p.select();
+      await sleep(2500);
+      return;
+    }
+  }
+  await input.selectQuickPick(label); // fallback to ExTester's matcher
   await sleep(2500);
 }
 
@@ -351,8 +381,21 @@ export async function waitForFile(filePath: string, timeoutMs: number, intervalM
  * same, via os.tmpdir()).
  */
 export function freshWorkspace(name: string): string {
-  const dir = path.join(os.tmpdir(), "dvpt-e2e", name);
-  fs.rmSync(dir, { recursive: true, force: true });
+  const base = path.join(os.tmpdir(), "dvpt-e2e");
+  let dir = path.join(base, name);
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+  } catch {
+    // A previous run's process (webpack --watch, a browser) may still hold a lock on the dir as it
+    // shuts down — EPERM. Rather than fail the whole suite in its before-hook, fall back to a
+    // uniquely-suffixed workspace so a back-to-back re-run isn't blocked.
+    dir = path.join(base, `${name}-${process.pid}-${Date.now()}`);
+    try {
+      fs.rmSync(dir, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+  }
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -432,6 +475,30 @@ export class E2EClient {
     if (id) {
       await this.request("DELETE", `webresourceset(${id})`);
     }
+  }
+
+  /** A model-driven app id to open forms in (deterministic form URLs need one). Prefers an app
+   *  whose name contains "Sales"/"Customer Service"/"Hub"; falls back to the first app. */
+  async getModelDrivenAppId(): Promise<string | undefined> {
+    const res = await this.request("GET", `appmodules?$select=appmoduleid,name&$filter=statecode eq 0`);
+    if (!res.ok) {
+      return undefined;
+    }
+    const data: any = await res.json();
+    const apps: any[] = data.value ?? [];
+    const preferred = apps.find((a) => /sales|customer service|hub/i.test(a.name ?? ""));
+    return (preferred ?? apps[0])?.appmoduleid;
+  }
+
+  /** The id of any existing record in an entity set (e.g. "accounts"), so a form opens on a real
+   *  record — a create form triggers a beforeunload dialog on hot-reload. */
+  async getFirstRecordId(entitySet: string, primaryIdField: string): Promise<string | undefined> {
+    const res = await this.request("GET", `${entitySet}?$select=${primaryIdField}&$top=1`);
+    if (!res.ok) {
+      return undefined;
+    }
+    const data: any = await res.json();
+    return data.value?.[0]?.[primaryIdField];
   }
 
   async findPluginPackageId(uniqueName: string): Promise<string | undefined> {

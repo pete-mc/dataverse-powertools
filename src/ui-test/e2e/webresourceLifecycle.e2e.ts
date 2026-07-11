@@ -87,13 +87,10 @@ describe("Web resources lifecycle (e2e)", function () {
     await sleep(4000);
     await dismissOverlays();
 
-    // Project scaffolding + restores must have produced these (would catch the ERESOLVE
-    // and missing-paket-restore bugs). Poll — restores + typings take minutes.
-    expect(await waitForFile(path.join(workspace, "dataverse-powertools.json"), 60000), "dataverse-powertools.json").to.equal(true);
-    expect(
-      await waitForFile(path.join(workspace, "packages", "Delegate.XrmDefinitelyTyped", "content", "XrmDefinitelyTyped", "XrmDefinitelyTyped.exe"), 300000),
-      "XrmDefinitelyTyped restored",
-    ).to.equal(true);
+    // Project scaffolding + restore must have produced the settings file (catches the ERESOLVE
+    // restore bug). Poll — the npm restore takes a while. Typings no longer restore a Windows-only
+    // nuget .exe (#78 — the net8 tool ships with the extension), so there's nothing else to await.
+    expect(await waitForFile(path.join(workspace, "dataverse-powertools.json"), 300000), "dataverse-powertools.json").to.equal(true);
   });
 
   it("generates typings", async () => {
