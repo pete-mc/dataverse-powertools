@@ -17,13 +17,17 @@ Dataverse / Dynamics 365 / Power Platform development. Entry point:
 npm run lint              # eslint (must be clean)
 npm run compile           # webpack bundle -> dist/ (must succeed)
 npm run test:unit         # Vitest, fast, no editor  (~<1s)
+npm run test:coverage     # Vitest + a coverage floor CI enforces (see vitest.config.ts)
 npm run test:integration  # real VS Code extension host (downloads VS Code once)
 ```
 
 `npm test` = unit + integration. CI ([.github/workflows/ci.yml](.github/workflows/ci.yml))
-runs all of this on every PR, plus the UI tests. **Publishing to the Marketplace
-is gated on these passing** ([.github/workflows/main.yml](.github/workflows/main.yml)) —
-never merge to `main` red.
+runs lint + compile + `test:coverage` + integration on every PR, plus the UI tests.
+**Publishing to the Marketplace is gated on these passing**
+([.github/workflows/main.yml](.github/workflows/main.yml), triggered by a push to `main`) —
+never merge to `main` red. The coverage floor is a *regression* guard (global unit
+coverage is low by design — most logic is `vscode`-tangled); ratchet it up as you extract
+pure modules, don't lower it.
 
 ## Three test layers — pick the cheapest that can catch the bug
 
@@ -45,12 +49,31 @@ cross-pick files: `.spec.ts` (unit) vs `.test.ts` under `test/suite` (integratio
 vs `.test.ts` under `ui-test` (UI).
 
 **End-to-end lifecycle suites** (see [TESTING.md](TESTING.md#end-to-end-lifecycle-suites)):
-`npm run test:live` also runs headless command-level lifecycle tests
+`npm run test:live` runs headless command-level lifecycle tests
 (`test/live/webresourceScaffoldLifecycle.spec.ts`, `pluginLifecycle.spec.ts`) that drive
-scaffold→restore→typings→build→deploy with no UI — the reliable way to verify the two
-flows. `npm run test:e2e` (`src/ui-test/e2e/*.e2e.ts`) drives the literal VS Code wizard
-via Selenium; **run it only in an isolated Windows VM** (`scripts/setup-vm-e2e.ps1`) —
-on a shared desktop Selenium's keystrokes get corrupted by whatever else has focus.
+scaffold→restore→typings→build→deploy with no UI — the reliable way to verify the two flows.
+
+`npm run test:e2e` drives the **literal VS Code UI** (`src/ui-test/e2e/*.e2e.ts`) via
+Selenium/ExTester against the live test env. **Run it only in an isolated Windows VM**
+(`scripts/setup-vm-e2e.ps1`) — on a shared desktop Selenium's keystrokes get corrupted by
+whatever else has focus. Key facts:
+- It goes through **`scripts/runE2E.mjs`** (not a bare `extest`): the launcher **seeds an
+  MSAL token cache** (`scripts/preAcquireInteractiveCache.mjs`, ROPC with the MFA-exempt
+  `DVPT_TEST_USERNAME`/`PASSWORD`) and sets `DVPT_TEST_MSAL_CACHE_FILE`, so the **interactive
+  (OAuth) suites run for real** instead of skipping — the extension's cache plugin then signs
+  in silently (there's no browser to drive inside ExTester). Best-effort: no creds → those
+  suites skip and the service-principal suites still run.
+- Suites: `pluginLifecycle`, `pluginInteractiveLifecycle`, `webresourceLifecycle`,
+  `webresourceInteractiveLifecycle`, and the log-gated 8-step `webresourceComprehensive`
+  (init → typings → class+test → build → deploy → register form events → live-app
+  deployed-code check → Debug Web Resources hot-reload). Steps are **gated on the extension's
+  own log line** via `expectOutput()` — a wrong/missing line stops the run.
+- **VM hygiene matters (8GB box):** reap orphaned `webpack --watch` node procs, ExTester
+  `Code.exe` (under `%TEMP%\test-resources`), and `msedge` between runs — they accumulate and
+  starve the host (a mid-suite `ECONNREFUSED` to the webdriver = OOM). The debug feature
+  tree-kills its watcher on stop; the comprehensive suite reaps stragglers in `before`. In a
+  very long session, background full-e2e runs can get killed ~10 min in — run subsets or start
+  fresh. Never kill the user's own VS Code (`AppData\Local\Programs\Microsoft VS Code`).
 
 ## Traps specific to this repo
 
@@ -60,6 +83,25 @@ on a shared desktop Selenium's keystrokes get corrupted by whatever else has foc
   bound to context keys (`dataverse-powertools.showLoaded`, `.isPlugin`, etc.) that
   are set via `vscode.commands.executeCommand("setContext", ...)`. Change one, check
   the other, or the UI silently desyncs.
+- **Every Dataverse command must work under BOTH auth types.** A connection is either a
+  service principal (client id/secret + tenant) **or** interactive (OAuth). Interactive sets
+  **no tenantId** — so never gate a command on `projectSettings.tenantId` / `dataverse.tenantId`.
+  Gate on the live connection instead (`canCallDataverseApi({ organizationUrl, isValid })` in
+  [src/general/dataverse/connectionReady.ts](src/general/dataverse/connectionReady.ts)); the
+  access token authorizes the call, not the tenant. This class of bug shipped three times
+  (#91 typings, #90/register form events under interactive). The e2e's `*InteractiveLifecycle`
+  suites exist to catch it — if you touch a Dataverse path, they must stay green.
+- **Build/tests run the project's LOCAL bins via `npx`, never a bare `webpack`/`jest`.** The
+  template installs webpack/jest/ts-loader as devDependencies; a bare `webpack` only resolves a
+  *global* install and fails ("'webpack' is not recognized") where there isn't one. See
+  `WEBRESOURCE_BUILD_COMMAND` in [src/webresources/webpackBuild.ts](src/webresources/webpackBuild.ts).
+  The production webpack build compiles against **`tsconfig.build.json`** (`types: []`, tests
+  excluded) so it doesn't need `@types/jest` or type-check Jest tests — don't reintroduce that
+  coupling. `dotnet` is a real exe (spawn directly); `npx`/`jest`/`webpack`/`pac` are `.cmd`
+  shims on Windows — go through `cmd.exe` or `npx` (the `spawn EINVAL` trap; see
+  [src/general/pac.ts](src/general/pac.ts)).
+- **System requirements are `dotnet` / `node` / `pac` only.** webpack/webpack-cli/jest/typescript
+  are per-project local devDeps now, not globals ([src/general/systemRequirements.ts](src/general/systemRequirements.ts)).
 - **`src/plugins_old/` is deprecated** (template version < 3) but still wired for
   legacy projects. New work goes in `src/plugins/`. Don't add features to `_old`.
 - **Dataverse HTTP calls belong in `src/general/dataverse/`**, not in feature files.
@@ -89,10 +131,27 @@ modern plugin flow already shells out to `dotnet`/`pac`.
   connection string's service principal. Pure arg builders live in
   [src/solution/pacArgs.ts](src/solution/pacArgs.ts) (unit-tested) — add/verify flags
   there against the pac reference.
-- **Still Windows-only** (external binaries, not our code): webresource typings via
-  `XrmDefinitelyTyped.exe` ([generateTypings.ts](src/webresources/generateTypings.ts)),
-  and the deprecated `plugins_old/` path (still uses `spkl.exe`). Don't spend
-  cross-platform effort on `plugins_old/`.
+- **Webresource typings are cross-platform now** (#78/#91): a bundled **net8** build of
+  XrmDefinitelyTyped run via `dotnet`, in `tools/xrmdefinitelytyped/`, authenticated with the
+  extension's own access token via the `DVPT_TOKEN` env var — so it works on any OS and under
+  both service-principal and interactive auth (no client secret, no Windows-only `.exe`). The
+  tool isn't committed; `scripts/fetchTypingsTool.mjs` fetches it into `tools/` on install /
+  prepublish. Pure arg builders live in
+  [generateTypings.ts](src/webresources/generateTypings.ts) (`buildTypingsArgs`, unit-tested).
+- **Still Windows-only:** the deprecated `plugins_old/` path (uses `spkl.exe`) and the e2e
+  browser automation (drives Edge on the Windows VM). Don't spend cross-platform effort on
+  `plugins_old/`.
+
+## Test Explorer (native Testing API, #84)
+
+Plugin (.NET) and web-resource (Jest) tests surface in VS Code's Testing side bar via a
+`TestController` created per project type in the feature `initialise*`
+([src/plugins/pluginTestController.ts](src/plugins/pluginTestController.ts),
+[src/webresources/webresourceTestController.ts](src/webresources/webresourceTestController.ts)),
+disposed through `context.subscriptions`. The result/discovery **parsers are pure and
+unit-tested** — `parseTrx`, `parseDotnetListTests` (plugins), `parseJestJson` (web resources);
+keep parsing logic there, not in the controllers. Plugins run `dotnet test --logger trx`
+(+ `--filter`); web resources run the local `npx jest --json --testLocationInResults`.
 
 ## GitHub issues & wiki
 
