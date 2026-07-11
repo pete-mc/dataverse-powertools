@@ -272,51 +272,6 @@
       },
       {
         "view": "dataversePowerToolsRequirements",
-        "contents": "✅ npm global: jest",
-        "when": "dataverse-powertools.requirementsScanned && dataverse-powertools.hasGlobalJest"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "❌ npm global: jest",
-        "when": "dataverse-powertools.requirementsScanned && !dataverse-powertools.hasGlobalJest"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "✅ npm global: webpack",
-        "when": "dataverse-powertools.requirementsScanned && dataverse-powertools.hasGlobalWebpack"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "❌ npm global: webpack",
-        "when": "dataverse-powertools.requirementsScanned && !dataverse-powertools.hasGlobalWebpack"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "✅ npm global: webpack-cli",
-        "when": "dataverse-powertools.requirementsScanned && dataverse-powertools.hasGlobalWebpackCli"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "❌ npm global: webpack-cli",
-        "when": "dataverse-powertools.requirementsScanned && !dataverse-powertools.hasGlobalWebpackCli"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "✅ npm global: typescript",
-        "when": "dataverse-powertools.requirementsScanned && dataverse-powertools.hasGlobalTypescript"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "❌ npm global: typescript",
-        "when": "dataverse-powertools.requirementsScanned && !dataverse-powertools.hasGlobalTypescript"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "[Add Missing npm Globals](command:dataverse-powertools.installRequiredGlobals)",
-        "when": "dataverse-powertools.requirementsScanned && (!dataverse-powertools.hasGlobalJest || !dataverse-powertools.hasGlobalWebpack || !dataverse-powertools.hasGlobalWebpackCli || !dataverse-powertools.hasGlobalTypescript)"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
         "contents": "[Recheck Requirements](command:dataverse-powertools.recheckRequirements)",
         "when": "dataverse-powertools.requirementsScanned"
       },
@@ -614,10 +569,6 @@
       {
         "command": "dataverse-powertools.recheckRequirements",
         "title": "Dataverse PowerTools: Recheck Requirements"
-      },
-      {
-        "command": "dataverse-powertools.installRequiredGlobals",
-        "title": "Dataverse PowerTools: Add Missing npm Globals"
       }
     ],
     "configuration": {
