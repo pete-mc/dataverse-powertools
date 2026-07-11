@@ -6,6 +6,7 @@ All notable changes to the "dataverse-powertools" extension will be documented i
 
 - **Fixed webresource Build failing with `TS2688: Cannot find type definition file for '@types/jest'`** (#95). The production webpack build now compiles against a dedicated `tsconfig.build.json` (types dropped, tests excluded), so it no longer type-checks your Jest tests or needs `@types/jest` in the project's local `node_modules` — which it wasn't when the project lived inside another node project / a workspace / a pnpm layout. The generated XRM typings still load normally.
 - **System Requirements panel no longer nags for global npm packages** (#94). webpack / webpack-cli / jest / typescript are installed per-project and run locally, so the panel stopped requiring (and offering to `npm install -g`) them. `.NET SDK`, `Node.js`, and `pac` remain the real prerequisites.
+- **Register Form Events now reports failures instead of silently "succeeding"** (#90). If a form save fails (e.g. you register before the web resource is deployed, so Dataverse returns *"the dependent component WebResource … does not exist"*), the command surfaces an error and opens the log, rather than showing "All events registered". Remaining forms are still attempted, and the message says how many of how many failed.
 - Internal/testing: raised the unit-coverage regression floor to match the grown suite (#80).
 
 ## 0.5.6
