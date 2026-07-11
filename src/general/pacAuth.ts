@@ -88,6 +88,10 @@ export async function runPacLogged(context: DataversePowerToolsContext, args: st
  * principal. Returns false (and reports why) if credentials are incomplete or the
  * profile can't be created.
  */
+const GUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const TENANT_PATTERN = /^[0-9a-z.-]{1,100}$/i; // GUID or AAD domain
+const ENVIRONMENT_URL_PATTERN = /^https:\/\/[0-9a-z][0-9a-z.-]*(:\d+)?\/?$/i;
+
 export async function ensurePacAuth(context: DataversePowerToolsContext, workspacePath: string): Promise<boolean> {
   const parts = parseConnectionString(context.connectionString);
   const environmentUrl = normalizeOrganizationUrl(parts.url);
@@ -96,6 +100,16 @@ export async function ensurePacAuth(context: DataversePowerToolsContext, workspa
   if (!parts.clientId || !parts.clientSecret || !tenantId || !environmentUrl) {
     context.channel.appendLine("Cannot authenticate with pac: connection string is missing client id, client secret, tenant, or URL. Update the connection string and retry.");
     vscode.window.showErrorMessage("Dataverse credentials are incomplete; cannot authenticate with pac.");
+    return false;
+  }
+
+  // Shape-validate everything that reaches the pac command line (pac runs via
+  // cmd.exe on Windows — the .cmd-shim trap): client id must be a GUID, tenant
+  // a GUID/domain, the URL a plain https origin. Rejects malformed settings
+  // before they can smuggle shell metacharacters.
+  if (!GUID_PATTERN.test(parts.clientId) || !TENANT_PATTERN.test(tenantId) || !ENVIRONMENT_URL_PATTERN.test(environmentUrl)) {
+    context.channel.appendLine("Cannot authenticate with pac: client id, tenant, or environment URL has an unexpected format. Update the connection string and retry.");
+    vscode.window.showErrorMessage("Dataverse connection settings look malformed; cannot authenticate with pac.");
     return false;
   }
 

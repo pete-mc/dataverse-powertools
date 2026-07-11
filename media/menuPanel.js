@@ -283,8 +283,10 @@
     closeOverflow();
     root.replaceChildren();
     for (const card of message.model.cards) {
-      const renderer = renderers[card.kind];
-      if (renderer) {
+      // Own-property + type guard: dispatch only to our renderer table, never
+      // up the prototype chain (js/unvalidated-dynamic-method-call).
+      const renderer = Object.prototype.hasOwnProperty.call(renderers, card.kind) ? renderers[card.kind] : undefined;
+      if (typeof renderer === "function") {
         const node = renderer(card);
         node.dataset.cardId = card.id;
         root.appendChild(node);
