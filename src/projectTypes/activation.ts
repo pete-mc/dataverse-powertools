@@ -204,6 +204,7 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
     commands: {
       "dataverse-powertools.connectPortal": tracked("Connect portal", (context) => connectPortal(context, "connect")),
       "dataverse-powertools.downloadPortal": tracked("Download portal", (context) => connectPortal(context, "download")),
+      "dataverse-powertools.uploadPortal": tracked("Upload portal", (context) => connectPortal(context, "upload")),
     },
   },
 };

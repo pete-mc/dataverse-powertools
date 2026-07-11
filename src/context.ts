@@ -153,6 +153,10 @@ interface ProjectSettings {
   pluginModelBuilder?: PluginModelBuilderSettings;
   controlName?: string;
   formIntersect?: FormIntersect[];
+  /** Power Pages (#74): the remembered site + download folder for this component. */
+  portalWebsiteId?: string;
+  portalWebsiteName?: string;
+  portalDownloadPath?: string;
 }
 
 export interface PluginModelBuilderSettings {
