@@ -2,6 +2,12 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.5.7
+
+- **Fixed webresource Build failing with `TS2688: Cannot find type definition file for '@types/jest'`** (#95). The production webpack build now compiles against a dedicated `tsconfig.build.json` (types dropped, tests excluded), so it no longer type-checks your Jest tests or needs `@types/jest` in the project's local `node_modules` — which it wasn't when the project lived inside another node project / a workspace / a pnpm layout. The generated XRM typings still load normally.
+- **System Requirements panel no longer nags for global npm packages** (#94). webpack / webpack-cli / jest / typescript are installed per-project and run locally, so the panel stopped requiring (and offering to `npm install -g`) them. `.NET SDK`, `Node.js`, and `pac` remain the real prerequisites.
+- Internal/testing: raised the unit-coverage regression floor to match the grown suite (#80).
+
 ## 0.5.6
 
 - **Cross-platform web-resource typings (#78, fixes #91).** Typings generation now uses a bundled **net8** build of XrmDefinitelyTyped run via `dotnet`, replacing the Windows-only `XrmDefinitelyTyped.exe`. It authenticates with the access token the extension already holds, so it works on **any OS** and under **both** service-principal and interactive (OAuth) sign-in — the latter previously failed with a "clientId cannot be null" error (#91) because the old tool was invoked with an empty client secret.
