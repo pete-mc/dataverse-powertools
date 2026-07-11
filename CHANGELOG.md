@@ -2,6 +2,10 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.7.3 (pre-release)
+
+- **Power Pages as a first-class project type (#74).** The portal flow now runs on the shared `dataverse-powertools` pac auth profile (service principal or OAuth — no more ad-hoc `pac auth` juggling), with pure unit-tested `pac pages` argument builders and structured error reporting. **Upload is new**: round-trip a site with *Download from \<org\>* / *Upload* on the portal card. *Select site* remembers your Power Pages site (`portalWebsiteId`) so download/upload target it without re-picking; the download folder is configurable via `portalDownloadPath` (default `portalpublish`).
+
 ## 0.7.2 (pre-release)
 
 - **Reliable live web-resource debugging (#96).** Re-running **Debug Web Resources** now stops the previous session and starts fresh (no more reload-VS-Code-between-runs); stopping the debugger from VS Code's toolbar tears down the whole stack (browser, webpack watch, CDP interception); breakpoints bind reliably to your TypeScript — the debug watch build forces `inline-source-map` even for projects whose `webpack.dev.js` still says `eval-source-map` (new projects scaffold with inline maps).
