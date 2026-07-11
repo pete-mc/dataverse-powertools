@@ -253,16 +253,18 @@
     return c;
   }
 
-  const renderers = {
-    notice: renderNotice,
-    getStarted: renderGetStarted,
-    requirements: renderRequirements,
-    environment: renderEnvironment,
-    project: renderProject,
-    registrations: renderRegistrations,
-    session: renderSession,
-    activity: renderActivity,
-  };
+  // A Map (not a plain object) so card.kind can only ever select one of our
+  // renderers — never a prototype member (js/unvalidated-dynamic-method-call).
+  const renderers = new Map([
+    ["notice", renderNotice],
+    ["getStarted", renderGetStarted],
+    ["requirements", renderRequirements],
+    ["environment", renderEnvironment],
+    ["project", renderProject],
+    ["registrations", renderRegistrations],
+    ["session", renderSession],
+    ["activity", renderActivity],
+  ]);
 
   function renderFooter(footer) {
     const f = el("footer", "panel-footer");
@@ -283,9 +285,7 @@
     closeOverflow();
     root.replaceChildren();
     for (const card of message.model.cards) {
-      // Own-property + type guard: dispatch only to our renderer table, never
-      // up the prototype chain (js/unvalidated-dynamic-method-call).
-      const renderer = Object.prototype.hasOwnProperty.call(renderers, card.kind) ? renderers[card.kind] : undefined;
+      const renderer = renderers.get(card.kind);
       if (typeof renderer === "function") {
         const node = renderer(card);
         node.dataset.cardId = card.id;
