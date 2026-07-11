@@ -7,6 +7,7 @@ import { createPluginClass, createWorkflowClass } from "./createClasses";
 import { addClassDecoration, updateFilteringAttributes } from "./decorations";
 import { registerDecorationCodeLens } from "./decorationsCodeLens";
 import { createPluginTest, promptAndSetupPluginUnitTesting, runPluginUnitTests } from "./unitTesting";
+import { createPluginTestController } from "./pluginTestController";
 
 function registerPlaceholderCommand(context: DataversePowerToolsContext, commandId: string, message: string) {
   context.vscode.subscriptions.push(
@@ -48,4 +49,6 @@ export async function initialisePlugins(context: DataversePowerToolsContext): Pr
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.addWorkflowDecoration", () => addClassDecoration(context)));
   context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.updateFilteringAttributes", () => updateFilteringAttributes(context)));
   registerDecorationCodeLens(context);
+  // Surface the plugin's .NET tests in the native Test Explorer (#84).
+  createPluginTestController(context);
 }
