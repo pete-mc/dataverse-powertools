@@ -7,7 +7,7 @@ import AdmZip = require("adm-zip");
 import { addDataverseSolutionComponentByObjectId } from "../general/dataverse/addDataverseSolutionComponent";
 import { PluginPackageMetadata, upsertDataversePluginPackage, waitForDataversePluginAssemblyFromPackage } from "../general/dataverse/getDataversePluginPackage";
 import { PluginStepRegistration, registerPluginSteps } from "../general/dataverse/registerPluginSteps";
-import { findPrimaryPluginCsproj } from "./projectPaths";
+import { findPrimaryPluginCsproj, hasDeployablePluginTypes } from "./projectPaths";
 import { registerWorkflowActivities, WorkflowActivityRegistration } from "../general/dataverse/registerWorkflowActivities";
 
 interface ExecResult {
@@ -521,6 +521,20 @@ export async function buildAndDeploy(context: DataversePowerToolsContext): Promi
       title: "Building package and deploying...",
     },
     async () => {
+      // A package whose assembly has no concrete plugin types is rejected by
+      // Dataverse with a cryptic 400 (0x80040265). New projects scaffold
+      // without a sample class, so guide instead of failing late. Scan the
+      // PROJECT directory — a stray class at the workspace root isn't compiled.
+      const csprojForScan = await findPrimaryPluginCsproj(workspacePath, context.projectSettings.pluginProjectName);
+      const scanRoot = csprojForScan ? path.dirname(csprojForScan) : workspacePath;
+      if (!(await hasDeployablePluginTypes(scanRoot))) {
+        context.channel.appendLine("No plugin classes found — nothing to deploy.");
+        context.channel.appendLine("Create one first: Explorer right-click → Create Plugin Class, or the panel's ⋯ → New plugin class.");
+        context.channel.show();
+        vscode.window.showErrorMessage("No plugin classes found. Create a plugin class before Build Package & Deploy.");
+        return;
+      }
+
       const buildTarget = await findBuildTarget(workspacePath);
       const buildArgs = ["build"];
       if (buildTarget) {

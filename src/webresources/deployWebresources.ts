@@ -3,6 +3,7 @@ import DataversePowerToolsContext from "../context";
 import * as path from "path";
 import { DataverseWebresource } from "../general/dataverse/DataverseWebresource";
 import { runWebresourceBuild } from "./webpackBuild";
+import { saveFormDataExec } from "./saveFormData";
 
 export async function deployWebresources(context: DataversePowerToolsContext) {
   await vscode.window.withProgress(
@@ -18,12 +19,53 @@ export async function deployWebresources(context: DataversePowerToolsContext) {
 
 export async function buildAndDeployExec(context: DataversePowerToolsContext) {
   const built = await runWebresourceBuild(context);
-  if (built) {
-    await deploy(context);
+  if (!built) {
+    return;
   }
+  // Publish-all is deferred to a single call at the end: once after upload and
+  // again after form registration was two full publishes per deploy.
+  const deployed = await deploy(context, { publish: false });
+  if (!deployed) {
+    return;
+  }
+  // Deploy subsumes Register Form Events: handlers reference the deployed web
+  // resource, so deploy-then-register is the only order that always works (the
+  // standalone command failed with 0x8004F036 when run before a deploy — #90).
+  // Silent when the project has no RegisterEvent decorations.
+  let registered = false;
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: "Registering form events...",
+    },
+    async () => {
+      try {
+        registered = await saveFormDataExec(context, { publish: false });
+      } catch (e: any) {
+        vscode.window.showErrorMessage(e?.message || "Error registering events.");
+        context.channel.show();
+      }
+    },
+  );
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: "Publishing customizations...",
+    },
+    async () => {
+      context.channel.appendLine("Publishing all customizations...");
+      await context.dataverse.publishAllCustomisations();
+      context.channel.appendLine("Publish Complete");
+      vscode.window.showInformationMessage(registered ? "Deploy complete — web resources published and form events registered." : "Deploy complete — web resources published.");
+    },
+  );
 }
 
-export async function deploy(context: DataversePowerToolsContext) {
+/** Deploy everything in bin/. Returns true only when the deploy actually completed.
+ * Pass publish:false to defer publish-all to the caller (buildAndDeployExec). */
+export async function deploy(context: DataversePowerToolsContext, options?: { publish?: boolean }): Promise<boolean> {
+  const publish = options?.publish !== false;
+  let succeeded = false;
   await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
@@ -84,10 +126,13 @@ export async function deploy(context: DataversePowerToolsContext) {
         if (!solutionUniqueName) {
           context.channel.appendLine("No webresource solution configured in settings; skipped adding webresources to a solution.");
         }
-        vscode.window.showInformationMessage(`Publishing customizations...`);
-        context.channel.appendLine(`Webresource deployment complete, upserted ${deployedCount} webresources. Publishing customizations...`);
-        await context.dataverse.publishAllCustomisations();
-        vscode.window.showInformationMessage(`Deploy Complete (${deployedCount} webresources upserted)`);
+        context.channel.appendLine(`Webresource deployment complete, upserted ${deployedCount} webresources.`);
+        if (publish) {
+          vscode.window.showInformationMessage(`Publishing customizations...`);
+          await context.dataverse.publishAllCustomisations();
+          vscode.window.showInformationMessage(`Deploy Complete (${deployedCount} webresources upserted)`);
+        }
+        succeeded = true;
       } catch (e: any) {
         context.channel.appendLine(e?.message || JSON.stringify(e));
         context.channel.show();
@@ -95,4 +140,5 @@ export async function deploy(context: DataversePowerToolsContext) {
       }
     },
   );
+  return succeeded;
 }

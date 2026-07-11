@@ -1,0 +1,367 @@
+/* Actions panel (#100 v2, card design). Every color comes from VS Code theme
+   variables so the panel follows light/dark/high-contrast automatically —
+   never hardcode colors here (see the VS Code webview UX guidelines). */
+
+body {
+  margin: 0;
+  padding: 8px 12px 4px;
+  color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+  background-color: transparent;
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  font-weight: var(--vscode-font-weight);
+}
+
+.card {
+  background-color: var(--vscode-editorWidget-background, transparent);
+  border: 1px solid var(--vscode-widget-border, var(--vscode-sideBarSectionHeader-border, rgba(128, 128, 128, 0.2)));
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.card.session {
+  background-color: var(--vscode-inputValidation-warningBackground, var(--vscode-editorWidget-background));
+  border-color: var(--vscode-inputValidation-warningBorder, var(--vscode-widget-border));
+}
+
+h3 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground));
+}
+
+h3.inline {
+  margin: 0;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.title {
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  overflow-wrap: anywhere;
+}
+
+.grow {
+  flex: 1;
+}
+
+.grow-text {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.small {
+  font-size: 0.9em;
+  color: var(--vscode-descriptionForeground);
+  overflow-wrap: anywhere;
+  margin-top: 2px;
+}
+
+.status {
+  margin: 0 0 8px;
+  color: var(--vscode-descriptionForeground);
+  overflow-wrap: anywhere;
+}
+
+.badge {
+  flex: none;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 1px 7px;
+  border-radius: 9px;
+}
+
+.badge.type {
+  background-color: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+}
+
+.badge.env {
+  color: var(--vscode-charts-green, var(--vscode-testing-iconPassed));
+  border: 1px solid currentColor;
+  background: transparent;
+}
+
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.dot.on {
+  background-color: var(--vscode-testing-iconPassed, var(--vscode-charts-green));
+}
+
+.dot.off {
+  background-color: var(--vscode-charts-yellow, var(--vscode-editorWarning-foreground));
+}
+
+/* Buttons */
+button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+button.action {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 6px 0 0;
+  padding: 4px 10px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 2px;
+  text-align: center;
+  line-height: 1.4;
+  color: var(--vscode-button-secondaryForeground);
+  background-color: var(--vscode-button-secondaryBackground);
+}
+
+button.action:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+button.action.primary {
+  color: var(--vscode-button-foreground);
+  background-color: var(--vscode-button-background);
+}
+
+button.action.primary:hover {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+button.action.big {
+  padding: 7px 10px;
+  font-weight: 600;
+  border-radius: 3px;
+  margin-top: 8px;
+}
+
+.secondary-row {
+  display: flex;
+  gap: 4px;
+}
+
+.secondary-row button.action {
+  flex: 1;
+  font-size: 0.92em;
+  padding: 3px 4px;
+}
+
+button.iconbtn {
+  flex: none;
+  border: none;
+  border-radius: 3px;
+  padding: 2px 7px;
+  color: var(--vscode-descriptionForeground);
+  background-color: transparent;
+}
+
+button.iconbtn:hover {
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
+  color: var(--vscode-foreground);
+}
+
+button.iconbtn.text {
+  font-size: 0.92em;
+}
+
+button.linkbtn {
+  border: none;
+  background: none;
+  padding: 2px 4px;
+  color: var(--vscode-textLink-foreground);
+}
+
+button.linkbtn:hover {
+  text-decoration: underline;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+/* Overflow menu */
+.menu-anchor {
+  position: relative;
+}
+
+.overflow-menu {
+  position: absolute;
+  top: calc(100% + 2px);
+  right: 0;
+  z-index: 10;
+  min-width: 190px;
+  padding: 4px;
+  border-radius: 4px;
+  background-color: var(--vscode-menu-background, var(--vscode-editorWidget-background));
+  color: var(--vscode-menu-foreground, var(--vscode-foreground));
+  border: 1px solid var(--vscode-menu-border, var(--vscode-widget-border, rgba(128, 128, 128, 0.3)));
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.36));
+}
+
+.overflow-menu button.menu-item {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 3px;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+}
+
+.overflow-menu button.menu-item:hover,
+.overflow-menu button.menu-item:focus {
+  background-color: var(--vscode-menu-selectionBackground, var(--vscode-list-hoverBackground));
+  color: var(--vscode-menu-selectionForeground, inherit);
+}
+
+/* Status + feeds */
+.statusline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 0.92em;
+  color: var(--vscode-descriptionForeground);
+}
+
+.st {
+  flex: none;
+  width: 1.2em;
+  text-align: center;
+}
+
+.st-success {
+  color: var(--vscode-testing-iconPassed, var(--vscode-charts-green));
+}
+
+.st-error {
+  color: var(--vscode-testing-iconFailed, var(--vscode-errorForeground));
+}
+
+.st-running {
+  color: var(--vscode-progressBar-background, var(--vscode-charts-blue));
+}
+
+ul.feed {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  font-size: 0.92em;
+}
+
+ul.feed li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* Whole-row click target (e.g. registrations → open file). */
+button.rowbtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 1px 4px;
+  margin: 0 -4px;
+  border: none;
+  border-radius: 3px;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+}
+
+button.rowbtn:hover {
+  background-color: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.15));
+  color: var(--vscode-foreground);
+}
+
+ul.feed .t {
+  flex: none;
+  margin-left: auto;
+  color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground));
+}
+
+ul.requirements {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0;
+}
+
+ul.requirements li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.req-state {
+  flex: none;
+  width: 1.2em;
+  text-align: center;
+}
+
+.req-state.ok {
+  color: var(--vscode-testing-iconPassed, var(--vscode-charts-green));
+}
+
+.req-state.missing {
+  color: var(--vscode-testing-iconFailed, var(--vscode-errorForeground));
+}
+
+.req-state.pending {
+  color: var(--vscode-descriptionForeground);
+}
+
+.req-label {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+a.download {
+  color: var(--vscode-textLink-foreground);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+a.download:hover {
+  color: var(--vscode-textLink-activeForeground, var(--vscode-textLink-foreground));
+  text-decoration: underline;
+}
+
+/* Footer */
+.panel-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 2px 2px;
+  border-top: 1px solid var(--vscode-sideBarSectionHeader-border, rgba(128, 128, 128, 0.15));
+  font-size: 0.9em;
+  color: var(--vscode-descriptionForeground);
+}
+
+.panel-footer .st {
+  width: auto;
+  white-space: nowrap;
+}

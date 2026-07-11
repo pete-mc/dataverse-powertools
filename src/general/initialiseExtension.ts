@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
-import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes } from "../context";
+import DataversePowerToolsContext, { PowertoolsTemplate } from "../context";
+import { isSupportedProjectType } from "../projectTypes/registry";
 import { createServicePrincipalString, updateConnectionString, switchEnvironment, refreshConnection } from "./connectionStringManager";
 import { createNewProject } from "./generateTemplates";
 import { restoreDependencies } from "./restoreDependencies";
@@ -9,13 +10,7 @@ import { scanSystemRequirements } from "./systemRequirements";
 export async function generalInitialise(context: DataversePowerToolsContext) {
   await scanSystemRequirements(context);
   await context.readSettings();
-  const hasSupportedProjectType =
-    context.projectSettings?.type === ProjectTypes.webresource ||
-    context.projectSettings?.type === ProjectTypes.plugin ||
-    context.projectSettings?.type === ProjectTypes.solution ||
-    context.projectSettings?.type === ProjectTypes.portal;
-
-  await vscode.commands.executeCommand("setContext", "dataverse-powertools.hasSupportedProjectType", hasSupportedProjectType);
+  await vscode.commands.executeCommand("setContext", "dataverse-powertools.hasSupportedProjectType", isSupportedProjectType(context.projectSettings?.type));
 
   if (context.projectSettings?.connectionString === undefined || context.projectSettings?.connectionString === "" || context.projectSettings?.connectionString === null) {
     await vscode.commands.executeCommand("setContext", "dataverse-powertools.showLoaded", false);
@@ -35,4 +30,6 @@ export async function generalInitialise(context: DataversePowerToolsContext) {
 
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.detectingFolderSettings", false);
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.folderStateReady", true);
+  context.folderStateReady = true;
+  context.refreshPanel?.();
 }

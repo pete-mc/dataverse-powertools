@@ -6,6 +6,11 @@ import { DataverseFormRecord } from "./general/dataverse/getDataverseForms";
 import { workspaceFilePath } from "./general/paths";
 import { parseConnectionString, buildConnectionString, getOrganizationUrl, mergeCredentialConnectionString } from "./general/connectionString";
 import { parseAuthType, DataverseAuthType } from "./general/dataverse/authTypes";
+import { ProjectTypes } from "./projectTypes/registry";
+
+// The enum now lives in the project-type registry (single source of truth,
+// #47/#100); re-exported here so existing imports keep working.
+export { ProjectTypes };
 
 export default class DataversePowerToolsContext {
   public dataverse: DataverseContext;
@@ -16,6 +21,10 @@ export default class DataversePowerToolsContext {
   public template?: PowertoolsTemplate;
   private settingsFilename: string = "dataverse-powertools.json";
   public statusBar: vscode.StatusBarItem;
+  /** True once workspace settings detection finished (mirrors the folderStateReady context key). */
+  public folderStateReady: boolean = false;
+  /** Set by the actions panel (#100); call after any state change the panel renders. */
+  public refreshPanel?: () => void;
   constructor(vscodeContext: vscode.ExtensionContext) {
     this.vscode = vscodeContext;
     this.channel = vscode.window.createOutputChannel("dataverse-powertools");
@@ -117,6 +126,8 @@ interface ProjectSettings {
   type?: ProjectTypes;
   templateversion?: number;
   tenantId?: string;
+  /** Optional environment tag (e.g. DEV / TEST / PROD) shown as a badge in the actions panel. */
+  environmentLabel?: string;
   solutionName?: string;
   webresourceSolutionName?: string;
   connectionString?: string;
@@ -163,12 +174,6 @@ export interface TemplatePlaceholder {
   value: string;
 }
 
-export enum ProjectTypes {
-  plugin = "plugin",
-  webresource = "webresources",
-  solution = "solution",
-  portal = "portal",
-}
 export interface PowertoolsTemplate {
   version: number;
   files?: File[];

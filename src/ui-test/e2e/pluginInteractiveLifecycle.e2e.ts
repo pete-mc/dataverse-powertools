@@ -84,11 +84,18 @@ describe("Plugin lifecycle — interactive auth (e2e)", function () {
     await answerText("1.0.0");
     log("waiting for restores + setup-unit-testing prompt");
     await pickByLabel("No", 600000);
+    // New projects scaffold without pac's sample class — accept the wizard's
+    // create-a-class offer (Build Package & Deploy refuses an empty assembly).
+    log("create-plugin-class prompt");
+    await pickByLabel("Yes", 300000);
+    log("plugin class name");
+    await answerText("E2EIntPluginClass");
     await sleep(4000);
     await dismissOverlays();
 
     expect(await waitForFile(path.join(workspace, "dataverse-powertools.json"), 60000), "dataverse-powertools.json").to.equal(true);
     expect(await waitForFile(path.join(workspace, projectName, `${projectName}.csproj`), 300000), `${projectName}/${projectName}.csproj`).to.equal(true);
+    expect(await waitForFile(path.join(workspace, projectName, "E2EIntPluginClass.cs"), 120000), `${projectName}/E2EIntPluginClass.cs`).to.equal(true);
   });
 
   it("builds and deploys the plugin package to Dataverse (interactive token)", async () => {

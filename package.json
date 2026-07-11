@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.6.1",
+  "version": "0.7.0",
   "engines": {
     "vscode": "^1.93.0"
   },
@@ -137,8 +137,8 @@
           "id": "dataversePowerToolsMenu",
           "name": "Actions",
           "icon": "media/dep.svg",
-          "contextualTitle": "Package Explorer",
-          "type": "tree"
+          "contextualTitle": "Dataverse PowerTools",
+          "type": "webview"
         },
         {
           "id": "dataversePowerToolsTree",
@@ -155,21 +155,6 @@
           "contextualTitle": "Package Explorer",
           "type": "tree",
           "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
-        },
-        {
-          "id": "dataversePowerToolsLocalSettings",
-          "name": "Local Settings",
-          "icon": "media/dep.svg",
-          "contextualTitle": "Local Settings",
-          "type": "tree"
-        },
-        {
-          "id": "dataversePowerToolsRequirements",
-          "name": "System Requirements",
-          "icon": "media/dep.svg",
-          "contextualTitle": "System Requirements",
-          "type": "tree",
-          "visibility": "collapsed"
         }
       ],
       "explorer": []
@@ -179,106 +164,74 @@
         "view": "dataversePowerToolsTree",
         "contents": "Plugin early bound settings are not configured.\n[Configure Settings](command:dataverse-powertools.configurePluginEarlyBound)\n[Generate Early Bound](command:dataverse-powertools.generateEarlyBound)",
         "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && dataverse-powertools.isPluginV3 && !dataverse-powertools.hasPluginModelBuilderSettings"
-      },
+      }
+    ],
+    "walkthroughs": [
       {
-        "view": "dataversePowerToolsMenu",
-        "contents": "Dataverse PowerTools\nDetecting folder settings...",
-        "when": "dataverse-powertools.detectingFolderSettings"
-      },
-      {
-        "view": "dataversePowerToolsMenu",
-        "contents": "Dataverse PowerTools \n[Initialise Project](command:dataverse-powertools.initialiseProject)",
-        "when": "dataverse-powertools.folderStateReady && !dataverse-powertools.showLoaded && !dataverse-powertools.detectingFolderSettings && !dataverse-powertools.hasSupportedProjectType"
-      },
-      {
-        "view": "dataversePowerToolsMenu",
-        "contents": "Plugin Menu\n[Build Package & Deploy](command:dataverse-powertools.buildAndDeploy)\n[Build Locally](command:dataverse-powertools.buildProject)\n[Run Tests](command:dataverse-powertools.runPluginTests)\n\nTip: Create classes/tests from Explorer right-click menu. Use CodeLens in C# files to add/update class decorations for step registrations.",
-        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && dataverse-powertools.isPluginV3 && dataverse-powertools.hasPluginUnitTesting"
-      },
-      {
-        "view": "dataversePowerToolsMenu",
-        "contents": "Plugin Menu\n[Build Package & Deploy](command:dataverse-powertools.buildAndDeploy)\n[Build Locally](command:dataverse-powertools.buildProject)\n[Setup Unit Testing](command:dataverse-powertools.setupPluginUnitTesting)\n\nTip: Create classes from Explorer right-click menu. Unit tests can be enabled from the Setup Unit Testing action.",
-        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && dataverse-powertools.isPluginV3 && !dataverse-powertools.hasPluginUnitTesting"
-      },
-      {
-        "view": "dataversePowerToolsMenu",
-        "contents": "Plugin Menu\n[Build Package & Deploy](command:dataverse-powertools.buildAndDeploy)\n[Build Locally](command:dataverse-powertools.buildProject)\n[Generate Early Bound](command:dataverse-powertools.generateEarlyBound)\n[Run Tests](command:dataverse-powertools.runPluginTests)\n\nTip: Create classes/tests from Explorer right-click menu. Use CodeLens in C# files to add/update class decorations for step registrations.",
-        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && !dataverse-powertools.isPluginV3 && dataverse-powertools.hasPluginUnitTesting"
-      },
-      {
-        "view": "dataversePowerToolsMenu",
-        "contents": "Plugin Menu\n[Build Package & Deploy](command:dataverse-powertools.buildAndDeploy)\n[Build Locally](command:dataverse-powertools.buildProject)\n[Generate Early Bound](command:dataverse-powertools.generateEarlyBound)\n[Setup Unit Testing](command:dataverse-powertools.setupPluginUnitTesting)\n\nTip: Create classes from Explorer right-click menu. Unit tests can be enabled from the Setup Unit Testing action.",
-        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && !dataverse-powertools.isPluginV3 && !dataverse-powertools.hasPluginUnitTesting"
-      },
-      {
-        "view": "dataversePowerToolsMenu",
-        "contents": "Solution Menu\n[Extract Solution](command:dataverse-powertools.extractSolution)\n[Pack Solution](command:dataverse-powertools.packSolution)\n[Deploy Solution](command:dataverse-powertools.deploySolution)",
-        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isSolution"
-      },
-      {
-        "view": "dataversePowerToolsMenu",
-        "contents": "Webresource Menu\n[Create New Class](command:dataverse-powertools.createWebResourceClass)\n[Create New Test](command:dataverse-powertools.createWebResourceTest)\n[Build Web Resources](command:dataverse-powertools.buildWebresources)\n[Build & Deploy Web Resources](command:dataverse-powertools.deployWebresources)\n[Debug Web Resources (local)](command:dataverse-powertools.debugWebresources)\n[Generate Typings](command:dataverse-powertools.generateTypings)\n[Add Form Registration](command:dataverse-powertools.addFormDecoration)\n[Register Form Events](command:dataverse-powertools.saveFormData)\n[Upgrade from Spkl](command:dataverse-powertools.upgradeFromSpkl)",
-        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource && dataverse-powertools.hasSpkl"
-      },
-      {
-        "view": "dataversePowerToolsMenu",
-        "contents": "Webresource Menu\n[Create New Class](command:dataverse-powertools.createWebResourceClass)\n[Create New Test](command:dataverse-powertools.createWebResourceTest)\n[Build Web Resources](command:dataverse-powertools.buildWebresources)\n[Build & Deploy Web Resources](command:dataverse-powertools.deployWebresources)\n[Debug Web Resources (local)](command:dataverse-powertools.debugWebresources)\n[Generate Typings](command:dataverse-powertools.generateTypings)\n[Add Form Registration](command:dataverse-powertools.addFormDecoration)\n[Register Form Events](command:dataverse-powertools.saveFormData)",
-        "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource && !dataverse-powertools.hasSpkl"
-      },
-      {
-        "view": "dataversePowerToolsLocalSettings",
-        "contents": "Local Settings Menu\n[Restore Dependencies](command:dataverse-powertools.restoreDependencies)\n[Refresh Connection](command:dataverse-powertools.refreshConnection)\n[Update Dataverse Authentication](command:dataverse-powertools.updateConnectionString)\n[Switch Dataverse Environment](command:dataverse-powertools.switchEnvironment)",
-        "when": "dataverse-powertools.showLoaded"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "System Requirements\nScanning tools and globals...",
-        "when": "dataverse-powertools.requirementsScanning"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "System Requirements",
-        "when": "dataverse-powertools.requirementsScanned"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "✅ .NET SDK",
-        "when": "dataverse-powertools.requirementsScanned && dataverse-powertools.hasDotnet"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "❌ .NET SDK — [Download](https://dotnet.microsoft.com/download)",
-        "when": "dataverse-powertools.requirementsScanned && !dataverse-powertools.hasDotnet"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "✅ Node.js",
-        "when": "dataverse-powertools.requirementsScanned && dataverse-powertools.hasNode"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "❌ Node.js — [Download](https://nodejs.org/en/download)",
-        "when": "dataverse-powertools.requirementsScanned && !dataverse-powertools.hasNode"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "✅ Power Platform CLI (pac)",
-        "when": "dataverse-powertools.requirementsScanned && dataverse-powertools.hasPac"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "❌ Power Platform CLI (pac) — [Download](https://aka.ms/PowerPlatformCLI)",
-        "when": "dataverse-powertools.requirementsScanned && !dataverse-powertools.hasPac"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "[Recheck Requirements](command:dataverse-powertools.recheckRequirements)",
-        "when": "dataverse-powertools.requirementsScanned"
-      },
-      {
-        "view": "dataversePowerToolsMenu",
-        "contents": "[Show Log](command:dataverse-powertools.showLog)",
-        "when": "true"
+        "id": "gettingStarted",
+        "title": "Get started with Dataverse PowerTools",
+        "description": "Install the prerequisites, create a project from a template, connect to your environment and deploy.",
+        "steps": [
+          {
+            "id": "requirements",
+            "title": "Install the prerequisites",
+            "description": "Dataverse PowerTools needs the .NET SDK, Node.js and the Power Platform CLI (pac) available on your PATH. The Actions panel shows what is missing.\n[Recheck Requirements](command:dataverse-powertools.recheckRequirements)",
+            "media": {
+              "markdown": "media/walkthrough/requirements.md"
+            },
+            "completionEvents": [
+              "onContext:dataverse-powertools.hasPac"
+            ]
+          },
+          {
+            "id": "initialiseProject",
+            "title": "Create your first project",
+            "description": "Open an empty folder, then scaffold a Plugin, Web Resources, Solution or Portal project from a template.\n[Initialise Project](command:dataverse-powertools.initialiseProject)",
+            "media": {
+              "markdown": "media/walkthrough/initialise.md"
+            },
+            "completionEvents": [
+              "onCommand:dataverse-powertools.initialiseProject",
+              "onContext:dataverse-powertools.hasSupportedProjectType"
+            ]
+          },
+          {
+            "id": "connect",
+            "title": "Connect to Dataverse",
+            "description": "Connect with a service principal (client id + secret) or sign in interactively with your own account. Secrets are stored in VS Code secret storage, never in the project files.\n[Update Dataverse Authentication](command:dataverse-powertools.updateConnectionString)",
+            "media": {
+              "markdown": "media/walkthrough/connect.md"
+            },
+            "completionEvents": [
+              "onContext:dataverse-powertools.showLoaded"
+            ]
+          },
+          {
+            "id": "buildDeploy",
+            "title": "Build and deploy",
+            "description": "Build your project and deploy it straight to your environment from the Actions panel.",
+            "media": {
+              "markdown": "media/walkthrough/deploy.md"
+            },
+            "completionEvents": [
+              "onCommand:dataverse-powertools.buildAndDeploy",
+              "onCommand:dataverse-powertools.deployWebresources",
+              "onCommand:dataverse-powertools.deploySolution",
+              "onCommand:dataverse-powertools.connectPortal"
+            ]
+          },
+          {
+            "id": "tour",
+            "title": "Find your way around",
+            "description": "The Dataverse PowerTools icon in the activity bar opens the Actions panel. Tests appear in the native Testing side bar, and classes/tests are created from the Explorer right-click menu.",
+            "media": {
+              "markdown": "media/walkthrough/tour.md"
+            },
+            "completionEvents": [
+              "onView:dataversePowerToolsMenu"
+            ]
+          }
+        ]
       }
     ],
     "commands": [
@@ -553,6 +506,11 @@
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
+        "command": "dataverse-powertools.addFormDecoration",
+        "title": "Dataverse PowerTools: Add Form Registration",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
+      },
+      {
         "command": "dataverse-powertools.saveFormData",
         "title": "Dataverse PowerTools: Register Form Events",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
@@ -613,7 +571,7 @@
     "test:live": "vitest run --config vitest.live.config.ts",
     "test:integration": "npm run compile-tests && vscode-test",
     "pretest:ui": "npm run compile-tests && npm run compile",
-    "test:ui": "extest setup-and-run \"out/ui-test/**/*.test.js\" --code_settings test/ui-settings.json --mocha_config .mocharc-ui.json",
+    "test:ui": "extest setup-and-run \"out/ui-test/**/*.test.js\" --code_settings test/ui-settings.json --extensions_dir test-resources/extensions --mocha_config .mocharc-ui.json",
     "pretest:e2e": "npm run compile-tests && npm run compile",
     "test:e2e": "node scripts/runE2E.mjs",
     "test": "npm run test:unit && npm run test:integration",

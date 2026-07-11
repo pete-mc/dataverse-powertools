@@ -29,6 +29,29 @@ export async function walkDirectory(rootPath: string): Promise<string[]> {
   return results;
 }
 
+/** Matches a CONCRETE class deriving from a plugin/workflow base — what makes the
+ * built assembly a "plug-in assembly" to Dataverse. Abstract bases (PluginBase
+ * itself, WorkflowBase itself) don't count. */
+export function lineDeclaresDeployablePluginType(line: string): boolean {
+  return /class\s+\w+[^:\n]*:\s*[^{\n]*\b(PluginBase|WorkflowBase|IPlugin|CodeActivity)\b/.test(line) && !/\babstract\b/.test(line);
+}
+
+/** True when any .cs source (outside bin/obj/tests) declares a concrete plugin or
+ * workflow type. A package whose assembly has none is rejected by Dataverse
+ * ("no plug-in assembly in the nuget file", 0x80040265) — callers use this to
+ * fail fast with guidance instead. New projects scaffold without a sample class. */
+export async function hasDeployablePluginTypes(workspacePath: string): Promise<boolean> {
+  const allFiles = await walkDirectory(workspacePath);
+  const sources = allFiles.filter((filePath) => filePath.toLowerCase().endsWith(".cs") && !isTestProjectPath(filePath));
+  for (const file of sources) {
+    const text = await fs.promises.readFile(file, "utf8");
+    if (text.split("\n").some(lineDeclaresDeployablePluginType)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function isTestProjectPath(csprojPath: string): boolean {
   const lowerPath = csprojPath.toLowerCase();
   return lowerPath.endsWith(".tests.csproj") || lowerPath.includes("\\tests\\") || lowerPath.includes("/tests/") || lowerPath.includes(".tests\\") || lowerPath.includes(".tests/");

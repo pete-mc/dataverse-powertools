@@ -1,19 +1,53 @@
 import * as path from "path";
 import * as fs from "fs";
-import { VSBrowser, ActivityBar, Workbench, InputBox } from "vscode-extension-tester";
+import { VSBrowser, ActivityBar, Workbench, InputBox, WebviewView, By } from "vscode-extension-tester";
 
 // Local asset generator (NOT part of the CI ui-test glob — filename is `.ts`, not
 // `.test.ts`). Captures screenshots of the real extension UI for the README + wiki.
 // Requires the gitignored `sandbox/screens` fixtures; skips if they're absent.
-// Run: npm run compile-tests && extest setup-and-run out/ui-test/screenshots.js \
-//        --code_settings sandbox/vscode-settings.json --extensions_dir sandbox/ext-dir --mocha_config .mocharc-ui.json
+// Run: npm run compile-tests && npm run compile && extest setup-and-run out/ui-test/screenshots.js \
+//        --code_settings sandbox/vscode-settings.json --extensions_dir sandbox/ext-dir-shot --mocha_config .mocharc-ui.json
+// Output: sandbox/screenshots-out/*.png. Sidebar captures are element screenshots of
+// `.part.sidebar` (same framing as the 360x1230 store images in media/).
 const repoRoot = path.resolve(__dirname, "..", "..");
 const outDir = path.resolve(repoRoot, "sandbox", "screenshots-out");
 const fixtures = path.resolve(repoRoot, "sandbox", "screens");
 
+/** Move the mouse off the activity bar and kill hover tooltips — a lingering
+ * pointer leaves a "Dataverse PowerTools" tooltip across the screenshot. */
+async function parkPointer(): Promise<void> {
+  const driver = VSBrowser.instance.driver;
+  try {
+    const editor = await driver.findElement(By.css(".part.editor"));
+    await driver.actions({ async: true }).move({ origin: editor }).perform();
+  } catch {
+    /* no editor part — ignore */
+  }
+  try {
+    await driver.executeScript("document.querySelectorAll('.monaco-hover').forEach(function(e){ e.remove(); });");
+  } catch {
+    /* ignore */
+  }
+  await sleep(500);
+}
+
 async function snap(name: string): Promise<void> {
+  await parkPointer();
   const img = await VSBrowser.instance.driver.takeScreenshot();
   fs.writeFileSync(path.join(outDir, `${name}.png`), img, "base64");
+}
+
+/** Screenshot of the side bar element only — clean crop for the store/README. */
+async function snapSidebar(name: string): Promise<void> {
+  await parkPointer();
+  try {
+    const sidebar = await VSBrowser.instance.driver.findElement(By.css(".part.sidebar"));
+    const img = await sidebar.takeScreenshot();
+    fs.writeFileSync(path.join(outDir, `${name}.png`), img, "base64");
+  } catch {
+    const img = await VSBrowser.instance.driver.takeScreenshot();
+    fs.writeFileSync(path.join(outDir, `${name}.png`), img, "base64"); // full window beats losing the shot
+  }
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -32,16 +66,15 @@ async function dismissOverlays(): Promise<void> {
   await sleep(300);
 }
 
-// Activation reads settings and prompts for a connection string. Fill the multi-step
-// prompt with throwaway values so initialization COMPLETES and the menu renders (the
-// creds are never used — no real connection is made in a screenshot run).
+// The fixtures use OAuth connection strings, which load without any credential
+// prompts. Keep a short prompt-drain anyway in case a wizard appears.
 async function fillPrompts(): Promise<void> {
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 8; i++) {
     try {
-      const input = await InputBox.create(12000);
+      const input = await InputBox.create(3000);
       await input.setText("dvptshot");
       await input.confirm();
-      await sleep(800);
+      await sleep(600);
     } catch {
       break;
     }
@@ -64,8 +97,32 @@ async function openProject(kind: string): Promise<void> {
   await sleep(2500);
 }
 
+/** Switch into the actions panel webview (verified via its #root marker). */
+async function openPanelFrame(): Promise<WebviewView> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    await dismissOverlays();
+    const webview = new WebviewView();
+    try {
+      await webview.switchToFrame(5000);
+      const marker = await webview.findWebElements(By.css("main#root"));
+      if (marker.length > 0) {
+        return webview;
+      }
+      await webview.switchBack();
+    } catch {
+      try {
+        await webview.switchBack();
+      } catch {
+        /* not in a frame */
+      }
+    }
+    await sleep(1000);
+  }
+  throw new Error("Could not switch into the actions panel webview");
+}
+
 describe("Dataverse PowerTools screenshots", function () {
-  this.timeout(240000);
+  this.timeout(420000);
 
   before(async function () {
     if (!fs.existsSync(fixtures)) {
@@ -74,6 +131,30 @@ describe("Dataverse PowerTools screenshots", function () {
     fs.mkdirSync(outDir, { recursive: true });
     await VSBrowser.instance.waitForWorkbench();
     await dismissOverlays();
+  });
+
+  it("captures the Get Started panel state", async () => {
+    await openProject("empty");
+    await snapSidebar("get-started");
+  });
+
+  it("captures the Getting Started walkthrough", async () => {
+    // Click the panel's own Open Walkthrough button — exercises the real flow.
+    const webview = await openPanelFrame();
+    try {
+      const buttons = await webview.findWebElements(By.css("button.action"));
+      for (const button of buttons) {
+        if ((await button.getText()).trim() === "Open Walkthrough") {
+          await button.click();
+          break;
+        }
+      }
+    } finally {
+      await webview.switchBack();
+    }
+    await sleep(3000);
+    await dismissOverlays();
+    await snap("walkthrough");
   });
 
   it("captures the command palette command surface", async () => {
@@ -87,16 +168,16 @@ describe("Dataverse PowerTools screenshots", function () {
 
   it("captures the plugin project menu", async () => {
     await openProject("plugin");
-    await snap("plugin-menu");
+    await snapSidebar("plugin-menu");
   });
 
   it("captures the webresource project menu", async () => {
     await openProject("webresource");
-    await snap("webresource-menu");
+    await snapSidebar("webresource-menu");
   });
 
   it("captures the solution project menu", async () => {
     await openProject("solution");
-    await snap("solution-menu");
+    await snapSidebar("solution-menu");
   });
 });

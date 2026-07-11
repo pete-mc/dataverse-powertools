@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import DataversePowerToolsContext from "../../context";
 import { runPac } from "./commandRunner";
+import { ensurePacAuthForCurrentConnection } from "../pacAuth";
 import {
   applyDefaults,
   ensurePluginModelBuilderSettingsLoaded,
@@ -110,6 +111,13 @@ export async function configureModelBuilderSettings(context: DataversePowerTools
     }
 
     try {
+      // pac modelbuilder reads org metadata — authenticate the extension's pac
+      // profile first (previously this relied on whatever profile was active,
+      // which failed on machines without one and could target the wrong org).
+      const workspacePath = getWorkspacePath();
+      if (workspacePath) {
+        await ensurePacAuthForCurrentConnection(context, workspacePath);
+      }
       await createSettingsTemplateFile(context, modelNamespace, serviceContextName, outputDirectory);
     } catch (error: any) {
       if (error?.stdout) {
@@ -269,6 +277,13 @@ export async function generateEarlyBoundV3(context: DataversePowerToolsContext) 
     },
     async () => {
       try {
+        // pac modelbuilder reads org metadata — authenticate the extension's
+        // pac profile from the connection string first. Relying on the
+        // machine's active profile broke on machines without one (and could
+        // silently generate from the wrong org).
+        if (!(await ensurePacAuthForCurrentConnection(context, workspacePath))) {
+          return;
+        }
         const { stdout, stderr } = await runPac(args, workspacePath);
         if (stdout) {
           context.channel.appendLine(stdout);

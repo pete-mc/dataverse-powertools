@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import path = require("path");
 import fs = require("fs");
 import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes } from "../context";
+import { getTemplateFolderForType } from "../projectTypes/registry";
 import { pacInvocation } from "./pac";
 
 // Lines from restore tooling (npm mostly) that are noise to a user watching the output channel:
@@ -113,7 +114,7 @@ export async function restoreDependencies(context: DataversePowerToolsContext, i
         vscode.window.showErrorMessage("No Template Found; Try reloading extension again");
         return;
       }
-      const fullFilePath = context.vscode.asAbsolutePath(path.join("templates", context.projectSettings.type));
+      const fullFilePath = context.vscode.asAbsolutePath(path.join("templates", getTemplateFolderForType(context.projectSettings.type)!));
       const templates = JSON.parse(fs.readFileSync(path.join(fullFilePath, "template.json"), "utf8")) as Array<PowertoolsTemplate>;
       let templateToCopy = {} as PowertoolsTemplate;
       for (const t of templates) {
