@@ -18,6 +18,8 @@ export interface OperationRecord {
   startedAt: number;
   finishedAt?: number;
   detail?: string;
+  /** Root of the component the operation ran against; undefined = workspace root (#47). */
+  componentRoot?: string;
 }
 
 const MAX_RECORDS = 5;
@@ -34,7 +36,7 @@ export function resetOperations(): void {
 }
 
 export async function runTracked<T>(context: DataversePowerToolsContext, label: string, run: () => Promise<T> | T): Promise<T> {
-  const record: OperationRecord = { id: ++sequence, label, status: "running", startedAt: Date.now() };
+  const record: OperationRecord = { id: ++sequence, label, status: "running", startedAt: Date.now(), componentRoot: context.activeComponent?.root };
   records = [record, ...records].slice(0, MAX_RECORDS);
   context.refreshPanel?.();
   try {

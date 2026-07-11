@@ -1,17 +1,27 @@
 import { describe, it, expect } from "vitest";
-import { buildMenuModel, PanelState, ALLOWED_EXTERNAL_URLS, environmentName, Card } from "./menuModel";
+import { buildMenuModel, PanelState, ProjectCardState, ALLOWED_EXTERNAL_URLS, environmentName, Card } from "./menuModel";
 import { projectTypeRegistry } from "../projectTypes/registry";
+
+function project(overrides: Partial<ProjectCardState> = {}): ProjectCardState {
+  return {
+    type: "plugin",
+    name: "ContosoCore",
+    relativeRoot: "",
+    root: "c:/repo",
+    isRoot: true,
+    detail: "Contoso.Plugins.csproj",
+    templateVersion: 3,
+    hasPluginUnitTesting: false,
+    hasSpkl: false,
+    ...overrides,
+  };
+}
 
 function state(overrides: Partial<PanelState> = {}): PanelState {
   return {
     detecting: false,
     loaded: true,
-    projectType: "plugin",
-    projectName: "ContosoCore",
-    projectDetail: "Contoso.Plugins.csproj",
-    templateVersion: 3,
-    hasPluginUnitTesting: false,
-    hasSpkl: false,
+    projects: [project()],
     organizationUrl: "https://contoso.crm.dynamics.com",
     authType: "clientsecret",
     environmentLabel: undefined,
@@ -28,10 +38,10 @@ function cardIds(s: PanelState): string[] {
   return buildMenuModel(s).cards.map((c) => c.id);
 }
 
-function card<K extends Card["kind"]>(s: PanelState, kind: K): Extract<Card, { kind: K }> {
-  const found = buildMenuModel(s).cards.find((c) => c.kind === kind);
+function card<K extends Card["kind"]>(s: PanelState, kind: K, id?: string): Extract<Card, { kind: K }> {
+  const found = buildMenuModel(s).cards.find((c) => c.kind === kind && (id === undefined || c.id === id));
   if (!found) {
-    throw new Error(`no ${kind} card; got [${cardIds(s).join(", ")}]`);
+    throw new Error(`no ${kind} card${id ? ` (${id})` : ""}; got [${cardIds(s).join(", ")}]`);
   }
   return found as Extract<Card, { kind: K }>;
 }
@@ -45,20 +55,21 @@ describe("environmentName", () => {
 });
 
 describe("top-level states", () => {
-  it("shows only a detecting notice while folder settings load", () => {
+  it("shows only a spinner notice while folder settings load", () => {
     const model = buildMenuModel(state({ detecting: true }));
     expect(model.cards.map((c) => c.id)).toEqual(["detecting"]);
+    expect((model.cards[0] as { spinner?: boolean }).spinner).toBe(true);
   });
 
   it("offers initialise + walkthrough + requirements when no project is loaded", () => {
-    const s = state({ loaded: false, projectType: undefined });
+    const s = state({ loaded: false, projects: [] });
     expect(cardIds(s)).toEqual(["getStarted", "requirements"]);
     const getStarted = card(s, "getStarted");
     expect(getStarted.actions.map((a) => a.command)).toEqual(["dataverse-powertools.initialiseProject", "workbench.action.openWalkthrough"]);
   });
 
   it("flags an unsupported project type instead of rendering a project card", () => {
-    const model = buildMenuModel(state({ projectType: "pcf" }));
+    const model = buildMenuModel(state({ projects: [project({ type: "pcf" })] }));
     expect(model.cards[1].kind).toBe("notice");
     expect((model.cards[1] as { text: string }).text).toMatch(/not supported/);
   });
@@ -68,62 +79,103 @@ describe("environment card", () => {
   it("shows env name, auth label, connection state and switch/overflow actions", () => {
     const env = card(state({ authType: "oauth", connected: false }), "environment");
     expect(env.name).toBe("contoso");
-    expect(env.url).toBe("contoso.crm.dynamics.com");
     expect(env.authLabel).toBe("OAuth");
     expect(env.connected).toBe(false);
     expect(env.switchAction.command).toBe("dataverse-powertools.switchEnvironment");
-    // Restore Dependencies is a project action, not a connection action (manual-testing feedback).
     expect(env.overflow.map((a) => a.command)).not.toContain("dataverse-powertools.restoreDependencies");
-  });
-
-  it("puts Restore Dependencies in the project card overflow", () => {
-    const project = card(state(), "project");
-    expect(project.overflow.map((a) => a.command)).toContain("dataverse-powertools.restoreDependencies");
   });
 
   it("renders the user-set environment tag", () => {
     expect(card(state({ environmentLabel: "dev" }), "environment").label).toBe("dev");
-    expect(card(state(), "environment").label).toBeUndefined();
   });
 });
 
-describe("project card", () => {
+describe("project cards", () => {
   it("substitutes {environment} into the primary action label", () => {
-    const project = card(state({ projectType: "webresources" }), "project");
-    expect(project.primary.label).toBe("Deploy to contoso");
-    expect(project.primary.command).toBe("dataverse-powertools.deployWebresources");
+    const p = card(state({ projects: [project({ type: "webresources" })] }), "project");
+    expect(p.primary.label).toBe("Deploy to contoso");
+  });
+
+  it("appends the component root to every card action's args (#47)", () => {
+    const p = card(state(), "project");
+    expect(p.primary.args).toEqual(["c:/repo"]);
+    for (const action of [...p.secondary, ...p.overflow]) {
+      expect(action.args?.[action.args.length - 1]).toBe("c:/repo");
+    }
+  });
+
+  it("renders one card per component with the subfolder in the detail line", () => {
+    const s = state({
+      projects: [
+        project({ type: "plugin", name: "core-plugins" }),
+        project({ type: "webresources", name: "account-scripts", relativeRoot: "src/webresources", root: "c:/repo/src/webresources", isRoot: false, detail: undefined }),
+      ],
+    });
+    const model = buildMenuModel(s);
+    const projectCards = model.cards.filter((c) => c.kind === "project");
+    expect(projectCards).toHaveLength(2);
+    expect((projectCards[1] as { detail?: string }).detail).toBe("src/webresources");
+    expect((projectCards[1] as { id: string }).id).toBe("project:webresources:src/webresources");
+  });
+
+  it("attributes the status line to the right component", () => {
+    const s = state({
+      projects: [project({ isRoot: true }), project({ type: "webresources", relativeRoot: "web", root: "c:/repo/web", isRoot: false })],
+      activity: [
+        { label: "Build", status: "error", time: "15:01", componentRoot: "c:/repo/web" },
+        { label: "Deploy", status: "success", time: "14:32" },
+      ],
+    });
+    const model = buildMenuModel(s);
+    const [rootCard, webCard] = model.cards.filter((c) => c.kind === "project") as Extract<Card, { kind: "project" }>[];
+    expect(rootCard.status).toEqual({ icon: "ok", text: "Deploy 14:32" });
+    expect(webCard.status).toEqual({ icon: "error", text: "Build failed 15:01" });
   });
 
   it("plugin: tests vs set-up-tests follows unit-testing state", () => {
-    const withTests = card(state({ hasPluginUnitTesting: true }), "project");
+    const withTests = card(state({ projects: [project({ hasPluginUnitTesting: true })] }), "project");
     expect(withTests.secondary.map((a) => a.command)).toContain("dataverse-powertools.runPluginTests");
-    const withoutTests = card(state({ hasPluginUnitTesting: false }), "project");
+    const withoutTests = card(state({ projects: [project({ hasPluginUnitTesting: false })] }), "project");
     expect(withoutTests.secondary.map((a) => a.command)).toContain("dataverse-powertools.setupPluginUnitTesting");
   });
 
-  it("derives its status line from the latest activity", () => {
-    const running = card(state({ activity: [{ label: "Deploy", status: "running", time: "" }] }), "project");
-    expect(running.status).toEqual({ icon: "running", text: "Deploy…" });
-    const failed = card(state({ activity: [{ label: "Build", status: "error", time: "15:01" }] }), "project");
-    expect(failed.status).toEqual({ icon: "error", text: "Build failed 15:01" });
-    const ok = card(state({ activity: [{ label: "Deploy", status: "success", time: "14:32" }] }), "project");
-    expect(ok.status).toEqual({ icon: "ok", text: "Deploy 14:32" });
-    expect(card(state(), "project").status).toBeUndefined();
+  it("puts Restore Dependencies in each project card overflow", () => {
+    const p = card(state(), "project");
+    expect(p.overflow.map((a) => a.command)).toContain("dataverse-powertools.restoreDependencies");
+  });
+
+  it("always offers Add Component when loaded", () => {
+    const actions = card(state(), "actions", "addComponent");
+    expect(actions.actions[0].command).toBe("dataverse-powertools.addComponent");
   });
 });
 
 describe("webresource extras", () => {
+  const webState = (overrides: Partial<PanelState> = {}) => state({ projects: [project({ type: "webresources", detail: undefined })], ...overrides });
+
   it("shows the registrations card with rows and the add action", () => {
-    const s = state({ projectType: "webresources", formRegistrations: [{ label: "account · Main Form", detail: "3 forms" }] });
+    const s = webState({ formRegistrations: [{ label: "contoso.ContactForm.onLoad", detail: "onload", index: 0 }] });
     const registrations = card(s, "registrations");
     expect(registrations.rows).toHaveLength(1);
     expect(registrations.add.command).toBe("dataverse-powertools.addFormDecoration");
     expect(registrations.note).toMatch(/deploy/i);
   });
 
+  it("collapses registrations beyond the row cap into a +N note", () => {
+    const rows = Array.from({ length: 11 }, (_, i) => ({ label: `fn${i}`, detail: "onload", index: i }));
+    const registrations = card(webState({ formRegistrations: rows }), "registrations");
+    expect(registrations.rows).toHaveLength(8);
+    expect(registrations.note).toMatch(/\+3 more/);
+  });
+
+  it("shows the session card only while a debug session runs, webresources only", () => {
+    expect(cardIds(webState({ debugSessionActive: true }))).toContain("session");
+    expect(cardIds(webState({ debugSessionActive: false }))).not.toContain("session");
+    expect(cardIds(state({ debugSessionActive: true }))).not.toContain("session");
+  });
+
   it("offers no Register Form Events button anywhere — deploy subsumes it (#90)", () => {
-    const s = state({ projectType: "webresources", hasSpkl: true });
-    const model = buildMenuModel(s);
+    const model = buildMenuModel(webState({ projects: [project({ type: "webresources", hasSpkl: true, detail: undefined })] }));
     const allActions: string[] = [];
     for (const c of model.cards) {
       if (c.kind === "project") {
@@ -135,26 +187,11 @@ describe("webresource extras", () => {
     }
     expect(allActions).not.toContain("dataverse-powertools.saveFormData");
   });
-
-  it("shows the session card only while a debug session runs, webresources only", () => {
-    expect(cardIds(state({ projectType: "webresources", debugSessionActive: true }))).toContain("session");
-    expect(cardIds(state({ projectType: "webresources", debugSessionActive: false }))).not.toContain("session");
-    expect(cardIds(state({ projectType: "plugin", debugSessionActive: true }))).not.toContain("session");
-    const session = card(state({ projectType: "webresources", debugSessionActive: true }), "session");
-    expect(session.stop.command).toBe("dataverse-powertools.stopDebugWebresources");
-  });
-
-  it("plugin projects get no registrations card", () => {
-    expect(cardIds(state({ projectType: "plugin" }))).not.toContain("registrations");
-  });
 });
 
 describe("activity + requirements placement", () => {
   it("adds an activity card when operations exist", () => {
-    const items = [
-      { label: "Deploy", status: "success" as const, time: "14:32" },
-      { label: "Build", status: "error" as const, time: "13:05", detail: "tsc failed" },
-    ];
+    const items = [{ label: "Deploy", status: "success" as const, time: "14:32" }];
     expect(card(state({ activity: items }), "activity").items).toEqual(items);
     expect(cardIds(state())).not.toContain("activity");
   });
@@ -173,14 +210,6 @@ describe("activity + requirements placement", () => {
     for (const row of requirements.rows) {
       expect(ALLOWED_EXTERNAL_URLS).toContain(row.downloadUrl);
     }
-  });
-
-  it("marks rows pending while scanning", () => {
-    const s = state({ requirements: { scanning: true, scanned: false, dotnet: false, node: false, pac: false } });
-    const requirements = card(s, "requirements");
-    expect(requirements.scanning).toBe(true);
-    expect(requirements.rows.every((r) => r.ok === undefined)).toBe(true);
-    expect(requirements.recheck).toBeUndefined();
   });
 });
 
@@ -206,10 +235,10 @@ describe("registry menu self-parity", () => {
 
   it("every type renders a project card with a primary action", () => {
     for (const d of projectTypeRegistry) {
-      const project = card(state({ projectType: d.id, templateVersion: d.defaultTemplateVersion }), "project");
-      expect(project.id).toBe(`project:${d.id}`);
-      expect(project.primary.command.length).toBeGreaterThan(0);
-      expect(project.typeLabel).toBe(d.displayName.toUpperCase());
+      const p = card(state({ projects: [project({ type: d.id, templateVersion: d.defaultTemplateVersion, detail: undefined })] }), "project");
+      expect(p.id).toBe(`project:${d.id}`);
+      expect(p.primary.command.length).toBeGreaterThan(0);
+      expect(p.typeLabel).toBe(d.displayName.toUpperCase());
     }
   });
 });

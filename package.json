@@ -521,6 +521,11 @@
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource && dataverse-powertools.hasSpkl"
       },
       {
+        "command": "dataverse-powertools.addComponent",
+        "title": "Dataverse PowerTools: Add Component",
+        "enablement": "dataverse-powertools.showLoaded"
+      },
+      {
         "command": "dataverse-powertools.showLog",
         "title": "Dataverse PowerTools: Show Log"
       },

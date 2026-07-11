@@ -6,7 +6,7 @@
 // project, form registrations, a live debug session and recent operations are
 // each a card; actions hang off the object they belong to; rare actions live
 // in a per-card ⋯ overflow; requirements collapse to a footer line once green.
-import { MenuAction, getProjectTypeDescriptor } from "../projectTypes/registry";
+import { MenuAction, ProjectMenuState, getProjectTypeDescriptor } from "../projectTypes/registry";
 
 export interface RequirementRow {
   id: "dotnet" | "node" | "pac";
@@ -22,6 +22,8 @@ export interface ActivityItem {
   /** Pre-formatted clock time (e.g. "14:32"); empty while running. */
   time: string;
   detail?: string;
+  /** Root of the component the operation ran against; undefined = workspace root (#47). */
+  componentRoot?: string;
 }
 
 export interface StatusLine {
@@ -42,6 +44,7 @@ export const MAX_REGISTRATION_ROWS = 8;
 export type Card =
   | { kind: "notice"; id: string; text: string; spinner?: boolean }
   | { kind: "getStarted"; id: "getStarted"; text: string; actions: MenuAction[] }
+  | { kind: "actions"; id: string; actions: MenuAction[] }
   | { kind: "requirements"; id: "requirements"; scanning: boolean; rows: RequirementRow[]; recheck?: MenuAction }
   | {
       kind: "environment";
@@ -79,19 +82,27 @@ export interface MenuModel {
   };
 }
 
+/** One workspace component as the panel sees it (#47). */
+export interface ProjectCardState extends ProjectMenuState {
+  type: string;
+  name: string;
+  /** Component folder relative to the workspace root; "" for the root component. */
+  relativeRoot: string;
+  /** Absolute component root — appended to every card action's args so the
+   * command handler resolves THIS component. */
+  root: string;
+  isRoot: boolean;
+  /** Secondary line (e.g. the csproj); the relativeRoot is shown when set. */
+  detail?: string;
+}
+
 export interface PanelState {
   /** Still reading workspace settings on activation. */
   detecting: boolean;
   /** A connection string exists (mirrors the showLoaded context key). */
   loaded: boolean;
-  projectType?: string;
-  /** Display name for the project card (solution or plugin project name). */
-  projectName?: string;
-  /** Secondary line on the project card (e.g. the csproj). */
-  projectDetail?: string;
-  templateVersion?: number;
-  hasPluginUnitTesting?: boolean;
-  hasSpkl?: boolean;
+  /** One entry per discovered component, root first (#47). */
+  projects: ProjectCardState[];
   organizationUrl?: string;
   /** "oauth" for interactive connections, anything else is service-principal. */
   authType?: string;
@@ -178,8 +189,10 @@ function environmentCard(state: PanelState): Card {
   };
 }
 
-function statusFromActivity(activity: ActivityItem[]): StatusLine | undefined {
-  const latest = activity[0];
+/** Latest operation attributed to a project card: operations record the
+ * component root they ran against; root-component operations record none. */
+function statusFromActivity(activity: ActivityItem[], project: ProjectCardState): StatusLine | undefined {
+  const latest = activity.find((item) => (project.isRoot ? item.componentRoot === undefined : item.componentRoot === project.root));
   if (!latest) {
     return undefined;
   }
@@ -190,6 +203,11 @@ function statusFromActivity(activity: ActivityItem[]): StatusLine | undefined {
     return { icon: "error", text: `${latest.label} failed ${latest.time}`.trim() };
   }
   return { icon: "ok", text: `${latest.label} ${latest.time}`.trim() };
+}
+
+/** Append the component root to an action's args so the handler resolves this component. */
+function forComponent(action: MenuAction, project: ProjectCardState): MenuAction {
+  return { ...action, args: [...(action.args ?? []), project.root] };
 }
 
 /** Footer shows the collapsed "✓ requirements" line only when no requirements
@@ -222,33 +240,45 @@ export function buildMenuModel(state: PanelState): MenuModel {
   }
 
   const cards: Card[] = [environmentCard(state)];
-  const descriptor = getProjectTypeDescriptor(state.projectType);
+  const environment = environmentName(state.organizationUrl);
+  let hasWebresourceCard = false;
 
-  if (descriptor) {
-    const menu = descriptor.menu(state);
-    const environment = environmentName(state.organizationUrl);
-    cards.push({
-      kind: "project",
-      id: `project:${descriptor.id}`,
-      name: state.projectName || descriptor.displayName,
-      typeLabel: descriptor.displayName.toUpperCase(),
-      detail: state.projectDetail,
-      primary: { ...menu.primary, label: menu.primary.label.replace("{environment}", environment) },
-      secondary: menu.secondary,
-      overflow: [...menu.overflow, { command: "dataverse-powertools.restoreDependencies", label: "Restore dependencies" }],
-      status: statusFromActivity(state.activity),
-    });
-  } else {
+  if (state.projects.length === 0) {
     cards.push({
       kind: "notice",
       id: "unsupported",
-      text: state.projectType
-        ? `Project type "${state.projectType}" is not supported by this version of the extension.`
-        : "This workspace has a connection but no project type. Re-run Initialise Project to scaffold one.",
+      text: "This workspace has a connection but no project type. Re-run Initialise Project to scaffold one.",
     });
   }
 
-  if (descriptor?.id === "webresources") {
+  for (const project of state.projects) {
+    const descriptor = getProjectTypeDescriptor(project.type);
+    if (!descriptor) {
+      cards.push({
+        kind: "notice",
+        id: `unsupported:${project.relativeRoot || "root"}`,
+        text: `Project type "${project.type}"${project.relativeRoot ? ` (${project.relativeRoot})` : ""} is not supported by this version of the extension.`,
+      });
+      continue;
+    }
+    const menu = descriptor.menu(project);
+    cards.push({
+      kind: "project",
+      id: `project:${descriptor.id}${project.isRoot ? "" : `:${project.relativeRoot}`}`,
+      name: project.name || descriptor.displayName,
+      typeLabel: descriptor.displayName.toUpperCase(),
+      detail: project.isRoot ? project.detail : [project.relativeRoot, project.detail].filter(Boolean).join(" · "),
+      primary: forComponent({ ...menu.primary, label: menu.primary.label.replace("{environment}", environment) }, project),
+      secondary: menu.secondary.map((action) => forComponent(action, project)),
+      overflow: [...menu.overflow, { command: "dataverse-powertools.restoreDependencies", label: "Restore dependencies" }].map((action) => forComponent(action, project)),
+      status: statusFromActivity(state.activity, project),
+    });
+    if (descriptor.id === "webresources") {
+      hasWebresourceCard = true;
+    }
+  }
+
+  if (hasWebresourceCard) {
     const overflowCount = Math.max(0, state.formRegistrations.length - MAX_REGISTRATION_ROWS);
     cards.push({
       kind: "registrations",
@@ -267,6 +297,13 @@ export function buildMenuModel(state: PanelState): MenuModel {
       });
     }
   }
+
+  // A workspace becomes multi-component by adding one — no upfront mono choice.
+  cards.push({
+    kind: "actions",
+    id: "addComponent",
+    actions: [{ command: "dataverse-powertools.addComponent", label: "＋ Add Component…" }],
+  });
 
   if (state.activity.length > 0) {
     cards.push({ kind: "activity", id: "activity", items: state.activity });

@@ -10,6 +10,7 @@ import { openScannedRegistration } from "./registrationsScanner";
 // behind a strict CSP, but treat its messages as untrusted anyway.
 const GENERAL_PANEL_COMMANDS = [
   "dataverse-powertools.initialiseProject",
+  "dataverse-powertools.addComponent",
   "dataverse-powertools.restoreDependencies",
   "dataverse-powertools.refreshConnection",
   "dataverse-powertools.updateConnectionString",

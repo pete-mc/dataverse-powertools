@@ -20,6 +20,16 @@ body {
   margin-bottom: 10px;
 }
 
+.card.slim {
+  padding: 6px 10px;
+  background-color: transparent;
+  border-style: dashed;
+}
+
+.card.slim button.action {
+  margin: 0;
+}
+
 .card.session {
   background-color: var(--vscode-inputValidation-warningBackground, var(--vscode-editorWidget-background));
   border-color: var(--vscode-inputValidation-warningBorder, var(--vscode-widget-border));

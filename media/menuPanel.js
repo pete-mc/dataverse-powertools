@@ -100,6 +100,14 @@
     return c;
   }
 
+  function renderActions(card) {
+    const c = el("section", "card slim");
+    card.actions.forEach(function (action) {
+      c.appendChild(button(action, "action"));
+    });
+    return c;
+  }
+
   function renderGetStarted(card) {
     const c = el("section", "card");
     c.appendChild(el("h3", null, "Get Started"));
@@ -266,6 +274,7 @@
   // renderers — never a prototype member (js/unvalidated-dynamic-method-call).
   const renderers = new Map([
     ["notice", renderNotice],
+    ["actions", renderActions],
     ["getStarted", renderGetStarted],
     ["requirements", renderRequirements],
     ["environment", renderEnvironment],

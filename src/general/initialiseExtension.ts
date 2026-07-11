@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import DataversePowerToolsContext, { PowertoolsTemplate } from "../context";
 import { isSupportedProjectType } from "../projectTypes/registry";
 import { discoverWorkspaceComponents } from "../components/componentDiscovery";
+import { addComponent } from "../components/addComponent";
 import { createServicePrincipalString, updateConnectionString, switchEnvironment, refreshConnection } from "./connectionStringManager";
 import { createNewProject } from "./generateTemplates";
 import { restoreDependencies } from "./restoreDependencies";
@@ -31,6 +32,7 @@ export async function generalInitialise(context: DataversePowerToolsContext) {
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.switchEnvironment", () => switchEnvironment(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.refreshConnection", () => refreshConnection(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.openSettings", () => context.openSettings()));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.addComponent", () => addComponent(context)));
   }
 
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.detectingFolderSettings", false);
