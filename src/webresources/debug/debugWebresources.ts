@@ -38,6 +38,31 @@ function findFreePort(): Promise<number> {
   });
 }
 
+/**
+ * Kill a child process *and its descendants*. On Windows a shell-spawned process (webpack runs via a
+ * `.cmd` shim, so `shell: true`) makes `child.kill()` terminate only the `cmd.exe` wrapper, orphaning
+ * the real `node webpack --watch` — which then keeps rebuilding and holding memory forever. `taskkill
+ * /T` walks the whole tree. Elsewhere the process isn't shell-wrapped, so a plain kill suffices.
+ */
+function killProcessTree(child: cp.ChildProcess | undefined): void {
+  if (!child || child.pid === undefined) {
+    return;
+  }
+  if (process.platform === "win32") {
+    try {
+      cp.execFileSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+      return;
+    } catch {
+      /* fall through to a best-effort direct kill */
+    }
+  }
+  try {
+    child.kill();
+  } catch {
+    /* already gone */
+  }
+}
+
 async function connectCdpWithRetry(port: number, timeoutMs: number): Promise<CDP.Client> {
   const deadline = Date.now() + timeoutMs;
   let lastError: unknown;
@@ -133,16 +158,10 @@ export async function debugWebResources(context: DataversePowerToolsContext): Pr
     } catch {
       /* ignore */
     }
-    try {
-      webpackProc?.kill();
-    } catch {
-      /* ignore */
-    }
-    try {
-      browserProc?.kill();
-    } catch {
-      /* ignore */
-    }
+    // Kill the whole tree — webpack is shell-wrapped on Windows, so a plain kill would orphan the
+    // `node --watch` child (it would keep rebuilding and holding memory after the session stops).
+    killProcessTree(webpackProc);
+    killProcessTree(browserProc);
     context.channel.appendLine("Web Resources debug session stopped.");
   };
 

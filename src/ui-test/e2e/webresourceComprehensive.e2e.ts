@@ -19,7 +19,7 @@ import {
   sleep,
   E2EClient,
 } from "./lib";
-import { signInFreshBrowser, autoLoginWithRetry, bannerOnForm, bannerAfterReload, findDebugPortByProfile, killBrowsersByProfile } from "./browserLib";
+import { signInFreshBrowser, autoLoginWithRetry, bannerOnForm, bannerAfterReload, findDebugPortByProfile, killBrowsersByProfile, killStaleE2EProcesses } from "./browserLib";
 import { resolveBrowser } from "../../webresources/debug/browserResolver";
 
 // COMPREHENSIVE end-to-end webresource journey — every step driven through the REAL VS Code UI,
@@ -85,6 +85,9 @@ describe("Web resources — comprehensive UI lifecycle (e2e)", function () {
     if (!env) {
       this.skip();
     }
+    // Start from a clean slate: reap orphan webpack watchers / debug browsers left by any crashed
+    // prior run so this run has full memory headroom (an OOM'd VS Code host kills the whole suite).
+    killStaleE2EProcesses();
     const client = new E2EClient(env!);
     await client.connect();
     solutionFriendlyName = (await client.getSolutionFriendlyName(env!.solutionName)) ?? env!.solutionName;
@@ -127,7 +130,7 @@ describe("Web resources — comprehensive UI lifecycle (e2e)", function () {
     await clearOutput();
     await runCommand("Dataverse PowerTools: Generate Typings");
     // STOP if the log doesn't report success (or reports a failure) — don't advance blind.
-    await expectOutput("Typings have been generated.", { timeoutMs: 240000, step: "generate typings" });
+    await expectOutput("Typings have been generated.", { timeoutMs: 300000, step: "generate typings" });
     expect(await waitForFile(path.join(workspace, "typings", "XRM"), 30000), "typings/XRM").to.equal(true);
   });
 

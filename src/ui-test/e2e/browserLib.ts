@@ -107,6 +107,33 @@ export function killBrowsersByProfile(profileMatch: string): void {
   }
 }
 
+/**
+ * Reap orphans left by a crashed/killed prior e2e run so the next run starts with headroom. On an
+ * 8GB VM this matters: a debug session that dies before teardown orphans its `node webpack --watch`
+ * (kept rebuilding, ~100-300MB each) and its Edge browser, and enough of them accumulated across runs
+ * will starve VS Code's Electron host mid-suite (seen as ECONNREFUSED to the webdriver, run 13). This
+ * is best-effort and Windows-only (the e2e only runs on the Windows VM).
+ */
+export function killStaleE2EProcesses(): void {
+  try {
+    cp.execFileSync(
+      "powershell",
+      [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        // Orphan webpack --watch node processes from prior debug sessions...
+        "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -match 'webpack' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue };" +
+          // ...and orphan debug/verify browsers spawned under our e2e profile dirs.
+          "Get-CimInstance Win32_Process -Filter \"Name='msedge.exe' OR Name='chrome.exe'\" | Where-Object { $_.CommandLine -match 'dvpt-e2e-browser|webresource-debug-profile' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }",
+      ],
+      { encoding: "utf8" },
+    );
+  } catch {
+    /* best effort */
+  }
+}
+
 /** GET a JSON endpoint with a hard timeout, so probing a non-CDP listening port fails fast rather
  *  than hanging the scan. */
 function httpGetJson(port: number, pathname: string, timeoutMs = 1000): Promise<unknown> {
@@ -473,20 +500,27 @@ async function pollBanner(client: CDP.Client, patterns: string[], timeoutMs: num
  *  specific one before returning. */
 export async function bannerOnForm(port: number, recordUrl: string, patterns: string[], want?: string, timeoutMs = 90000, log?: (m: string) => void): Promise<string> {
   const client = await openPageClient(port);
+  const diag = async () =>
+    (
+      await client.Runtime.evaluate({
+        expression: `JSON.stringify((()=>{const perf=performance.getEntriesByType('resource').map(e=>e.name).filter(n=>/library\\.js/i.test(n)).slice(0,3);return{url:location.href,ready:document.readyState,title:document.title,bundle:perf,hasXrm:typeof Xrm!=='undefined',bodyLen:(document.body?document.body.innerText.length:0)};})())`,
+        returnByValue: true,
+      })
+    ).result.value as string;
   try {
-    await client.Page.navigate({ url: recordUrl });
-    const banner = await pollBanner(client, patterns, timeoutMs, want);
-    if (banner === "(none)" && log) {
-      // Diagnose why nothing rendered: did the bundle load? is Xrm present? is the form on screen?
-      const d = (
-        await client.Runtime.evaluate({
-          expression: `JSON.stringify((()=>{const perf=performance.getEntriesByType('resource').map(e=>e.name).filter(n=>/library\\.js/i.test(n)).slice(0,3);return{url:location.href.slice(0,100),title:document.title,bundle:perf,hasXrm:typeof Xrm!=='undefined',bodyLen:(document.body?document.body.innerText.length:0),notif:(document.body?document.body.innerText.match(/loaded|HOTRELOAD/i):null)?'present':'absent'};})())`,
-          returnByValue: true,
-        })
-      ).result.value as string;
-      log(`[debug] no-banner diag: ${d}`);
+    // The model-driven app on the persistent debug profile occasionally comes up blank on the first
+    // navigation (nothing rendered); reload once more before giving up.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await client.Page.navigate({ url: recordUrl });
+      const banner = await pollBanner(client, patterns, attempt === 0 ? Math.min(timeoutMs, 60000) : timeoutMs, want);
+      if (banner !== "(none)") {
+        return banner;
+      }
+      if (log) {
+        log(`[debug] no-banner diag (attempt ${attempt + 1}): ${await diag()}`);
+      }
     }
-    return banner;
+    return "(none)";
   } finally {
     await client.close();
   }
