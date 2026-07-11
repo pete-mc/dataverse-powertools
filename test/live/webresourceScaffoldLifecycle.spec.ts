@@ -7,6 +7,7 @@ import { loadLiveEnv, LiveEnv, testSolutionConfig } from "../liveEnv";
 import { LiveDataverseClient } from "./dataverseClient";
 import { DataverseContext } from "../../src/general/dataverse/dataverseContext";
 import { DataverseWebresource } from "../../src/general/dataverse/DataverseWebresource";
+import { buildTypingsArgs } from "../../src/webresources/generateTypings";
 
 // Command-level end-to-end for the Web Resources lifecycle, with NO editor UI: scaffold
 // a project from the real templates/webresources template (same file-copy + placeholder
@@ -105,36 +106,31 @@ live("web resources scaffold -> restore -> build -> deploy (command level)", () 
     expect(fs.existsSync(path.join(projectDir, "webpack.dev.js"))).toBe(true);
   });
 
-  it("restores dependencies (no npm ERESOLVE; paket restores XrmDefinitelyTyped)", () => {
+  it("restores dependencies via the template's npm commands (no npm ERESOLVE)", () => {
     for (const cmd of restoreCommands()) {
       cp.execSync(cmd, { cwd: projectDir, stdio: "pipe", timeout: 300000 });
     }
     expect(fs.existsSync(path.join(projectDir, "node_modules", "typescript")), "typescript installed").toBe(true);
-    expect(
-      fs.existsSync(path.join(projectDir, "packages", "Delegate.XrmDefinitelyTyped", "content", "XrmDefinitelyTyped", "XrmDefinitelyTyped.exe")),
-      "XrmDefinitelyTyped restored via paket",
-    ).toBe(true);
+    expect(fs.existsSync(path.join(projectDir, "node_modules", "webpack")), "webpack installed locally").toBe(true);
   }, 600000);
 
-  it("generates typings with XrmDefinitelyTyped (produces webresources_src/lib/dg.xrmquery.web.min)", () => {
-    const orgUrl = e.url.replace(/\/+$/, "");
-    const solution = cfg.solutionUniqueName;
-    const exe = path.join(projectDir, "packages", "Delegate.XrmDefinitelyTyped", "content", "XrmDefinitelyTyped", "XrmDefinitelyTyped.exe");
-    const args = [
-      `/url:${orgUrl}/XRMServices/2011/Organization.svc`,
-      "/out:typings\\XRM",
-      `/ss:${solution}`,
-      `/mfaAppId:${e.clientId}`,
-      `/mfaReturnUrl:${orgUrl}`,
-      `/mfaClientSecret:${e.clientSecret}`,
-      "/jsLib:webresources_src\\lib",
-      "/method:ClientSecret",
-      `/w:${solution}Web`,
-      `/r:${solution}Rest`,
-    ];
-    cp.execFileSync(exe, args, { cwd: projectDir, stdio: "pipe", timeout: 300000 });
-    // XDT emits the XrmQuery JS lib that webpack.common.js require.resolve()s at build time.
-    expect(fs.existsSync(path.join(projectDir, "webresources_src", "lib", "dg.xrmquery.web.min.js")), "dg.xrmquery.web.min.js emitted by XDT").toBe(true);
+  it("generates typings with the bundled net8 tool (produces webresources_src/lib/dg.xrmquery.web.min)", async () => {
+    // Mirror generateTypingsExecution (#78): the bundled cross-platform tool,
+    // authenticated with the extension's own access token via DVPT_TOKEN — no
+    // paket-restored .exe, no client secret on the command line.
+    const toolDll = path.resolve(__dirname, "..", "..", "tools", "xrmdefinitelytyped", "XrmDefinitelyTyped.dll");
+    expect(fs.existsSync(toolDll), `bundled typings tool at ${toolDll} (run npm install to fetch)`).toBe(true);
+    const token = await context.dataverse.getAuthorizationToken();
+    expect(!!token, "access token for DVPT_TOKEN").toBe(true);
+    const args = buildTypingsArgs({ toolDll, orgUrl: e.url.replace(/\/+$/, ""), solutionName: cfg.solutionUniqueName });
+    cp.execFileSync("dotnet", args, {
+      cwd: projectDir,
+      stdio: "pipe",
+      timeout: 300000,
+      env: { ...process.env, DVPT_TOKEN: token },
+    });
+    // The tool emits the XrmQuery JS lib that webpack.common.js require.resolve()s at build time.
+    expect(fs.existsSync(path.join(projectDir, "webresources_src", "lib", "dg.xrmquery.web.min.js")), "dg.xrmquery.web.min.js emitted by the typings tool").toBe(true);
   }, 300000);
 
   it("builds the scaffolded project to bin/<prefix>_library.js", () => {
