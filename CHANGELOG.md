@@ -2,6 +2,16 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.7.0
+
+- **New Actions panel (#100).** The activity-bar menu is now a card-based panel with live state instead of a static button list: an **environment card** (connected indicator, auth type, optional DEV/TEST/PROD badge via `environmentLabel` in `dataverse-powertools.json`, switch/auth actions), a **project card** with one primary action (e.g. *Deploy to \<org\>*), everyday buttons and a ⋯ overflow (including *Restore dependencies*), a **status line and Recent feed** showing running/succeeded/failed operations, a **Form Registrations card** (web resources) listing every `RegisterEvent` decoration in your source with click-to-open, a **live debug-session card** with a Stop button, and system requirements that collapse to a footer ✓ once green. The Local Settings and System Requirements views merged into the panel.
+- **Getting Started walkthrough.** A native VS Code walkthrough (prerequisites → create a project → connect → deploy → tour) with self-completing steps; open it from `Help → Get Started` or the panel.
+- **Deploy Web Resources now registers your form events automatically** and publishes once at the end (previously two full publishes). Deploy-then-register is the order that always works (#90); the standalone *Register Form Events* command remains for on-demand use.
+- **Fixed: early-bound generation no longer depends on your machine's active `pac` profile.** `pac modelbuilder` now authenticates the extension's own `dataverse-powertools` profile from the project connection (like solutions do) — previously it failed when no profile was active and could silently target the wrong org with someone else's.
+- **Fixed: plugin/workflow classes created from the palette or wizard landed in the workspace root**, where the nested v3 `.csproj` never compiled them. They now default into the plugin project folder.
+- **New plugin projects start clean**: `pac plugin init`'s sample `Plugin1.cs` is removed and the wizard offers to create a real class; *Build Package & Deploy* now explains when the assembly has no plugin classes instead of Dataverse's cryptic `0x80040265`; a README is packed into the plugin NuGet package (silences the missing-readme warning) and `Microsoft.CrmSdk.Workflow` is marked `PrivateAssets="All"`.
+- Internal: project types are now driven by a single registry (adding a type touches one descriptor + templates + package.json, enforced by parity tests) — groundwork for multi-component workspaces (#47). Coverage floor raised; new ExTester webview UI tests; UI test runs use an isolated extensions directory.
+
 ## 0.6.1
 
 - Docs + packaging only: refreshed the contributor docs (testing/dev notes) and stopped shipping the internal `CLAUDE.md` in the published VSIX (`AGENTS.md`/`TESTING.md` were already excluded). No functional change.
