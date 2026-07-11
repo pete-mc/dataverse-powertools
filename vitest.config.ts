@@ -19,10 +19,10 @@ export default defineConfig({
       // and is covered by the integration + ExTester UI suites, not unit tests. Ratchet
       // these up as vscode-free logic is extracted and unit-tested (see #80).
       thresholds: {
-        statements: 7,
-        branches: 7,
-        functions: 9,
-        lines: 7,
+        statements: 9,
+        branches: 8,
+        functions: 13,
+        lines: 9,
       },
     },
   },

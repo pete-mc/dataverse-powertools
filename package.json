@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.5.6",
+  "version": "0.5.7",
   "engines": {
     "vscode": "^1.93.0"
   },
@@ -269,51 +269,6 @@
         "view": "dataversePowerToolsRequirements",
         "contents": "❌ Power Platform CLI (pac) — [Download](https://aka.ms/PowerPlatformCLI)",
         "when": "dataverse-powertools.requirementsScanned && !dataverse-powertools.hasPac"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "✅ npm global: jest",
-        "when": "dataverse-powertools.requirementsScanned && dataverse-powertools.hasGlobalJest"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "❌ npm global: jest",
-        "when": "dataverse-powertools.requirementsScanned && !dataverse-powertools.hasGlobalJest"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "✅ npm global: webpack",
-        "when": "dataverse-powertools.requirementsScanned && dataverse-powertools.hasGlobalWebpack"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "❌ npm global: webpack",
-        "when": "dataverse-powertools.requirementsScanned && !dataverse-powertools.hasGlobalWebpack"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "✅ npm global: webpack-cli",
-        "when": "dataverse-powertools.requirementsScanned && dataverse-powertools.hasGlobalWebpackCli"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "❌ npm global: webpack-cli",
-        "when": "dataverse-powertools.requirementsScanned && !dataverse-powertools.hasGlobalWebpackCli"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "✅ npm global: typescript",
-        "when": "dataverse-powertools.requirementsScanned && dataverse-powertools.hasGlobalTypescript"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "❌ npm global: typescript",
-        "when": "dataverse-powertools.requirementsScanned && !dataverse-powertools.hasGlobalTypescript"
-      },
-      {
-        "view": "dataversePowerToolsRequirements",
-        "contents": "[Add Missing npm Globals](command:dataverse-powertools.installRequiredGlobals)",
-        "when": "dataverse-powertools.requirementsScanned && (!dataverse-powertools.hasGlobalJest || !dataverse-powertools.hasGlobalWebpack || !dataverse-powertools.hasGlobalWebpackCli || !dataverse-powertools.hasGlobalTypescript)"
       },
       {
         "view": "dataversePowerToolsRequirements",
@@ -614,10 +569,6 @@
       {
         "command": "dataverse-powertools.recheckRequirements",
         "title": "Dataverse PowerTools: Recheck Requirements"
-      },
-      {
-        "command": "dataverse-powertools.installRequiredGlobals",
-        "title": "Dataverse PowerTools: Add Missing npm Globals"
       }
     ],
     "configuration": {
