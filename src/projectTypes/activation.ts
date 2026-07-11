@@ -164,6 +164,18 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
   },
   [ProjectTypes.webresource]: {
     initialise: (context) => initialiseWebresources(context),
+    async onProjectScaffolded(context) {
+      // Output mode (#88): the webpack template reads this setting at build time.
+      const pick = await vscode.window.showQuickPick(
+        [
+          { label: "Single bundled library (recommended)", description: "one <prefix>_library.js from library.ts", target: "bundle" as const },
+          { label: "One file per web resource", description: "one <prefix>_<name>.js per webresources_src/*.ts", target: "perFile" as const },
+        ],
+        { placeHolder: "How should web resources be built?" },
+      );
+      context.projectSettings.webresourceOutput = pick?.target ?? "bundle";
+      await context.writeSettings();
+    },
     commands: {
       "dataverse-powertools.buildWebresources": tracked("Build", buildWebresources),
       "dataverse-powertools.deployWebresources": tracked("Deploy", deployWebresources),

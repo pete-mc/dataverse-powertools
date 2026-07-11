@@ -7,6 +7,8 @@
 // resolves them into components with root-file inheritance and provides
 // path→component resolution. Unit-tested in discovery.spec.ts.
 
+import { migrateSettings } from "../general/settingsMigrations";
+
 /** The parsed shape of a component's dataverse-powertools.json (loosely typed —
  * the full ProjectSettings interface lives in context.ts, which imports vscode). */
 export interface ComponentSettings {
@@ -107,12 +109,10 @@ export function resolveComponents(workspaceRoot: string, settingsFiles: { path: 
     }
   }
 
-  // Mirror readSettings' back-fill so subfolder web-resource components behave
-  // like the root one (context.ts applies this only to the root settings file).
+  // Run the central settings migrations (#71) so subfolder components behave
+  // exactly like the root one (context.readSettings migrates the root file).
   for (const component of components) {
-    if (!component.settings["webresourceSolutionName"] && component.settings.solutionName) {
-      component.settings["webresourceSolutionName"] = component.settings.solutionName;
-    }
+    component.settings = migrateSettings(component.settings).settings as ComponentSettings;
   }
 
   return { components, malformed };

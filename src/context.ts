@@ -8,6 +8,7 @@ import { parseConnectionString, buildConnectionString, getOrganizationUrl, merge
 import { parseAuthType, DataverseAuthType } from "./general/dataverse/authTypes";
 import { ProjectTypes } from "./projectTypes/registry";
 import type { DiscoveredComponent } from "./components/discovery";
+import { migrateSettings } from "./general/settingsMigrations";
 
 // The enum now lives in the project-type registry (single source of truth,
 // #47/#100); re-exported here so existing imports keep working.
@@ -94,10 +95,16 @@ export default class DataversePowerToolsContext {
     if (filePath !== undefined) {
       await this.readFileAsync(filePath)
         .then(async (data: any) => {
-          this.projectSettings = JSON.parse(data);
-          if (!this.projectSettings.webresourceSolutionName && this.projectSettings.solutionName) {
-            this.projectSettings.webresourceSolutionName = this.projectSettings.solutionName;
+          // Central migration runner (#71): ordered, idempotent, versioned.
+          const migration = migrateSettings(JSON.parse(data));
+          if (migration.fromNewerVersion) {
+            this.channel.appendLine(
+              `Warning: dataverse-powertools.json was written by a NEWER extension (settingsVersion ${migration.settings.settingsVersion}). Update Dataverse PowerTools if anything misbehaves.`,
+            );
+          } else if (migration.applied.length > 0) {
+            this.channel.appendLine(`Migrated settings: ${migration.applied.join("; ")}.`);
           }
+          this.projectSettings = migration.settings as ProjectSettings;
           this.connectionString = this.projectSettings.connectionString || "";
           // Interactive (OAuth) connections carry no client secret — the persisted
           // connection string is complete on its own, so don't look up a stored secret
@@ -137,6 +144,10 @@ interface ProjectSettings {
   placeholders?: TemplatePlaceholder[];
   type?: ProjectTypes;
   templateversion?: number;
+  /** Settings schema version (#71) — stamped/migrated by settingsMigrations.ts. */
+  settingsVersion?: number;
+  /** Web resource build output (#88): one bundled library (default) or one JS per source file. */
+  webresourceOutput?: "bundle" | "perFile";
   tenantId?: string;
   /** Optional environment tag (e.g. DEV / TEST / PROD) shown as a badge in the actions panel. */
   environmentLabel?: string;

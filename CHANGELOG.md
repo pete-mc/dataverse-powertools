@@ -2,6 +2,11 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.7.4 (pre-release)
+
+- **Per-file web resource output (#88).** New projects choose at creation: the classic single bundled library (default) or **one JS web resource per TypeScript file** (`webresourceOutput: "perFile"` in `dataverse-powertools.json`). Per-file mode maps 1:1 with form libraries — each `webresources_src/*.ts` builds to `bin/<prefix>_<name>.js`, exports merged onto the `<prefix>` global so forms still call `<prefix>.Class.Function`; deploy pushes every built file. Known limitation: local debug interception currently targets the bundled library.
+- **Settings schema version + central migrations (#71).** `dataverse-powertools.json` now carries an explicit integer `settingsVersion`; an ordered, idempotent migration runner upgrades settings on load (root AND subfolder components identically), and files written by a newer extension are detected with a warning instead of silently mis-handled. Legacy plugin (<v3) auto-upgrade remains tracked on #71.
+
 ## 0.7.3 (pre-release)
 
 - **Power Pages as a first-class project type (#74).** The portal flow now runs on the shared `dataverse-powertools` pac auth profile (service principal or OAuth — no more ad-hoc `pac auth` juggling), with pure unit-tested `pac pages` argument builders and structured error reporting. **Upload is new**: round-trip a site with *Download from \<org\>* / *Upload* on the portal card. *Select site* remembers your Power Pages site (`portalWebsiteId`) so download/upload target it without re-picking; the download folder is configurable via `portalDownloadPath` (default `portalpublish`).

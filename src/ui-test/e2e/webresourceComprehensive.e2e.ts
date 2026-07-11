@@ -116,6 +116,8 @@ describe("Web resources — comprehensive UI lifecycle (e2e)", function () {
     await answerText(env!.clientSecret);
     await answerFlexible(env!.url);
     await pickByLabel(solutionFriendlyName);
+    log("output mode prompt");
+    await pickByLabel("Single bundled library (recommended)", 600000); // output mode (#88) — restores run first
     log("waiting for restore + create-webresource prompt");
     await pickByLabel("No", 600000); // "create a new webresource?" — npm restore runs first
     await sleep(4000);
