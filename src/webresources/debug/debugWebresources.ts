@@ -31,7 +31,10 @@ let activeSession: ActiveDebugSession | undefined;
 // "'webpack' is not recognized" without a global install). Exported so a unit test pins the `npx`
 // launcher against a regression back to bare `webpack` (the e2e VM's global webpack masks it).
 export const WEBPACK_WATCH_LAUNCHER = "npx";
-export const WEBPACK_WATCH_ARGS = ["webpack", "--config", "webpack.dev.js", "--watch"];
+// --devtool inline-source-map overrides older templates' eval-source-map so
+// browser breakpoints BIND to the TypeScript reliably (#96) — eval-wrapped maps
+// bind late/never in js-debug attach sessions.
+export const WEBPACK_WATCH_ARGS = ["webpack", "--config", "webpack.dev.js", "--watch", "--devtool", "inline-source-map"];
 
 function findFreePort(): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -87,14 +90,14 @@ async function connectCdpWithRetry(port: number, timeoutMs: number): Promise<CDP
 }
 
 export async function debugWebResources(context: DataversePowerToolsContext): Promise<void> {
+  // Re-running restarts cleanly: stop the previous session (browser, webpack
+  // watch, CDP) and continue — the old prompt-and-bail forced a second
+  // invocation and, before the teardown fixes, a full reload (#96).
   if (activeSession) {
-    const stop = "Stop current session";
-    const choice = await vscode.window.showInformationMessage("A Web Resources debug session is already running.", stop);
-    if (choice === stop) {
-      await stopDebugWebResources();
-    }
-    return;
+    context.channel.appendLine("[debug] Stopping the previous debug session before starting a new one.");
+    await stopDebugWebResources();
   }
+  ensureTerminateHook(context);
 
   const folders = vscode.workspace.workspaceFolders;
   if (!folders || folders.length === 0) {
@@ -292,6 +295,24 @@ export async function stopDebugWebResources(): Promise<void> {
   activeSession = undefined;
   notifySessionChanged();
   await session.dispose();
+}
+
+// Stopping the DEBUGGER from VS Code's toolbar must tear down the whole stack
+// (browser, webpack watch, CDP) too — otherwise the next run finds a stale
+// half-session (#96). Registered once, on the first debug start.
+let terminateHookRegistered = false;
+function ensureTerminateHook(context: DataversePowerToolsContext): void {
+  if (terminateHookRegistered) {
+    return;
+  }
+  terminateHookRegistered = true;
+  context.vscode.subscriptions.push(
+    vscode.debug.onDidTerminateDebugSession((session) => {
+      if (activeSession && session.name === "Dataverse PowerTools: Debug Web Resources") {
+        void stopDebugWebResources();
+      }
+    }),
+  );
 }
 
 // Session-state surface for the actions panel (#100 v2): a live debug session

@@ -87,6 +87,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
       `${prefix}editModelBuilderSetting`,
       `${prefix}editPluginMessageFilter`,
       `${prefix}togglePluginEmitEntityEtc`,
+      `${prefix}viewPluginTraceLogs`,
     ],
     menu(state) {
       const legacy = (state.templateVersion ?? 0) < 3;
@@ -100,6 +101,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
         overflow: [
           { command: `${prefix}createPluginClass`, label: "New plugin class" },
           { command: `${prefix}createWorkflowClass`, label: "New workflow class" },
+          { command: `${prefix}viewPluginTraceLogs`, label: "View plugin trace logs" },
           ...(legacy
             ? [
                 { command: `${prefix}createSNKKey`, label: "Create SNK key" },
