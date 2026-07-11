@@ -13,8 +13,8 @@ export async function saveFormData(context: DataversePowerToolsContext): Promise
       try {
         await saveFormDataExec(context);
         vscode.window.showInformationMessage("All events registered.");
-      } catch {
-        vscode.window.showErrorMessage("Error registering events.");
+      } catch (e: any) {
+        vscode.window.showErrorMessage(e?.message || "Error registering events.");
         context.channel.show();
       }
     },
@@ -31,8 +31,8 @@ export async function saveFormDataExec(context: DataversePowerToolsContext): Pro
     const text = document.getText();
     const matches = text.matchAll(RegExp(`(?<=<PowerTools\\.RegisterEvent\\[]>).*?(?=;)`, "gs"));
     for (const match of matches) {
-      JSON.parse(match[0].replace(/,(?=\s*[}\]])/g, "").replace(/(\w+)(?=:)/g, '"$1"')) as RegisterEvent[];
-      registerEvents.push(...(JSON.parse(match[0].replace(/,(?=\s*[}\]])/g, "").replace(/(\w+)(?=:)/g, '"$1"')) as RegisterEvent[]));
+      const json = match[0].replace(/,(?=\s*[}\]])/g, "").replace(/(\w+)(?=:)/g, '"$1"');
+      registerEvents.push(...(JSON.parse(json) as RegisterEvent[]));
     }
   }
 
@@ -51,9 +51,17 @@ export async function saveFormDataExec(context: DataversePowerToolsContext): Pro
   const webpackConfigText = webpackConfigDocument.getText();
   const libraryName = webpackConfigText.match(/(?<=output: {\s*filename: ['"]).*?(?=['"],)/)?.[0];
 
+  let totalForms = 0;
+  let failedForms = 0;
   for (const formId in groupedRegisterEvents) {
+    totalForms++;
     const form = new DataverseForm(formId, context);
-    await form.getFormData();
+    // If the form can't be loaded, don't touch form.form (it's undefined) — record the failure and
+    // move on so the remaining forms are still attempted, but the run is reported as unsuccessful.
+    if (!(await form.getFormData())) {
+      failedForms++;
+      continue;
+    }
     /* eslint-disable @typescript-eslint/naming-convention */
     if (!form.form.form.formLibraries) {
       form.form.form.formLibraries = { Library: [] };
@@ -135,11 +143,19 @@ export async function saveFormDataExec(context: DataversePowerToolsContext): Pro
 
     /* eslint-enable @typescript-eslint/naming-convention */
     context.channel.appendLine(`Saving Form: ${form.id}`);
-    await form.saveForm();
+    if (!(await form.saveForm())) {
+      failedForms++;
+    }
   }
   context.channel.appendLine(`Publishing All Customisations`);
   await context.dataverse?.publishAllCustomisations();
   context.channel.appendLine(`Publish Complete`);
+
+  // Don't let a per-form failure (e.g. the web resource isn't deployed yet — 0x8004F036) look like
+  // success: surface it so the command reports an error instead of "All events registered" (#90).
+  if (failedForms > 0) {
+    throw new Error(`Failed to register events on ${failedForms} of ${totalForms} form(s). See the Dataverse PowerTools output for details.`);
+  }
 }
 
 interface RegisterEvent {

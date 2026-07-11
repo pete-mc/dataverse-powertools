@@ -6,13 +6,12 @@ interface SystemRequirementStatus {
   hasDotnet: boolean;
   hasNode: boolean;
   hasPac: boolean;
-  hasGlobalJest: boolean;
-  hasGlobalWebpack: boolean;
-  hasGlobalWebpackCli: boolean;
-  hasGlobalTypescript: boolean;
 }
 
-const requiredGlobalPackages = ["jest", "webpack", "webpack-cli", "typescript"];
+// webpack / webpack-cli / jest / typescript are NOT system requirements: the project template
+// installs them as LOCAL devDependencies and the extension runs them from there (build via
+// `npx webpack`, tests via the local jest). Requiring them globally used to nag users into an
+// `npm install -g` they don't need — dropped (#94). dotnet / node / pac remain genuine prereqs.
 
 function execCommand(command: string): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
@@ -31,10 +30,6 @@ async function setRequirementContexts(result: SystemRequirementStatus) {
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.hasDotnet", result.hasDotnet);
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.hasNode", result.hasNode);
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.hasPac", result.hasPac);
-  await vscode.commands.executeCommand("setContext", "dataverse-powertools.hasGlobalJest", result.hasGlobalJest);
-  await vscode.commands.executeCommand("setContext", "dataverse-powertools.hasGlobalWebpack", result.hasGlobalWebpack);
-  await vscode.commands.executeCommand("setContext", "dataverse-powertools.hasGlobalWebpackCli", result.hasGlobalWebpackCli);
-  await vscode.commands.executeCommand("setContext", "dataverse-powertools.hasGlobalTypescript", result.hasGlobalTypescript);
 }
 
 async function commandExists(command: string): Promise<boolean> {
@@ -70,45 +65,6 @@ async function detectPacInstalled(): Promise<boolean> {
   return commandExists("which pac");
 }
 
-/**
- * Parse the JSON output of `npm ls -g --depth=0 --json` into presence flags.
- * Pure and tolerant: malformed/empty input yields all-false rather than throwing.
- */
-export function parseNpmGlobals(stdout: string): Record<string, boolean> {
-  try {
-    const parsed = JSON.parse(stdout);
-    const dependencies = parsed?.dependencies || {};
-    return {
-      jest: !!dependencies.jest,
-      webpack: !!dependencies.webpack,
-      webpackCli: !!dependencies["webpack-cli"],
-      typescript: !!dependencies.typescript,
-    };
-  } catch {
-    return {
-      jest: false,
-      webpack: false,
-      webpackCli: false,
-      typescript: false,
-    };
-  }
-}
-
-async function scanNpmGlobalPackages(): Promise<Record<string, boolean>> {
-  try {
-    const { stdout } = await execCommand("npm ls -g --depth=0 --json");
-    return parseNpmGlobals(stdout);
-  } catch (error: any) {
-    // `npm ls -g` frequently exits non-zero because of unrelated peer-dependency
-    // noise in the global store, yet still prints valid JSON on stdout. Parse that
-    // instead of reporting every global package as missing.
-    if (typeof error?.stdout === "string" && error.stdout.length > 0) {
-      return parseNpmGlobals(error.stdout);
-    }
-    return parseNpmGlobals("");
-  }
-}
-
 function logRequirementLine(context: DataversePowerToolsContext, name: string, passed: boolean) {
   context.channel.appendLine(`${passed ? "✅" : "❌"} ${name}`);
 }
@@ -119,25 +75,11 @@ export async function scanSystemRequirements(context: DataversePowerToolsContext
 
   context.channel.appendLine("Scanning system requirements...");
 
-  const [hasDotnet, hasNode, hasPac, globals] = await Promise.all([
-    commandExists("dotnet --version"),
-    commandExists("node --version"),
-    detectPacInstalled(),
-    scanNpmGlobalPackages(),
-  ]);
+  const [hasDotnet, hasNode, hasPac] = await Promise.all([commandExists("dotnet --version"), commandExists("node --version"), detectPacInstalled()]);
 
-  const result: SystemRequirementStatus = {
-    hasDotnet,
-    hasNode,
-    hasPac,
-    hasGlobalJest: globals.jest,
-    hasGlobalWebpack: globals.webpack,
-    hasGlobalWebpackCli: globals.webpackCli,
-    hasGlobalTypescript: globals.typescript,
-  };
+  const result: SystemRequirementStatus = { hasDotnet, hasNode, hasPac };
 
-  const hasMissingRequirements =
-    !result.hasDotnet || !result.hasNode || !result.hasPac || !result.hasGlobalJest || !result.hasGlobalWebpack || !result.hasGlobalWebpackCli || !result.hasGlobalTypescript;
+  const hasMissingRequirements = !result.hasDotnet || !result.hasNode || !result.hasPac;
 
   await setRequirementContexts(result);
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.hasMissingRequirements", hasMissingRequirements);
@@ -151,10 +93,6 @@ export async function scanSystemRequirements(context: DataversePowerToolsContext
   logRequirementLine(context, ".NET SDK", result.hasDotnet);
   logRequirementLine(context, "Node.js", result.hasNode);
   logRequirementLine(context, "Power Platform CLI (pac)", result.hasPac);
-  logRequirementLine(context, "npm global: jest", result.hasGlobalJest);
-  logRequirementLine(context, "npm global: webpack", result.hasGlobalWebpack);
-  logRequirementLine(context, "npm global: webpack-cli", result.hasGlobalWebpackCli);
-  logRequirementLine(context, "npm global: typescript", result.hasGlobalTypescript);
 
   context.channel.appendLine("Requirement scan complete.");
 }
@@ -164,29 +102,6 @@ export function registerSystemRequirementCommands(context: DataversePowerToolsCo
     vscode.commands.registerCommand("dataverse-powertools.recheckRequirements", async () => {
       await scanSystemRequirements(context);
       vscode.window.showInformationMessage("Dataverse PowerTools requirements scan complete.");
-    }),
-  );
-
-  context.vscode.subscriptions.push(
-    vscode.commands.registerCommand("dataverse-powertools.installRequiredGlobals", async () => {
-      await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: "Installing required npm globals...",
-          cancellable: false,
-        },
-        async () => {
-          try {
-            await execCommand(`npm install -g ${requiredGlobalPackages.join(" ")}`);
-            context.channel.appendLine("Installed npm globals: jest webpack webpack-cli typescript");
-            await scanSystemRequirements(context);
-            vscode.window.showInformationMessage("Required npm globals installed and requirements rechecked.");
-          } catch (error) {
-            context.channel.appendLine(`Failed to install npm globals: ${JSON.stringify(error)}`);
-            vscode.window.showErrorMessage("Failed to install npm globals. See Dataverse PowerTools output for details.");
-          }
-        },
-      );
     }),
   );
 }

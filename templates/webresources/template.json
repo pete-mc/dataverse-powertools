@@ -53,6 +53,12 @@
             },
             {
                 "path": [],
+                "filename": "tsconfig.build",
+                "extension": ".json",
+                "version": 1
+            },
+            {
+                "path": [],
                 "filename": "webpack.common",
                 "extension": ".js",
                 "version": 1
