@@ -42,6 +42,7 @@ export async function upgradeFromSpkl(context: DataversePowerToolsContext): Prom
     await context.readSettings();
 
     vscode.commands.executeCommand("setContext", "dataverse-powertools.hasSpkl", false);
+    context.refreshPanel?.();
     vscode.window.showInformationMessage("Upgrade from Spkl complete. spkl.json removed and settings updated.");
   } catch (error: any) {
     context.channel.appendLine(`Upgrade from Spkl failed: ${error?.message || JSON.stringify(error)}`);

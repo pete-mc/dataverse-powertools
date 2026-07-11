@@ -8,6 +8,21 @@ interface SystemRequirementStatus {
   hasPac: boolean;
 }
 
+/** Last scan result, kept for the actions panel (#100) — context keys can't be read back. */
+export interface SystemRequirementsSnapshot {
+  scanning: boolean;
+  scanned: boolean;
+  dotnet: boolean;
+  node: boolean;
+  pac: boolean;
+}
+
+let snapshot: SystemRequirementsSnapshot = { scanning: false, scanned: false, dotnet: false, node: false, pac: false };
+
+export function getSystemRequirementsStatus(): SystemRequirementsSnapshot {
+  return { ...snapshot };
+}
+
 // webpack / webpack-cli / jest / typescript are NOT system requirements: the project template
 // installs them as LOCAL devDependencies and the extension runs them from there (build via
 // `npx webpack`, tests via the local jest). Requiring them globally used to nag users into an
@@ -72,6 +87,8 @@ function logRequirementLine(context: DataversePowerToolsContext, name: string, p
 export async function scanSystemRequirements(context: DataversePowerToolsContext) {
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.requirementsScanning", true);
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.requirementsScanned", false);
+  snapshot = { ...snapshot, scanning: true, scanned: false };
+  context.refreshPanel?.();
 
   context.channel.appendLine("Scanning system requirements...");
 
@@ -85,9 +102,11 @@ export async function scanSystemRequirements(context: DataversePowerToolsContext
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.hasMissingRequirements", hasMissingRequirements);
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.requirementsScanning", false);
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.requirementsScanned", true);
+  snapshot = { scanning: false, scanned: true, dotnet: result.hasDotnet, node: result.hasNode, pac: result.hasPac };
+  context.refreshPanel?.();
 
   if (hasMissingRequirements) {
-    await vscode.commands.executeCommand("dataversePowerToolsRequirements.focus");
+    await vscode.commands.executeCommand("dataversePowerToolsMenu.focus");
   }
 
   logRequirementLine(context, ".NET SDK", result.hasDotnet);

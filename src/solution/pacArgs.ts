@@ -3,36 +3,10 @@
 // verify against the pac reference (https://learn.microsoft.com/power-platform/developer/cli/reference).
 import { SolutionConfig, managedZipPath, PackageType } from "./solutionConfig";
 
-export interface ServicePrincipalAuth {
-  profileName: string;
-  applicationId: string;
-  clientSecret: string;
-  tenantId: string;
-  environmentUrl: string;
-}
-
-/** `pac auth create` for a service principal targeting a specific environment. */
-export function pacAuthCreateArgs(auth: ServicePrincipalAuth): string[] {
-  return [
-    "auth",
-    "create",
-    "--name",
-    auth.profileName,
-    "--applicationId",
-    auth.applicationId,
-    "--clientSecret",
-    auth.clientSecret,
-    "--tenant",
-    auth.tenantId,
-    "--environment",
-    auth.environmentUrl,
-  ];
-}
-
-/** `pac auth delete` by profile name (used to clear a stale profile before re-create). */
-export function pacAuthDeleteArgs(profileName: string): string[] {
-  return ["auth", "delete", "--name", profileName];
-}
+// Auth builders moved to ../general/pacAuth (shared with plugin modelbuilder);
+// re-exported so existing imports and the spec keep working.
+export type { ServicePrincipalAuth } from "../general/pacAuth";
+export { pacAuthCreateArgs, pacAuthDeleteArgs } from "../general/pacAuth";
 
 /** `pac solution pack` — local folder -> solution .zip. No auth required. */
 export function pacSolutionPackArgs(config: SolutionConfig, managed = false): string[] {

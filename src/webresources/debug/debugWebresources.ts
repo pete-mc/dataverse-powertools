@@ -270,6 +270,7 @@ export async function debugWebResources(context: DataversePowerToolsContext): Pr
     }
 
     activeSession = { dispose };
+    notifySessionChanged();
     // Surface the DevTools port so it's unambiguous which browser is the debug session (a developer
     // can attach their own tools; the e2e reads it here rather than guessing among browser processes).
     context.channel.appendLine(`[debug] DevTools endpoint on port ${port}`);
@@ -288,5 +289,26 @@ export async function stopDebugWebResources(): Promise<void> {
     return;
   }
   activeSession = undefined;
+  notifySessionChanged();
   await session.dispose();
+}
+
+// Session-state surface for the actions panel (#100 v2): a live debug session
+// (webpack watch + browser) is state the UI must show, with a Stop control.
+let sessionChanged: (() => void) | undefined;
+
+export function isDebugSessionActive(): boolean {
+  return activeSession !== undefined;
+}
+
+export function onDebugSessionChanged(listener: () => void): void {
+  sessionChanged = listener;
+}
+
+function notifySessionChanged(): void {
+  try {
+    sessionChanged?.();
+  } catch {
+    /* panel refresh must never break the debug flow */
+  }
 }

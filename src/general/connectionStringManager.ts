@@ -1,5 +1,6 @@
 import { window } from "vscode";
-import DataversePowerToolsContext, { ProjectTypes } from "../context";
+import DataversePowerToolsContext from "../context";
+import { projectTypeRegistry, getProjectTypeDescriptor } from "../projectTypes/registry";
 import { MultiStepInput, shouldResume, validationIgnore } from "./inputControls";
 import { getSolutions } from "./dataverse/getSolutions";
 import { DataverseAuthType, parseAuthType } from "./dataverse/authTypes";
@@ -323,26 +324,11 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
 
 export async function getProjectType(context: DataversePowerToolsContext) {
   const result = await window.showQuickPick(
-    [
-      { label: "Plugins", description: "Plugins", target: ProjectTypes.plugin },
-      { label: "Web Resources", description: "Web Resources", target: ProjectTypes.webresource },
-      { label: "Solution", description: "Solution", target: ProjectTypes.solution },
-      { label: "Portal", description: "Portal", target: ProjectTypes.portal },
-    ],
+    projectTypeRegistry.map((d) => ({ label: d.displayName, description: d.displayName, target: d.id })),
     { placeHolder: "Select a Project Type." },
   );
   context.projectSettings.type = result?.target;
-  switch (context.projectSettings.type) {
-    case ProjectTypes.plugin:
-      context.projectSettings.templateversion = 3;
-      break;
-    case ProjectTypes.solution:
-      context.projectSettings.templateversion = 1.1;
-      break;
-    default:
-      context.projectSettings.templateversion = 1;
-      break;
-  }
+  context.projectSettings.templateversion = getProjectTypeDescriptor(result?.target)?.defaultTemplateVersion ?? 1;
   context.channel.appendLine(`Project Type: ${result?.label}`);
 }
 

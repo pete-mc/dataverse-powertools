@@ -6,15 +6,9 @@ import * as cp from "child_process";
 import { createServicePrincipalString, getProjectType } from "./connectionStringManager";
 import { generalInitialise } from "./initialiseExtension";
 import { restoreDependencies } from "./restoreDependencies";
-import { createSNKKey, generateEarlyBound } from "../plugins_old/earlybound";
-import { buildProject } from "../plugins_old/buildPlugin";
-import { generateTypings } from "../webresources/generateTypings";
-import { initialisePlugins as initialisePluginsOld } from "../plugins_old/initialisePlugins";
-import { initialisePlugins as initialisePluginsNew } from "../plugins/initialisePlugins";
-import { pluginTableSelector as pluginTableSelectorV3 } from "../plugins/pluginTables";
-import { promptAndSetupPluginUnitTesting } from "../plugins/unitTesting";
-import { initialiseWebresources } from "../webresources/initialiseWebresources";
-import { createWebResourceClass } from "../webresources/createWebresourceClass";
+import { getProjectTypeActivation } from "../projectTypes/activation";
+import { getTemplateFolderForType } from "../projectTypes/registry";
+import { addPrivateAssetsToWorkflowPackage, ensureReadmePackaging, defaultPluginReadme } from "../plugins/csprojTransforms";
 
 function sanitizeProjectName(input: string): string {
   const trimmed = input.trim();
@@ -234,6 +228,28 @@ async function normalizePluginV3Layout(context: DataversePowerToolsContext): Pro
     await fs.promises.rename(pluginCsprojPath, renamedCsprojPath);
   }
 
+  // `pac plugin init` scaffolds a sample Plugin1.cs — remove it: like web
+  // resources, a new project starts empty and offers to create a real class.
+  const samplePluginPath = path.join(projectDirectory, "Plugin1.cs");
+  if (fs.existsSync(samplePluginPath)) {
+    await fs.promises.rm(samplePluginPath, { force: true });
+  }
+
+  // Pack a README into the plugin NuGet package (suppresses the missing-readme
+  // warning) and keep Microsoft.CrmSdk.Workflow out of the package's dependency
+  // graph (PrivateAssets — `dotnet add package` can't set it).
+  const readmePath = path.join(projectDirectory, "README.md");
+  if (!fs.existsSync(readmePath)) {
+    await fs.promises.writeFile(readmePath, defaultPluginReadme(projectName), "utf8");
+  }
+  if (fs.existsSync(renamedCsprojPath)) {
+    const csproj = await fs.promises.readFile(renamedCsprojPath, "utf8");
+    const patched = ensureReadmePackaging(addPrivateAssetsToWorkflowPackage(csproj));
+    if (patched !== csproj) {
+      await fs.promises.writeFile(renamedCsprojPath, patched, "utf8");
+    }
+  }
+
   const rootTemplateFiles = ["WorkflowBase.cs", "CrmPluginRegistrationAttribute.generated.cs"];
   for (const fileName of rootTemplateFiles) {
     const sourcePath = path.join(workspacePath, fileName);
@@ -337,42 +353,11 @@ export async function createNewProject(context: DataversePowerToolsContext) {
       await normalizePluginV3Layout(context);
       await restoreDependencies(context);
 
-      if (context.projectSettings.type === ProjectTypes.plugin && context.projectSettings.templateversion === 3) {
-        await promptAndSetupPluginUnitTesting(context);
-      }
-
+      const activation = getProjectTypeActivation(context.projectSettings.type);
+      await activation?.onProjectScaffolded?.(context);
       await generalInitialise(context);
-      switch (context.projectSettings.type) {
-        case ProjectTypes.plugin:
-          if (context.projectSettings.templateversion === 3) {
-            await initialisePluginsNew(context);
-            // Register the early-bound settings tree provider now, mirroring activation
-            // (extension.ts initialise). Without this the side panel shows "error
-            // loading" for a freshly created project until VS Code is reloaded.
-            await pluginTableSelectorV3(context);
-            context.channel.appendLine("Plugin project initialised using pac plugin init --skip-signing.");
-          } else {
-            await createSNKKey(context);
-            await generateEarlyBound(context);
-            await buildProject(context);
-            initialisePluginsOld(context);
-          }
-          break;
-        case ProjectTypes.webresource:
-          await generateTypings(context);
-          initialiseWebresources(context);
-          // ask if they want to create a new webresource
-          vscode.window
-            .showQuickPick(["Yes", "No"], {
-              placeHolder: "Would you like to create a new webresource?",
-            })
-            .then(async (value) => {
-              if (value === "Yes") {
-                await createWebResourceClass(context);
-              }
-            });
-          break;
-      }
+      await activation?.onProjectCreated?.(context);
+      context.refreshPanel?.();
     },
   );
   vscode.window.showInformationMessage("Project created");
@@ -385,7 +370,7 @@ export async function generateTemplates(context: DataversePowerToolsContext) {
     return;
   }
   const folderPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-  var templateFilePath = context.vscode.asAbsolutePath(path.join("templates", context.projectSettings.type));
+  var templateFilePath = context.vscode.asAbsolutePath(path.join("templates", getTemplateFolderForType(context.projectSettings.type)!));
   const templateToCopy = JSON.parse(fs.readFileSync(path.join(templateFilePath, "template.json"), "utf8")).find(
     (t: PowertoolsTemplate) => t.version === context.projectSettings.templateversion,
   ) as PowertoolsTemplate;
@@ -444,7 +429,7 @@ export async function createTemplatedFile(
   openFile?: boolean,
 ) {
   if (context.projectSettings.type && context.projectSettings.templateversion && vscode.workspace.workspaceFolders) {
-    var fullFilePath = context.vscode.asAbsolutePath(path.join("templates", context.projectSettings.type));
+    var fullFilePath = context.vscode.asAbsolutePath(path.join("templates", getTemplateFolderForType(context.projectSettings.type)!));
     var templates = JSON.parse(fs.readFileSync(path.join(fullFilePath, "template.json"), "utf8")) as Array<PowertoolsTemplate>;
     var templateToCopy = {} as PowertoolsTemplate;
     for (const t of templates) {

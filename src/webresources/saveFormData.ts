@@ -2,6 +2,7 @@ import DataversePowerToolsContext from "../context";
 import * as vscode from "vscode";
 import { DataverseForm } from "../general/dataverse/DataverseForm";
 import { randomUUID } from "crypto";
+import { parseRegisterEvents, RegisterEventDecoration } from "./registerEventParser";
 
 export async function saveFormData(context: DataversePowerToolsContext): Promise<void> {
   await vscode.window.withProgress(
@@ -11,8 +12,12 @@ export async function saveFormData(context: DataversePowerToolsContext): Promise
     },
     async () => {
       try {
-        await saveFormDataExec(context);
-        vscode.window.showInformationMessage("All events registered.");
+        const registered = await saveFormDataExec(context);
+        if (registered) {
+          vscode.window.showInformationMessage("All events registered.");
+        } else {
+          vscode.window.showInformationMessage("No form event registrations found in webresources_src.");
+        }
       } catch (e: any) {
         vscode.window.showErrorMessage(e?.message || "Error registering events.");
         context.channel.show();
@@ -21,19 +26,28 @@ export async function saveFormData(context: DataversePowerToolsContext): Promise
   );
 }
 
-export async function saveFormDataExec(context: DataversePowerToolsContext): Promise<void> {
+/** Register all decorated form events. Returns false when the project has no
+ * RegisterEvent decorations (nothing to do — no publish, no popup).
+ * Pass publish:false to defer publish-all to the caller (deploy flow). */
+export async function saveFormDataExec(context: DataversePowerToolsContext, options?: { publish?: boolean }): Promise<boolean> {
   context.channel.appendLine("Saving Forms...");
 
   const files = await vscode.workspace.findFiles("webresources_src/**/*.ts");
-  const registerEvents: RegisterEvent[] = [];
+  const registerEvents: RegisterEventDecoration[] = [];
+  let malformedBlocks = 0;
   for (const file of files) {
     const document = await vscode.workspace.openTextDocument(file);
-    const text = document.getText();
-    const matches = text.matchAll(RegExp(`(?<=<PowerTools\\.RegisterEvent\\[]>).*?(?=;)`, "gs"));
-    for (const match of matches) {
-      const json = match[0].replace(/,(?=\s*[}\]])/g, "").replace(/(\w+)(?=:)/g, '"$1"');
-      registerEvents.push(...(JSON.parse(json) as RegisterEvent[]));
-    }
+    const parsed = parseRegisterEvents(document.getText());
+    malformedBlocks += parsed.malformedBlocks;
+    registerEvents.push(...parsed.events);
+  }
+  if (malformedBlocks > 0) {
+    context.channel.appendLine(`Warning: skipped ${malformedBlocks} malformed RegisterEvent decoration block(s).`);
+  }
+
+  if (registerEvents.length === 0) {
+    context.channel.appendLine("No form event registrations found; nothing to register.");
+    return false;
   }
 
   //Group the PowerTools.RegisterEvent objects by formId
@@ -42,7 +56,7 @@ export async function saveFormDataExec(context: DataversePowerToolsContext): Pro
       (acc[cur.formId] = acc[cur.formId] || []).push(cur);
       return acc;
     },
-    {} as { [key: string]: RegisterEvent[] },
+    {} as { [key: string]: RegisterEventDecoration[] },
   );
 
   //get library filename from the project webpack.common.js
@@ -147,46 +161,19 @@ export async function saveFormDataExec(context: DataversePowerToolsContext): Pro
       failedForms++;
     }
   }
-  context.channel.appendLine(`Publishing All Customisations`);
-  await context.dataverse?.publishAllCustomisations();
-  context.channel.appendLine(`Publish Complete`);
+  if (options?.publish !== false) {
+    context.channel.appendLine(`Publishing All Customisations`);
+    await context.dataverse?.publishAllCustomisations();
+    context.channel.appendLine(`Publish Complete`);
+  }
 
   // Don't let a per-form failure (e.g. the web resource isn't deployed yet — 0x8004F036) look like
   // success: surface it so the command reports an error instead of "All events registered" (#90).
   if (failedForms > 0) {
     throw new Error(`Failed to register events on ${failedForms} of ${totalForms} form(s). See the Dataverse PowerTools output for details.`);
   }
+  return true;
 }
 
-interface RegisterEvent {
-  /**
-   * The unique identifier of the form in Dataverse.
-   * @member {string} RegisterEvent#formId
-   */
-  formId: string;
-  /**
-   * The event that the function should be triggered on.
-   * @member {string} RegisterEvent#event
-   */
-  event: "onload" | "onsave";
-  /**
-   * The name of the function to be triggered. in Library.Class.Function format
-   * @member {string} RegisterEvent#function
-   */
-  function: string;
-  /**
-   * Specifiy a Unique ID (GUID) for the trigger
-   * @member {string} RegisterEvent#triggerId
-   */
-  triggerId: string;
-  /**
-   * whether to pass the execution context as the first parameter
-   * @member {string} RegisterEvent#executionContext
-   */
-  executionContext: boolean;
-  /**
-   * Optionally, add extra paramaters to pass.
-   * @member {string} RegisterEvent#parameters
-   */
-  parameters?: string;
-}
+// The RegisterEvent decoration shape is documented on RegisterEventDecoration
+// in ./registerEventParser.ts (shared with the actions panel's scanner).

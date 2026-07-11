@@ -397,6 +397,7 @@ export async function setupPluginUnitTesting(context: DataversePowerToolsContext
   context.projectSettings.pluginUnitTestingProject = normalizePathForSettings(path.relative(workspacePath, testCsprojPath));
   await context.writeSettings();
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.hasPluginUnitTesting", true);
+  context.refreshPanel?.();
 
   vscode.window.showInformationMessage(`Unit testing is configured using ${framework.toUpperCase()} in ${testProjectName}.`);
   return true;
