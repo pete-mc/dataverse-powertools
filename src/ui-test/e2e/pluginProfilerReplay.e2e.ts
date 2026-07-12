@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as cp from "child_process";
 import { expect } from "chai";
 import { VSBrowser, InputBox } from "vscode-extension-tester";
-import { loadE2EEnv, freshWorkspace, answerText, answerFlexible, pickByLabel, runCommand, waitForFile, dismissOverlays, sleep, E2EClient } from "./lib";
+import { loadE2EEnv, freshWorkspace, answerText, answerFlexible, pickByLabel, runCommand, runCommandResilient, waitForFile, dismissOverlays, sleep, E2EClient } from "./lib";
 import { resetAllCredentials } from "./lib";
 
 // #114 / #63 end-to-end: the FULL profiler chain — deploy a plugin with a real
@@ -144,7 +144,7 @@ describe("Plugin profiler capture → replay (e2e)", function () {
 
   it("profiles the step, triggers it, and the capture lands", async () => {
     await dismissOverlays();
-    await runCommand("Dataverse PowerTools: Profile a Plugin Step");
+    await runCommandResilient("Dataverse PowerTools: Profile a Plugin Step");
     await pickFirstAndConfirm(120000); // the single candidate step
     expect(await waitForFile(path.join(workspace, ".dvpt-profiler-backup.json"), 60000), "backup written BEFORE the rewire").to.equal(true);
 
@@ -168,7 +168,7 @@ describe("Plugin profiler capture → replay (e2e)", function () {
 
   it("downloads the capture and stops profiling (byte-restore)", async () => {
     await dismissOverlays();
-    await runCommand("Dataverse PowerTools: Download Captured Plugin Profiles");
+    await runCommandResilient("Dataverse PowerTools: Download Captured Plugin Profiles");
     await pickFirstAndConfirm(120000);
     const profilesDir = path.join(workspace, "profiles");
     const deadline = Date.now() + 60000;
@@ -181,14 +181,14 @@ describe("Plugin profiler capture → replay (e2e)", function () {
     }
     expect(files.length, "profile downloaded into profiles/").to.be.greaterThan(0);
 
-    await runCommand("Dataverse PowerTools: Stop Profiling a Plugin Step");
+    await runCommandResilient("Dataverse PowerTools: Stop Profiling a Plugin Step");
     await sleep(8000); // single backup → restores without a pick
     expect(fs.existsSync(path.join(workspace, ".dvpt-profiler-backup.json")), "backup consumed after verified restore").to.equal(false);
   });
 
   it("generates the replay test and dotnet test runs it GREEN", async () => {
     await dismissOverlays();
-    await runCommand("Dataverse PowerTools: Replay Plugin Profile as Unit Test");
+    await runCommandResilient("Dataverse PowerTools: Replay Plugin Profile as Unit Test");
     await sleep(15000); // single profile → no pick; fetches PRT assemblies (cached after first run)
     const testDir = path.join(workspace, `${projectName}.Tests`);
     const replayFile = fs.existsSync(testDir) ? fs.readdirSync(testDir).find((f) => f.startsWith("Replay_")) : undefined;
@@ -210,7 +210,7 @@ describe("Plugin profiler capture → replay (e2e)", function () {
     }
     // Restore any step left profiled, then remove the deployed package.
     try {
-      await runCommand("Dataverse PowerTools: Repair Profiled Steps");
+      await runCommandResilient("Dataverse PowerTools: Repair Profiled Steps");
       await sleep(8000);
     } catch {
       /* fine — nothing to repair */

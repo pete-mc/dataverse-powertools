@@ -6,7 +6,7 @@
 import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
-import { VSBrowser, Workbench, InputBox, BottomBarPanel } from "vscode-extension-tester";
+import { VSBrowser, Workbench, InputBox, BottomBarPanel, Key } from "vscode-extension-tester";
 
 export const repoRoot = path.resolve(__dirname, "..", "..", "..");
 
@@ -263,6 +263,33 @@ export async function answer(value: string, byLabel = false, timeoutMs = 30000):
 /** Run a command by its palette title (e.g. "Dataverse PowerTools: Generate Typings"). */
 export async function runCommand(title: string): Promise<void> {
   await new Workbench().executeCommand(title);
+}
+
+/**
+ * Run a command, surviving a notification/toast that intercepts the command
+ * palette (ExTester's executeCommand throws "element not visible" when a toast
+ * overlays the input — common right after a heavy op like deploy). Dismisses
+ * overlays and retries, pressing Escape between attempts to close a half-open
+ * palette.
+ */
+export async function runCommandResilient(title: string, attempts = 3): Promise<void> {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      await dismissOverlays();
+      await new Workbench().executeCommand(title);
+      return;
+    } catch (err) {
+      if (attempt === attempts - 1) {
+        throw err;
+      }
+      try {
+        await new Workbench().getDriver().actions().sendKeys(Key.ESCAPE).perform();
+      } catch {
+        /* ignore */
+      }
+      await sleep(4000);
+    }
+  }
 }
 
 /**
