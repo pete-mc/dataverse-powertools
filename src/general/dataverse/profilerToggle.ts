@@ -177,6 +177,15 @@ export async function enableStepProfiling(client: WebApiClient, stepId: string, 
     throw new Error("Failed to create the profiler step.");
   }
 
+  // Ensure the profiler step is ENABLED — a new step can default to disabled, in
+  // which case it never fires and no capture is persisted (PRT sets statecode
+  // explicitly). Best-effort: some orgs reject statecode on create, so PATCH it.
+  try {
+    await client.patch(`sdkmessageprocessingsteps(${profilerStepId})`, { statecode: 0, statuscode: 1 });
+  } catch {
+    /* already enabled */
+  }
+
   // From here the create must fully succeed or fully roll back — a half-done
   // enable (profiler step created but original still enabled) would double-fire.
   try {
