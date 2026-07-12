@@ -15,6 +15,7 @@ import { buildProject } from "../plugins/buildProject";
 import { buildAndDeploy } from "../plugins/buildAndDeploy";
 import { addClassDecoration, updateFilteringAttributes } from "../plugins/decorations";
 import { viewPluginTraceLogs } from "../plugins/traceLogs";
+import { downloadPluginProfiles } from "../plugins/downloadProfiles";
 import { generateEarlyBoundV3, configureModelBuilderSettings } from "../general/modelbuilder";
 import { initialisePlugins as initialisePluginsOld } from "../plugins_old/initialisePlugins";
 import { pluginTableSelector as pluginTableSelectorOld } from "../plugins_old/pluginTables";
@@ -151,6 +152,8 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
       ),
       "dataverse-powertools.updateFilteringAttributes": (context) => updateFilteringAttributes(context),
       "dataverse-powertools.viewPluginTraceLogs": (context) => viewPluginTraceLogs(context),
+      // Profiles are org-side records — works for both template versions.
+      "dataverse-powertools.downloadPluginProfiles": (context) => downloadPluginProfiles(context),
     },
     async onProjectScaffolded(context) {
       if (isPluginV3(context)) {

@@ -551,6 +551,11 @@
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
+        "command": "dataverse-powertools.downloadPluginProfiles",
+        "title": "Dataverse PowerTools: Download Captured Plugin Profiles",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
         "command": "dataverse-powertools.uploadPortal",
         "title": "Dataverse PowerTools: Upload Portal",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPortal"
