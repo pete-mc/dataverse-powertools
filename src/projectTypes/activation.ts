@@ -110,10 +110,7 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
         );
         context.channel.appendLine(`[Deprecated] Full upgrade guide (per-version differences, config refresh steps): ${upgradeWiki}`);
         vscode.window
-          .showWarningMessage(
-            "This plugin project uses the legacy (<v3) template. Legacy support is frozen and will be removed in Dataverse PowerTools 0.9.0.",
-            "How to upgrade",
-          )
+          .showWarningMessage("This plugin project uses the legacy (<v3) template. Legacy support is frozen and will be removed in Dataverse PowerTools 0.9.0.", "How to upgrade")
           .then((choice) => {
             if (choice === "How to upgrade") {
               void vscode.env.openExternal(vscode.Uri.parse(upgradeWiki));
