@@ -2,6 +2,10 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.8.3 (pre-release)
+
+Build-pipeline only — no functional changes. The Marketplace publish job now runs on a **Windows runner** and builds the net48 plugin-profiler capture tool from source at publish time (into `tools/pluginprofiler/`), instead of shipping a committed binary. .NET Framework can only be compiled on Windows; everything else stays cross-platform, and the lint/build/test job still runs on Linux. This validates the pipeline the next feature wave publishes through.
+
 ## 0.8.2 (pre-release)
 
 One-click plugin profiling — capture comes back into the extension (Windows).
