@@ -338,6 +338,21 @@
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
+        "command": "dataverse-powertools.openEnvironment",
+        "title": "Dataverse PowerTools: Open Environment",
+        "enablement": "dataverse-powertools.showLoaded"
+      },
+      {
+        "command": "dataverse-powertools.openAdminCenter",
+        "title": "Dataverse PowerTools: Open Admin Center",
+        "enablement": "dataverse-powertools.showLoaded"
+      },
+      {
+        "command": "dataverse-powertools.openMakerPortal",
+        "title": "Dataverse PowerTools: Open Maker Portal",
+        "enablement": "dataverse-powertools.showLoaded"
+      },
+      {
         "command": "dataverse-powertools.configurePluginEarlyBound",
         "title": "Dataverse PowerTools: Configure Plugin Early Bound Settings",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && dataverse-powertools.isPluginV3",

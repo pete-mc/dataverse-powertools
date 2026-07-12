@@ -151,6 +151,8 @@ interface ProjectSettings {
   tenantId?: string;
   /** Optional environment tag (e.g. DEV / TEST / PROD) shown as a badge in the actions panel. */
   environmentLabel?: string;
+  /** Environment GUID (from Global Discovery) — addresses the Admin Center / Maker Portal. */
+  environmentId?: string;
   solutionName?: string;
   webresourceSolutionName?: string;
   connectionString?: string;

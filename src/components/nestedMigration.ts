@@ -23,7 +23,7 @@ export function planNestedMigrationMoves(rootEntries: string[], destinationFolde
  * inherit them (see INHERITED_FIELDS in discovery.ts). solutionName and
  * settingsVersion are kept on BOTH sides — components carry their own solution
  * binding, and every settings file migrates independently (#71). */
-const ROOT_FIELDS = new Set(["connectionString", "tenantId", "prefix", "solutionName", "environmentLabel", "settingsVersion"]);
+const ROOT_FIELDS = new Set(["connectionString", "tenantId", "prefix", "solutionName", "environmentLabel", "environmentId", "settingsVersion"]);
 const SHARED_FIELDS = new Set(["solutionName", "settingsVersion"]);
 
 /** Split the current root settings into the new connection-only root file and the

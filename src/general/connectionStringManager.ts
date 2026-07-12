@@ -13,9 +13,12 @@ export async function updateConnectionString(context: DataversePowerToolsContext
   let connectionString = await createServicePrincipalString(context, true);
   await context.writeSettings();
   await context.readSettings();
+  // Auth/environment changed on the root — refresh what sub-components inherit.
+  await propagateEnvironmentToComponents(context);
   // Parse the url by name rather than a fixed segment index — the segment order
   // differs across auth types (OAuth strings have no LoginPrompt).
   context.setStatusBar(getOrganizationUrl(connectionString));
+  context.refreshPanel?.();
 }
 
 /**
@@ -48,6 +51,9 @@ export async function switchEnvironment(context: DataversePowerToolsContext): Pr
     return;
   }
   const newUrl = normalizeOrganizationUrl(pick.target.url);
+  // The environment GUID addresses the Admin Center / Maker Portal links; the old
+  // one must never survive a switch, so overwrite even when discovery has none.
+  context.projectSettings.environmentId = pick.target.environmentId;
 
   let connectionString: string;
   if (authType === DataverseAuthType.oauth) {
@@ -84,11 +90,47 @@ export async function switchEnvironment(context: DataversePowerToolsContext): Pr
 
   await context.writeSettings();
   await context.readSettings();
+  // One environment per workspace: sub-components inherit the root connection at
+  // discovery time, and their own solution binding pointed at the OLD environment —
+  // update both so the switch really applies everywhere, not just the root card.
+  await propagateEnvironmentToComponents(context);
   context.setStatusBar(getOrganizationUrl(connectionString));
   // Re-render the panel so the environment + solution reflect the switch
   // immediately — previously stale until a reload (#102).
   context.refreshPanel?.();
   window.showInformationMessage(`Switched to ${pick.label}`);
+}
+
+/** After an environment (or auth) change on the root: rewrite each sub-component's
+ * solution binding to the newly picked solution (its old one lived in the previous
+ * environment) and re-discover so inherited connection fields refresh. Components
+ * with their own connectionString are self-contained and left alone. */
+async function propagateEnvironmentToComponents(context: DataversePowerToolsContext): Promise<void> {
+  const fs = require("fs") as typeof import("fs");
+  const path = require("path") as typeof import("path");
+  for (const component of context.components ?? []) {
+    if (component.isRoot) {
+      continue;
+    }
+    const settingsPath = path.join(component.root, "dataverse-powertools.json");
+    try {
+      const raw = JSON.parse(await fs.promises.readFile(settingsPath, "utf8"));
+      if (raw.connectionString) {
+        continue; // self-contained component with its own environment
+      }
+      if (context.projectSettings.solutionName) {
+        raw.solutionName = context.projectSettings.solutionName;
+        if (raw.webresourceSolutionName !== undefined) {
+          raw.webresourceSolutionName = context.projectSettings.solutionName;
+        }
+      }
+      await fs.promises.writeFile(settingsPath, JSON.stringify(raw, null, 2));
+    } catch {
+      context.channel.appendLine(`Could not update ${settingsPath} for the environment switch.`);
+    }
+  }
+  const { discoverWorkspaceComponents } = await import("../components/componentDiscovery");
+  await discoverWorkspaceComponents(context);
 }
 
 /**
@@ -182,6 +224,9 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
   }
   context.projectSettings.prefix = state.prefix;
   context.projectSettings.tenantId = state.tenantId;
+  // Cleared on a manual-url entry: an environmentId from a previous connection
+  // would point the Admin Center / Maker Portal links at the wrong environment.
+  context.projectSettings.environmentId = state.environmentId;
   context.projectSettings.solutionName = state.solutionName;
   context.projectSettings.webresourceSolutionName = state.solutionName;
   context.projectSettings.connectionString = connectionString;
@@ -235,6 +280,7 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
       return (input: MultiStepInput) => inputManualUrl(input, state);
     }
     state.organisationUrl = normalizeOrganizationUrl(pick.target.url);
+    state.environmentId = pick.target.environmentId;
     return (input: MultiStepInput) => inputSolutionName(input, state);
   }
 
@@ -395,6 +441,7 @@ interface State {
   step: number;
   authType: DataverseAuthType;
   organisationUrl: string;
+  environmentId?: string;
   tenantId: string;
   applicationId: string;
   totalSteps: number;

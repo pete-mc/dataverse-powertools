@@ -99,7 +99,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
         // v3 gets four buttons on two rows; the earlybound settings tree opens
         // on demand via Configure Earlybound (one view can't show N components).
         secondary: [
-          { command: `${prefix}buildProject`, label: "Build" },
+          { command: `${prefix}buildProject`, label: "Local Build" },
           state.hasPluginUnitTesting ? { command: `${prefix}runPluginTests`, label: "Run Tests" } : { command: `${prefix}setupPluginUnitTesting`, label: "Set up Tests" },
           { command: `${prefix}generateEarlyBound`, label: "Generate Earlybound" },
           ...(legacy ? [] : [{ command: `${prefix}openEarlyboundConfig`, label: "Configure Earlybound" }]),

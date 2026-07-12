@@ -18,6 +18,8 @@ export interface DataverseEnvironment {
   uniqueName: string;
   /** The environment's web url, e.g. https://org.crm.dynamics.com. */
   url: string;
+  /** The environment GUID — what the Admin Center / Maker Portal URLs address. */
+  environmentId?: string;
 }
 
 interface DiscoveryInstance {
@@ -26,6 +28,7 @@ interface DiscoveryInstance {
   Url?: string;
   ApiUrl?: string;
   State?: number;
+  EnvironmentId?: string;
 }
 
 /**
@@ -44,6 +47,7 @@ export function parseInstances(json: unknown): DataverseEnvironment[] {
       friendlyName: instance.FriendlyName || instance.UniqueName || (instance.Url as string),
       uniqueName: instance.UniqueName || "",
       url: instance.Url as string,
+      environmentId: instance.EnvironmentId || undefined,
     }))
     .sort((a, b) => a.friendlyName.localeCompare(b.friendlyName));
 }

@@ -194,6 +194,10 @@
       }
       c.appendChild(secondaryRow);
     }
+    // Web-resource cards embed their own Form Registrations, right under the buttons.
+    if (card.registrations) {
+      c.appendChild(registrationsBlock(card.registrations));
+    }
     if (card.status) {
       const status = el("div", "statusline");
       status.appendChild(statusIcon(card.status.icon === "ok" ? "success" : card.status.icon === "running" ? "running" : "error"));
@@ -203,18 +207,18 @@
     return c;
   }
 
-  function renderRegistrations(card) {
-    const c = el("section", "card");
+  function registrationsBlock(block) {
+    const c = el("div", "registrations");
     const row = el("div", "head");
     row.appendChild(el("h3", "inline", "Form Registrations"));
     row.appendChild(el("span", "grow"));
-    row.appendChild(button({ command: card.add.command, args: card.add.args, label: "＋ " + card.add.label }, "iconbtn text"));
+    row.appendChild(button({ command: block.add.command, args: block.add.args, label: "＋ " + block.add.label }, "iconbtn text"));
     c.appendChild(row);
-    if (card.rows.length === 0) {
+    if (block.rows.length === 0) {
       c.appendChild(el("p", "status", "No form registrations yet."));
     } else {
       const list = el("ul", "feed");
-      for (const registration of card.rows) {
+      for (const registration of block.rows) {
         const li = el("li");
         if (registration.index !== undefined) {
           // Row opens the TS file at the decoration.
@@ -235,8 +239,8 @@
       }
       c.appendChild(list);
     }
-    if (card.note) {
-      c.appendChild(el("div", "small", card.note));
+    if (block.note) {
+      c.appendChild(el("div", "small", block.note));
     }
     return c;
   }
@@ -279,7 +283,6 @@
     ["requirements", renderRequirements],
     ["environment", renderEnvironment],
     ["project", renderProject],
-    ["registrations", renderRegistrations],
     ["session", renderSession],
     ["activity", renderActivity],
   ]);

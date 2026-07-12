@@ -153,9 +153,9 @@ describe("project cards", () => {
 describe("webresource extras", () => {
   const webState = (overrides: Partial<PanelState> = {}) => state({ projects: [project({ type: "webresources", detail: undefined })], ...overrides });
 
-  it("shows the registrations card with rows and the add action", () => {
+  it("embeds registrations in the webresource card with rows and the add action", () => {
     const s = webState({ formRegistrations: [{ label: "contoso.ContactForm.onLoad", detail: "onload", index: 0 }] });
-    const registrations = card(s, "registrations");
+    const registrations = card(s, "project").registrations!;
     expect(registrations.rows).toHaveLength(1);
     expect(registrations.add.command).toBe("dataverse-powertools.addFormDecoration");
     expect(registrations.note).toMatch(/deploy/i);
@@ -163,9 +163,36 @@ describe("webresource extras", () => {
 
   it("collapses registrations beyond the row cap into a +N note", () => {
     const rows = Array.from({ length: 11 }, (_, i) => ({ label: `fn${i}`, detail: "onload", index: i }));
-    const registrations = card(webState({ formRegistrations: rows }), "registrations");
+    const registrations = card(webState({ formRegistrations: rows }), "project").registrations!;
     expect(registrations.rows).toHaveLength(8);
     expect(registrations.note).toMatch(/\+3 more/);
+  });
+
+  it("gives each webresource card only ITS registrations, keyed by component root", () => {
+    const s = state({
+      projects: [
+        project({ type: "webresources", relativeRoot: "web-a", root: "c:/repo/web-a", isRoot: false, detail: undefined }),
+        project({ type: "webresources", relativeRoot: "web-b", root: "C:\\repo\\web-b", isRoot: false, detail: undefined }),
+      ],
+      formRegistrations: [
+        { label: "a.onLoad", detail: "onload", index: 0, componentRoot: "c:/repo/web-a" },
+        { label: "b.onLoad", detail: "onload", index: 1, componentRoot: "c:/repo/web-b" },
+      ],
+    });
+    const [cardA, cardB] = buildMenuModel(s).cards.filter((c) => c.kind === "project") as Extract<Card, { kind: "project" }>[];
+    expect(cardA.registrations?.rows.map((r) => r.label)).toEqual(["a.onLoad"]);
+    // Roots compare normalized — backslashes/drive-letter casing don't split rows.
+    expect(cardB.registrations?.rows.map((r) => r.label)).toEqual(["b.onLoad"]);
+    expect(cardA.registrations?.add.args).toContain("c:/repo/web-a");
+  });
+
+  it("attaches legacy rootless registrations to any webresource card", () => {
+    const registrations = card(webState({ formRegistrations: [{ label: "legacy.onLoad", detail: "onload", index: 0 }] }), "project").registrations!;
+    expect(registrations.rows).toHaveLength(1);
+  });
+
+  it("puts no registrations on non-webresource cards", () => {
+    expect(card(state(), "project").registrations).toBeUndefined();
   });
 
   it("shows the session card only while a debug session runs, webresources only", () => {
@@ -180,9 +207,9 @@ describe("webresource extras", () => {
     for (const c of model.cards) {
       if (c.kind === "project") {
         allActions.push(c.primary.command, ...c.secondary.map((a) => a.command), ...c.overflow.map((a) => a.command));
-      }
-      if (c.kind === "registrations") {
-        allActions.push(c.add.command);
+        if (c.registrations) {
+          allActions.push(c.registrations.add.command);
+        }
       }
     }
     expect(allActions).not.toContain("dataverse-powertools.saveFormData");

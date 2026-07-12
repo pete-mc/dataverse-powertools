@@ -83,6 +83,7 @@ export function computePanelState(context: DataversePowerToolsContext): PanelSta
       label: registration.functionName,
       detail: registration.event,
       index,
+      componentRoot: registration.componentRoot,
     })),
     activity: activityItems(),
     requirements: getSystemRequirementsStatus(),

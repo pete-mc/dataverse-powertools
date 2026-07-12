@@ -172,6 +172,18 @@ button.action.big {
   padding: 3px 4px;
 }
 
+/* Form Registrations embedded in a web-resource project card, under the buttons. */
+.card .registrations {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+}
+
+.card .registrations h3.inline {
+  font-size: 0.85em;
+  opacity: 0.85;
+}
+
 button.iconbtn {
   flex: none;
   border: none;
