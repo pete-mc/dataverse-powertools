@@ -33,6 +33,7 @@ import { addFormDecoration } from "../webresources/addFormDecoration";
 import { saveFormData } from "../webresources/saveFormData";
 import { upgradeFromSpkl } from "../webresources/upgradeFromSpkl";
 import { debugWebResources, stopDebugWebResources } from "../webresources/debug/debugWebresources";
+import { switchWebresourceOutput } from "../webresources/switchOutputMode";
 import { extractSolution } from "../solution/extractSolution";
 import { packSolution } from "../solution/packSolution";
 import { deploySolution } from "../solution/deploySolution";
@@ -187,6 +188,7 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
       "dataverse-powertools.upgradeFromSpkl": (context) => upgradeFromSpkl(context),
       "dataverse-powertools.debugWebresources": (context) => debugWebResources(context),
       "dataverse-powertools.stopDebugWebresources": () => stopDebugWebResources(),
+      "dataverse-powertools.switchWebresourceOutput": (context) => switchWebresourceOutput(context),
     },
     async onProjectCreated(context) {
       await generateTypings(context);

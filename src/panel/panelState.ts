@@ -39,6 +39,7 @@ function projectCard(settings: ComponentSettings, root: string, relativeRoot: st
     templateVersion: settings.templateversion,
     hasPluginUnitTesting: !!settings.pluginUnitTestingEnabled,
     hasSpkl: fs.existsSync(path.join(root, "spkl.json")),
+    webresourceOutput: settings.webresourceOutput as "bundle" | "perFile" | undefined,
   };
 }
 

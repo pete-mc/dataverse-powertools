@@ -27,6 +27,8 @@ export interface ProjectMenuState {
   templateVersion?: number;
   hasPluginUnitTesting?: boolean;
   hasSpkl?: boolean;
+  /** Web resources: current build output mode (#88). */
+  webresourceOutput?: "bundle" | "perFile";
 }
 
 /** The action set a project card renders (#100 v2): one call-to-action, a short
@@ -136,6 +138,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
       `${prefix}upgradeFromSpkl`,
       `${prefix}debugWebresources`,
       `${prefix}stopDebugWebresources`,
+      `${prefix}switchWebresourceOutput`,
     ],
     menu(state) {
       return {
@@ -152,6 +155,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
           { command: `${prefix}createWebResourceClass`, label: "New class" },
           { command: `${prefix}createWebResourceTest`, label: "New test" },
           { command: `${prefix}addFormDecoration`, label: "Add form registration" },
+          { command: `${prefix}switchWebresourceOutput`, label: `Output mode (${state.webresourceOutput === "perFile" ? "per-file" : "bundled"})…` },
           ...(state.hasSpkl ? [{ command: `${prefix}upgradeFromSpkl`, label: "Upgrade from Spkl" }] : []),
         ],
       };

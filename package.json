@@ -536,6 +536,11 @@
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPortal"
       },
       {
+        "command": "dataverse-powertools.switchWebresourceOutput",
+        "title": "Dataverse PowerTools: Switch Web Resource Output Mode",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
+      },
+      {
         "command": "dataverse-powertools.showLog",
         "title": "Dataverse PowerTools: Show Log"
       },

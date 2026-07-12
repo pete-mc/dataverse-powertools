@@ -219,6 +219,7 @@ describe("registry menu self-parity", () => {
     { templateVersion: 3, hasPluginUnitTesting: false, hasSpkl: false },
     { templateVersion: 2, hasPluginUnitTesting: true, hasSpkl: true },
     { templateVersion: 1, hasPluginUnitTesting: false, hasSpkl: false },
+    { templateVersion: 1, hasPluginUnitTesting: false, hasSpkl: false, webresourceOutput: "perFile" as const },
   ];
 
   it("every menu action of every type is a command the type owns", () => {
