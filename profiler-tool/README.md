@@ -50,16 +50,18 @@ package).
 
 ## Shipping
 
-The built `DvptPluginProfiler.exe` (+ `.config`) is committed under `tools/pluginprofiler/`
-and packaged into the VSIX directly — it's a tiny (~10 KB) first-party binary and the
-Marketplace publish runs on Linux, which can't build .NET Framework. When you change the
-tool source, rebuild on Windows and copy the output into `tools/pluginprofiler/`:
+The tool is **built from source at publish time** (not committed): `vscode:prepublish` runs
+`scripts/buildProfilerTool.mjs`, which fetches the PRT assemblies, `dotnet build`s the tool,
+and copies `DvptPluginProfiler.exe` (+ `.config`) into `tools/pluginprofiler/` for the VSIX.
+`tools/pluginprofiler/` is gitignored.
 
-```
-DVPT_PRT_TOOLS=<prt-tools> dotnet build profiler-tool -c Release
-cp profiler-tool/bin/Release/DvptPluginProfiler.exe* tools/pluginprofiler/
-```
+The Marketplace publish job runs on **`windows-latest`** (see
+[.github/workflows/main.yml](../.github/workflows/main.yml)) because .NET Framework can only
+be compiled on Windows; everything else (webpack, `vsce`) is cross-platform.
 
-`scripts/fetchProfilerTool.mjs` and `.github/workflows/build-profiler-tool.yml` remain for
-an optional future move to a fetched release artifact (the fetch is a no-op while the exe
-is committed — it skips when the file is already present).
+- **On Windows** `build-profiler-tool` builds the exe; a build failure is fatal (never publish
+  without it).
+- **On macOS/Linux** it's a no-op — a dev VSIX built there won't contain the capture tool
+  (which is Windows-only anyway); the real publish is on the Windows runner.
+
+To build locally: `npm run build-profiler-tool` (set `DVPT_FORCE_TOOL_BUILD=1` to rebuild).

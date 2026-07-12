@@ -635,10 +635,10 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run fetch-typings-tool && npm run fetch-profiler-tool && npm run package",
+    "vscode:prepublish": "npm run fetch-typings-tool && npm run build-profiler-tool && npm run package",
     "fetch-typings-tool": "node scripts/fetchTypingsTool.mjs",
-    "fetch-profiler-tool": "node scripts/fetchProfilerTool.mjs",
-    "postinstall": "node scripts/fetchTypingsTool.mjs && node scripts/fetchProfilerTool.mjs",
+    "build-profiler-tool": "node scripts/buildProfilerTool.mjs",
+    "postinstall": "node scripts/fetchTypingsTool.mjs",
     "compile": "webpack",
     "watch": "webpack --watch",
     "package": "webpack --mode production --devtool hidden-source-map",
