@@ -2,6 +2,15 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.8.1 (pre-release)
+
+Profiler polish + upgrade experience — the last pre-release before 1.0.0.
+
+- **CodeLens profiler toggle (#112).** *Profile this step* appears above `[CrmPluginRegistration]`-decorated plugin classes (switching to *Stop profiling* while that class has an un-restored backup). Same rails as the commands: backup-first, own-assembly only, scoped to the class you clicked.
+- **Stale config detection + one-click refresh (#113).** Projects whose extension-owned config files (webpack/tsconfig/jest…) predate the current templates are detected on load and offered **Refresh config files**: originals are backed up to `.dvpt-upgrade-backup/<timestamp>/` first, the current templates re-render with your project's placeholders, and your code is never touched. The [Upgrading Projects](https://github.com/pete-mc/dataverse-powertools/wiki/Upgrading-Projects) wiki page (new) covers every upgrade scenario.
+- **Debugging is now proven by tests (#114).** The comprehensive e2e sets a breakpoint in `OnLoad` through the editor, asserts it *binds*, asserts the debugger *pauses* on the hot-reloaded form, and continues; a new suite runs the whole profiler chain — profile a real step, trigger it, download the capture, restore the step byte-identical, generate the replay test and run it green under `dotnet test`.
+- Wiki refreshed (pac/cross-platform rewrite + the new upgrade guide).
+
 ## 0.8.0 (pre-release)
 
 Plugin debugging via profile-and-replay (#63) and the backwards-compatibility overhaul completed (#71).
