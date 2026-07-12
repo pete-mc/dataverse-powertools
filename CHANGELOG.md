@@ -2,6 +2,18 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.8.0 (pre-release)
+
+Plugin debugging via profile-and-replay (#63) and the backwards-compatibility overhaul completed (#71).
+
+- **Debug plugins with the exact server context — no Visual Studio (#63).** Three new plugin-card actions:
+  - **Profile a step…** rewires one of *your project's* registered steps through the Plugin Profiler (installed once via the Plugin Registration Tool) with hard safety rails: a full pre-change backup of the step is written to `.dvpt-profiler-backup.json` *before anything is touched*, only your own assembly's steps are offered, a step with an un-restored backup is refused, and **Stop profiling…** verifies the restored step matches the backup byte-for-byte before the backup is dropped. **Repair profiled steps** restores everything from backup at any time.
+  - **Download Captured Profiles** lists the environment's captured executions (persisted Plug-in Profile rows) and saves the picked ones into `profiles/`.
+  - **Replay profile as unit test** generates a `Replay_<Type>_<timestamp>.cs` in your test project that deserializes the captured context (via the pinned Plugin Registration Tool assemblies, fetched on demand into `profiler-libs/`) and invokes your plugin's `Execute` **in-process** — set breakpoints and debug it from the Test Explorer like any other test. mstest/xunit/nunit supported. Windows test host (net462), same constraint the PRT has.
+- **Settings migrations completed (#71).** The central runner (settingsVersion 2) now also: imports a legacy `spkl.json` into `solutionConfig`, moves `pluginModelBuilder` out to `modelbuilder.json`, and retires the solution template's `1.1` float version (now integer 2). Migrations run identically for the root and subfolder components.
+- **Legacy plugin (<v3) policy (#71):** legacy template support is now **frozen** and will be **removed in 0.9.0**. Opening a legacy project shows the migration path: *Add Component → Plugins* (it offers to move the existing project into a subfolder first), then move your classes across.
+- **Fixed: Testing pane showed passing web-resource runs as failed** when Jest's output contained braces before the JSON report (e.g. the ts-jest `globals` deprecation warning). The report is now located robustly.
+
 ## 0.7.5 (pre-release)
 
 Manual-testing feedback wave across web resources, plugins, solutions and the panel.

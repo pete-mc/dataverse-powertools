@@ -99,16 +99,16 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
         // it on demand, scoped to the invoking component (#47).
       } else {
         // Policy (#71): legacy (<v3, spkl.exe-based, Windows-only) plugin support is
-        // frozen — no new features — and will be REMOVED in 0.8.0. The migration
+        // frozen — no new features — and will be REMOVED in 0.9.0. The migration
         // path is a new Plugins component (Add Component offers to move the existing
         // project into a subfolder first), then moving the plugin classes across —
         // the v3 layout (pac plugin init) is too different for a safe auto-rewrite.
-        context.channel.appendLine("[Deprecated] Legacy plugin template (<v3) support is frozen and will be REMOVED in 0.8.0.");
+        context.channel.appendLine("[Deprecated] Legacy plugin template (<v3) support is frozen and will be REMOVED in 0.9.0.");
         context.channel.appendLine(
           "[Deprecated] Migrate: run Add Component → Plugins (it offers to move this project into a subfolder first), then move your plugin classes into the new project.",
         );
         vscode.window.showWarningMessage(
-          "This plugin project uses the legacy (<v3) template. Legacy support is frozen and will be removed in Dataverse PowerTools 0.8.0 — see the output for the migration path.",
+          "This plugin project uses the legacy (<v3) template. Legacy support is frozen and will be removed in Dataverse PowerTools 0.9.0 — see the output for the migration path.",
         );
         await initialisePluginsOld(context);
         await pluginTableSelectorOld(context);
