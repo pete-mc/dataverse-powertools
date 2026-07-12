@@ -543,6 +543,29 @@ export class E2EClient {
     return data.value?.[0]?.pluginpackageid;
   }
 
+  /** Rename the first territory row — triggers Update-of-territory steps. */
+  async touchFirstTerritory(): Promise<boolean> {
+    const list = await this.request("GET", "territories?$select=territoryid&$top=1");
+    if (!list.ok) {
+      return false;
+    }
+    const id = ((await list.json()) as any).value?.[0]?.territoryid;
+    if (!id) {
+      return false;
+    }
+    const res = await this.request("PATCH", `territories(${id})`, { name: `E2E ${Date.now()}` });
+    return res.ok;
+  }
+
+  /** Whether a persisted plug-in profile exists for the given type name. */
+  async hasPluginProfileForType(typeName: string): Promise<boolean> {
+    const res = await this.request("GET", `mbs_pluginprofiles?$select=mbs_pluginprofileid&$filter=mbs_typename eq '${typeName.replace(/'/g, "''")}'&$top=1`);
+    if (!res.ok) {
+      return false;
+    }
+    return (((await res.json()) as any).value?.length ?? 0) > 0;
+  }
+
   async deletePluginPackage(uniqueName: string): Promise<void> {
     const id = await this.findPluginPackageId(uniqueName);
     if (id) {
@@ -609,4 +632,10 @@ export function assertSourceMapBindsBreakpoints(builtBundlePath: string, compone
       `sourceMapPathOverrides do not match the bundle's actual source name '${classSource}' — breakpoints would be UNBOUND. Overrides: ${Object.keys(config.sourceMapPathOverrides ?? {}).join(" | ")}`,
     );
   }
+}
+
+/** Extra Web API helpers for the profiler-replay chain (#114). */
+export interface E2EProfilerHelpers {
+  touchFirstTerritory(): Promise<boolean>;
+  hasPluginProfileForType(typeName: string): Promise<boolean>;
 }
