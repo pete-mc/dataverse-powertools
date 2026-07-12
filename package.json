@@ -556,6 +556,11 @@
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
+        "command": "dataverse-powertools.generatePluginReplayTest",
+        "title": "Dataverse PowerTools: Replay Plugin Profile as Unit Test",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
         "command": "dataverse-powertools.uploadPortal",
         "title": "Dataverse PowerTools: Upload Portal",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPortal"

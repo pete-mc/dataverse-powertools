@@ -92,6 +92,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
       `${prefix}togglePluginEmitEntityEtc`,
       `${prefix}viewPluginTraceLogs`,
       `${prefix}downloadPluginProfiles`,
+      `${prefix}generatePluginReplayTest`,
     ],
     menu(state) {
       const legacy = (state.templateVersion ?? 0) < 3;
@@ -110,6 +111,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
           { command: `${prefix}createWorkflowClass`, label: "New workflow class" },
           { command: `${prefix}viewPluginTraceLogs`, label: "View plugin trace logs" },
           { command: `${prefix}downloadPluginProfiles`, label: "Download captured profiles" },
+          { command: `${prefix}generatePluginReplayTest`, label: "Replay profile as unit test" },
           ...(legacy
             ? [
                 { command: `${prefix}createSNKKey`, label: "Create SNK key" },
