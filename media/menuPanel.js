@@ -256,14 +256,27 @@
     row.appendChild(el("span", "grow"));
     c.appendChild(row);
     const actions = el("div", "secondary-row");
-    actions.appendChild(button(block.profile, "action"));
+    if (block.captureSupported) {
+      actions.appendChild(button(block.capture, "action"));
+    } else {
+      // Capture (Start Profiling) is a Windows-only net48 tool; disable it elsewhere.
+      const disabled = el("button", "action", block.capture.label);
+      disabled.type = "button";
+      disabled.disabled = true;
+      disabled.title = "Profiling capture is Windows-only. Use Download a run, or Replay a downloaded profile file.";
+      actions.appendChild(disabled);
+    }
     actions.appendChild(button(block.download, "action"));
     actions.appendChild(button(block.replay, "action"));
     c.appendChild(actions);
-    const note =
-      block.downloadedProfiles > 0
-        ? block.downloadedProfiles + " profile" + (block.downloadedProfiles === 1 ? "" : "s") + " in profiles/ · Replay to debug"
-        : "Capture a profile in the Plugin Registration Tool, download it, then Replay to debug it as a test.";
+    var note;
+    if (block.downloadedProfiles > 0) {
+      note = block.downloadedProfiles + " profile" + (block.downloadedProfiles === 1 ? "" : "s") + " in profiles/ · Replay to debug";
+    } else if (block.captureSupported) {
+      note = "Profile next run captures a live execution; or Download a run / Replay a profile file, then debug it as a test.";
+    } else {
+      note = "Download a captured run, or drop a profile file in profiles/ and Replay to debug it as a test.";
+    }
     c.appendChild(el("div", "small", note));
     return c;
   }

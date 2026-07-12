@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.8.1",
+  "version": "0.8.2",
   "engines": {
     "vscode": "^1.93.0"
   },
@@ -556,6 +556,11 @@
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
+        "command": "dataverse-powertools.capturePluginRun",
+        "title": "Dataverse PowerTools: Profile the Next Plugin Run (capture)",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
         "command": "dataverse-powertools.generatePluginReplayTest",
         "title": "Dataverse PowerTools: Replay Plugin Profile as Unit Test",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
@@ -630,9 +635,10 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run fetch-typings-tool && npm run package",
+    "vscode:prepublish": "npm run fetch-typings-tool && npm run fetch-profiler-tool && npm run package",
     "fetch-typings-tool": "node scripts/fetchTypingsTool.mjs",
-    "postinstall": "node scripts/fetchTypingsTool.mjs",
+    "fetch-profiler-tool": "node scripts/fetchProfilerTool.mjs",
+    "postinstall": "node scripts/fetchTypingsTool.mjs && node scripts/fetchProfilerTool.mjs",
     "compile": "webpack",
     "watch": "webpack --watch",
     "package": "webpack --mode production --devtool hidden-source-map",

@@ -118,6 +118,16 @@ export function replayClassName(pluginTypeName: string, stamp: string): string {
   return `Replay_${shortType.replace(/[^A-Za-z0-9_]+/g, "_")}_${stamp}`;
 }
 
+/** Recover the plugin type from a downloaded profile's file name. The download flow
+ * (profileFileName) names files `<TypeName>_<yyyymmdd-hhmmss>.profile[.xml]`, so when the
+ * profile stream itself has no plain-text type, the name is the reliable source. Returns
+ * undefined for names that don't match the pattern (e.g. an arbitrary browsed-in file). Pure. */
+export function extractTypeFromProfileFileName(fileName: string): string | undefined {
+  const base = fileName.replace(/\.profile(\.xml)?$/i, "");
+  const match = base.match(/^([A-Za-z_][A-Za-z0-9_.]*)_(?:\d{8}-\d{6}|unknown-time)$/);
+  return match?.[1];
+}
+
 /** Open a file dialog for a saved profile (PRT-exported XML). */
 async function browseForProfile(componentRoot: string): Promise<string | undefined> {
   const picked = await vscode.window.showOpenDialog({
@@ -180,7 +190,9 @@ export async function generatePluginReplayTest(context: DataversePowerToolsConte
   }
 
   const profileXml = await fs.promises.readFile(path.join(profilesDir, picked), "utf8");
-  let pluginTypeName = extractProfileTypeName(profileXml);
+  // The profiler's mbs_profile stream is base64/compressed (no plain-text type), so fall
+  // back to the type encoded in the downloaded file name, then finally ask.
+  let pluginTypeName = extractProfileTypeName(profileXml) ?? extractTypeFromProfileFileName(picked);
   if (!pluginTypeName) {
     pluginTypeName = await vscode.window.showInputBox({ prompt: "Fully-qualified plugin type name for this profile", ignoreFocusOut: true });
   }

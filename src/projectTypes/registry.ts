@@ -99,6 +99,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
       `${prefix}togglePluginEmitEntityEtc`,
       `${prefix}viewPluginTraceLogs`,
       `${prefix}downloadPluginProfiles`,
+      `${prefix}capturePluginRun`,
       `${prefix}generatePluginReplayTest`,
       `${prefix}guidePluginProfiling`,
     ],

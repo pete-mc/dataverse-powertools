@@ -51,6 +51,7 @@ function projectCard(settings: ComponentSettings, root: string, relativeRoot: st
     hasSpkl: fs.existsSync(path.join(root, "spkl.json")),
     webresourceOutput: settings.webresourceOutput as "bundle" | "perFile" | undefined,
     downloadedProfiles: isPlugin ? countDownloadedProfiles(root) : undefined,
+    captureSupported: isPlugin ? process.platform === "win32" : undefined,
   };
 }
 

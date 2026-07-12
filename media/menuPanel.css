@@ -139,8 +139,13 @@ button.action {
   background-color: var(--vscode-button-secondaryBackground);
 }
 
-button.action:hover {
+button.action:hover:not(:disabled) {
   background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+button.action:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 button.action.primary {

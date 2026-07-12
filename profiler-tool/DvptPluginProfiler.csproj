@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Dataverse PowerTools plugin-profiler capture tool (Windows-only, net48).
+
+    Drives the Plugin Profiler headlessly so the extension can Start Profiling a
+    registered step without the Plug-in Registration Tool GUI. Authenticates with
+    the extension's OWN access token (DVPT_TOKEN) via OrganizationWebProxyClient ->
+    CrmServiceClient, so it works under both service-principal and interactive auth.
+
+    It references the profiler + tooling assemblies from the PRT NuGet at BUILD time
+    only (Private=false: they are NOT copied to output). At RUN time the built
+    DvptPluginProfiler.exe is executed from inside the extension's fetched PRT
+    assemblies folder, so the CLR resolves those dependencies from there.
+
+    Build (on Windows): dotnet build profiler-tool -c Release
+    The PRT assemblies are fetched to sandbox/.cache/... by the extension/tests, or
+    set DVPT_PRT_TOOLS to any folder holding the PRT tools DLLs.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>DvptPluginProfiler</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+    <PrtTools Condition="'$(PrtTools)' == ''">$(DVPT_PRT_TOOLS)</PrtTools>
+    <PrtTools Condition="'$(PrtTools)' == ''">$(MSBuildProjectDirectory)\..\sandbox\.cache\pluginprofiler\nupkg\tools</PrtTools>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System.ServiceModel" />
+    <Reference Include="Microsoft.Xrm.Sdk">
+      <HintPath>$(PrtTools)\Microsoft.Xrm.Sdk.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Microsoft.Crm.Sdk.Proxy">
+      <HintPath>$(PrtTools)\Microsoft.Crm.Sdk.Proxy.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Microsoft.Xrm.Tooling.Connector">
+      <HintPath>$(PrtTools)\Microsoft.Xrm.Tooling.Connector.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="PluginProfiler.Library">
+      <HintPath>$(PrtTools)\PluginProfiler.Library.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

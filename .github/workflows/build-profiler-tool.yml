@@ -1,0 +1,68 @@
+name: Build Profiler Tool
+
+# Builds the Windows-only (net48) plugin-profiler capture tool (profiler-tool/) and
+# publishes it as a release artifact that scripts/fetchProfilerTool.mjs downloads into
+# the VSIX. The Marketplace publish runs on ubuntu and can't build .NET Framework, so
+# this runs on Windows and is decoupled from the publish — bump the release tag when the
+# tool source changes, then bump TOOL_URL in scripts/fetchProfilerTool.mjs to match.
+#
+# Trigger: push a tag like `profiler-tool-v1.0.0`, or run manually (workflow_dispatch,
+# which produces a downloadable build artifact without creating a release).
+
+on:
+  push:
+    tags:
+      - "profiler-tool-v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  PRT_NUGET_VERSION: "9.1.0.200"
+
+jobs:
+  build:
+    name: Build & release (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Fetch the Plugin Registration Tool assemblies (build-time refs)
+        shell: pwsh
+        run: |
+          $url = "https://www.nuget.org/api/v2/package/Microsoft.CrmSdk.XrmTooling.PluginRegistrationTool/$env:PRT_NUGET_VERSION"
+          $nupkg = Join-Path $env:RUNNER_TEMP "prt.nupkg.zip"
+          $tools = Join-Path $env:RUNNER_TEMP "prt-tools"
+          Invoke-WebRequest -Uri $url -OutFile $nupkg
+          Expand-Archive -Path $nupkg -DestinationPath (Join-Path $env:RUNNER_TEMP "prt") -Force
+          New-Item -ItemType Directory -Force -Path $tools | Out-Null
+          Copy-Item (Join-Path $env:RUNNER_TEMP "prt\tools\*.dll") $tools -Force
+          "DVPT_PRT_TOOLS=$tools" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Build the tool (net48, Release)
+        shell: pwsh
+        run: dotnet build profiler-tool/DvptPluginProfiler.csproj -c Release
+
+      - name: Package the exe
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP "dvpt-pluginprofiler-net48.zip"
+          $bin = "profiler-tool/bin/Release"
+          $items = @("$bin/DvptPluginProfiler.exe")
+          if (Test-Path "$bin/DvptPluginProfiler.exe.config") { $items += "$bin/DvptPluginProfiler.exe.config" }
+          Compress-Archive -Path $items -DestinationPath $out -Force
+          "ARTIFACT=$out" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Upload build artifact (manual runs)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dvpt-pluginprofiler-net48
+          path: ${{ env.ARTIFACT }}
+
+      - name: Attach to release (tag push)
+        if: startsWith(github.ref, 'refs/tags/profiler-tool-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ARTIFACT }}

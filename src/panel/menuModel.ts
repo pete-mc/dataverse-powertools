@@ -49,16 +49,19 @@ export interface RegistrationsBlock {
 }
 
 /** The profiler/debugging block embedded in a plugin project card (#63). Local
- * data only (a scan of profiles/), so the panel stays network-free. Capturing
- * happens in the Plugin Registration Tool (guide); we download + replay it. */
+ * data only (a scan of profiles/), so the panel stays network-free. Capture is
+ * Windows-only (a net48 tool); download + replay-from-file work everywhere. */
 export interface DebuggingBlock {
   /** Profiles downloaded into / dropped in profiles/. */
   downloadedProfiles: number;
-  /** How to capture a profile (guides to the Plugin Registration Tool). */
-  profile: MenuAction;
-  /** Fetch captured profiles from the org. */
+  /** Start Profiling the next plugin run and fetch it (Windows-only). */
+  capture: MenuAction;
+  /** Whether the capture action can run here (win32). When false the panel gates it
+   * and points at the download/file path instead. */
+  captureSupported: boolean;
+  /** Fetch a captured run from the org (execution picker when there are several). */
   download: MenuAction;
-  /** Generate + debug a replay test — always available (offers a file picker). */
+  /** Generate + debug a replay test from a downloaded/dropped profile (file picker). */
   replay: MenuAction;
 }
 
@@ -123,6 +126,9 @@ export interface ProjectCardState extends ProjectMenuState {
   detail?: string;
   /** Plugin cards only: profiles downloaded into profiles/ (local scan). */
   downloadedProfiles?: number;
+  /** Plugin cards only: whether headless capture (Start Profiling) can run here
+   * (Windows). Set from the host platform in panelState. */
+  captureSupported?: boolean;
 }
 
 export interface PanelState {
@@ -239,8 +245,9 @@ function registrationsFor(state: PanelState, project: ProjectCardState): Registr
 function debuggingFor(project: ProjectCardState): DebuggingBlock {
   return {
     downloadedProfiles: project.downloadedProfiles ?? 0,
-    profile: forComponent({ command: "dataverse-powertools.guidePluginProfiling", label: "How to profile" }, project),
-    download: forComponent({ command: "dataverse-powertools.downloadPluginProfiles", label: "Download profiles" }, project),
+    capture: forComponent({ command: "dataverse-powertools.capturePluginRun", label: "Profile next run" }, project),
+    captureSupported: project.captureSupported ?? false,
+    download: forComponent({ command: "dataverse-powertools.downloadPluginProfiles", label: "Download a run" }, project),
     replay: forComponent({ command: "dataverse-powertools.generatePluginReplayTest", label: "Replay & debug" }, project),
   };
 }

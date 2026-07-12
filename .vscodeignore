@@ -31,3 +31,4 @@ CLAUDE.md
 CONTRIBUTING.md
 **/*.map
 **/*.tstest-resources/**
+profiler-tool/**
