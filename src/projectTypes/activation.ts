@@ -103,13 +103,22 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
         // path is a new Plugins component (Add Component offers to move the existing
         // project into a subfolder first), then moving the plugin classes across —
         // the v3 layout (pac plugin init) is too different for a safe auto-rewrite.
+        const upgradeWiki = "https://github.com/pete-mc/dataverse-powertools/wiki/Upgrading-Projects";
         context.channel.appendLine("[Deprecated] Legacy plugin template (<v3) support is frozen and will be REMOVED in 0.9.0.");
         context.channel.appendLine(
           "[Deprecated] Migrate: run Add Component → Plugins (it offers to move this project into a subfolder first), then move your plugin classes into the new project.",
         );
-        vscode.window.showWarningMessage(
-          "This plugin project uses the legacy (<v3) template. Legacy support is frozen and will be removed in Dataverse PowerTools 0.9.0 — see the output for the migration path.",
-        );
+        context.channel.appendLine(`[Deprecated] Full upgrade guide (per-version differences, config refresh steps): ${upgradeWiki}`);
+        vscode.window
+          .showWarningMessage(
+            "This plugin project uses the legacy (<v3) template. Legacy support is frozen and will be removed in Dataverse PowerTools 0.9.0.",
+            "How to upgrade",
+          )
+          .then((choice) => {
+            if (choice === "How to upgrade") {
+              void vscode.env.openExternal(vscode.Uri.parse(upgradeWiki));
+            }
+          });
         await initialisePluginsOld(context);
         await pluginTableSelectorOld(context);
         // Legacy still loads its tree eagerly — reveal the view for it.
