@@ -18,16 +18,25 @@ export const PROFILED_NAME_SUFFIX = " (Profiled by DVPT)";
 
 export interface WebApiClient {
   get(resourcePath: string): Promise<any>;
+  /** POST; returns the created record's id (from OData-EntityId). */
+  post(resourcePath: string, body: Record<string, unknown>): Promise<string | undefined>;
   patch(resourcePath: string, body: Record<string, unknown>): Promise<void>;
+  del(resourcePath: string): Promise<void>;
 }
 
+/** What profiling one step produced — enough to reverse it exactly. Profiling
+ * follows the PRT model: CREATE a separate "(Profiled)" step routed through the
+ * ProfilerPlugin, and DISABLE the original (the in-place rewire the 0.8.0 code
+ * used never actually captured). Restore = delete the profiler step + re-enable
+ * the original. */
 export interface StepSnapshot {
-  sdkmessageprocessingstepid: string;
+  /** The original step (now disabled) to re-enable on restore. */
+  originalStepId: string;
+  /** The created profiler step to delete on restore. */
+  profilerStepId: string;
+  /** Original step name (display / restore-name). */
   name: string;
-  configuration: string | null;
-  /** _plugintypeid_value — the original event handler. */
-  plugintypeid: string;
-  /** The original plugin type's typename (for the config + restore sanity check). */
+  /** Original plugin type's typename (CodeLens scope + display). */
   typename: string;
 }
 
@@ -110,54 +119,92 @@ export function profilerPluginTypeQuery(): string {
   return `plugintypes?$select=plugintypeid&$filter=typename eq '${PROFILER_PLUGIN_TYPE_NAME}'`;
 }
 
-export function stepQuery(stepId: string): string {
-  return `sdkmessageprocessingsteps(${stepId})?$select=sdkmessageprocessingstepid,name,configuration,_plugintypeid_value&$expand=plugintypeid($select=typename)`;
+/** All fields we copy from the original step onto the profiler step. */
+export function fullStepQuery(stepId: string): string {
+  return (
+    `sdkmessageprocessingsteps(${stepId})?$select=sdkmessageprocessingstepid,name,configuration,stage,mode,rank,supporteddeployment,statecode,` +
+    `asyncautodelete,filteringattributes,_plugintypeid_value,_sdkmessageid_value,_sdkmessagefilterid_value&$expand=plugintypeid($select=typename)`
+  );
 }
 
-/** Rewire one step through the profiler. Returns the pre-change snapshot (the caller
- * MUST have persisted a backup of it before calling). */
+export function stepImagesQuery(stepId: string): string {
+  return `sdkmessageprocessingstepimages?$select=name,entityalias,imagetype,attributes,messagepropertyname&$filter=_sdkmessageprocessingstepid_value eq ${stepId}`;
+}
+
+/** Enable profiling on a step — the PRT way: CREATE a profiler step (a copy of
+ * the original routed through the ProfilerPlugin, carrying the original identity
+ * + persist config, with the images copied) and DISABLE the original. Returns
+ * the snapshot the caller MUST have persisted a backup of before calling. */
 export async function enableStepProfiling(client: WebApiClient, stepId: string, persistenceSessionKey: string): Promise<StepSnapshot> {
-  const step = await client.get(stepQuery(stepId));
-  const snapshot: StepSnapshot = {
-    sdkmessageprocessingstepid: step.sdkmessageprocessingstepid,
-    name: step.name,
-    configuration: step.configuration ?? null,
-    plugintypeid: step._plugintypeid_value,
-    typename: step.plugintypeid?.typename ?? "",
-  };
-  if (parseProfilerConfiguration(snapshot.configuration)) {
-    throw new Error("This step is already profiled — stop profiling first.");
+  const step = await client.get(fullStepQuery(stepId));
+  const typename = step.plugintypeid?.typename ?? "";
+  if (typename === PROFILER_PLUGIN_TYPE_NAME || String(step.name ?? "").endsWith(PROFILED_NAME_SUFFIX)) {
+    throw new Error("This step is already a profiler step.");
   }
-  const profilerTypes = await client.get(profilerPluginTypeQuery());
-  const profilerTypeId = profilerTypes.value?.[0]?.plugintypeid;
+  const profilerTypeId = (await client.get(profilerPluginTypeQuery())).value?.[0]?.plugintypeid;
   if (!profilerTypeId) {
     throw new Error("The Plugin Profiler solution is not installed in this environment.");
   }
-  await client.patch(`sdkmessageprocessingsteps(${stepId})`, {
-    "plugintypeid@odata.bind": `/plugintypes(${profilerTypeId})`,
+
+  // Create the profiler step: same message/filter/stage/mode/rank as the original,
+  // but bound to the ProfilerPlugin type and carrying the persist config.
+  const body: Record<string, unknown> = {
+    name: `${step.name}${PROFILED_NAME_SUFFIX}`,
+    stage: step.stage,
+    mode: step.mode,
+    rank: step.rank,
+    supporteddeployment: step.supporteddeployment,
     configuration: profilerConfigurationXml({
-      originalPluginTypeId: snapshot.plugintypeid,
-      originalTypeName: snapshot.typename,
-      originalConfiguration: snapshot.configuration,
+      originalPluginTypeId: step._plugintypeid_value,
+      originalTypeName: typename,
+      originalConfiguration: step.configuration ?? null,
       persistenceSessionKey,
     }),
-    name: `${snapshot.name}${PROFILED_NAME_SUFFIX}`,
-  });
-  return snapshot;
+    "plugintypeid@odata.bind": `/plugintypes(${profilerTypeId})`,
+    "sdkmessageid@odata.bind": `/sdkmessages(${step._sdkmessageid_value})`,
+  };
+  if (step._sdkmessagefilterid_value) {
+    body["sdkmessagefilterid@odata.bind"] = `/sdkmessagefilters(${step._sdkmessagefilterid_value})`;
+  }
+  if (step.filteringattributes) {
+    body.filteringattributes = step.filteringattributes;
+  }
+  if (typeof step.asyncautodelete === "boolean") {
+    body.asyncautodelete = step.asyncautodelete;
+  }
+  const profilerStepId = await client.post("sdkmessageprocessingsteps", body);
+  if (!profilerStepId) {
+    throw new Error("Failed to create the profiler step.");
+  }
+
+  // From here the create must fully succeed or fully roll back — a half-done
+  // enable (profiler step created but original still enabled) would double-fire.
+  try {
+    // Copy the original's images onto the profiler step (pre/post images the plugin reads).
+    const images = (await client.get(stepImagesQuery(stepId))).value ?? [];
+    for (const image of images) {
+      await client.post("sdkmessageprocessingstepimages", {
+        name: image.name,
+        entityalias: image.entityalias,
+        imagetype: image.imagetype,
+        attributes: image.attributes,
+        messagepropertyname: image.messagepropertyname,
+        "sdkmessageprocessingstepid@odata.bind": `/sdkmessageprocessingsteps(${profilerStepId})`,
+      });
+    }
+    // Disable the original so only the profiler step fires.
+    await client.patch(`sdkmessageprocessingsteps(${stepId})`, { statecode: 1, statuscode: 2 });
+  } catch (error) {
+    await client.del(`sdkmessageprocessingsteps(${profilerStepId})`).catch(() => undefined);
+    throw error;
+  }
+  return { originalStepId: stepId, profilerStepId, name: step.name, typename };
 }
 
-/** Restore a profiled step from its own carried configuration (PRT-compatible),
- * cross-checked against the persisted backup when supplied. */
-export async function disableStepProfiling(client: WebApiClient, stepId: string, backup?: StepSnapshot): Promise<void> {
-  const step = await client.get(stepQuery(stepId));
-  const carried = parseProfilerConfiguration(step.configuration);
-  const source = carried ?? (backup ? { originalPluginTypeId: backup.plugintypeid, originalTypeName: backup.typename, originalConfiguration: backup.configuration } : undefined);
-  if (!source) {
-    throw new Error("This step does not look profiled and no backup was found — nothing to restore.");
+/** Reverse profiling: delete the profiler step, re-enable the original. */
+export async function disableStepProfiling(client: WebApiClient, snapshot: StepSnapshot): Promise<void> {
+  if (snapshot.profilerStepId) {
+    await client.del(`sdkmessageprocessingsteps(${snapshot.profilerStepId})`);
   }
-  await client.patch(`sdkmessageprocessingsteps(${stepId})`, {
-    "plugintypeid@odata.bind": `/plugintypes(${source.originalPluginTypeId})`,
-    configuration: source.originalConfiguration,
-    name: backup?.name ?? String(step.name ?? "").replace(PROFILED_NAME_SUFFIX, ""),
-  });
+  await client.patch(`sdkmessageprocessingsteps(${snapshot.originalStepId})`, { statecode: 0, statuscode: 1 });
 }

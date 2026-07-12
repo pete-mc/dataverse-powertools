@@ -3,15 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { randomUUID } from "crypto";
 import DataversePowerToolsContext from "../context";
-import {
-  WebApiClient,
-  StepSnapshot,
-  enableStepProfiling,
-  disableStepProfiling,
-  stepsForAssemblyQuery,
-  parseProfilerConfiguration,
-  PROFILED_NAME_SUFFIX,
-} from "../general/dataverse/profilerToggle";
+import { WebApiClient, StepSnapshot, enableStepProfiling, disableStepProfiling, stepsForAssemblyQuery, PROFILED_NAME_SUFFIX } from "../general/dataverse/profilerToggle";
 import { dataverseApiUrl } from "../general/dataverse/webApi";
 import { canCallDataverseApi } from "../general/dataverse/connectionReady";
 import { isProfilerInstalled } from "../general/dataverse/pluginProfiles";
@@ -72,10 +64,23 @@ function webApiClientFor(context: DataversePowerToolsContext): WebApiClient | un
       }
       return response.json();
     },
+    async post(resourcePath: string, body: Record<string, unknown>) {
+      const response = await fetch(dataverseApiUrl(dataverse.organizationUrl, resourcePath), { method: "POST", headers: await headers(), body: JSON.stringify(body) });
+      if (!response.ok) {
+        throw new Error(`POST ${resourcePath} failed: ${response.status} ${await response.text()}`);
+      }
+      return response.headers.get("odata-entityid")?.match(/\(([0-9a-f-]{36})\)/i)?.[1];
+    },
     async patch(resourcePath: string, body: Record<string, unknown>) {
       const response = await fetch(dataverseApiUrl(dataverse.organizationUrl, resourcePath), { method: "PATCH", headers: await headers(), body: JSON.stringify(body) });
       if (!response.ok) {
         throw new Error(`PATCH ${resourcePath} failed: ${response.status} ${await response.text()}`);
+      }
+    },
+    async del(resourcePath: string) {
+      const response = await fetch(dataverseApiUrl(dataverse.organizationUrl, resourcePath), { method: "DELETE", headers: await headers() });
+      if (!response.ok && response.status !== 404) {
+        throw new Error(`DELETE ${resourcePath} failed: ${response.status} ${await response.text()}`);
       }
     },
   };
@@ -101,10 +106,12 @@ export async function profilePluginStep(context: DataversePowerToolsContext, typ
   }
   const steps = (await client.get(stepsForAssemblyQuery(assemblyName))).value as any[];
   const backups = await readBackups(componentRoot);
-  const candidates = steps.filter((step) => !parseProfilerConfiguration(step.configuration)).filter((step) => !typeNameFilter || step.plugintypeid?.typename === typeNameFilter);
+  // Offer ENABLED steps only (a disabled step is likely already profiled — its
+  // profiler copy is the active one); optionally scope to a class (CodeLens).
+  const candidates = steps.filter((step) => step.statecode === 0).filter((step) => !typeNameFilter || step.plugintypeid?.typename === typeNameFilter);
   if (candidates.length === 0) {
     vscode.window.showInformationMessage(
-      steps.length > 0 ? "All of this project's steps are already profiled." : `No registered steps found for assembly '${assemblyName}' — deploy first.`,
+      steps.length > 0 ? "All of this project's steps are already profiled (or disabled)." : `No registered steps found for assembly '${assemblyName}' — deploy first.`,
     );
     return;
   }
@@ -121,26 +128,18 @@ export async function profilePluginStep(context: DataversePowerToolsContext, typ
     return;
   }
 
-  // Backup BEFORE any change, to disk AND workspaceState.
-  const current = pick.target;
-  backups[stepId] = {
-    sdkmessageprocessingstepid: stepId,
-    name: current.name,
-    configuration: current.configuration ?? null,
-    plugintypeid: current._plugintypeid_value,
-    typename: current.plugintypeid?.typename ?? "",
-  };
-  await writeBackups(context, componentRoot, backups);
-
+  // enableStepProfiling creates the profiler step (id known only on return) and
+  // rolls itself back on partial failure — so persist the backup once it succeeds.
+  let snapshot: StepSnapshot;
   try {
-    await enableStepProfiling(client, stepId, randomUUID());
+    snapshot = await enableStepProfiling(client, stepId, randomUUID());
   } catch (error: any) {
-    delete backups[stepId];
-    await writeBackups(context, componentRoot, backups);
     vscode.window.showErrorMessage(`Could not enable profiling: ${error?.message ?? error}`);
     return;
   }
-  context.channel.appendLine(`[Profiler] Step '${backups[stepId].name}' now routes through the profiler (backup in ${BACKUP_FILE}).`);
+  backups[stepId] = snapshot;
+  await writeBackups(context, componentRoot, backups);
+  context.channel.appendLine(`[Profiler] Step '${snapshot.name}' now routes through the profiler (backup in ${BACKUP_FILE}).`);
   vscode.window.showInformationMessage(`Profiling '${backups[stepId].name}' — trigger it, then run Download Captured Profiles. Stop profiling when done.`);
 }
 
@@ -190,20 +189,19 @@ export async function repairProfiledSteps(context: DataversePowerToolsContext): 
 
 async function restoreOne(context: DataversePowerToolsContext, client: WebApiClient, componentRoot: string, backups: BackupStore, snapshot: StepSnapshot): Promise<void> {
   try {
-    await disableStepProfiling(client, snapshot.sdkmessageprocessingstepid, snapshot);
-    // Verify the restore really matches the backup before dropping it.
-    const restored = await client.get(`sdkmessageprocessingsteps(${snapshot.sdkmessageprocessingstepid})?$select=name,configuration,_plugintypeid_value`);
-    const identical = restored.name === snapshot.name && (restored.configuration ?? null) === snapshot.configuration && restored._plugintypeid_value === snapshot.plugintypeid;
-    if (!identical) {
-      vscode.window.showErrorMessage(`Restore of '${snapshot.name}' does not match the backup — backup kept. See the output.`);
-      context.channel.appendLine(`[Profiler] MISMATCH restoring ${snapshot.sdkmessageprocessingstepid}: ${JSON.stringify({ restored, snapshot })}`);
+    await disableStepProfiling(client, snapshot);
+    // Verify: the profiler step is gone and the original is re-enabled.
+    const original = await client.get(`sdkmessageprocessingsteps(${snapshot.originalStepId})?$select=statecode`);
+    if (original.statecode !== 0) {
+      vscode.window.showErrorMessage(`Restore of '${snapshot.name}' did not re-enable the original step — backup kept. See the output.`);
+      context.channel.appendLine(`[Profiler] MISMATCH restoring ${snapshot.originalStepId}: statecode=${original.statecode}`);
       context.channel.show();
       return;
     }
-    delete backups[snapshot.sdkmessageprocessingstepid];
+    delete backups[snapshot.originalStepId];
     await writeBackups(context, componentRoot, backups);
-    context.channel.appendLine(`[Profiler] Restored step '${snapshot.name}' byte-identical to its backup.`);
-    vscode.window.showInformationMessage(`Stopped profiling '${snapshot.name}' (restored from backup).`);
+    context.channel.appendLine(`[Profiler] Stopped profiling '${snapshot.name}' — profiler step removed, original re-enabled.`);
+    vscode.window.showInformationMessage(`Stopped profiling '${snapshot.name}' (original step restored).`);
   } catch (error: any) {
     vscode.window.showErrorMessage(`Could not restore '${snapshot.name}': ${error?.message ?? error} — backup kept in ${BACKUP_FILE}.`);
   }
