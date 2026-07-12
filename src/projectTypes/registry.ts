@@ -56,6 +56,11 @@ export interface ProjectTypeDescriptor {
    * versions (legacy plugin included) — the parity test checks both directions.
    */
   commandIds: readonly string[];
+  /** Bumped whenever this type's TEMPLATE CONFIG FILES change (#113); projects
+   * stamped lower are offered a one-click refresh. 0 disables detection. */
+  configRevision: number;
+  /** Extension-owned files (by rendered name) the refresh may overwrite — NEVER user code. */
+  refreshableFiles: readonly string[];
   /** Actions the panel's project card shows for this type. Every command must be in commandIds. */
   menu(state: ProjectMenuState): ProjectMenu;
 }
@@ -69,6 +74,8 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
     templateFolder: "plugin",
     defaultTemplateVersion: 3,
     contextKey: "isPlugin",
+    configRevision: 0,
+    refreshableFiles: [],
     commandIds: [
       `${prefix}generateEarlyBound`,
       `${prefix}configurePluginEarlyBound`,
@@ -141,6 +148,20 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
     templateFolder: "webresources",
     defaultTemplateVersion: 1,
     contextKey: "isWebResource",
+    // Rev 1 = the 0.7.4/0.7.5 config wave: per-file output ternary, inline
+    // source maps, modern tsconfig, ts-jest transform config.
+    configRevision: 1,
+    refreshableFiles: [
+      ".eslintrc.json",
+      ".prettierrc.json",
+      "jest.config.js",
+      "tsconfig.json",
+      "tsconfig.build.json",
+      "webpack.common.js",
+      "webpack.dev.js",
+      "webpack.prod.js",
+      "PowerTools.d.ts",
+    ],
     commandIds: [
       `${prefix}buildWebresources`,
       `${prefix}deployWebresources`,
@@ -155,6 +176,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
       `${prefix}switchWebresourceOutput`,
       `${prefix}runWebresourceTests`,
       `${prefix}openFormIntersects`,
+      `${prefix}refreshConfigFiles`,
     ],
     menu(state) {
       return {
@@ -175,6 +197,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
           { command: `${prefix}createWebResourceTest`, label: "New test" },
           { command: `${prefix}addFormDecoration`, label: "Add form registration" },
           { command: `${prefix}openFormIntersects`, label: "Configure form intersects" },
+          { command: `${prefix}refreshConfigFiles`, label: "Refresh config files" },
           { command: `${prefix}switchWebresourceOutput`, label: `Output mode (${state.webresourceOutput === "perFile" ? "per-file" : "bundled"})…` },
           ...(state.hasSpkl ? [{ command: `${prefix}upgradeFromSpkl`, label: "Upgrade from Spkl" }] : []),
         ],
@@ -188,6 +211,8 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
     // Integer — the historical 1.1 FLOAT is migrated to 2 by settingsMigrations (#71).
     defaultTemplateVersion: 2,
     contextKey: "isSolution",
+    configRevision: 0,
+    refreshableFiles: [],
     commandIds: [`${prefix}extractSolution`, `${prefix}packSolution`, `${prefix}deploySolution`],
     menu() {
       return {
@@ -206,6 +231,8 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
     templateFolder: "portal",
     defaultTemplateVersion: 1,
     contextKey: "isPortal",
+    configRevision: 0,
+    refreshableFiles: [],
     commandIds: [`${prefix}connectPortal`, `${prefix}downloadPortal`, `${prefix}uploadPortal`],
     menu() {
       return {

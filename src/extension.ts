@@ -7,6 +7,7 @@ import { getProjectTypeActivation, registerAllComponentCommands } from "./projec
 import { componentScopedContext } from "./components/componentDiscovery";
 import { componentsOfType } from "./components/discovery";
 import { clearStoredCredentials } from "./general/connectionStringManager";
+import { checkConfigRevision } from "./general/configRefresh";
 import { registerMenuPanel } from "./panel/menuPanel";
 import { registerSystemRequirementCommands } from "./general/systemRequirements";
 import { initInteractiveTokenCache } from "./general/dataverse/tokenAcquisition";
@@ -63,6 +64,8 @@ export async function initialise(context: DataversePowerToolsContext) {
     const first = componentsOfType(context.components, type)[0];
     const scoped = first ? componentScopedContext(context, first) : context;
     await activation.initialise(scoped);
+    // Stale config-file detection (#113): offer the one-click refresh.
+    checkConfigRevision(scoped);
   }
   context.refreshPanel?.();
 }

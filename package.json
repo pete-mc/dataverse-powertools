@@ -596,6 +596,11 @@
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
       },
       {
+        "command": "dataverse-powertools.refreshConfigFiles",
+        "title": "Dataverse PowerTools: Refresh Project Config Files",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
+      },
+      {
         "command": "dataverse-powertools.clearCredentials",
         "title": "Dataverse PowerTools: Clear Stored Credentials"
       },

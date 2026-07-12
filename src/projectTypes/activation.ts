@@ -39,6 +39,7 @@ import { debugWebResources, stopDebugWebResources } from "../webresources/debug/
 import { switchWebresourceOutput } from "../webresources/switchOutputMode";
 import { runWebresourceTests } from "../webresources/runTests";
 import { openFormIntersects } from "../webresources/tableIntersects/tableIntersects";
+import { refreshConfigFiles } from "../general/configRefresh";
 import { extractSolution } from "../solution/extractSolution";
 import { packSolution } from "../solution/packSolution";
 import { deploySolution } from "../solution/deploySolution";
@@ -223,6 +224,7 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
       "dataverse-powertools.switchWebresourceOutput": (context) => switchWebresourceOutput(context),
       "dataverse-powertools.runWebresourceTests": tracked("Tests", runWebresourceTests),
       "dataverse-powertools.openFormIntersects": (context) => openFormIntersects(context),
+      "dataverse-powertools.refreshConfigFiles": (context) => refreshConfigFiles(context),
     },
     async onProjectCreated(context) {
       await generateTypings(context);
