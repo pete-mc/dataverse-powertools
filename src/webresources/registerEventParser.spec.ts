@@ -42,6 +42,24 @@ describe("parseRegisterEvents", () => {
     expect(malformedBlocks).toBe(1);
   });
 
+  it("rejects decorations that would serialize into schema-breaking form XML (0x80048425)", async () => {
+    const { validateRegisterEvent } = await import("./registerEventParser");
+    const valid = {
+      formId: "11111111-1111-1111-1111-111111111111",
+      event: "onload" as const,
+      function: "p.C.f",
+      triggerId: "22222222-2222-2222-2222-222222222222",
+      executionContext: true,
+      offset: 0,
+    };
+    expect(validateRegisterEvent(valid)).toBeUndefined();
+    expect(validateRegisterEvent({ ...valid, event: undefined as never })).toMatch(/event must be/);
+    expect(validateRegisterEvent({ ...valid, event: "onchange" as never })).toMatch(/onchange/);
+    expect(validateRegisterEvent({ ...valid, formId: "not-a-guid" })).toMatch(/formId/);
+    expect(validateRegisterEvent({ ...valid, triggerId: "" })).toMatch(/triggerId/);
+    expect(validateRegisterEvent({ ...valid, function: " " })).toMatch(/function/);
+  });
+
   it("returns empty for source without decorations", () => {
     const { events, malformedBlocks } = parseRegisterEvents("export const x = 1;");
     expect(events).toEqual([]);

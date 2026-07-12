@@ -45,6 +45,28 @@ export function parseRegisterEvents(text: string): ParsedRegisterEvents {
   return { events, malformedBlocks };
 }
 
+const GUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Validate a decoration BEFORE it reaches the form XML. A missing/blank field
+ * used to serialize as an <event> without its required attributes, which
+ * Dataverse rejects with a cryptic schema error (0x80048425, "required
+ * attribute 'name' is missing"). Returns the problem, or undefined when valid. */
+export function validateRegisterEvent(event: Partial<RegisterEventDecoration>): string | undefined {
+  if (!event.formId || !GUID_PATTERN.test(event.formId)) {
+    return `formId must be a GUID (got "${event.formId ?? ""}")`;
+  }
+  if (event.event !== "onload" && event.event !== "onsave") {
+    return `event must be "onload" or "onsave" (got "${event.event ?? ""}") — attribute onchange events aren't supported by form-level registration`;
+  }
+  if (!event.function || !event.function.trim()) {
+    return "function is required (Library.Class.Function)";
+  }
+  if (!event.triggerId || !GUID_PATTERN.test(event.triggerId)) {
+    return `triggerId must be a GUID (got "${event.triggerId ?? ""}")`;
+  }
+  return undefined;
+}
+
 /** 0-based line number of a character offset in a text. */
 export function lineOfOffset(text: string, offset: number): number {
   let line = 0;

@@ -2,7 +2,7 @@ import DataversePowerToolsContext from "../context";
 import * as vscode from "vscode";
 import { DataverseForm } from "../general/dataverse/DataverseForm";
 import { randomUUID } from "crypto";
-import { parseRegisterEvents, RegisterEventDecoration } from "./registerEventParser";
+import { parseRegisterEvents, validateRegisterEvent, RegisterEventDecoration } from "./registerEventParser";
 import { activeComponentRoot } from "../components/componentDiscovery";
 
 export async function saveFormData(context: DataversePowerToolsContext): Promise<void> {
@@ -52,6 +52,18 @@ export async function saveFormDataExec(context: DataversePowerToolsContext, opti
   if (registerEvents.length === 0) {
     context.channel.appendLine("No form event registrations found; nothing to register.");
     return false;
+  }
+
+  // Validate EVERY decoration before touching any form — an invalid field used
+  // to serialize into schema-breaking form XML (missing required attributes,
+  // rejected by Dataverse with 0x80048425).
+  const problems = registerEvents.map((event) => ({ event, problem: validateRegisterEvent(event) })).filter((entry) => entry.problem);
+  if (problems.length > 0) {
+    for (const { event, problem } of problems) {
+      context.channel.appendLine(`Invalid RegisterEvent decoration (${event.function || event.formId || "unknown"}): ${problem}`);
+    }
+    context.channel.show();
+    throw new Error(`${problems.length} RegisterEvent decoration(s) are invalid — see the Dataverse PowerTools output. No forms were changed.`);
   }
 
   //Group the PowerTools.RegisterEvent objects by formId
