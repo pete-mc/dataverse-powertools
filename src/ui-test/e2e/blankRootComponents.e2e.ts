@@ -51,6 +51,27 @@ describe("Blank root + one component of each type (e2e)", function () {
     }
   }
 
+  /** Open Add Component and land on the type pick — retries once, because the
+   * PREVIOUS component's restore progress/toast can swallow the first attempt
+   * (the Solution/Portal adds timed out exactly there on the first gate run). */
+  async function startAddComponent(typeLabel: string): Promise<void> {
+    await sleep(8000); // let the previous add's notifications settle
+    await dismissOverlays();
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        await runCommand("Dataverse PowerTools: Add Component");
+        await pickByLabel(typeLabel, 30000);
+        return;
+      } catch (err) {
+        if (attempt === 1) {
+          throw err;
+        }
+        await dismissOverlays();
+        await sleep(5000);
+      }
+    }
+  }
+
   before(async function () {
     if (!env) {
       this.skip();
@@ -97,24 +118,29 @@ describe("Blank root + one component of each type (e2e)", function () {
   });
 
   it("adds a Web Resources component into a subfolder", async () => {
-    await runCommand("Dataverse PowerTools: Add Component");
-    await pickByLabel("Web Resources");
+    await startAddComponent("Web Resources");
     await answerText("webresources"); // subfolder (the suggested default)
     // Scaffold + npm install run behind a progress notification — poll the outputs.
     expect(await waitForFile(path.join(workspace, "webresources", "dataverse-powertools.json"), 600000), "webresources settings").to.equal(true);
     expect(await waitForFile(path.join(workspace, "webresources", "webpack.common.js"), 60000), "webresources scaffold").to.equal(true);
+    // Gate on npm install COMPLETING so the next add starts with a quiet UI.
+    expect(await waitForFile(path.join(workspace, "webresources", "node_modules", ".package-lock.json"), 600000), "npm install finished").to.equal(true);
     const settings = readSettings("webresources");
     expect(settings.type).to.equal("webresources");
     expect(settings.connectionString, "component inherits the root connection — no own connectionString").to.equal(undefined);
   });
 
   it("adds a Plugins component into a subfolder (pac init + restore)", async () => {
-    await runCommand("Dataverse PowerTools: Add Component");
-    await pickByLabel("Plugins");
+    await startAddComponent("Plugins");
     await answerText("plugin"); // subfolder
     await answerText("E2EBlankPlugin"); // plugin project name
     expect(await waitForFile(path.join(workspace, "plugin", "dataverse-powertools.json"), 600000), "plugin settings").to.equal(true);
     expect(await waitForMatch(path.join(workspace, "plugin"), (file) => file.endsWith(".csproj"), 600000), "a csproj scaffolded by pac plugin init").to.equal(true);
+    // Layout normalisation must have produced the .sln (MSB1003 regression — the
+    // final dotnet restore needs it) and the restore must have COMPLETED
+    // (project.assets.json) before the next add begins.
+    expect(await waitForMatch(path.join(workspace, "plugin"), (file) => file.endsWith(".sln"), 300000), "normalised layout (.sln)").to.equal(true);
+    expect(await waitForMatch(path.join(workspace, "plugin"), (file) => file === "project.assets.json", 600000), "dotnet restore finished").to.equal(true);
     const settings = readSettings("plugin");
     expect(settings.type).to.equal("plugin");
     expect(settings.pluginProjectName).to.equal("E2EBlankPlugin");
@@ -122,11 +148,12 @@ describe("Blank root + one component of each type (e2e)", function () {
   });
 
   it("adds a Solution component into a subfolder", async () => {
-    await runCommand("Dataverse PowerTools: Add Component");
-    await pickByLabel("Solution");
+    await startAddComponent("Solution");
     await answerText("solution"); // subfolder
     expect(await waitForFile(path.join(workspace, "solution", "dataverse-powertools.json"), 600000), "solution settings").to.equal(true);
     expect(await waitForFile(path.join(workspace, "solution", "nuget.config"), 120000), "solution scaffold").to.equal(true);
+    // The solution restore chain ends with paket install — gate on its lock file.
+    expect(await waitForFile(path.join(workspace, "solution", "paket.lock"), 600000), "paket install finished").to.equal(true);
     const settings = readSettings("solution");
     expect(settings.type).to.equal("solution");
     expect(settings.templateversion, "integer template version (1.1 float retired, #71)").to.equal(2);
@@ -134,8 +161,7 @@ describe("Blank root + one component of each type (e2e)", function () {
   });
 
   it("adds a Portal component into a subfolder", async () => {
-    await runCommand("Dataverse PowerTools: Add Component");
-    await pickByLabel("Portal");
+    await startAddComponent("Portal");
     await answerText("portal"); // subfolder
     expect(await waitForFile(path.join(workspace, "portal", "dataverse-powertools.json"), 300000), "portal settings").to.equal(true);
     const settings = readSettings("portal");

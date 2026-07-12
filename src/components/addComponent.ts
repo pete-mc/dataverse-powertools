@@ -4,7 +4,7 @@ import path = require("path");
 import DataversePowerToolsContext from "../context";
 import { projectTypeRegistry, ProjectTypes, getProjectTypeDescriptor } from "../projectTypes/registry";
 import { getProjectTypeActivation } from "../projectTypes/activation";
-import { generateTemplates } from "../general/generateTemplates";
+import { generateTemplates, normalizePluginV3Layout } from "../general/generateTemplates";
 import { restoreDependencies } from "../general/restoreDependencies";
 import { discoverWorkspaceComponents, componentScopedContext } from "./componentDiscovery";
 import { DiscoveredComponent, normalizeFsPath, componentForPath } from "./discovery";
@@ -194,6 +194,11 @@ export async function addComponent(context: DataversePowerToolsContext): Promise
       await generateTemplates(scoped, componentRoot);
       await scoped.writeSettings();
       await restoreDependencies(scoped, true);
+      // Mirror createNewProject: pac plugin init nests the csproj under the
+      // project folder, and only the layout normalisation creates the .sln the
+      // final `dotnet restore` needs — skipping it made that restore fail with
+      // MSB1003 (caught by the e2e log audit on the blank-root suite).
+      await normalizePluginV3Layout(scoped);
       await restoreDependencies(scoped);
 
       // Re-discover, initialise the (possibly new) type, refresh the panel.
