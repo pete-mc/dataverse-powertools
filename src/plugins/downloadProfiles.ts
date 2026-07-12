@@ -60,8 +60,10 @@ export async function downloadPluginProfiles(context: DataversePowerToolsContext
 
   const profiles = await getPluginProfiles(context);
   if (!profiles) {
-    return; // logged
+    context.channel.appendLine("[Profiler] Could not list captured profiles (query failed) — see the output above.");
+    return; // logged by getJson
   }
+  context.channel.appendLine(`[Profiler] Found ${profiles.length} captured profile(s) in this environment.`);
   if (profiles.length === 0) {
     vscode.window.showInformationMessage("No captured profiles in this environment yet — Start Profiling a step (persist to entity), trigger it, then retry.");
     return;

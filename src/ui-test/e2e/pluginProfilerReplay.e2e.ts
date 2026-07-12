@@ -30,8 +30,11 @@ describe("Plugin profiler capture → replay (e2e)", function () {
     }
   }
 
-  /** Multi-select quick pick: toggle the first item, then confirm. */
+  /** Multi-select quick pick: toggle the first item, then confirm. Diagnostic-
+   * chatty so a failing run reveals whether the widget or the items were the
+   * problem. */
   async function pickFirstAndConfirm(timeoutMs = 60000): Promise<void> {
+    const log = (m: string) => console.log(`    [e2e] pick: ${m}`);
     const deadline = Date.now() + timeoutMs;
     let input: InputBox | undefined;
     while (!input && Date.now() < deadline) {
@@ -43,9 +46,11 @@ describe("Plugin profiler capture → replay (e2e)", function () {
     if (!input) {
       throw new Error("No quick pick appeared for the profile download.");
     }
+    log("input box appeared");
     for (;;) {
       const picks = await input.getQuickPicks().catch(() => []);
       if (picks.length > 0) {
+        log(`${picks.length} item(s) — selecting the first`);
         await picks[0].select();
         break;
       }
