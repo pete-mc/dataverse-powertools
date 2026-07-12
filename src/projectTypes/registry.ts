@@ -72,6 +72,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
     commandIds: [
       `${prefix}generateEarlyBound`,
       `${prefix}configurePluginEarlyBound`,
+      `${prefix}openEarlyboundConfig`,
       `${prefix}buildAndDeploy`,
       `${prefix}buildDeployPlugin`,
       `${prefix}buildProject`,
@@ -95,10 +96,13 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
       const legacy = (state.templateVersion ?? 0) < 3;
       return {
         primary: { command: `${prefix}buildAndDeploy`, label: "Build & deploy package" },
+        // v3 gets four buttons on two rows; the earlybound settings tree opens
+        // on demand via Configure Earlybound (one view can't show N components).
         secondary: [
           { command: `${prefix}buildProject`, label: "Build" },
-          state.hasPluginUnitTesting ? { command: `${prefix}runPluginTests`, label: "Tests" } : { command: `${prefix}setupPluginUnitTesting`, label: "Set up tests" },
-          legacy ? { command: `${prefix}generateEarlyBound`, label: "Early bound" } : { command: `${prefix}configurePluginEarlyBound`, label: "Early bound" },
+          state.hasPluginUnitTesting ? { command: `${prefix}runPluginTests`, label: "Run Tests" } : { command: `${prefix}setupPluginUnitTesting`, label: "Set up Tests" },
+          { command: `${prefix}generateEarlyBound`, label: "Generate Earlybound" },
+          ...(legacy ? [] : [{ command: `${prefix}openEarlyboundConfig`, label: "Configure Earlybound" }]),
         ],
         overflow: [
           { command: `${prefix}createPluginClass`, label: "New plugin class" },
@@ -112,7 +116,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
               ]
             : [
                 { command: `${prefix}createPluginTest`, label: "New plugin test" },
-                { command: `${prefix}generateEarlyBound`, label: "Generate early bound" },
+                { command: `${prefix}configurePluginEarlyBound`, label: "Configure all earlybound settings" },
                 { command: `${prefix}updateFilteringAttributes`, label: "Update filtering attributes" },
                 { command: `${prefix}addClassDecoration`, label: "Add class decoration" },
               ]),
@@ -139,14 +143,19 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
       `${prefix}debugWebresources`,
       `${prefix}stopDebugWebresources`,
       `${prefix}switchWebresourceOutput`,
+      `${prefix}runWebresourceTests`,
+      `${prefix}openFormIntersects`,
     ],
     menu(state) {
       return {
         primary: { command: `${prefix}deployWebresources`, label: "Deploy to {environment}" },
+        // Four buttons on two rows (user feedback) — the extra space buys the
+        // full labels and a dedicated test runner.
         secondary: [
-          { command: `${prefix}buildWebresources`, label: "Build" },
-          { command: `${prefix}debugWebresources`, label: "Debug local" },
-          { command: `${prefix}generateTypings`, label: "Typings" },
+          { command: `${prefix}buildWebresources`, label: "Local Build" },
+          { command: `${prefix}debugWebresources`, label: "Local Debug (Hot)" },
+          { command: `${prefix}generateTypings`, label: "Generate Typings" },
+          { command: `${prefix}runWebresourceTests`, label: "Run Tests" },
         ],
         // saveFormData has no menu entry: Deploy registers form events itself
         // (deploy-then-register is the only order that always works — #90). The
@@ -155,6 +164,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
           { command: `${prefix}createWebResourceClass`, label: "New class" },
           { command: `${prefix}createWebResourceTest`, label: "New test" },
           { command: `${prefix}addFormDecoration`, label: "Add form registration" },
+          { command: `${prefix}openFormIntersects`, label: "Configure form intersects" },
           { command: `${prefix}switchWebresourceOutput`, label: `Output mode (${state.webresourceOutput === "perFile" ? "per-file" : "bundled"})…` },
           ...(state.hasSpkl ? [{ command: `${prefix}upgradeFromSpkl`, label: "Upgrade from Spkl" }] : []),
         ],

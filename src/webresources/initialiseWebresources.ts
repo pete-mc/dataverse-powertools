@@ -4,7 +4,6 @@ import { activeComponentRoot } from "../components/componentDiscovery";
 import * as vscode from "vscode";
 import path = require("path");
 import fs = require("fs");
-import { formIntersectSelector } from "./tableIntersects/tableIntersects";
 import { stopDebugWebResources } from "./debug/debugWebresources";
 import { createWebresourceTestController } from "./webresourceTestController";
 import { registerRegistrationsWatcher, scanFormRegistrations } from "../panel/registrationsScanner";
@@ -23,7 +22,9 @@ export function initialiseWebresources(context: DataversePowerToolsContext): voi
     var templates = JSON.parse(fs.readFileSync(path.join(fullFilePath, "template.json"), "utf8")) as Array<PowertoolsTemplate>;
     context.template = templates[0];
   }
-  formIntersectSelector(context);
+  // The form-intersects tree is NOT loaded here: one view can't represent several
+  // web-resource components, so "Configure form intersects" (card overflow menu)
+  // opens it on demand, scoped to the invoking component (#47).
   // Ensure a running debug session (browser, webpack --watch, CDP) is torn down if the
   // extension deactivates or the workspace reloads.
   context.vscode.subscriptions.push({ dispose: () => void stopDebugWebResources() });

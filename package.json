@@ -146,7 +146,7 @@
           "icon": "media/dep.svg",
           "contextualTitle": "Package Explorer",
           "type": "tree",
-          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+          "when": "dataverse-powertools.earlyboundTreeLoaded"
         },
         {
           "id": "dataversePowerToolsTableIntersectTree",
@@ -154,7 +154,7 @@
           "icon": "media/dep.svg",
           "contextualTitle": "Package Explorer",
           "type": "tree",
-          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
+          "when": "dataverse-powertools.formIntersectTreeLoaded"
         }
       ],
       "explorer": []
@@ -331,6 +331,11 @@
         "command": "dataverse-powertools.initialiseProject",
         "title": "Dataverse PowerTools: Initialise Project",
         "enablement": "!dataverse-powertools.showLoaded"
+      },
+      {
+        "command": "dataverse-powertools.openEarlyboundConfig",
+        "title": "Dataverse PowerTools: Configure Earlybound",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
         "command": "dataverse-powertools.configurePluginEarlyBound",
@@ -538,6 +543,16 @@
       {
         "command": "dataverse-powertools.switchWebresourceOutput",
         "title": "Dataverse PowerTools: Switch Web Resource Output Mode",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
+      },
+      {
+        "command": "dataverse-powertools.runWebresourceTests",
+        "title": "Dataverse PowerTools: Run Web Resource Tests",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
+      },
+      {
+        "command": "dataverse-powertools.openFormIntersects",
+        "title": "Dataverse PowerTools: Configure Form Intersects",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
       },
       {

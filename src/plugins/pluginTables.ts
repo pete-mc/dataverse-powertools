@@ -9,8 +9,21 @@ interface SettingTreeItem extends vscode.TreeItem {
   children?: SettingTreeItem[];
 }
 
-export function pluginTableSelector(context: DataversePowerToolsContext) {
-  new PluginModelBuilderTreeDataProvider(context);
+// One tree view can't represent several plugin components at once (#47), so the
+// tree is no longer loaded at activation: "Configure Earlybound" on a project
+// card creates it on first use and retargets it at the invoking component after
+// that. The singleton also guards the constructor's registerCommand from running
+// twice.
+let provider: PluginModelBuilderTreeDataProvider | undefined;
+
+export async function openEarlyboundConfig(context: DataversePowerToolsContext): Promise<void> {
+  if (!provider) {
+    provider = new PluginModelBuilderTreeDataProvider(context);
+  } else {
+    await provider.setContext(context);
+  }
+  await vscode.commands.executeCommand("setContext", "dataverse-powertools.earlyboundTreeLoaded", true);
+  await vscode.commands.executeCommand("dataversePowerToolsTree.focus");
 }
 
 class PluginModelBuilderTreeDataProvider implements vscode.TreeDataProvider<SettingTreeItem> {
@@ -19,11 +32,14 @@ class PluginModelBuilderTreeDataProvider implements vscode.TreeDataProvider<Sett
 
   private context: DataversePowerToolsContext;
   private data: SettingTreeItem[] = [];
+  private view: vscode.TreeView<SettingTreeItem>;
 
   constructor(context: DataversePowerToolsContext) {
     this.context = context;
 
-    vscode.window.registerTreeDataProvider("dataversePowerToolsTree", this);
+    this.view = vscode.window.createTreeView("dataversePowerToolsTree", { treeDataProvider: this });
+    context.vscode.subscriptions.push(this.view);
+    this.updateViewDescription();
 
     context.vscode.subscriptions.push(
       vscode.commands.registerCommand("dataverse-powertools.editModelBuilderSetting", async (item: SettingTreeItem) => {
@@ -41,6 +57,20 @@ class PluginModelBuilderTreeDataProvider implements vscode.TreeDataProvider<Sett
     );
 
     void this.reloadSettings();
+  }
+
+  /** Point the tree at a (possibly different) component's context and re-read
+   * its settings — how one view serves many plugin components. */
+  async setContext(context: DataversePowerToolsContext): Promise<void> {
+    this.context = context;
+    this.updateViewDescription();
+    await this.reloadSettings();
+  }
+
+  /** Show which component the tree is editing when it isn't the workspace root. */
+  private updateViewDescription(): void {
+    const component = this.context.activeComponent;
+    this.view.description = component && !component.isRoot ? component.relativeRoot : undefined;
   }
 
   private async reloadSettings(): Promise<void> {
