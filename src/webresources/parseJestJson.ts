@@ -70,11 +70,26 @@ export function parseJestJson(json: string): JestAssertion[] {
 }
 
 /**
- * Pull the JSON object out of Jest's stdout, which can carry leading noise (deprecation notices,
- * `console.log`) before the `{...}` report. Returns "" if no object is found.
+ * Pull the JSON report out of Jest's stdout. The surrounding output can itself contain
+ * braces — ts-jest's `globals` deprecation warning prints a `transform: { … }` config
+ * snippet — so slicing first-{ to last-} corrupts the result (user report: passing runs
+ * showed red in the Testing pane). Jest emits the report as ONE compact `{…}` line;
+ * scan lines from the END for one that parses and carries testResults.
  */
 export function extractJestJson(stdout: string): string {
-  const start = stdout.indexOf("{");
-  const end = stdout.lastIndexOf("}");
-  return start !== -1 && end > start ? stdout.slice(start, end + 1) : "";
+  const lines = stdout.split(/\r?\n/);
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i].trim();
+    if (line.startsWith("{") && line.endsWith("}")) {
+      try {
+        const doc = JSON.parse(line);
+        if (doc && typeof doc === "object" && "testResults" in doc) {
+          return line;
+        }
+      } catch {
+        /* a braced line that isn't the report (e.g. logged JSON) — keep scanning */
+      }
+    }
+  }
+  return "";
 }
