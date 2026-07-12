@@ -150,6 +150,35 @@ describe("project cards", () => {
   });
 });
 
+describe("plugin debugging block (#63)", () => {
+  const pluginState = (over: Partial<ProjectCardState> = {}) => state({ projects: [project({ type: "plugin", ...over })] });
+
+  it("embeds a Debugging block on plugin cards only", () => {
+    expect(card(pluginState(), "project").debugging).toBeDefined();
+    expect(card(state({ projects: [project({ type: "webresources", detail: undefined })] }), "project").debugging).toBeUndefined();
+  });
+
+  it("offers How-to-profile + Download + Replay, targeting the component", () => {
+    const d = card(pluginState({ root: "c:/repo/plugins", isRoot: false, relativeRoot: "plugins" }), "project").debugging!;
+    expect(d.profile.command).toBe("dataverse-powertools.guidePluginProfiling");
+    expect(d.download.command).toBe("dataverse-powertools.downloadPluginProfiles");
+    expect(d.replay.command).toBe("dataverse-powertools.generatePluginReplayTest");
+    expect(d.profile.args).toContain("c:/repo/plugins");
+  });
+
+  it("reports the downloaded-profile count from the local scan", () => {
+    expect(card(pluginState({ downloadedProfiles: 0 }), "project").debugging!.downloadedProfiles).toBe(0);
+    expect(card(pluginState({ downloadedProfiles: 3 }), "project").debugging!.downloadedProfiles).toBe(3);
+  });
+
+  it("keeps the profiler commands out of the card overflow (they live in the block)", () => {
+    const overflow = card(pluginState(), "project").overflow.map((a) => a.command);
+    expect(overflow).not.toContain("dataverse-powertools.guidePluginProfiling");
+    expect(overflow).not.toContain("dataverse-powertools.downloadPluginProfiles");
+    expect(overflow).not.toContain("dataverse-powertools.generatePluginReplayTest");
+  });
+});
+
 describe("webresource extras", () => {
   const webState = (overrides: Partial<PanelState> = {}) => state({ projects: [project({ type: "webresources", detail: undefined })], ...overrides });
 

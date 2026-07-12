@@ -17,7 +17,7 @@ import { addClassDecoration, updateFilteringAttributes } from "../plugins/decora
 import { viewPluginTraceLogs } from "../plugins/traceLogs";
 import { downloadPluginProfiles } from "../plugins/downloadProfiles";
 import { generatePluginReplayTest } from "../plugins/replayTest";
-import { profilePluginStep, stopProfilingPluginStep, repairProfiledSteps } from "../plugins/profileStep";
+import { guidePluginProfiling } from "../plugins/profilerGuide";
 import { generateEarlyBoundV3, configureModelBuilderSettings } from "../general/modelbuilder";
 import { initialisePlugins as initialisePluginsOld } from "../plugins_old/initialisePlugins";
 import { pluginTableSelector as pluginTableSelectorOld } from "../plugins_old/pluginTables";
@@ -39,6 +39,7 @@ import { debugWebResources, stopDebugWebResources } from "../webresources/debug/
 import { switchWebresourceOutput } from "../webresources/switchOutputMode";
 import { runWebresourceTests } from "../webresources/runTests";
 import { openFormIntersects } from "../webresources/tableIntersects/tableIntersects";
+import { refreshConfigFiles } from "../general/configRefresh";
 import { extractSolution } from "../solution/extractSolution";
 import { packSolution } from "../solution/packSolution";
 import { deploySolution } from "../solution/deploySolution";
@@ -163,9 +164,7 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
       // Profiles are org-side records — works for both template versions.
       "dataverse-powertools.downloadPluginProfiles": (context) => downloadPluginProfiles(context),
       "dataverse-powertools.generatePluginReplayTest": (context) => generatePluginReplayTest(context),
-      "dataverse-powertools.profilePluginStep": (context) => profilePluginStep(context),
-      "dataverse-powertools.stopProfilingPluginStep": (context) => stopProfilingPluginStep(context),
-      "dataverse-powertools.repairProfiledSteps": (context) => repairProfiledSteps(context),
+      "dataverse-powertools.guidePluginProfiling": (context) => guidePluginProfiling(context),
     },
     async onProjectScaffolded(context) {
       if (isPluginV3(context)) {
@@ -181,6 +180,7 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
         vscode.window
           .showQuickPick(["Yes", "No"], {
             placeHolder: "Would you like to create a new plugin class?",
+            ignoreFocusOut: true, // a focus flap (e.g. the unit-testing toast) must not silently cancel the offer
           })
           .then(async (value) => {
             if (value === "Yes") {
@@ -223,6 +223,7 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
       "dataverse-powertools.switchWebresourceOutput": (context) => switchWebresourceOutput(context),
       "dataverse-powertools.runWebresourceTests": tracked("Tests", runWebresourceTests),
       "dataverse-powertools.openFormIntersects": (context) => openFormIntersects(context),
+      "dataverse-powertools.refreshConfigFiles": (context) => refreshConfigFiles(context),
     },
     async onProjectCreated(context) {
       await generateTypings(context);
@@ -231,6 +232,7 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
       vscode.window
         .showQuickPick(["Yes", "No"], {
           placeHolder: "Would you like to create a new webresource?",
+          ignoreFocusOut: true, // a focus flap must not silently cancel the offer
         })
         .then(async (value) => {
           if (value === "Yes") {

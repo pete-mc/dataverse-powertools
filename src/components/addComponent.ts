@@ -164,6 +164,7 @@ export async function addComponent(context: DataversePowerToolsContext): Promise
   const componentSettings: DiscoveredComponent["settings"] = {
     type: descriptor.id,
     templateversion: descriptor.defaultTemplateVersion,
+    configRevision: descriptor.configRevision,
     solutionName: context.projectSettings.solutionName,
   };
   const component: DiscoveredComponent = {

@@ -198,6 +198,10 @@
     if (card.registrations) {
       c.appendChild(registrationsBlock(card.registrations));
     }
+    // Plugin cards embed the profiler/debugging workflow.
+    if (card.debugging) {
+      c.appendChild(debuggingBlock(card.debugging));
+    }
     if (card.status) {
       const status = el("div", "statusline");
       status.appendChild(statusIcon(card.status.icon === "ok" ? "success" : card.status.icon === "running" ? "running" : "error"));
@@ -242,6 +246,25 @@
     if (block.note) {
       c.appendChild(el("div", "small", block.note));
     }
+    return c;
+  }
+
+  function debuggingBlock(block) {
+    const c = el("div", "debugging");
+    const row = el("div", "head");
+    row.appendChild(el("h3", "inline", "Debugging"));
+    row.appendChild(el("span", "grow"));
+    c.appendChild(row);
+    const actions = el("div", "secondary-row");
+    actions.appendChild(button(block.profile, "action"));
+    actions.appendChild(button(block.download, "action"));
+    actions.appendChild(button(block.replay, "action"));
+    c.appendChild(actions);
+    const note =
+      block.downloadedProfiles > 0
+        ? block.downloadedProfiles + " profile" + (block.downloadedProfiles === 1 ? "" : "s") + " in profiles/ · Replay to debug"
+        : "Capture a profile in the Plugin Registration Tool, download it, then Replay to debug it as a test.";
+    c.appendChild(el("div", "small", note));
     return c;
   }
 

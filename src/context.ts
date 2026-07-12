@@ -172,6 +172,8 @@ interface ProjectSettings {
   environmentLabel?: string;
   /** Environment GUID (from Global Discovery) — addresses the Admin Center / Maker Portal. */
   environmentId?: string;
+  /** Revision of the type's template CONFIG FILES this project last received (#113). */
+  configRevision?: number;
   solutionName?: string;
   webresourceSolutionName?: string;
   connectionString?: string;

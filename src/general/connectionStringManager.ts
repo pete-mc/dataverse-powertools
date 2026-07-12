@@ -423,6 +423,9 @@ export async function getProjectType(context: DataversePowerToolsContext): Promi
   }
   context.projectSettings.type = result.target as typeof context.projectSettings.type;
   context.projectSettings.templateversion = getProjectTypeDescriptor(result.target)?.defaultTemplateVersion ?? 1;
+  // Fresh scaffolds carry the CURRENT config revision (#113) — only genuinely
+  // older projects read as stale.
+  context.projectSettings.configRevision = getProjectTypeDescriptor(result.target)?.configRevision;
   context.channel.appendLine(`Project Type: ${result.label}`);
   return result.target ? "selected" : "empty";
 }

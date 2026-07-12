@@ -6,7 +6,7 @@
 import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
-import { VSBrowser, Workbench, InputBox, BottomBarPanel } from "vscode-extension-tester";
+import { VSBrowser, Workbench, InputBox, BottomBarPanel, Key } from "vscode-extension-tester";
 
 export const repoRoot = path.resolve(__dirname, "..", "..", "..");
 
@@ -263,6 +263,52 @@ export async function answer(value: string, byLabel = false, timeoutMs = 30000):
 /** Run a command by its palette title (e.g. "Dataverse PowerTools: Generate Typings"). */
 export async function runCommand(title: string): Promise<void> {
   await new Workbench().executeCommand(title);
+}
+
+/** Reclaim keyboard focus to the VS Code window. A long Web-API poll between UI
+ * steps (or a heavy op's toasts) can leave the window without focus, so the
+ * command-palette keystroke lands nowhere and executeCommand times out
+ * ("element not visible"). Clicking the editor part (neutral chrome — triggers
+ * nothing) restores focus. */
+async function focusWorkbench(): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  const { By } = require("vscode-extension-tester");
+  const driver = new Workbench().getDriver();
+  for (const selector of [".monaco-workbench .part.editor", ".monaco-workbench .part.sidebar", ".monaco-workbench"]) {
+    try {
+      const element = await driver.findElement(By.css(selector));
+      await element.click();
+      return;
+    } catch {
+      /* try the next anchor */
+    }
+  }
+}
+
+/**
+ * Run a command, surviving a lost-focus window or a notification/toast that
+ * intercepts the command palette (ExTester's executeCommand throws "element not
+ * visible" then). Reclaims focus, dismisses overlays, and retries.
+ */
+export async function runCommandResilient(title: string, attempts = 4): Promise<void> {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      try {
+        await new Workbench().getDriver().actions().sendKeys(Key.ESCAPE).perform();
+      } catch {
+        /* ignore */
+      }
+      await focusWorkbench();
+      await dismissOverlays();
+      await new Workbench().executeCommand(title);
+      return;
+    } catch (err) {
+      if (attempt === attempts - 1) {
+        throw err;
+      }
+      await sleep(4000);
+    }
+  }
 }
 
 /**
@@ -543,6 +589,29 @@ export class E2EClient {
     return data.value?.[0]?.pluginpackageid;
   }
 
+  /** Create a throwaway territory row — reliably triggers Create-of-territory
+   * steps (an org may have zero existing territories to update). Returns the id. */
+  async createTerritory(): Promise<string | undefined> {
+    const res = await this.request("POST", "territories", { name: `E2E profiler ${Date.now()}` });
+    if (res.status !== 204 && res.status !== 201) {
+      return undefined;
+    }
+    return res.headers.get("odata-entityid")?.match(/\(([0-9a-f-]{36})\)/i)?.[1];
+  }
+
+  async deleteTerritory(id: string): Promise<void> {
+    await this.request("DELETE", `territories(${id})`);
+  }
+
+  /** Whether a persisted plug-in profile exists for the given type name. */
+  async hasPluginProfileForType(typeName: string): Promise<boolean> {
+    const res = await this.request("GET", `mbs_pluginprofiles?$select=mbs_pluginprofileid&$filter=mbs_typename eq '${typeName.replace(/'/g, "''")}'&$top=1`);
+    if (!res.ok) {
+      return false;
+    }
+    return (((await res.json()) as any).value?.length ?? 0) > 0;
+  }
+
   async deletePluginPackage(uniqueName: string): Promise<void> {
     const id = await this.findPluginPackageId(uniqueName);
     if (id) {
@@ -609,4 +678,10 @@ export function assertSourceMapBindsBreakpoints(builtBundlePath: string, compone
       `sourceMapPathOverrides do not match the bundle's actual source name '${classSource}' — breakpoints would be UNBOUND. Overrides: ${Object.keys(config.sourceMapPathOverrides ?? {}).join(" | ")}`,
     );
   }
+}
+
+/** Extra Web API helpers for the profiler-replay chain (#114). */
+export interface E2EProfilerHelpers {
+  touchFirstTerritory(): Promise<boolean>;
+  hasPluginProfileForType(typeName: string): Promise<boolean>;
 }

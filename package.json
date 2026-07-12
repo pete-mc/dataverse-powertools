@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.8.0",
+  "version": "0.8.1",
   "engines": {
     "vscode": "^1.93.0"
   },
@@ -561,18 +561,8 @@
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
-        "command": "dataverse-powertools.profilePluginStep",
-        "title": "Dataverse PowerTools: Profile a Plugin Step",
-        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
-      },
-      {
-        "command": "dataverse-powertools.stopProfilingPluginStep",
-        "title": "Dataverse PowerTools: Stop Profiling a Plugin Step",
-        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
-      },
-      {
-        "command": "dataverse-powertools.repairProfiledSteps",
-        "title": "Dataverse PowerTools: Repair Profiled Steps",
+        "command": "dataverse-powertools.guidePluginProfiling",
+        "title": "Dataverse PowerTools: Profile a Plugin (how to capture)",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
@@ -593,6 +583,11 @@
       {
         "command": "dataverse-powertools.openFormIntersects",
         "title": "Dataverse PowerTools: Configure Form Intersects",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
+      },
+      {
+        "command": "dataverse-powertools.refreshConfigFiles",
+        "title": "Dataverse PowerTools: Refresh Project Config Files",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
       },
       {

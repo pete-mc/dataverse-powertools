@@ -283,11 +283,58 @@ describe("Web resources — comprehensive UI lifecycle (e2e)", function () {
     await expectOutput("[debug] served local", { timeoutMs: 60000, step: "debug serve local" });
     expect(first, "local bundle served onto the form").to.contain(loadedBanner);
 
+    // ---- Breakpoint hit (#114): set a breakpoint in OnLoad via the UI, assert
+    // it binds (filled dot, not the hollow unverified one), let the hot reload
+    // trigger OnLoad, assert the debugger PAUSES, then continue.
+    log("setting a breakpoint in OnLoad");
+    const classSource = fs.readFileSync(classFile(), "utf8");
+    const breakLine = classSource.split(/\r?\n/).findIndex((l) => l.includes("setFormNotification")) + 1; // 1-based
+    expect(breakLine, "breakpoint target line").to.be.greaterThan(0);
+    await VSBrowser.instance.openResources(classFile());
+    await sleep(2000);
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    const { TextEditor } = require("vscode-extension-tester");
+    const editor = new TextEditor();
+    await editor.toggleBreakpoint(breakLine);
+    const driver = VSBrowser.instance.driver;
+    const boundDeadline = Date.now() + 30000;
+    let bound = false;
+    while (Date.now() < boundDeadline && !bound) {
+      bound = (await driver.executeScript(
+        "return document.querySelectorAll('.codicon-debug-breakpoint:not(.codicon-debug-breakpoint-unverified)').length > 0 && document.querySelectorAll('.codicon-debug-breakpoint-unverified').length === 0;",
+      )) as boolean;
+      if (!bound) {
+        await sleep(2000);
+      }
+    }
+    expect(bound, "breakpoint VERIFIED (bound) in the attached debug session").to.equal(true);
+    log("breakpoint bound — forcing the hot reload to hit it");
+
     // Edit the source — webpack --watch rebuilds and the feature hot-reloads the page.
     log("editing the class to force a hot reload");
     const src = fs.readFileSync(classFile(), "utf8");
     fs.writeFileSync(classFile(), src.replace(loadedBanner, reloadBanner));
     await expectOutput("[debug] bundle rebuilt — reloading", { timeoutMs: 120000, step: "hot reload build" });
+
+    // The reloaded form runs OnLoad → the breakpoint must PAUSE the debugger
+    // (continue icon appears in the floating debug toolbar).
+    const pausedDeadline = Date.now() + 90000;
+    let paused = false;
+    while (Date.now() < pausedDeadline && !paused) {
+      paused = (await driver.executeScript("return document.querySelectorAll('.debug-toolbar .codicon-debug-continue').length > 0;")) as boolean;
+      if (!paused) {
+        await sleep(2000);
+      }
+    }
+    expect(paused, "debugger paused at the OnLoad breakpoint").to.equal(true);
+    log("paused at breakpoint — continuing");
+    await driver.executeScript(
+      "document.querySelector('.debug-toolbar .codicon-debug-continue').closest('a,li,div[role=button],.action-item')?.querySelector('a')?.click() ?? document.querySelector('.debug-toolbar .codicon-debug-continue').click();",
+    );
+    await sleep(3000);
+    await editor.toggleBreakpoint(breakLine); // remove so nothing pauses later
+    await sleep(1000);
+    // ---- end breakpoint hit
 
     const after = await bannerAfterReload(port, [loadedBanner, reloadBanner], reloadBanner);
     log(`banner after edit: ${after}`);
