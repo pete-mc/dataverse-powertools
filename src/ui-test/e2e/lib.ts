@@ -424,16 +424,18 @@ export class E2EClient {
     this.token = data.access_token;
   }
 
-  private async request(method: string, resourcePath: string): Promise<Response> {
+  private async request(method: string, resourcePath: string, body?: unknown): Promise<Response> {
     /* eslint-disable @typescript-eslint/naming-convention */
     const init = {
       method,
       headers: {
         Authorization: `Bearer ${this.token}`,
         Accept: "application/json",
+        "Content-Type": "application/json",
         "OData-MaxVersion": "4.0",
         "OData-Version": "4.0",
       },
+      body: body === undefined ? undefined : JSON.stringify(body),
     };
     /* eslint-enable @typescript-eslint/naming-convention */
     const url = `${this.env.url.replace(/\/+$/, "")}/${API_VERSION}/${resourcePath}`;
@@ -475,6 +477,37 @@ export class E2EClient {
     if (id) {
       await this.request("DELETE", `webresourceset(${id})`);
     }
+  }
+
+  /** The DEPLOYED JavaScript of a webresource (base64-decoded), or undefined. */
+  async getWebresourceContent(name: string): Promise<string | undefined> {
+    const res = await this.request("GET", `webresourceset?$select=content&$filter=name eq '${name.replace(/'/g, "''")}'`);
+    if (!res.ok) {
+      return undefined;
+    }
+    const data: any = await res.json();
+    const content = data.value?.[0]?.content;
+    return content ? Buffer.from(content, "base64").toString("utf8") : undefined;
+  }
+
+  async getFormXml(formId: string): Promise<string | undefined> {
+    const res = await this.request("GET", `systemforms(${formId})?$select=formxml`);
+    if (!res.ok) {
+      return undefined;
+    }
+    return ((await res.json()) as any).formxml;
+  }
+
+  async getFormEntity(formId: string): Promise<string | undefined> {
+    const res = await this.request("GET", `systemforms(${formId})?$select=objecttypecode`);
+    return res.ok ? ((await res.json()) as any).objecttypecode : undefined;
+  }
+
+  /** Restore a form's XML (test cleanup) and publish the change. */
+  async setFormXml(formId: string, formXml: string, entityLogicalName: string): Promise<void> {
+    await this.request("PATCH", `systemforms(${formId})`, { formxml: formXml });
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    await this.request("POST", "PublishXml", { ParameterXml: `<importexportxml><entities><entity>${entityLogicalName}</entity></entities></importexportxml>` });
   }
 
   /** A model-driven app id to open forms in (deterministic form URLs need one). Prefers an app
@@ -547,5 +580,33 @@ export async function resetAllCredentials(log?: (m: string) => void): Promise<vo
     if (log) {
       log("[reset] Clear Stored Credentials command unavailable (extension not active yet) — pac cleared host-side");
     }
+  }
+}
+
+/**
+ * Breakpoint-binding parity check (user request): the built bundle's inline
+ * source map must contain the class's source under a name our attach config's
+ * sourceMapPathOverrides actually match — the exact mismatch that shipped as
+ * "unbound breakpoints". Throws with the real source names on failure.
+ */
+export function assertSourceMapBindsBreakpoints(builtBundlePath: string, componentRoot: string, prefix: string, classFileName: string): void {
+  // Compiled e2e code lives in out/ui-test/e2e; the compiled extension modules in out/.
+
+  const { buildAttachDebugConfig, anyOverrideMatches } = require("../../webresources/debug/debugConfig");
+  const code = fs.readFileSync(builtBundlePath, "utf8");
+  const match = code.match(/\/\/# sourceMappingURL=data:application\/json[^,]*,([A-Za-z0-9+/=]+)/);
+  if (!match) {
+    throw new Error(`${path.basename(builtBundlePath)} has no inline source map — webpack.dev.js devtool drifted from inline-source-map (breakpoints cannot bind).`);
+  }
+  const sources: string[] = JSON.parse(Buffer.from(match[1], "base64").toString("utf8")).sources ?? [];
+  const classSource = sources.find((source) => source.includes(`webresources_src/${classFileName}`));
+  if (!classSource) {
+    throw new Error(`Source map does not carry webresources_src/${classFileName}. Sources: ${sources.slice(0, 10).join(", ")}`);
+  }
+  const config = buildAttachDebugConfig("edge", 9222, componentRoot, prefix);
+  if (!anyOverrideMatches(config.sourceMapPathOverrides, classSource)) {
+    throw new Error(
+      `sourceMapPathOverrides do not match the bundle's actual source name '${classSource}' — breakpoints would be UNBOUND. Overrides: ${Object.keys(config.sourceMapPathOverrides ?? {}).join(" | ")}`,
+    );
   }
 }

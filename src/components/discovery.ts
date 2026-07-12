@@ -7,7 +7,7 @@
 // resolves them into components with root-file inheritance and provides
 // path→component resolution. Unit-tested in discovery.spec.ts.
 
-import { migrateSettings } from "../general/settingsMigrations";
+import { migrateSettings, MigrationIo } from "../general/settingsMigrations";
 
 /** The parsed shape of a component's dataverse-powertools.json (loosely typed —
  * the full ProjectSettings interface lives in context.ts, which imports vscode). */
@@ -65,7 +65,13 @@ const INHERITED_FIELDS = ["connectionString", "tenantId", "prefix", "environment
  * @param workspaceRoot absolute workspace folder
  * @param settingsFiles each discovered dataverse-powertools.json path + raw content
  */
-export function resolveComponents(workspaceRoot: string, settingsFiles: { path: string; content: string }[]): DiscoveryResult {
+export function resolveComponents(
+  workspaceRoot: string,
+  settingsFiles: { path: string; content: string }[],
+  // Impure callers supply fs-backed io per component so io-dependent migrations
+  // (spkl.json import, modelbuilder.json move-out) run during discovery too.
+  ioForComponent?: (componentRoot: string) => MigrationIo,
+): DiscoveryResult {
   const root = normalizeFsPath(workspaceRoot);
   const malformed: string[] = [];
   const components: DiscoveredComponent[] = [];
@@ -113,7 +119,7 @@ export function resolveComponents(workspaceRoot: string, settingsFiles: { path: 
   // Run the central settings migrations (#71) so subfolder components behave
   // exactly like the root one (context.readSettings migrates the root file).
   for (const component of components) {
-    component.settings = migrateSettings(component.settings).settings as ComponentSettings;
+    component.settings = migrateSettings(component.settings, ioForComponent?.(component.root)).settings as ComponentSettings;
   }
 
   return { components, malformed };

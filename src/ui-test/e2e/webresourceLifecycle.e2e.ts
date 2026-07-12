@@ -3,7 +3,7 @@ import * as fs from "fs";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
 import { loadE2EEnv, freshWorkspace, answerText, answerFlexible, pickByLabel, pickFirst, runCommand, waitForFile, dismissOverlays, sleep, E2EClient } from "./lib";
-import { resetAllCredentials } from "./lib";
+import { resetAllCredentials, assertSourceMapBindsBreakpoints } from "./lib";
 
 // End-to-end: create a Web Resources project from scratch via the real wizard, then
 // generate typings, create a class + test, build the TypeScript, and deploy to the
@@ -119,6 +119,11 @@ describe("Web resources lifecycle (e2e)", function () {
   it("builds the TypeScript with webpack", async () => {
     await runCommand("Dataverse PowerTools: Build Webresources");
     expect(await waitForFile(path.join(workspace, "bin", libraryName()), 180000), `bin/${libraryName()}`).to.equal(true);
+
+    // Breakpoint-binding parity (bundled mode): the bundle's REAL source-map
+    // names must match the attach config's overrides ("unbound breakpoints").
+    const prefix = libraryName().replace(/_library\.js$/, "");
+    assertSourceMapBindsBreakpoints(path.join(workspace, "bin", libraryName()), workspace, prefix, `${className}.ts`);
   });
 
   it("deploys the webresource to Dataverse", async () => {

@@ -91,6 +91,11 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
       `${prefix}editPluginMessageFilter`,
       `${prefix}togglePluginEmitEntityEtc`,
       `${prefix}viewPluginTraceLogs`,
+      `${prefix}downloadPluginProfiles`,
+      `${prefix}generatePluginReplayTest`,
+      `${prefix}profilePluginStep`,
+      `${prefix}stopProfilingPluginStep`,
+      `${prefix}repairProfiledSteps`,
     ],
     menu(state) {
       const legacy = (state.templateVersion ?? 0) < 3;
@@ -108,6 +113,11 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
           { command: `${prefix}createPluginClass`, label: "New plugin class" },
           { command: `${prefix}createWorkflowClass`, label: "New workflow class" },
           { command: `${prefix}viewPluginTraceLogs`, label: "View plugin trace logs" },
+          { command: `${prefix}downloadPluginProfiles`, label: "Download captured profiles" },
+          { command: `${prefix}generatePluginReplayTest`, label: "Replay profile as unit test" },
+          { command: `${prefix}profilePluginStep`, label: "Profile a step…" },
+          { command: `${prefix}stopProfilingPluginStep`, label: "Stop profiling…" },
+          { command: `${prefix}repairProfiledSteps`, label: "Repair profiled steps" },
           ...(legacy
             ? [
                 { command: `${prefix}createSNKKey`, label: "Create SNK key" },
@@ -175,7 +185,8 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
     id: ProjectTypes.solution,
     displayName: "Solution",
     templateFolder: "solution",
-    defaultTemplateVersion: 1.1,
+    // Integer — the historical 1.1 FLOAT is migrated to 2 by settingsMigrations (#71).
+    defaultTemplateVersion: 2,
     contextKey: "isSolution",
     commandIds: [`${prefix}extractSolution`, `${prefix}packSolution`, `${prefix}deploySolution`],
     menu() {

@@ -209,7 +209,7 @@ async function promptPluginProjectName(context: DataversePowerToolsContext): Pro
   context.projectSettings.pluginProjectName = sanitizeProjectName(input || defaultName);
 }
 
-async function normalizePluginV3Layout(context: DataversePowerToolsContext): Promise<void> {
+export async function normalizePluginV3Layout(context: DataversePowerToolsContext): Promise<void> {
   if (!vscode.workspace.workspaceFolders || context.projectSettings.type !== ProjectTypes.plugin || context.projectSettings.templateversion !== 3) {
     return;
   }

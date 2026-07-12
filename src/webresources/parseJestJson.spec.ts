@@ -59,4 +59,27 @@ describe("extractJestJson", () => {
   it("returns empty string when there is no object", () => {
     expect(extractJestJson("no json here")).toBe("");
   });
+
+  it("survives braces in the noise — the ts-jest globals deprecation warning (user report)", () => {
+    // The warning prints a config snippet containing `{`, which used to make the
+    // first-{-to-last-} slice start inside the warning: parse failed and PASSING
+    // runs showed red in the Testing pane.
+    const noisy = [
+      "ts-jest[ts-jest-transformer] (WARN) Define `ts-jest` config under `globals` is deprecated. Please do",
+      "transform: {",
+      "    <transform_regex>: ['ts-jest', { /* ts-jest config goes here in Jest */ }],",
+      "},",
+      "See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/presets#advanced",
+      "PASS webresources_src/__tests__/Account.test.ts",
+      JEST,
+      "",
+    ].join("\n");
+    expect(extractJestJson(noisy)).toBe(JEST);
+    expect(parseJestJson(extractJestJson(noisy))).toHaveLength(3);
+  });
+
+  it("ignores a braced console.log line after the report", () => {
+    const noisy = `${JEST}\n{"not":"the report"}`;
+    expect(extractJestJson(noisy)).toBe(JEST);
+  });
 });

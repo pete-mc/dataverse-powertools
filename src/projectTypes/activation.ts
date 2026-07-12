@@ -15,6 +15,9 @@ import { buildProject } from "../plugins/buildProject";
 import { buildAndDeploy } from "../plugins/buildAndDeploy";
 import { addClassDecoration, updateFilteringAttributes } from "../plugins/decorations";
 import { viewPluginTraceLogs } from "../plugins/traceLogs";
+import { downloadPluginProfiles } from "../plugins/downloadProfiles";
+import { generatePluginReplayTest } from "../plugins/replayTest";
+import { profilePluginStep, stopProfilingPluginStep, repairProfiledSteps } from "../plugins/profileStep";
 import { generateEarlyBoundV3, configureModelBuilderSettings } from "../general/modelbuilder";
 import { initialisePlugins as initialisePluginsOld } from "../plugins_old/initialisePlugins";
 import { pluginTableSelector as pluginTableSelectorOld } from "../plugins_old/pluginTables";
@@ -95,8 +98,24 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
         // plugin components, so "Configure Earlybound" on the project card opens
         // it on demand, scoped to the invoking component (#47).
       } else {
-        context.channel.appendLine("[Deprecated] Plugin template version 2 is deprecated.");
-        context.channel.appendLine("[Deprecated] Please create a new Plugin project and manually migrate your plugin code to the new structure.");
+        // Policy (#71): legacy (<v3, spkl.exe-based, Windows-only) plugin support is
+        // frozen — no new features — and will be REMOVED in 0.9.0. The migration
+        // path is a new Plugins component (Add Component offers to move the existing
+        // project into a subfolder first), then moving the plugin classes across —
+        // the v3 layout (pac plugin init) is too different for a safe auto-rewrite.
+        const upgradeWiki = "https://github.com/pete-mc/dataverse-powertools/wiki/Upgrading-Projects";
+        context.channel.appendLine("[Deprecated] Legacy plugin template (<v3) support is frozen and will be REMOVED in 0.9.0.");
+        context.channel.appendLine(
+          "[Deprecated] Migrate: run Add Component → Plugins (it offers to move this project into a subfolder first), then move your plugin classes into the new project.",
+        );
+        context.channel.appendLine(`[Deprecated] Full upgrade guide (per-version differences, config refresh steps): ${upgradeWiki}`);
+        vscode.window
+          .showWarningMessage("This plugin project uses the legacy (<v3) template. Legacy support is frozen and will be removed in Dataverse PowerTools 0.9.0.", "How to upgrade")
+          .then((choice) => {
+            if (choice === "How to upgrade") {
+              void vscode.env.openExternal(vscode.Uri.parse(upgradeWiki));
+            }
+          });
         await initialisePluginsOld(context);
         await pluginTableSelectorOld(context);
         // Legacy still loads its tree eagerly — reveal the view for it.
@@ -141,6 +160,12 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
       ),
       "dataverse-powertools.updateFilteringAttributes": (context) => updateFilteringAttributes(context),
       "dataverse-powertools.viewPluginTraceLogs": (context) => viewPluginTraceLogs(context),
+      // Profiles are org-side records — works for both template versions.
+      "dataverse-powertools.downloadPluginProfiles": (context) => downloadPluginProfiles(context),
+      "dataverse-powertools.generatePluginReplayTest": (context) => generatePluginReplayTest(context),
+      "dataverse-powertools.profilePluginStep": (context) => profilePluginStep(context),
+      "dataverse-powertools.stopProfilingPluginStep": (context) => stopProfilingPluginStep(context),
+      "dataverse-powertools.repairProfiledSteps": (context) => repairProfiledSteps(context),
     },
     async onProjectScaffolded(context) {
       if (isPluginV3(context)) {

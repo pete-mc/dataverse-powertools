@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.7.5",
+  "version": "0.8.0",
   "engines": {
     "vscode": "^1.93.0"
   },
@@ -548,6 +548,31 @@
       {
         "command": "dataverse-powertools.viewPluginTraceLogs",
         "title": "Dataverse PowerTools: View Plugin Trace Logs",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
+        "command": "dataverse-powertools.downloadPluginProfiles",
+        "title": "Dataverse PowerTools: Download Captured Plugin Profiles",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
+        "command": "dataverse-powertools.generatePluginReplayTest",
+        "title": "Dataverse PowerTools: Replay Plugin Profile as Unit Test",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
+        "command": "dataverse-powertools.profilePluginStep",
+        "title": "Dataverse PowerTools: Profile a Plugin Step",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
+        "command": "dataverse-powertools.stopProfilingPluginStep",
+        "title": "Dataverse PowerTools: Stop Profiling a Plugin Step",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
+        "command": "dataverse-powertools.repairProfiledSteps",
+        "title": "Dataverse PowerTools: Repair Profiled Steps",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
