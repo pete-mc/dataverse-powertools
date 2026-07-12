@@ -182,6 +182,7 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
         vscode.window
           .showQuickPick(["Yes", "No"], {
             placeHolder: "Would you like to create a new plugin class?",
+            ignoreFocusOut: true, // a focus flap (e.g. the unit-testing toast) must not silently cancel the offer
           })
           .then(async (value) => {
             if (value === "Yes") {
@@ -233,6 +234,7 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
       vscode.window
         .showQuickPick(["Yes", "No"], {
           placeHolder: "Would you like to create a new webresource?",
+          ignoreFocusOut: true, // a focus flap must not silently cancel the offer
         })
         .then(async (value) => {
           if (value === "Yes") {

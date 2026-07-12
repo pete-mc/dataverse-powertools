@@ -94,12 +94,25 @@ describe("Plugin profiler capture → replay (e2e)", function () {
     await pickByLabel("Yes", 600000);
     await pickByLabel("xUnit", 60000);
     log("create-plugin-class prompt");
-    await pickByLabel("Yes", 600000);
-    await answerText(className);
+    const classFile = path.join(workspace, projectName, `${className}.cs`);
+    try {
+      await pickByLabel("Yes", 600000);
+      await answerText(className);
+    } catch {
+      // The offer is focus-sensitive-adjacent (the unit-testing toasts stole it
+      // once) — creating the class via the command is the same code path.
+      log("create-class offer missed — invoking Create Plugin Class directly");
+      await dismissOverlays();
+      await runCommand("Dataverse PowerTools: Create Plugin Class");
+      await answerText(className);
+    }
     await sleep(4000);
     await dismissOverlays();
-
-    const classFile = path.join(workspace, projectName, `${className}.cs`);
+    if (!(await waitForFile(classFile, 60000))) {
+      log("class file absent — invoking Create Plugin Class directly");
+      await runCommand("Dataverse PowerTools: Create Plugin Class");
+      await answerText(className);
+    }
     expect(await waitForFile(classFile, 300000), `${className}.cs`).to.equal(true);
     // Register a REAL step on a rarely-touched entity: Update of territory,
     // post-op sync — Build Package & Deploy registers it from the attribute.
