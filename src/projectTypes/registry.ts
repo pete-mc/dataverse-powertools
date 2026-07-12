@@ -100,9 +100,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
       `${prefix}viewPluginTraceLogs`,
       `${prefix}downloadPluginProfiles`,
       `${prefix}generatePluginReplayTest`,
-      `${prefix}profilePluginStep`,
-      `${prefix}stopProfilingPluginStep`,
-      `${prefix}repairProfiledSteps`,
+      `${prefix}guidePluginProfiling`,
     ],
     menu(state) {
       const legacy = (state.templateVersion ?? 0) < 3;

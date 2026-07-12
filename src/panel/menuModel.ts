@@ -48,24 +48,18 @@ export interface RegistrationsBlock {
   note?: string;
 }
 
-/** The profiler/debugging block embedded in a plugin project card (#63/#112).
- * Everything here is derived from LOCAL files (the backup file + profiles/), so
- * the panel stays network-free; the actions open the real commands. */
+/** The profiler/debugging block embedded in a plugin project card (#63). Local
+ * data only (a scan of profiles/), so the panel stays network-free. Capturing
+ * happens in the Plugin Registration Tool (guide); we download + replay it. */
 export interface DebuggingBlock {
-  /** Steps currently profiled (backup-file entries); 0 = not profiling. */
-  profilingSteps: number;
-  /** Profiles downloaded into profiles/. */
+  /** Profiles downloaded into / dropped in profiles/. */
   downloadedProfiles: number;
-  /** Enable profiling on a step (always available). */
+  /** How to capture a profile (guides to the Plugin Registration Tool). */
   profile: MenuAction;
-  /** Fetch captured profiles from the org (always available). */
+  /** Fetch captured profiles from the org. */
   download: MenuAction;
-  /** Stop profiling / restore — only while profiling is active. */
-  stop?: MenuAction;
-  /** Restore all profiled steps from backup — only while profiling is active. */
-  repair?: MenuAction;
-  /** Generate + debug a replay test — only when at least one profile is downloaded. */
-  replay?: MenuAction;
+  /** Generate + debug a replay test — always available (offers a file picker). */
+  replay: MenuAction;
 }
 
 /** Registrations shown before collapsing into a "+N more" note (big repos can have hundreds). */
@@ -127,8 +121,6 @@ export interface ProjectCardState extends ProjectMenuState {
   isRoot: boolean;
   /** Secondary line (e.g. the csproj); the relativeRoot is shown when set. */
   detail?: string;
-  /** Plugin cards only: steps currently profiled (from the local backup file). */
-  profilingSteps?: number;
   /** Plugin cards only: profiles downloaded into profiles/ (local scan). */
   downloadedProfiles?: number;
 }
@@ -242,19 +234,14 @@ function registrationsFor(state: PanelState, project: ProjectCardState): Registr
   };
 }
 
-/** The profiler/debugging block for one plugin card. Status comes from local
- * files only (the backup file + profiles/), so no network is needed to render. */
+/** The profiler/debugging block for one plugin card. Status comes from a local
+ * scan of profiles/, so no network is needed to render. */
 function debuggingFor(project: ProjectCardState): DebuggingBlock {
-  const profilingSteps = project.profilingSteps ?? 0;
-  const downloadedProfiles = project.downloadedProfiles ?? 0;
   return {
-    profilingSteps,
-    downloadedProfiles,
-    profile: forComponent({ command: "dataverse-powertools.profilePluginStep", label: "Profile a step" }, project),
+    downloadedProfiles: project.downloadedProfiles ?? 0,
+    profile: forComponent({ command: "dataverse-powertools.guidePluginProfiling", label: "How to profile" }, project),
     download: forComponent({ command: "dataverse-powertools.downloadPluginProfiles", label: "Download profiles" }, project),
-    stop: profilingSteps > 0 ? forComponent({ command: "dataverse-powertools.stopProfilingPluginStep", label: "Stop profiling" }, project) : undefined,
-    repair: profilingSteps > 0 ? forComponent({ command: "dataverse-powertools.repairProfiledSteps", label: "Repair" }, project) : undefined,
-    replay: downloadedProfiles > 0 ? forComponent({ command: "dataverse-powertools.generatePluginReplayTest", label: "Replay & debug" }, project) : undefined,
+    replay: forComponent({ command: "dataverse-powertools.generatePluginReplayTest", label: "Replay & debug" }, project),
   };
 }
 

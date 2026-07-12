@@ -118,6 +118,17 @@ export function replayClassName(pluginTypeName: string, stamp: string): string {
   return `Replay_${shortType.replace(/[^A-Za-z0-9_]+/g, "_")}_${stamp}`;
 }
 
+/** Open a file dialog for a saved profile (PRT-exported XML). */
+async function browseForProfile(componentRoot: string): Promise<string | undefined> {
+  const picked = await vscode.window.showOpenDialog({
+    canSelectMany: false,
+    defaultUri: vscode.Uri.file(componentRoot),
+    openLabel: "Replay this profile",
+    filters: { "Plug-in profile": ["xml", "profile"], "All files": ["*"] }, // eslint-disable-line @typescript-eslint/naming-convention
+  });
+  return picked?.[0]?.fsPath;
+}
+
 export async function generatePluginReplayTest(context: DataversePowerToolsContext): Promise<void> {
   const componentRoot = activeComponentRoot(context);
   if (!componentRoot) {
@@ -131,16 +142,41 @@ export async function generatePluginReplayTest(context: DataversePowerToolsConte
     return;
   }
 
-  // Pick a downloaded profile (phase 2a puts them in profiles/).
+  // A profile comes from Download Captured Profiles OR is dropped into profiles/
+  // by the user (captured via the Plugin Registration Tool — same file the PRT
+  // "Replay Plug-in Execution" dialog's Profile Location field takes). When none
+  // is present, offer a file picker so any saved profile works.
   const profilesDir = path.join(componentRoot, "profiles");
   const profileFiles = fs.existsSync(profilesDir) ? (await fs.promises.readdir(profilesDir)).filter((file) => file.includes(".profile")) : [];
-  if (profileFiles.length === 0) {
-    vscode.window.showWarningMessage("No downloaded profiles in profiles/ — run 'Download Captured Profiles' first.");
+  let profilePath: string | undefined;
+  if (profileFiles.length === 1) {
+    profilePath = path.join(profilesDir, profileFiles[0]);
+  } else if (profileFiles.length > 1) {
+    const picked = await vscode.window.showQuickPick([...profileFiles, "$(folder-opened) Browse for a profile file…"], {
+      placeHolder: "Replay which profile?",
+      ignoreFocusOut: true,
+    });
+    profilePath = picked?.startsWith("$(folder") ? await browseForProfile(componentRoot) : picked ? path.join(profilesDir, picked) : undefined;
+  } else {
+    const choice = await vscode.window.showInformationMessage(
+      "No profiles in profiles/. Capture one in the Plugin Registration Tool (Start Profiling → Persist to Entity, trigger the plug-in), then Download it — or browse for a saved profile file.",
+      "Browse for a file…",
+      "Download profiles",
+    );
+    if (choice === "Download profiles") {
+      await vscode.commands.executeCommand("dataverse-powertools.downloadPluginProfiles");
+      return;
+    }
+    profilePath = choice === "Browse for a file…" ? await browseForProfile(componentRoot) : undefined;
+  }
+  if (!profilePath) {
     return;
   }
-  const picked = profileFiles.length === 1 ? profileFiles[0] : await vscode.window.showQuickPick(profileFiles, { placeHolder: "Replay which profile?", ignoreFocusOut: true });
-  if (!picked) {
-    return;
+  const picked = path.basename(profilePath);
+  // Copy a browsed-in file into profiles/ so the generated test's FindProfile locates it.
+  if (path.dirname(path.resolve(profilePath)) !== path.resolve(profilesDir)) {
+    await fs.promises.mkdir(profilesDir, { recursive: true });
+    await fs.promises.copyFile(profilePath, path.join(profilesDir, picked));
   }
 
   const profileXml = await fs.promises.readFile(path.join(profilesDir, picked), "utf8");

@@ -271,6 +271,7 @@ export async function runCommand(title: string): Promise<void> {
  * ("element not visible"). Clicking the editor part (neutral chrome — triggers
  * nothing) restores focus. */
 async function focusWorkbench(): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   const { By } = require("vscode-extension-tester");
   const driver = new Workbench().getDriver();
   for (const selector of [".monaco-workbench .part.editor", ".monaco-workbench .part.sidebar", ".monaco-workbench"]) {

@@ -17,7 +17,7 @@ import { addClassDecoration, updateFilteringAttributes } from "../plugins/decora
 import { viewPluginTraceLogs } from "../plugins/traceLogs";
 import { downloadPluginProfiles } from "../plugins/downloadProfiles";
 import { generatePluginReplayTest } from "../plugins/replayTest";
-import { profilePluginStep, stopProfilingPluginStep, repairProfiledSteps } from "../plugins/profileStep";
+import { guidePluginProfiling } from "../plugins/profilerGuide";
 import { generateEarlyBoundV3, configureModelBuilderSettings } from "../general/modelbuilder";
 import { initialisePlugins as initialisePluginsOld } from "../plugins_old/initialisePlugins";
 import { pluginTableSelector as pluginTableSelectorOld } from "../plugins_old/pluginTables";
@@ -164,9 +164,7 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
       // Profiles are org-side records — works for both template versions.
       "dataverse-powertools.downloadPluginProfiles": (context) => downloadPluginProfiles(context),
       "dataverse-powertools.generatePluginReplayTest": (context) => generatePluginReplayTest(context),
-      "dataverse-powertools.profilePluginStep": (context) => profilePluginStep(context),
-      "dataverse-powertools.stopProfilingPluginStep": (context) => stopProfilingPluginStep(context),
-      "dataverse-powertools.repairProfiledSteps": (context) => repairProfiledSteps(context),
+      "dataverse-powertools.guidePluginProfiling": (context) => guidePluginProfiling(context),
     },
     async onProjectScaffolded(context) {
       if (isPluginV3(context)) {

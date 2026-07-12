@@ -158,31 +158,22 @@ describe("plugin debugging block (#63)", () => {
     expect(card(state({ projects: [project({ type: "webresources", detail: undefined })] }), "project").debugging).toBeUndefined();
   });
 
-  it("offers Profile + Download when idle; the actions target the component", () => {
+  it("offers How-to-profile + Download + Replay, targeting the component", () => {
     const d = card(pluginState({ root: "c:/repo/plugins", isRoot: false, relativeRoot: "plugins" }), "project").debugging!;
-    expect(d.profile.command).toBe("dataverse-powertools.profilePluginStep");
+    expect(d.profile.command).toBe("dataverse-powertools.guidePluginProfiling");
     expect(d.download.command).toBe("dataverse-powertools.downloadPluginProfiles");
+    expect(d.replay.command).toBe("dataverse-powertools.generatePluginReplayTest");
     expect(d.profile.args).toContain("c:/repo/plugins");
-    expect(d.stop).toBeUndefined();
-    expect(d.repair).toBeUndefined();
-    expect(d.replay).toBeUndefined();
   });
 
-  it("shows Stop + Repair while profiling is active", () => {
-    const d = card(pluginState({ profilingSteps: 2 }), "project").debugging!;
-    expect(d.profilingSteps).toBe(2);
-    expect(d.stop!.command).toBe("dataverse-powertools.stopProfilingPluginStep");
-    expect(d.repair!.command).toBe("dataverse-powertools.repairProfiledSteps");
-  });
-
-  it("offers Replay only once a profile is downloaded", () => {
-    expect(card(pluginState({ downloadedProfiles: 0 }), "project").debugging!.replay).toBeUndefined();
-    expect(card(pluginState({ downloadedProfiles: 3 }), "project").debugging!.replay!.command).toBe("dataverse-powertools.generatePluginReplayTest");
+  it("reports the downloaded-profile count from the local scan", () => {
+    expect(card(pluginState({ downloadedProfiles: 0 }), "project").debugging!.downloadedProfiles).toBe(0);
+    expect(card(pluginState({ downloadedProfiles: 3 }), "project").debugging!.downloadedProfiles).toBe(3);
   });
 
   it("keeps the profiler commands out of the card overflow (they live in the block)", () => {
     const overflow = card(pluginState(), "project").overflow.map((a) => a.command);
-    expect(overflow).not.toContain("dataverse-powertools.profilePluginStep");
+    expect(overflow).not.toContain("dataverse-powertools.guidePluginProfiling");
     expect(overflow).not.toContain("dataverse-powertools.downloadPluginProfiles");
     expect(overflow).not.toContain("dataverse-powertools.generatePluginReplayTest");
   });

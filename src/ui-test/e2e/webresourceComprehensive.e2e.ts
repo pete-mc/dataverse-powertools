@@ -292,6 +292,7 @@ describe("Web resources — comprehensive UI lifecycle (e2e)", function () {
     expect(breakLine, "breakpoint target line").to.be.greaterThan(0);
     await VSBrowser.instance.openResources(classFile());
     await sleep(2000);
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     const { TextEditor } = require("vscode-extension-tester");
     const editor = new TextEditor();
     await editor.toggleBreakpoint(breakLine);

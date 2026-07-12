@@ -28,16 +28,6 @@ function activityItems(): ActivityItem[] {
   }));
 }
 
-/** Steps currently profiled = entries in this component's backup file (#63). */
-function countProfiledSteps(root: string): number {
-  try {
-    const store = JSON.parse(fs.readFileSync(path.join(root, ".dvpt-profiler-backup.json"), "utf8"));
-    return store && typeof store === "object" ? Object.keys(store).length : 0;
-  } catch {
-    return 0;
-  }
-}
-
 /** Profiles downloaded into <root>/profiles (#63 phase 2a). */
 function countDownloadedProfiles(root: string): number {
   try {
@@ -60,7 +50,6 @@ function projectCard(settings: ComponentSettings, root: string, relativeRoot: st
     hasPluginUnitTesting: !!settings.pluginUnitTestingEnabled,
     hasSpkl: fs.existsSync(path.join(root, "spkl.json")),
     webresourceOutput: settings.webresourceOutput as "bundle" | "perFile" | undefined,
-    profilingSteps: isPlugin ? countProfiledSteps(root) : undefined,
     downloadedProfiles: isPlugin ? countDownloadedProfiles(root) : undefined,
   };
 }
