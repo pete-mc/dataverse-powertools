@@ -331,6 +331,22 @@
       f.appendChild(el("span"));
     }
     f.appendChild(button(footer.log, "linkbtn"));
+    // Help & feedback links (#120): Docs · Report an issue.
+    if (footer.help && footer.help.length) {
+      const help = el("div", "help-links small");
+      footer.help.forEach(function (link, i) {
+        if (i > 0) {
+          help.appendChild(el("span", "sep", " · "));
+        }
+        const a = el("button", "linkbtn", link.label);
+        a.type = "button";
+        a.addEventListener("click", function () {
+          vscode.postMessage({ type: "openExternal", url: link.url });
+        });
+        help.appendChild(a);
+      });
+      f.appendChild(help);
+    }
     return f;
   }
 
