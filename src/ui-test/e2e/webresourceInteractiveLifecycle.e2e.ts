@@ -146,8 +146,8 @@ describe("Web resources lifecycle — interactive auth (e2e)", function () {
     // that OAuth sign-in never sets, reporting "Could not connect to dataverse." (then silently
     // no-op'ing the publish). Gate on "Publish Complete" and fail fast on the old symptom.
     await expectOutput("Publish Complete", {
-      timeoutMs: 180000,
-      failMarkers: ["Could not connect to dataverse.", "Error registering events."],
+      timeoutMs: 300000, // publish retries when another publish is still running
+      failMarkers: ["Could not connect to dataverse.", "Error registering events.", "Failed to save form", "Failed to publish customizations"],
       step: "register form events (interactive)",
     });
     await sleep(10000);

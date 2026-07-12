@@ -111,33 +111,52 @@ export class DataverseContext {
     }
   }
 
-  public async publishAllCustomisations(): Promise<void> {
+  /** PublishAll. Returns true only when Dataverse accepted the publish — callers
+   * must not report "Publish Complete" on false. A publish triggered moments
+   * earlier (a deploy, another client) makes Dataverse reject a second
+   * PublishAll with 429 / 0x80071151 until it finishes, so busy responses are
+   * retried with a delay instead of failing the whole flow. */
+  public async publishAllCustomisations(): Promise<boolean> {
     // No tenantId requirement — it is empty under interactive (OAuth) sign-in and is only used by
     // the service-principal token path. Gating on it silently skipped the publish (so "Register Form
     // Events" never completed) for interactive users; the token via getAuthorizationToken() works
     // for both auth types.
     if (!canCallDataverseApi({ organizationUrl: this.organizationUrl, isValid: this.isValid }) || !this.context.connectionString) {
-      return;
+      return false;
     }
-    /* eslint-disable @typescript-eslint/naming-convention */
-    const options: Options = {
-      method: "POST",
-      headers: {
-        Authorization: "Bearer " + (await this.getAuthorizationToken()),
-        "Content-Type": "application/json",
-      },
-    };
-    /* eslint-enable @typescript-eslint/naming-convention */
-    try {
-      const url = dataverseApiUrl(this.organizationUrl, "PublishAllXml");
-      const response = await fetch(url, options);
-      if (!response.ok) {
+    const url = dataverseApiUrl(this.organizationUrl, "PublishAllXml");
+    const maxAttempts = 8;
+    const retryDelayMs = 20000;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      /* eslint-disable @typescript-eslint/naming-convention */
+      const options: Options = {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + (await this.getAuthorizationToken()),
+          "Content-Type": "application/json",
+        },
+      };
+      /* eslint-enable @typescript-eslint/naming-convention */
+      try {
+        const response = await fetch(url, options);
+        if (response.ok) {
+          return true;
+        }
         const responseText = await response.text();
+        const publishAlreadyRunning = response.status === 429 || responseText.includes("0x80071151");
+        if (publishAlreadyRunning && attempt < maxAttempts) {
+          this.context.channel.appendLine(`A publish is already running — retrying in ${retryDelayMs / 1000}s (${attempt}/${maxAttempts - 1})…`);
+          await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+          continue;
+        }
         this.context.channel.appendLine(`Failed to publish customizations: ${response.status} ${responseText}`);
+        return false;
+      } catch (e: any) {
+        this.context.channel.appendLine(`Error publishing customizations: ${e?.message || JSON.stringify(e)}`);
+        return false;
       }
-    } catch (e: any) {
-      this.context.channel.appendLine(`Error publishing customizations: ${e?.message || JSON.stringify(e)}`);
     }
+    return false;
   }
 
   /**

@@ -55,9 +55,13 @@ export async function buildAndDeployExec(context: DataversePowerToolsContext) {
     },
     async () => {
       context.channel.appendLine("Publishing all customizations...");
-      await context.dataverse.publishAllCustomisations();
-      context.channel.appendLine("Publish Complete");
-      vscode.window.showInformationMessage(registered ? "Deploy complete — web resources published and form events registered." : "Deploy complete — web resources published.");
+      if (await context.dataverse.publishAllCustomisations()) {
+        context.channel.appendLine("Publish Complete");
+        vscode.window.showInformationMessage(registered ? "Deploy complete — web resources published and form events registered." : "Deploy complete — web resources published.");
+      } else {
+        vscode.window.showErrorMessage("Deploy uploaded the web resources but the publish failed — see the output for details.");
+        context.channel.show();
+      }
     },
   );
 }
@@ -130,7 +134,9 @@ export async function deploy(context: DataversePowerToolsContext, options?: { pu
         context.channel.appendLine(`Webresource deployment complete, upserted ${deployedCount} webresources.`);
         if (publish) {
           vscode.window.showInformationMessage(`Publishing customizations...`);
-          await context.dataverse.publishAllCustomisations();
+          if (!(await context.dataverse.publishAllCustomisations())) {
+            throw new Error("Publish failed — see the Dataverse PowerTools output for details.");
+          }
           vscode.window.showInformationMessage(`Deploy Complete (${deployedCount} webresources upserted)`);
         }
         succeeded = true;

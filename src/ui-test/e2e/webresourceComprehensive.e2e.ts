@@ -193,7 +193,13 @@ describe("Web resources — comprehensive UI lifecycle (e2e)", function () {
     await clearOutput();
     await runCommand("Dataverse PowerTools: Register Form Events");
     // saveFormData logs Saving Forms... -> Publishing All Customisations -> Publish Complete.
-    await expectOutput("Publish Complete", { timeoutMs: 180000, step: "register form events" });
+    // A failed form save (e.g. the 0x80048425 missing-name regression) or a failed
+    // publish must fail the step, not scroll past while the flow "completes".
+    await expectOutput("Publish Complete", {
+      timeoutMs: 300000, // publish retries while another publish is still running
+      failMarkers: ["Failed to save form", "Failed to publish customizations", "Error registering events."],
+      step: "register form events",
+    });
     // PublishAllXml returns before the app fully serves the updated form; let it settle.
     await sleep(15000);
   });

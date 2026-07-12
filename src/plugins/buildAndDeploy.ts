@@ -697,8 +697,11 @@ export async function buildAndDeploy(context: DataversePowerToolsContext): Promi
       context.channel.appendLine("Publishing all customizations...");
       try {
         vscode.window.showInformationMessage("Publishing customizations...");
-        await context.dataverse?.publishAllCustomisations();
-        context.channel.appendLine("Publish all customizations completed.");
+        if (await context.dataverse?.publishAllCustomisations()) {
+          context.channel.appendLine("Publish all customizations completed.");
+        } else {
+          context.channel.appendLine("Publish all customizations failed — see the output above.");
+        }
       } catch (publishError: any) {
         const message = publishError?.message || "Unknown publish error";
         context.channel.appendLine(`Publish all customizations failed: ${message}`);
