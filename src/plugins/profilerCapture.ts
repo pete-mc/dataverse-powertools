@@ -1,10 +1,10 @@
 import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
 import { activeComponentRoot } from "../components/componentDiscovery";
-import { isProfilerInstalled, getProfilableSteps, ProfilableStep } from "../general/dataverse/pluginProfiles";
+import { isProfilerInstalled, importSolution, getProfilableSteps, ProfilableStep } from "../general/dataverse/pluginProfiles";
 import { getOrganizationUrl } from "../general/connectionString";
 import { isCaptureSupported, buildEnableArgs, buildDisableArgs, runProfilerTool } from "./profilerCaptureTool";
-import { ensureCaptureToolRuntime } from "./profilerAssets";
+import { ensureCaptureToolRuntime, getProfilerSolutionBase64 } from "./profilerAssets";
 import { downloadPluginProfiles } from "./downloadProfiles";
 
 // "Profile the next run" (#63 capture, Windows-only): Start Profiling a registered
@@ -21,6 +21,28 @@ export function stepPickLabel(step: ProfilableStep): { label: string; descriptio
     label: step.typeName,
     description: [step.message, step.primaryEntity, mode, step.name].filter(Boolean).join(" · "),
   };
+}
+
+/** Install the Plugin Profiler managed solution (from the PRT NuGet) via ImportSolution
+ * when it's missing — so capture is one-click instead of "go install it in PRT". Shown
+ * with progress; returns true when the profiler is present afterwards. */
+async function installProfilerSolution(context: DataversePowerToolsContext): Promise<boolean> {
+  const base64 = await getProfilerSolutionBase64(context);
+  if (!base64) {
+    vscode.window.showErrorMessage("Could not fetch the Plugin Profiler solution — see the output.");
+    context.channel.show();
+    return false;
+  }
+  return vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: "Installing the Plugin Profiler (one-time)…", cancellable: false }, async () => {
+    const ok = await importSolution(context, base64);
+    if (!ok) {
+      vscode.window.showErrorMessage("Could not install the Plugin Profiler solution — see the output.");
+      context.channel.show();
+    } else {
+      context.channel.appendLine("[Profiler] Plugin Profiler solution installed.");
+    }
+    return ok;
+  });
 }
 
 export async function capturePluginRun(context: DataversePowerToolsContext): Promise<void> {
@@ -47,10 +69,10 @@ export async function capturePluginRun(context: DataversePowerToolsContext): Pro
     return;
   }
   if (!installed) {
-    vscode.window.showWarningMessage(
-      "The Plugin Profiler solution isn't installed in this environment. Install it once via the Plugin Registration Tool (Install Profiler), then retry.",
-    );
-    return;
+    const ok = await installProfilerSolution(context);
+    if (!ok) {
+      return;
+    }
   }
 
   // Prefer this project's own assembly; fall back to any custom step if none match

@@ -63,6 +63,36 @@ export async function ensureProfilerAssemblies(context: DataversePowerToolsConte
   return libDir;
 }
 
+/** The Plugin Profiler managed solution, shipped inside the PRT NuGet as a .cab
+ * (which is actually a solution ZIP that ImportSolution accepts). Base64 for the
+ * Web API import. Cached with the nupkg. Undefined on failure. */
+export async function getProfilerSolutionBase64(context: DataversePowerToolsContext): Promise<string | undefined> {
+  const cacheDir = path.join(context.vscode.globalStorageUri.fsPath, "pluginprofiler", PRT_NUGET_VERSION);
+  const cab = path.join(cacheDir, "PluginProfiler.Solution.cab");
+  try {
+    if (!fs.existsSync(cab)) {
+      context.channel.appendLine(`[Profiler] Fetching the Plugin Profiler solution (Plugin Registration Tool ${PRT_NUGET_VERSION})…`);
+      const response = await fetch(PRT_NUPKG_URL);
+      if (!response.ok) {
+        throw new Error(`nupkg download failed: ${response.status} ${response.statusText}`);
+      }
+      const buffer = Buffer.from(await response.arrayBuffer());
+      // eslint-disable-next-line @typescript-eslint/naming-convention -- constructor import
+      const AdmZip = require("adm-zip");
+      const entry = new AdmZip(buffer).getEntry("tools/PluginProfiler.Solution.cab");
+      if (!entry) {
+        throw new Error("PluginProfiler.Solution.cab not found in the PRT package");
+      }
+      await fs.promises.mkdir(cacheDir, { recursive: true });
+      await fs.promises.writeFile(cab, entry.getData());
+    }
+    return (await fs.promises.readFile(cab)).toString("base64");
+  } catch (error: any) {
+    context.channel.appendLine(`[Profiler] Could not fetch the Plugin Profiler solution: ${error?.message ?? error}`);
+    return undefined;
+  }
+}
+
 /** Bundled capture tool (Windows-only) that ships in the VSIX. */
 export const CAPTURE_TOOL_NAME = "DvptPluginProfiler.exe";
 

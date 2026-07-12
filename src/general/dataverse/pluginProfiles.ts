@@ -111,6 +111,45 @@ export async function isProfilerInstalled(context: DataversePowerToolsContext): 
   return body ? ((body.value?.length ?? 0) > 0 ? true : false) : undefined;
 }
 
+function newGuid(): string {
+  const bytes = require("crypto").randomBytes(16);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = bytes.toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/** Import a solution (the Plugin Profiler managed solution) via the Web API
+ * ImportSolution action. Synchronous — resolves when the import completes. Returns
+ * true on success. Works under both auth types (token authorises the call). */
+export async function importSolution(context: DataversePowerToolsContext, customizationFileBase64: string): Promise<boolean> {
+  const dataverse = context.dataverse;
+  if (!dataverse || !canCallDataverseApi({ organizationUrl: dataverse.organizationUrl, isValid: dataverse.isValid })) {
+    return false;
+  }
+  try {
+    const url = dataverseApiUrl(dataverse.organizationUrl, "ImportSolution");
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { Authorization: "Bearer " + (await dataverse.getAuthorizationToken()), "Content-Type": "application/json" },
+      body: JSON.stringify({
+        OverwriteUnmanagedCustomizations: false,
+        PublishWorkflows: false,
+        CustomizationFile: customizationFileBase64,
+        ImportJobId: newGuid(),
+      }),
+    });
+    if (!response.ok) {
+      await logDataverseHttpError(context.channel, "Import the Plugin Profiler solution", response);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    logDataverseError(context.channel, "Import the Plugin Profiler solution", error);
+    return false;
+  }
+}
+
 /** Captured profiles, newest first (without the heavy report column). Undefined on failure. */
 export async function getPluginProfiles(context: DataversePowerToolsContext, top: number = 50): Promise<PluginProfileRecord[] | undefined> {
   const body = await getJson(context, "List captured plugin profiles", pluginProfilesQuery(top));
