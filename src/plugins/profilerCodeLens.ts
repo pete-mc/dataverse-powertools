@@ -56,7 +56,22 @@ function hasBackupForType(componentRoot: string, typeName: string): boolean {
 }
 
 class ProfilerCodeLensProvider implements vscode.CodeLensProvider {
-  constructor(private readonly context: DataversePowerToolsContext) {}
+  private readonly _onDidChange = new vscode.EventEmitter<void>();
+  readonly onDidChangeCodeLenses = this._onDidChange.event;
+
+  constructor(private readonly context: DataversePowerToolsContext) {
+    // Re-render lenses (Profile ↔ Stop) when a backup file appears/clears, so the
+    // toggle flips without reopening the file.
+    const watcher = vscode.workspace.createFileSystemWatcher("**/.dvpt-profiler-backup.json");
+    watcher.onDidCreate(() => this._onDidChange.fire());
+    watcher.onDidChange(() => this._onDidChange.fire());
+    watcher.onDidDelete(() => this._onDidChange.fire());
+    context.vscode.subscriptions.push(watcher, this._onDidChange);
+  }
+
+  refresh(): void {
+    this._onDidChange.fire();
+  }
 
   provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
     const component = componentForPath(this.context.components ?? [], document.uri.fsPath);

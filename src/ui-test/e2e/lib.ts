@@ -265,27 +265,45 @@ export async function runCommand(title: string): Promise<void> {
   await new Workbench().executeCommand(title);
 }
 
+/** Reclaim keyboard focus to the VS Code window. A long Web-API poll between UI
+ * steps (or a heavy op's toasts) can leave the window without focus, so the
+ * command-palette keystroke lands nowhere and executeCommand times out
+ * ("element not visible"). Clicking the editor part (neutral chrome — triggers
+ * nothing) restores focus. */
+async function focusWorkbench(): Promise<void> {
+  const { By } = require("vscode-extension-tester");
+  const driver = new Workbench().getDriver();
+  for (const selector of [".monaco-workbench .part.editor", ".monaco-workbench .part.sidebar", ".monaco-workbench"]) {
+    try {
+      const element = await driver.findElement(By.css(selector));
+      await element.click();
+      return;
+    } catch {
+      /* try the next anchor */
+    }
+  }
+}
+
 /**
- * Run a command, surviving a notification/toast that intercepts the command
- * palette (ExTester's executeCommand throws "element not visible" when a toast
- * overlays the input — common right after a heavy op like deploy). Dismisses
- * overlays and retries, pressing Escape between attempts to close a half-open
- * palette.
+ * Run a command, surviving a lost-focus window or a notification/toast that
+ * intercepts the command palette (ExTester's executeCommand throws "element not
+ * visible" then). Reclaims focus, dismisses overlays, and retries.
  */
-export async function runCommandResilient(title: string, attempts = 3): Promise<void> {
+export async function runCommandResilient(title: string, attempts = 4): Promise<void> {
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
+      try {
+        await new Workbench().getDriver().actions().sendKeys(Key.ESCAPE).perform();
+      } catch {
+        /* ignore */
+      }
+      await focusWorkbench();
       await dismissOverlays();
       await new Workbench().executeCommand(title);
       return;
     } catch (err) {
       if (attempt === attempts - 1) {
         throw err;
-      }
-      try {
-        await new Workbench().getDriver().actions().sendKeys(Key.ESCAPE).perform();
-      } catch {
-        /* ignore */
       }
       await sleep(4000);
     }
