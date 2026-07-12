@@ -164,7 +164,22 @@ describe("Web resources lifecycle — per-file output (e2e)", function () {
     formXmlBefore = await client.getFormXml(formId);
     expect(formXmlBefore, "form XML captured for restore").to.be.a("string");
 
-    await clearOutput();
+    // Clearing matters here: the DEPLOY step also printed "Publish Complete",
+    // so a stale panel would let expectOutput false-positive. The clear button
+    // can be non-interactable right after the deploy toasts (flaked once) —
+    // dismiss + retry, and only then give up loudly.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await dismissOverlays();
+        await clearOutput();
+        break;
+      } catch (err) {
+        if (attempt >= 2) {
+          throw err;
+        }
+        await sleep(5000);
+      }
+    }
     await runCommand("Dataverse PowerTools: Register Form Events");
     await expectOutput("Publish Complete", {
       timeoutMs: 300000,
