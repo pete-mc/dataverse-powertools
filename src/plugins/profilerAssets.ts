@@ -36,6 +36,7 @@ export async function ensureProfilerAssemblies(context: DataversePowerToolsConte
       }
       const buffer = Buffer.from(await response.arrayBuffer());
 
+      // eslint-disable-next-line @typescript-eslint/naming-convention -- constructor import
       const AdmZip = require("adm-zip");
       const zip = new AdmZip(buffer);
       await fs.promises.mkdir(cacheDir, { recursive: true });
