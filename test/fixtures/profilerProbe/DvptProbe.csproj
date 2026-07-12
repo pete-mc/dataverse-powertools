@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Trivial, never-throwing plugin used ONLY by the profiler capture->replay live e2e
+       (test/live/pluginProfilerCaptureLifecycle.spec.ts). Fires on Create of territory,
+       traces and reads the target. Self-contained build via the CoreAssemblies NuGet so
+       it needs no PRT cache. Strong-named (Dataverse requires it for DB assemblies). -->
+
+  <PropertyGroup>
+    <TargetFramework>net462</TargetFramework>
+    <AssemblyName>DvptProbe</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>probe.snk</AssemblyOriginatorKeyFile>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Probe.cs" />
+    <PackageReference Include="Microsoft.CrmSdk.CoreAssemblies" Version="9.0.2.51" />
+  </ItemGroup>
+
+</Project>

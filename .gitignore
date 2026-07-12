@@ -45,3 +45,5 @@ tools/pluginprofiler/
 # Profiler capture tool build output (net48, Windows-only) — source committed, binaries not
 profiler-tool/bin/
 profiler-tool/obj/
+test/fixtures/profilerProbe/bin/
+test/fixtures/profilerProbe/obj/
