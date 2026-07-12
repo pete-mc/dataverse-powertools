@@ -127,19 +127,8 @@ export async function saveModelBuilderSettingsFile(settings: PluginModelBuilderS
 }
 
 export async function ensurePluginModelBuilderSettingsLoaded(context: DataversePowerToolsContext) {
-  let loadedSettings = await readModelBuilderSettingsFile(context);
-  let migratedLegacySettings = false;
-
-  if (!loadedSettings && context.projectSettings.pluginModelBuilder) {
-    loadedSettings = applyDefaults(context.projectSettings.pluginModelBuilder);
-    await saveModelBuilderSettingsFile(loadedSettings, context);
-    context.channel.appendLine("Migrated plugin modelbuilder settings to modelbuilder.json.");
-    migratedLegacySettings = true;
-  }
-
-  context.projectSettings.pluginModelBuilder = loadedSettings;
-
-  if (migratedLegacySettings) {
-    await context.writeSettings();
-  }
+  // Legacy pluginModelBuilder embedded in dataverse-powertools.json is moved out
+  // to modelbuilder.json by the central migration runner (#71) at settings load —
+  // by the time we're here, modelbuilder.json is the only source.
+  context.projectSettings.pluginModelBuilder = await readModelBuilderSettingsFile(context);
 }

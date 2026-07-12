@@ -9,6 +9,8 @@ import { parseAuthType, DataverseAuthType } from "./general/dataverse/authTypes"
 import { ProjectTypes } from "./projectTypes/registry";
 import type { DiscoveredComponent } from "./components/discovery";
 import { migrateSettings } from "./general/settingsMigrations";
+import { fsMigrationIo } from "./general/migrationIo";
+import path = require("path");
 
 // The enum now lives in the project-type registry (single source of truth,
 // #47/#100); re-exported here so existing imports keep working.
@@ -111,8 +113,9 @@ export default class DataversePowerToolsContext {
     if (filePath !== undefined) {
       await this.readFileAsync(filePath)
         .then(async (data: any) => {
-          // Central migration runner (#71): ordered, idempotent, versioned.
-          const migration = migrateSettings(JSON.parse(data));
+          // Central migration runner (#71): ordered, idempotent, versioned. The
+          // io lets migrations touch sibling files (spkl.json, modelbuilder.json).
+          const migration = migrateSettings(JSON.parse(data), fsMigrationIo(path.dirname(filePath)));
           if (migration.fromNewerVersion) {
             this.channel.appendLine(
               `Warning: dataverse-powertools.json was written by a NEWER extension (settingsVersion ${migration.settings.settingsVersion}). Update Dataverse PowerTools if anything misbehaves.`,

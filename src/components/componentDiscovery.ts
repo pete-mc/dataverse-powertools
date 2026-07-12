@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import fs = require("fs");
 import DataversePowerToolsContext from "../context";
 import { resolveComponents, componentForPath, componentsOfType, DiscoveredComponent, normalizeFsPath } from "./discovery";
+import { fsMigrationIo } from "../general/migrationIo";
 import { ProjectTypes } from "../projectTypes/registry";
 
 // vscode-side wrapper over the pure discovery (#47 phase 3): find every
@@ -27,7 +28,8 @@ export async function discoverWorkspaceComponents(context: DataversePowerToolsCo
       /* unreadable — skip; discovery reports malformed separately */
     }
   }
-  const { components, malformed } = resolveComponents(folders[0].uri.fsPath, settingsFiles);
+  // fs-backed io per component so io-dependent migrations run at discovery too.
+  const { components, malformed } = resolveComponents(folders[0].uri.fsPath, settingsFiles, fsMigrationIo);
   for (const file of malformed) {
     context.channel.appendLine(`[Components] Skipping malformed settings file: ${file}`);
   }

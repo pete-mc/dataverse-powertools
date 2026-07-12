@@ -175,7 +175,8 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
     id: ProjectTypes.solution,
     displayName: "Solution",
     templateFolder: "solution",
-    defaultTemplateVersion: 1.1,
+    // Integer — the historical 1.1 FLOAT is migrated to 2 by settingsMigrations (#71).
+    defaultTemplateVersion: 2,
     contextKey: "isSolution",
     commandIds: [`${prefix}extractSolution`, `${prefix}packSolution`, `${prefix}deploySolution`],
     menu() {
