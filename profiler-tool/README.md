@@ -46,5 +46,20 @@ DVPT_PRT_TOOLS=<path-to-prt-tools> dotnet build profiler-tool -c Release
 
 If `DVPT_PRT_TOOLS` is unset the project falls back to
 `sandbox/.cache/pluginprofiler/nupkg/tools` (where the extension/tests fetch the PRT
-package). The published extension ships only the built `.exe`, fetched into
-`tools/pluginprofiler/` like the XrmDefinitelyTyped typings tool.
+package).
+
+## Shipping
+
+The built `DvptPluginProfiler.exe` (+ `.config`) is committed under `tools/pluginprofiler/`
+and packaged into the VSIX directly — it's a tiny (~10 KB) first-party binary and the
+Marketplace publish runs on Linux, which can't build .NET Framework. When you change the
+tool source, rebuild on Windows and copy the output into `tools/pluginprofiler/`:
+
+```
+DVPT_PRT_TOOLS=<prt-tools> dotnet build profiler-tool -c Release
+cp profiler-tool/bin/Release/DvptPluginProfiler.exe* tools/pluginprofiler/
+```
+
+`scripts/fetchProfilerTool.mjs` and `.github/workflows/build-profiler-tool.yml` remain for
+an optional future move to a fetched release artifact (the fetch is a no-op while the exe
+is committed — it skips when the file is already present).
