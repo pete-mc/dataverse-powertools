@@ -1,106 +1,109 @@
 [
-    {
+  {
+    "version": 1,
+    "restoreCommands": [
+      {
+        "command": "npm install --loglevel=error"
+      }
+    ],
+    "initCommands": [
+      {
+        "command": "npm install typescript@^5 --loglevel=error"
+      },
+      {
+        "command": "npm i eslint eslint-config-prettier @types/jest @typescript-eslint/eslint-plugin @typescript-eslint/parser jest jest-cli prettier syswide-cas ts-jest ts-loader webpack webpack-cli webpack-merge xrm-mock eslint-plugin-prettier jest-junit exports-loader --save-dev --loglevel=error"
+      }
+    ],
+    "files": [
+      {
+        "path": [],
+        "filename": ".eslintrc",
+        "extension": ".json",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": "",
+        "extension": ".gitignore",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": ".prettierrc",
+        "extension": ".json",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": "jest.config",
+        "extension": ".js",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": "tsconfig",
+        "extension": ".json",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": "tsconfig.build",
+        "extension": ".json",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": "webpack.common",
+        "extension": ".js",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": "webpack.dev",
+        "extension": ".js",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": "webpack.prod",
+        "extension": ".js",
+        "version": 1
+      },
+      {
+        "path": [
+          "webresources_src"
+        ],
+        "filename": "library",
+        "extension": ".tstemplate",
+        "version": 1
+      },
+      {
+        "path": [
+          "webresources_src"
+        ],
+        "filename": "class",
+        "extension": ".tstemplate",
         "version": 1,
-        "restoreCommands": [
-            {
-                "command": "npm install --loglevel=error"
-            }
+        "scaffold": false
+      },
+      {
+        "path": [
+          "webresources_src",
+          "__tests__"
         ],
-        "initCommands": [
-            {
-                "command": "npm install typescript@^5 --loglevel=error"
-            },
-            {
-                "command": "npm i eslint eslint-config-prettier @types/jest @typescript-eslint/eslint-plugin @typescript-eslint/parser jest jest-cli prettier syswide-cas ts-jest ts-loader webpack webpack-cli webpack-merge xrm-mock eslint-plugin-prettier jest-junit exports-loader --save-dev --loglevel=error"
-            }
+        "filename": "sample.test",
+        "extension": ".tstemplate",
+        "version": 1,
+        "scaffold": false
+      },
+      {
+        "path": [
+          "typings"
         ],
-        "files": [
-            {
-                "path": [],
-                "filename": ".eslintrc",
-                "extension": ".json",
-                "version": 1
-            },
-            {
-                "path": [],
-                "filename": "",
-                "extension": ".gitignore",
-                "version": 1
-            },
-            {
-                "path": [],
-                "filename": ".prettierrc",
-                "extension": ".json",
-                "version": 1
-            },
-            {
-                "path": [],
-                "filename": "azure-pipelines",
-                "extension": ".yml",
-                "version": 1
-            },
-            {
-                "path": [],
-                "filename": "jest.config",
-                "extension": ".js",
-                "version": 1
-            },
-            {
-                "path": [],
-                "filename": "tsconfig",
-                "extension": ".json",
-                "version": 1
-            },
-            {
-                "path": [],
-                "filename": "tsconfig.build",
-                "extension": ".json",
-                "version": 1
-            },
-            {
-                "path": [],
-                "filename": "webpack.common",
-                "extension": ".js",
-                "version": 1
-            },
-            {
-                "path": [],
-                "filename": "webpack.dev",
-                "extension": ".js",
-                "version": 1
-            },
-            {
-                "path": [],
-                "filename": "webpack.prod",
-                "extension": ".js",
-                "version": 1
-            },
-            {
-                "path": ["webresources_src"],
-                "filename": "library",
-                "extension": ".tstemplate",
-                "version": 1
-            },
-            {
-                "path": ["webresources_src"],
-                "filename": "class",
-                "extension": ".tstemplate",
-                "version": 1,
-                "scaffold": false
-            },
-            {
-                "path": ["webresources_src", "__tests__"],
-                "filename": "sample.test",
-                "extension": ".tstemplate",
-                "version": 1,
-                "scaffold": false
-            },
-            {
-                "path": ["typings"],
-                "filename": "PowerTools.d",
-                "extension": ".tstemplate",
-                "version": 1
-            }
-        ]
-    }
+        "filename": "PowerTools.d",
+        "extension": ".tstemplate",
+        "version": 1
+      }
+    ]
+  }
 ]

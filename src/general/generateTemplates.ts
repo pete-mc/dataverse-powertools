@@ -342,15 +342,25 @@ export async function createNewProject(context: DataversePowerToolsContext) {
       title: "Creating new project...",
     },
     async () => {
-      await getProjectType(context);
+      const pick = await getProjectType(context);
       // Dismissing the first wizard step cancels the wizard — previously the
       // flow carried on, prompting for auth and writing a TYPELESS settings
       // file (caught by the e2e when a focus flap closed the quick pick).
-      if (!context.projectSettings.type) {
+      if (pick === "cancelled") {
         context.channel.appendLine("Project creation cancelled — no project type selected.");
         return;
       }
       await createServicePrincipalString(context);
+      if (pick === "empty") {
+        // Connection-only root: no template, no restore — components arrive
+        // via Add Component into subfolders.
+        await context.writeSettings();
+        await context.readSettings();
+        await generalInitialise(context);
+        context.refreshPanel?.();
+        vscode.window.showInformationMessage("Workspace initialised — use ＋ Add Component to add plugin/web-resource/solution components.");
+        return;
+      }
       await promptPluginProjectName(context);
       await promptPluginPackageName(context);
       await promptPluginPackageVersion(context);

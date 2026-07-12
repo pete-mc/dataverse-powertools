@@ -168,6 +168,13 @@ interface ProjectSettings {
   portalWebsiteId?: string;
   portalWebsiteName?: string;
   portalDownloadPath?: string;
+  /** Solution pack/unpack config — replaces the legacy spkl.json (migrated on first read). */
+  solutionConfig?: {
+    uniqueName: string;
+    packagePath: string;
+    zipPath: string;
+    packageType: "Managed" | "Unmanaged" | "Both";
+  };
 }
 
 export interface PluginModelBuilderSettings {

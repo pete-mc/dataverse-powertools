@@ -193,8 +193,11 @@ export async function debugWebResources(context: DataversePowerToolsContext): Pr
     // 3. One port serves both interception and the VS Code debugger.
     const port = await findFreePort();
 
-    // 4. Launch the browser at the org.
-    browserProc = cp.spawn(browser.executablePath, buildBrowserArgs({ port, userDataDir, url: orgUrl }), {
+    // 4. Launch the browser on a BLANK page — the org is navigated to only
+    //    after interception is fully armed (step 5). Launching straight at the
+    //    org forced a reload after arming, and that reload raced the app's
+    //    boot, occasionally wedging the first load (user report).
+    browserProc = cp.spawn(browser.executablePath, buildBrowserArgs({ port, userDataDir, url: "about:blank" }), {
       detached: false,
       stdio: "ignore",
     });
@@ -247,9 +250,10 @@ export async function debugWebResources(context: DataversePowerToolsContext): Pr
 
     client.on("disconnect", () => void stopDebugWebResources());
 
-    // Anything the app loaded between navigation and interception arming came from the service
-    // worker/cache; reload once (bypassing cache) so those resources come back through interception.
-    await Page.reload({ ignoreCache: true });
+    // Interception is armed and the browser still sits on about:blank — the
+    // FIRST navigation to the org now happens with everything in place, so no
+    // reload (and no reload race) is needed.
+    await Page.navigate({ url: orgUrl });
 
     // The first load occasionally wedges mid-navigation (readyState stuck at
     // "loading" with an empty body) — user report + e2e evidence. A plain

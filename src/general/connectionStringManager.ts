@@ -325,14 +325,25 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
   }
 }
 
-export async function getProjectType(context: DataversePowerToolsContext) {
+export type ProjectTypePick = "cancelled" | "empty" | "selected";
+
+export async function getProjectType(context: DataversePowerToolsContext): Promise<ProjectTypePick> {
   const result = await window.showQuickPick(
-    projectTypeRegistry.map((d) => ({ label: d.displayName, description: d.displayName, target: d.id })),
+    [
+      ...projectTypeRegistry.map((d) => ({ label: d.displayName, description: d.displayName, target: d.id as string | undefined })),
+      // A connection-only root: components are added into subfolders later
+      // (Add Component), with no parent project type (user feedback).
+      { label: "Empty (components in subfolders)", description: "connection-only root — add components later", target: undefined },
+    ],
     { placeHolder: "Select a Project Type." },
   );
-  context.projectSettings.type = result?.target;
-  context.projectSettings.templateversion = getProjectTypeDescriptor(result?.target)?.defaultTemplateVersion ?? 1;
-  context.channel.appendLine(`Project Type: ${result?.label}`);
+  if (!result) {
+    return "cancelled";
+  }
+  context.projectSettings.type = result.target as typeof context.projectSettings.type;
+  context.projectSettings.templateversion = getProjectTypeDescriptor(result.target)?.defaultTemplateVersion ?? 1;
+  context.channel.appendLine(`Project Type: ${result.label}`);
+  return result.target ? "selected" : "empty";
 }
 
 export async function getSolutionName(context: DataversePowerToolsContext) {

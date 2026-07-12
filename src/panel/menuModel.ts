@@ -246,8 +246,8 @@ export function buildMenuModel(state: PanelState): MenuModel {
   if (state.projects.length === 0) {
     cards.push({
       kind: "notice",
-      id: "unsupported",
-      text: "This workspace has a connection but no project type. Re-run Initialise Project to scaffold one.",
+      id: "noComponents",
+      text: "No components yet — use ＋ Add Component below to scaffold a plugin, web-resource or solution component into a subfolder.",
     });
   }
 
