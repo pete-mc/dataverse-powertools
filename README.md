@@ -17,14 +17,19 @@ one activity bar. Cross-platform, powered by the Power Platform CLI and .NET SDK
 
 ## Why Dataverse PowerTools?
 
-- ⚡ **One place for everything** — solutions, TypeScript web resources, and C#
-  plugins, all from the Dataverse PowerTools activity bar.
+- ⚡ **One place for everything** — solutions, TypeScript web resources, C# plugins,
+  and Power Pages, all from the Dataverse PowerTools activity bar.
 - 🧩 **Scaffolds real projects** — pick a project type and get a working, source-
-  controlled project in seconds.
+  controlled project in seconds. **Mix types in one repo**: add plugin, web-resource
+  and solution components side by side with *Add Component* — subfolders inherit the
+  workspace connection, and every card in the panel targets its own component.
 - 🚀 **Build & deploy in a click** — export/pack/import solutions, bundle and deploy
   web resources, build and deploy plugin packages.
 - 🧪 **Testing built in** — Jest + xrm-mock for web resources, DataverseUnitTest for
   plugins.
+- 🐞 **Real debugging** — hot-reload your local web-resource bundle inside the live
+  model-driven app with breakpoints, and replay a captured plug-in profile as a unit
+  test you F5-debug in VS Code with the exact server-side context.
 - 💪 **Strongly typed** — generate `Xrm` typings and early-bound classes from your
   environment.
 - 🖥️ **Cross-platform** — Windows, macOS, and Linux, on `pac` and `dotnet`.
@@ -34,7 +39,7 @@ one activity bar. Cross-platform, powered by the Power Platform CLI and .NET SDK
 | Plugins | Web Resources | Solutions |
 | :---: | :---: | :---: |
 | <img src="media/plugin-menu.png" width="230" /> | <img src="media/webresource-menu.png" width="230" /> | <img src="media/solution-menu.png" width="230" /> |
-| Create classes & workflows, register steps with CodeLens, generate early-bound types, build with `dotnet`, deploy as a plugin package, unit test with DataverseUnitTest. | Write TypeScript, bundle with webpack, deploy to Dataverse, debug your local bundle live in the real app with hot reload, generate strongly-typed `Xrm` typings, unit test with Jest + xrm-mock. | Export, unpack, pack and import solutions with `pac` — ready for source control and CI/CD. |
+| Create classes & workflows, register steps with CodeLens, generate early-bound types, build with `dotnet`, deploy as a plugin package, read plugin trace logs in-editor, replay a captured profile as a unit test you F5-debug in VS Code, unit test with DataverseUnitTest. | Write TypeScript, bundle with webpack (or emit one file per web resource), deploy with automatic form-event registration, debug your local bundle live in the real app with hot reload, generate strongly-typed `Xrm` typings, unit test with Jest + xrm-mock. | Export, unpack, pack and import solutions with `pac` — ready for source control and CI/CD. Power Pages sites round-trip with download/upload too. |
 | **[Learn more →](https://github.com/pete-mc/dataverse-powertools/wiki/Plugins)** | **[Learn more →](https://github.com/pete-mc/dataverse-powertools/wiki/Webresources)** | **[Learn more →](https://github.com/pete-mc/dataverse-powertools/wiki/Solutions)** |
 
 ## Get started in minutes
