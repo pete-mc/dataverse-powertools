@@ -570,18 +570,18 @@ export class E2EClient {
     return data.value?.[0]?.pluginpackageid;
   }
 
-  /** Rename the first territory row — triggers Update-of-territory steps. */
-  async touchFirstTerritory(): Promise<boolean> {
-    const list = await this.request("GET", "territories?$select=territoryid&$top=1");
-    if (!list.ok) {
-      return false;
+  /** Create a throwaway territory row — reliably triggers Create-of-territory
+   * steps (an org may have zero existing territories to update). Returns the id. */
+  async createTerritory(): Promise<string | undefined> {
+    const res = await this.request("POST", "territories", { name: `E2E profiler ${Date.now()}` });
+    if (res.status !== 204 && res.status !== 201) {
+      return undefined;
     }
-    const id = ((await list.json()) as any).value?.[0]?.territoryid;
-    if (!id) {
-      return false;
-    }
-    const res = await this.request("PATCH", `territories(${id})`, { name: `E2E ${Date.now()}` });
-    return res.ok;
+    return res.headers.get("odata-entityid")?.match(/\(([0-9a-f-]{36})\)/i)?.[1];
+  }
+
+  async deleteTerritory(id: string): Promise<void> {
+    await this.request("DELETE", `territories(${id})`);
   }
 
   /** Whether a persisted plug-in profile exists for the given type name. */

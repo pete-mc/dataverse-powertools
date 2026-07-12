@@ -19,6 +19,7 @@ describe("Plugin profiler capture → replay (e2e)", function () {
   const className = "E2EProfiledPlugin";
   let workspace: string;
   let solutionFriendlyName: string;
+  let triggeredTerritoryId: string | undefined;
 
   function pluginPackageUniqueName(): string {
     try {
@@ -119,7 +120,7 @@ describe("Plugin profiler capture → replay (e2e)", function () {
     const source = fs.readFileSync(classFile, "utf8");
     const decorated = source.replace(
       new RegExp(`(public class ${className})`),
-      `[CrmPluginRegistration(MessageNameEnum.Update, "territory", StageEnum.PostOperation, ExecutionModeEnum.Synchronous, "", "E2E profiler step", 1, IsolationModeEnum.Sandbox)]\n    $1`,
+      `[CrmPluginRegistration(MessageNameEnum.Create, "territory", StageEnum.PostOperation, ExecutionModeEnum.Synchronous, "", "E2E profiler step", 1, IsolationModeEnum.Sandbox)]\n    $1`,
     );
     expect(decorated, "attribute inserted").to.not.equal(source);
     fs.writeFileSync(classFile, decorated);
@@ -148,11 +149,12 @@ describe("Plugin profiler capture → replay (e2e)", function () {
     await pickFirstAndConfirm(120000); // the single candidate step
     expect(await waitForFile(path.join(workspace, ".dvpt-profiler-backup.json"), 60000), "backup written BEFORE the rewire").to.equal(true);
 
-    // Trigger: rename a territory row via the Web API.
+    // Trigger: create a throwaway territory row via the Web API (fires the
+    // Create-of-territory step). Recorded for cleanup.
     const client = new E2EClient(env!);
     await client.connect();
-    const triggered = await client.touchFirstTerritory();
-    expect(triggered, "territory update accepted").to.equal(true);
+    triggeredTerritoryId = await client.createTerritory();
+    expect(triggeredTerritoryId, "territory create accepted").to.be.a("string");
 
     // The profiler persists the capture as an mbs_pluginprofile row.
     const deadline = Date.now() + 180000;
@@ -217,6 +219,9 @@ describe("Plugin profiler capture → replay (e2e)", function () {
     }
     const client = new E2EClient(env);
     await client.connect();
+    if (triggeredTerritoryId) {
+      await client.deleteTerritory(triggeredTerritoryId);
+    }
     await client.deletePluginPackage(pluginPackageUniqueName());
   });
 });
