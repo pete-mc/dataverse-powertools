@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as cp from "child_process";
 import DataversePowerToolsContext from "../context";
 import { parseJestJson, extractJestJson, JestAssertion } from "./parseJestJson";
+import { jestPathArgs } from "./jestPaths";
 import { activeComponentRoot } from "../components/componentDiscovery";
 
 // Test Explorer integration for a Web Resources project's Jest tests (#84). Discovers the test files,
@@ -9,7 +10,9 @@ import { activeComponentRoot } from "../components/componentDiscovery";
 // per-test results — with source locations — into VS Code's Testing API. Debugging launches jest
 // under the Node debugger. All disposables hang off context.vscode.subscriptions.
 
-const TEST_GLOB = "webresources_src/__tests__/**/*.ts";
+// **/ prefix so tests are found when the webresources project is a nested
+// component of a multi-component workspace (#47), not only at the root.
+const TEST_GLOB = "**/webresources_src/__tests__/**/*.ts";
 
 function workspaceRoot(context: DataversePowerToolsContext): string | undefined {
   return activeComponentRoot(context);
@@ -66,10 +69,13 @@ function upsertTestItem(controller: vscode.TestController, a: JestAssertion): vs
   if (!a.file) {
     return undefined;
   }
+  // Round-trip through Uri so jest's reported path gets the same drive-letter
+  // casing as the discovered items' uri.fsPath ids — otherwise each run would
+  // add duplicate file nodes ("C:\…" vs "c:\…") on Windows.
   const uri = vscode.Uri.file(a.file);
-  const parent = fileItem(controller, a.file, uri);
+  const parent = fileItem(controller, uri.fsPath, uri);
   const fullTitle = [...a.ancestorTitles, a.title].join(" › ");
-  const id = `${a.file}::${fullTitle}`;
+  const id = `${uri.fsPath}::${fullTitle}`;
   let item = parent.children.get(id);
   if (!item) {
     item = controller.createTestItem(id, fullTitle, uri);
@@ -116,7 +122,7 @@ async function runHandler(
       request: "launch",
       name: "Debug Web Resource Tests",
       runtimeExecutable: "npx",
-      runtimeArgs: ["jest", "--runInBand", "--runTestsByPath", ...files],
+      runtimeArgs: ["jest", "--runInBand", ...jestPathArgs(cwd, files)],
       cwd,
       console: "integratedTerminal",
       internalConsoleOptions: "neverOpen",
@@ -125,7 +131,7 @@ async function runHandler(
     return;
   }
 
-  const args = ["--json", "--testLocationInResults", "--ci", "--runTestsByPath", ...files];
+  const args = ["--json", "--testLocationInResults", "--ci", ...jestPathArgs(cwd, files)];
   context.channel.appendLine(`[tests] running jest for ${files.size} file(s)…`);
   const stdout = token.isCancellationRequested ? "" : await runJest(cwd, args);
   const assertions = parseJestJson(extractJestJson(stdout));
