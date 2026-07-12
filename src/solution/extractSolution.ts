@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
 import { pacSolutionExportArgs, pacSolutionUnpackArgs } from "./pacArgs";
 import { managedZipPath } from "./solutionConfig";
-import { ensurePacAuth, getEnvironmentUrl, loadSolutionConfig, runPacSolution } from "./pacRunner";
+import { ensurePacAuthForCurrentConnection, getEnvironmentUrl, loadSolutionConfig, runPacSolution } from "./pacRunner";
 import { activeComponentRoot } from "../components/componentDiscovery";
 
 export async function extractSolution(context: DataversePowerToolsContext) {
@@ -30,7 +30,7 @@ export async function extractSolutionExec(context: DataversePowerToolsContext): 
     return false;
   }
 
-  if (!(await ensurePacAuth(context, workspacePath))) {
+  if (!(await ensurePacAuthForCurrentConnection(context, workspacePath))) {
     return false;
   }
 

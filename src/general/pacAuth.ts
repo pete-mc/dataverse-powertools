@@ -149,17 +149,25 @@ export async function ensurePacAuthForCurrentConnection(context: DataversePowerT
   }
 
   const environmentUrl = normalizeOrganizationUrl(parts.url);
+  if (!environmentUrl || !ENVIRONMENT_URL_PATTERN.test(environmentUrl)) {
+    context.channel.appendLine("The organisation URL looks malformed — cannot point pac at the project's environment.");
+    vscode.window.showErrorMessage("pac authentication failed; see the Dataverse PowerTools output.");
+    return false;
+  }
+
   const list = await runPacResult(["auth", "list"], workspacePath);
   const hasProfiles = list.code === 0 && !/no profiles/i.test(`${list.stdout}\n${list.stderr}`);
   if (hasProfiles) {
-    context.channel.appendLine("Interactive (OAuth) connection: pac uses your active pac auth profile.");
-    return true;
-  }
-
-  if (!environmentUrl || !ENVIRONMENT_URL_PATTERN.test(environmentUrl)) {
-    context.channel.appendLine("No pac auth profile exists and the organisation URL looks malformed — run 'pac auth create --environment <your org url>' manually.");
-    vscode.window.showErrorMessage("pac has no authentication profile; see the Dataverse PowerTools output.");
-    return false;
+    // A profile can exist WITHOUT an active environment (pac then fails with
+    // "No active environment set for the current auth profile" — user report,
+    // earlybound under OAuth). Always select the PROJECT's environment, which
+    // also guards against the active profile pointing at a different org.
+    context.channel.appendLine(`Interactive (OAuth) connection: selecting ${environmentUrl} for the active pac profile.`);
+    const selected = await runPacLogged(context, pacOrgSelectArgs(environmentUrl), workspacePath);
+    if (!selected) {
+      vscode.window.showErrorMessage(`pac could not select ${environmentUrl} — the signed-in pac profile may not have access to this environment. See the output.`);
+    }
+    return selected;
   }
 
   context.channel.appendLine(`No pac auth profiles found — creating one for ${environmentUrl} (a browser sign-in may open).`);
@@ -168,4 +176,9 @@ export async function ensurePacAuthForCurrentConnection(context: DataversePowerT
     vscode.window.showErrorMessage("pac auth create failed. See the Dataverse PowerTools output for details.");
   }
   return created;
+}
+
+/** `pac org select` — point the ACTIVE auth profile at an environment. */
+export function pacOrgSelectArgs(environmentUrl: string): string[] {
+  return ["org", "select", "--environment", environmentUrl];
 }

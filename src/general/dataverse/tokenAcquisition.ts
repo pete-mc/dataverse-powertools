@@ -54,6 +54,20 @@ export function initInteractiveTokenCache(secrets: vscode.SecretStorage, channel
   cacheChannel = channel;
 }
 
+/** Sign out: drop the persisted MSAL cache (secret storage) and every in-memory
+ * MSAL app/account so the next interactive call starts from nothing. Part of
+ * Clear Stored Credentials (also used by the e2e suites so one auth type's
+ * leftovers can't mask issues in the other). The TEST cache file
+ * (DVPT_TEST_MSAL_CACHE_FILE) is left alone — the e2e launcher owns it. */
+export async function clearInteractiveTokenCache(): Promise<void> {
+  interactiveApps.clear();
+  try {
+    await cacheSecrets?.delete(MSAL_CACHE_SECRET_KEY);
+  } catch {
+    /* nothing stored */
+  }
+}
+
 // Test-only seam: when DVPT_TEST_MSAL_CACHE_FILE points at a file, the MSAL cache is read/written
 // there instead of VS Code secret storage. This lets automated e2e tests pre-seed an
 // interactive-user sign-in (acquired headlessly beforehand) so the connect wizard authenticates

@@ -19,6 +19,7 @@ import {
   sleep,
   E2EClient,
 } from "./lib";
+import { resetAllCredentials } from "./lib";
 import { signInFreshBrowser, autoLoginWithRetry, bannerOnForm, bannerAfterReload, findDebugPortByProfile, killBrowsersByProfile, killStaleE2EProcesses } from "./browserLib";
 import { resolveBrowser } from "../../webresources/debug/browserResolver";
 
@@ -108,6 +109,8 @@ describe("Web resources — comprehensive UI lifecycle (e2e)", function () {
 
   it("1. initialises a clean Web Resources project via the wizard", async () => {
     log("Initialise Project");
+    // Fresh-credential isolation: each suite proves its own auth path from zero.
+    await resetAllCredentials(log);
     await runCommand("Dataverse PowerTools: Initialise Project");
     await pickByLabel("Web Resources");
     await pickByLabel("Service principal (client secret)");
@@ -190,7 +193,13 @@ describe("Web resources — comprehensive UI lifecycle (e2e)", function () {
     await clearOutput();
     await runCommand("Dataverse PowerTools: Register Form Events");
     // saveFormData logs Saving Forms... -> Publishing All Customisations -> Publish Complete.
-    await expectOutput("Publish Complete", { timeoutMs: 180000, step: "register form events" });
+    // A failed form save (e.g. the 0x80048425 missing-name regression) or a failed
+    // publish must fail the step, not scroll past while the flow "completes".
+    await expectOutput("Publish Complete", {
+      timeoutMs: 300000, // publish retries while another publish is still running
+      failMarkers: ["Failed to save form", "Failed to publish customizations", "Error registering events."],
+      step: "register form events",
+    });
     // PublishAllXml returns before the app fully serves the updated form; let it settle.
     await sleep(15000);
   });

@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
 import { pacSolutionImportArgs, pacSolutionPackArgs } from "./pacArgs";
-import { ensurePacAuth, getEnvironmentUrl, loadSolutionConfig, runPacSolution } from "./pacRunner";
+import { ensurePacAuthForCurrentConnection, getEnvironmentUrl, loadSolutionConfig, runPacSolution } from "./pacRunner";
 import { activeComponentRoot } from "../components/componentDiscovery";
 
 export async function deploySolution(context: DataversePowerToolsContext) {
@@ -32,7 +32,7 @@ export async function deploySolutionExec(context: DataversePowerToolsContext): P
   // import it into Dataverse (spkl's "import" was pack + import to server).
   let ok = await runPacSolution(context, pacSolutionPackArgs(config, false), workspacePath);
   if (ok) {
-    if (!(await ensurePacAuth(context, workspacePath))) {
+    if (!(await ensurePacAuthForCurrentConnection(context, workspacePath))) {
       return false;
     }
     ok = await runPacSolution(context, pacSolutionImportArgs(config, getEnvironmentUrl(context)), workspacePath);

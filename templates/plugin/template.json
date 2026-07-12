@@ -41,12 +41,6 @@
       },
       {
         "path": [],
-        "filename": "azure-pipelines",
-        "extension": ".yml",
-        "version": 2
-      },
-      {
-        "path": [],
         "filename": "nuget",
         "extension": ".config",
         "version": 1
@@ -148,12 +142,6 @@
         "path": [],
         "filename": "",
         "extension": ".gitignore",
-        "version": 1
-      },
-      {
-        "path": [],
-        "filename": "azure-pipelines",
-        "extension": ".yml",
         "version": 1
       },
       {

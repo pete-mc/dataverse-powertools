@@ -2,6 +2,26 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.7.5 (pre-release)
+
+Manual-testing feedback wave across web resources, plugins, solutions and the panel.
+
+- **Form event registration no longer breaks forms (0x80048425) — two fixes.** The library name is now derived from settings (prefix + output mode) instead of scraped from `webpack.common.js` — the 0.7.4 per-file template broke that scrape, producing a `<Library>` with no `name` attribute that Dataverse rejected. Per-file mode (#88) now registers each handler against its source file's own `<prefix>_<name>.js`. Additionally, `RegisterEvent` decorations are validated before any form is touched (GUID form/trigger ids, `onload`/`onsave` only, non-empty function).
+- **Publish-all is resilient and honest.** When Dataverse reports another publish still running (429 / 0x80071151 — e.g. right after a deploy), the publish retries with delays instead of failing; and a failed publish now reports an error instead of logging "Publish Complete".
+- **Local web-resource debugging: no more hung first page.** The debug browser opens on a blank page, arms the CDP interception, then navigates — plus a stuck-page watchdog that recovers a wedged load automatically. Breakpoints now bind: the attach config maps webpack's namespaced source-map URLs (`webpack://<prefix>/…`) back to your workspace.
+- **Fixed (recurring): early-bound generation under OAuth** — "No active environment set for the current auth profile". The extension now runs `pac org select --environment <org>` against the shared profile before pac commands that need an environment; a live regression test pins the behaviour.
+- **Solutions: `spkl.json` retired, OAuth extract fixed.** Solution config now lives in `dataverse-powertools.json` (`solutionConfig`); an existing `spkl.json` is migrated automatically. Extract/deploy run through the shared pac auth path, so they work under OAuth too.
+- **Empty (components-in-subfolders) root.** The project wizard offers a connection-only root with no parent project type — add components into subfolders from there. **Add Component in a single-project workspace now offers to switch to this nested layout**: it moves the existing project into a subfolder, leaves a connection-only root, then scaffolds the new component.
+- **Web-resource output-mode selector (#88).** Switch bundled ↔ per-file from the card's ⋯ menu; switching clears `bin/` so stale artifacts of the other mode can't deploy.
+- **Test Explorer web-resource runs fixed on Windows.** Jest received absolute paths whose drive-letter casing didn't match its root and reported "No tests found"; test files are now passed relative to the project. The Testing pane also discovers tests in nested components.
+- **Panel: four buttons on two rows** for web resources (Local Build · Local Debug (Hot) · Generate Typings · **Run Tests** — new command running the project's local jest) and plugins (Local Build · Run Tests · Generate Earlybound · **Configure Earlybound**).
+- **Component-scoped tree views.** The Earlybound Options and Form Intersects trees no longer load at activation (one view can't show several same-type projects): *Configure Earlybound* (plugin card) and *Configure form intersects* (web-resource card ⋯) open the tree on demand, scoped to the invoking component.
+- **Form registrations moved into each web-resource card** — one block per component, directly under the buttons.
+- **Environment card: Open Environment / Open Admin Center / Open Maker Portal.** The last two address the environment by GUID (`environmentId`, stored in `dataverse-powertools.json`; discovered automatically or asked once).
+- **Switch Environment / Update Authentication now apply to every sub-component**: inherited connection fields refresh immediately and each component's solution binding is rewritten to the newly picked solution (components with their own `connectionString` are left alone).
+- **Sign out everywhere:** new *Clear Stored Credentials* command (service-principal secrets, interactive token cache, pac auth profiles). The e2e suites use it between auth types so one can't mask the other's bugs (#106 hardening included: wedged-form recovery + DNS self-diagnosis).
+- Azure Pipelines placeholder files removed from all templates.
+
 ## 0.7.4 (pre-release)
 
 - **Per-file web resource output (#88).** New projects choose at creation: the classic single bundled library (default) or **one JS web resource per TypeScript file** (`webresourceOutput: "perFile"` in `dataverse-powertools.json`). Per-file mode maps 1:1 with form libraries — each `webresources_src/*.ts` builds to `bin/<prefix>_<name>.js`, exports merged onto the `<prefix>` global so forms still call `<prefix>.Class.Function`; deploy pushes every built file. Known limitation: local debug interception currently targets the bundled library.

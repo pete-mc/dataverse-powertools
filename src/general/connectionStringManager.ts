@@ -1,5 +1,7 @@
-import { window } from "vscode";
+import { window, workspace } from "vscode";
 import DataversePowerToolsContext from "../context";
+import { clearInteractiveTokenCache } from "./dataverse/tokenAcquisition";
+import { runPacResult } from "./pacAuth";
 import { projectTypeRegistry, getProjectTypeDescriptor } from "../projectTypes/registry";
 import { MultiStepInput, shouldResume, validationIgnore } from "./inputControls";
 import { getSolutions } from "./dataverse/getSolutions";
@@ -11,9 +13,12 @@ export async function updateConnectionString(context: DataversePowerToolsContext
   let connectionString = await createServicePrincipalString(context, true);
   await context.writeSettings();
   await context.readSettings();
+  // Auth/environment changed on the root — refresh what sub-components inherit.
+  await propagateEnvironmentToComponents(context);
   // Parse the url by name rather than a fixed segment index — the segment order
   // differs across auth types (OAuth strings have no LoginPrompt).
   context.setStatusBar(getOrganizationUrl(connectionString));
+  context.refreshPanel?.();
 }
 
 /**
@@ -46,6 +51,9 @@ export async function switchEnvironment(context: DataversePowerToolsContext): Pr
     return;
   }
   const newUrl = normalizeOrganizationUrl(pick.target.url);
+  // The environment GUID addresses the Admin Center / Maker Portal links; the old
+  // one must never survive a switch, so overwrite even when discovery has none.
+  context.projectSettings.environmentId = pick.target.environmentId;
 
   let connectionString: string;
   if (authType === DataverseAuthType.oauth) {
@@ -82,11 +90,47 @@ export async function switchEnvironment(context: DataversePowerToolsContext): Pr
 
   await context.writeSettings();
   await context.readSettings();
+  // One environment per workspace: sub-components inherit the root connection at
+  // discovery time, and their own solution binding pointed at the OLD environment —
+  // update both so the switch really applies everywhere, not just the root card.
+  await propagateEnvironmentToComponents(context);
   context.setStatusBar(getOrganizationUrl(connectionString));
   // Re-render the panel so the environment + solution reflect the switch
   // immediately — previously stale until a reload (#102).
   context.refreshPanel?.();
   window.showInformationMessage(`Switched to ${pick.label}`);
+}
+
+/** After an environment (or auth) change on the root: rewrite each sub-component's
+ * solution binding to the newly picked solution (its old one lived in the previous
+ * environment) and re-discover so inherited connection fields refresh. Components
+ * with their own connectionString are self-contained and left alone. */
+async function propagateEnvironmentToComponents(context: DataversePowerToolsContext): Promise<void> {
+  const fs = require("fs") as typeof import("fs");
+  const path = require("path") as typeof import("path");
+  for (const component of context.components ?? []) {
+    if (component.isRoot) {
+      continue;
+    }
+    const settingsPath = path.join(component.root, "dataverse-powertools.json");
+    try {
+      const raw = JSON.parse(await fs.promises.readFile(settingsPath, "utf8"));
+      if (raw.connectionString) {
+        continue; // self-contained component with its own environment
+      }
+      if (context.projectSettings.solutionName) {
+        raw.solutionName = context.projectSettings.solutionName;
+        if (raw.webresourceSolutionName !== undefined) {
+          raw.webresourceSolutionName = context.projectSettings.solutionName;
+        }
+      }
+      await fs.promises.writeFile(settingsPath, JSON.stringify(raw, null, 2));
+    } catch {
+      context.channel.appendLine(`Could not update ${settingsPath} for the environment switch.`);
+    }
+  }
+  const { discoverWorkspaceComponents } = await import("../components/componentDiscovery");
+  await discoverWorkspaceComponents(context);
 }
 
 /**
@@ -117,11 +161,44 @@ export async function getServicePrincipalString(context: DataversePowerToolsCont
   return servicePrincipal === undefined ? "" : servicePrincipal.split("TenantID=")[0];
 }
 
+// SecretStorage can't enumerate keys, so every stored service-principal key is
+// tracked in globalState — that's what lets Clear Stored Credentials find them.
+const SECRET_KEY_INDEX = "dataverse-powertools.storedSecretKeys";
+
 export async function saveServicePrincipalString(context: DataversePowerToolsContext, name: string, clientId: string, clientSecret: string, tenantId: string): Promise<void> {
   const value = "ClientId=" + clientId + ";" + "ClientSecret=" + clientSecret + ";" + "TenantID=" + tenantId + ";";
   name = name.replace(/\/+$/, "");
   await context.vscode.secrets.store(name, value);
+  const index = context.vscode.globalState.get<string[]>(SECRET_KEY_INDEX, []);
+  if (!index.includes(name)) {
+    await context.vscode.globalState.update(SECRET_KEY_INDEX, [...index, name]);
+  }
   context.channel.appendLine("Settings Saved!");
+}
+
+/** Sign out everywhere: delete every tracked service-principal secret, the MSAL
+ * token cache, and (best-effort) pac's auth profiles. Registered as
+ * "Clear Stored Credentials" — also used by the e2e suites so one auth type's
+ * leftovers can't mask issues in the other (found via the no-environment bug). */
+export async function clearStoredCredentials(context: DataversePowerToolsContext): Promise<void> {
+  const index = context.vscode.globalState.get<string[]>(SECRET_KEY_INDEX, []);
+  for (const key of index) {
+    try {
+      await context.vscode.secrets.delete(key);
+    } catch {
+      /* already gone */
+    }
+  }
+  await context.vscode.globalState.update(SECRET_KEY_INDEX, []);
+  await clearInteractiveTokenCache();
+  const workspaceRoot = workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+  const pacCleared = await runPacResult(["auth", "clear"], workspaceRoot);
+  context.channel.appendLine(
+    `Cleared stored credentials: ${index.length} service-principal secret(s), the interactive token cache${pacCleared.code === 0 ? ", and all pac auth profiles" : " (pac auth clear failed — see pac output)"}.`,
+  );
+  context.dataverse.authorizationToken = "";
+  context.refreshPanel?.();
+  window.showInformationMessage("Dataverse PowerTools credentials cleared. Reconnect via Update Dataverse Authentication.");
 }
 
 export async function createServicePrincipalString(context: DataversePowerToolsContext, _update: boolean = false): Promise<string> {
@@ -147,6 +224,9 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
   }
   context.projectSettings.prefix = state.prefix;
   context.projectSettings.tenantId = state.tenantId;
+  // Cleared on a manual-url entry: an environmentId from a previous connection
+  // would point the Admin Center / Maker Portal links at the wrong environment.
+  context.projectSettings.environmentId = state.environmentId;
   context.projectSettings.solutionName = state.solutionName;
   context.projectSettings.webresourceSolutionName = state.solutionName;
   context.projectSettings.connectionString = connectionString;
@@ -200,6 +280,7 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
       return (input: MultiStepInput) => inputManualUrl(input, state);
     }
     state.organisationUrl = normalizeOrganizationUrl(pick.target.url);
+    state.environmentId = pick.target.environmentId;
     return (input: MultiStepInput) => inputSolutionName(input, state);
   }
 
@@ -325,14 +406,25 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
   }
 }
 
-export async function getProjectType(context: DataversePowerToolsContext) {
+export type ProjectTypePick = "cancelled" | "empty" | "selected";
+
+export async function getProjectType(context: DataversePowerToolsContext): Promise<ProjectTypePick> {
   const result = await window.showQuickPick(
-    projectTypeRegistry.map((d) => ({ label: d.displayName, description: d.displayName, target: d.id })),
+    [
+      ...projectTypeRegistry.map((d) => ({ label: d.displayName, description: d.displayName, target: d.id as string | undefined })),
+      // A connection-only root: components are added into subfolders later
+      // (Add Component), with no parent project type (user feedback).
+      { label: "Empty (components in subfolders)", description: "connection-only root — add components later", target: undefined },
+    ],
     { placeHolder: "Select a Project Type." },
   );
-  context.projectSettings.type = result?.target;
-  context.projectSettings.templateversion = getProjectTypeDescriptor(result?.target)?.defaultTemplateVersion ?? 1;
-  context.channel.appendLine(`Project Type: ${result?.label}`);
+  if (!result) {
+    return "cancelled";
+  }
+  context.projectSettings.type = result.target as typeof context.projectSettings.type;
+  context.projectSettings.templateversion = getProjectTypeDescriptor(result.target)?.defaultTemplateVersion ?? 1;
+  context.channel.appendLine(`Project Type: ${result.label}`);
+  return result.target ? "selected" : "empty";
 }
 
 export async function getSolutionName(context: DataversePowerToolsContext) {
@@ -349,6 +441,7 @@ interface State {
   step: number;
   authType: DataverseAuthType;
   organisationUrl: string;
+  environmentId?: string;
   tenantId: string;
   applicationId: string;
   totalSteps: number;

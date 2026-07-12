@@ -7,6 +7,7 @@
 // each a card; actions hang off the object they belong to; rare actions live
 // in a per-card ⋯ overflow; requirements collapse to a footer line once green.
 import { MenuAction, ProjectMenuState, getProjectTypeDescriptor } from "../projectTypes/registry";
+import { normalizeFsPath } from "../components/discovery";
 
 export interface RequirementRow {
   id: "dotnet" | "node" | "pac";
@@ -36,6 +37,15 @@ export interface RegistrationRow {
   detail: string;
   /** Index into the scanner cache; clicking the row opens the file there. */
   index?: number;
+  /** Owning web-resource component root; undefined for legacy workspace-wide scans. */
+  componentRoot?: string;
+}
+
+/** The form-registrations block embedded in a web-resource project card. */
+export interface RegistrationsBlock {
+  rows: RegistrationRow[];
+  add: MenuAction;
+  note?: string;
 }
 
 /** Registrations shown before collapsing into a "+N more" note (big repos can have hundreds). */
@@ -68,8 +78,9 @@ export type Card =
       secondary: MenuAction[];
       overflow: MenuAction[];
       status?: StatusLine;
+      /** Web-resource cards embed their own registrations, right under the buttons (#47). */
+      registrations?: RegistrationsBlock;
     }
-  | { kind: "registrations"; id: "registrations"; rows: RegistrationRow[]; add: MenuAction; note?: string }
   | { kind: "session"; id: "session"; text: string; detail?: string; stop: MenuAction }
   | { kind: "activity"; id: "activity"; items: ActivityItem[] };
 
@@ -183,9 +194,25 @@ function environmentCard(state: PanelState): Card {
     // Restore Dependencies lives on the PROJECT card — it restores the
     // project's packages, not the connection (manual-testing feedback).
     overflow: [
+      { command: "dataverse-powertools.openEnvironment", label: "Open environment" },
+      { command: "dataverse-powertools.openAdminCenter", label: "Open Admin Center" },
+      { command: "dataverse-powertools.openMakerPortal", label: "Open Maker Portal" },
       { command: "dataverse-powertools.refreshConnection", label: "Refresh connection" },
       { command: "dataverse-powertools.updateConnectionString", label: "Update authentication" },
     ],
+  };
+}
+
+/** The registrations that belong to one web-resource card: rows scanned from its
+ * component root (a legacy workspace-wide scan has no root and matches any card). */
+function registrationsFor(state: PanelState, project: ProjectCardState): RegistrationsBlock {
+  const projectRoot = normalizeFsPath(project.root);
+  const rows = state.formRegistrations.filter((row) => row.componentRoot === undefined || normalizeFsPath(row.componentRoot) === projectRoot);
+  const overflowCount = Math.max(0, rows.length - MAX_REGISTRATION_ROWS);
+  return {
+    rows: rows.slice(0, MAX_REGISTRATION_ROWS),
+    add: forComponent({ command: "dataverse-powertools.addFormDecoration", label: "Add" }, project),
+    note: overflowCount > 0 ? `+${overflowCount} more · Registered on every deploy` : "Registered on every deploy",
   };
 }
 
@@ -246,8 +273,8 @@ export function buildMenuModel(state: PanelState): MenuModel {
   if (state.projects.length === 0) {
     cards.push({
       kind: "notice",
-      id: "unsupported",
-      text: "This workspace has a connection but no project type. Re-run Initialise Project to scaffold one.",
+      id: "noComponents",
+      text: "No components yet — use ＋ Add Component below to scaffold a plugin, web-resource or solution component into a subfolder.",
     });
   }
 
@@ -262,6 +289,7 @@ export function buildMenuModel(state: PanelState): MenuModel {
       continue;
     }
     const menu = descriptor.menu(project);
+    const isWebresource = descriptor.id === "webresources";
     cards.push({
       kind: "project",
       id: `project:${descriptor.id}${project.isRoot ? "" : `:${project.relativeRoot}`}`,
@@ -272,30 +300,23 @@ export function buildMenuModel(state: PanelState): MenuModel {
       secondary: menu.secondary.map((action) => forComponent(action, project)),
       overflow: [...menu.overflow, { command: "dataverse-powertools.restoreDependencies", label: "Restore dependencies" }].map((action) => forComponent(action, project)),
       status: statusFromActivity(state.activity, project),
+      // Each web-resource card carries its OWN registrations (multiple
+      // components of the type each get theirs), right under the buttons.
+      registrations: isWebresource ? registrationsFor(state, project) : undefined,
     });
-    if (descriptor.id === "webresources") {
+    if (isWebresource) {
       hasWebresourceCard = true;
     }
   }
 
-  if (hasWebresourceCard) {
-    const overflowCount = Math.max(0, state.formRegistrations.length - MAX_REGISTRATION_ROWS);
+  if (hasWebresourceCard && state.debugSessionActive) {
     cards.push({
-      kind: "registrations",
-      id: "registrations",
-      rows: state.formRegistrations.slice(0, MAX_REGISTRATION_ROWS),
-      add: { command: "dataverse-powertools.addFormDecoration", label: "Add" },
-      note: overflowCount > 0 ? `+${overflowCount} more · Registered on every deploy` : "Registered on every deploy",
+      kind: "session",
+      id: "session",
+      text: "Local debug session running",
+      detail: "webpack watch + browser",
+      stop: { command: "dataverse-powertools.stopDebugWebresources", label: "Stop" },
     });
-    if (state.debugSessionActive) {
-      cards.push({
-        kind: "session",
-        id: "session",
-        text: "Local debug session running",
-        detail: "webpack watch + browser",
-        stop: { command: "dataverse-powertools.stopDebugWebresources", label: "Stop" },
-      });
-    }
   }
 
   // A workspace becomes multi-component by adding one — no upfront mono choice.

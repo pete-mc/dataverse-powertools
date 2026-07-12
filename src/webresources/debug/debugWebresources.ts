@@ -193,8 +193,11 @@ export async function debugWebResources(context: DataversePowerToolsContext): Pr
     // 3. One port serves both interception and the VS Code debugger.
     const port = await findFreePort();
 
-    // 4. Launch the browser at the org.
-    browserProc = cp.spawn(browser.executablePath, buildBrowserArgs({ port, userDataDir, url: orgUrl }), {
+    // 4. Launch the browser on a BLANK page — the org is navigated to only
+    //    after interception is fully armed (step 5). Launching straight at the
+    //    org forced a reload after arming, and that reload raced the app's
+    //    boot, occasionally wedging the first load (user report).
+    browserProc = cp.spawn(browser.executablePath, buildBrowserArgs({ port, userDataDir, url: "about:blank" }), {
       detached: false,
       stdio: "ignore",
     });
@@ -247,9 +250,38 @@ export async function debugWebResources(context: DataversePowerToolsContext): Pr
 
     client.on("disconnect", () => void stopDebugWebResources());
 
-    // Anything the app loaded between navigation and interception arming came from the service
-    // worker/cache; reload once (bypassing cache) so those resources come back through interception.
-    await Page.reload({ ignoreCache: true });
+    // Interception is armed and the browser still sits on about:blank — the
+    // FIRST navigation to the org now happens with everything in place, so no
+    // reload (and no reload race) is needed.
+    await Page.navigate({ url: orgUrl });
+
+    // The first load occasionally wedges mid-navigation (readyState stuck at
+    // "loading" with an empty body) — user report + e2e evidence. A plain
+    // reload doesn't recover a stuck main-document request: stop loading and
+    // reload again, up to twice, so the user never has to rescue the browser.
+    void (async () => {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        await new Promise((r) => setTimeout(r, 20000));
+        if (disposed) {
+          return;
+        }
+        try {
+          const state = await client!.Runtime.evaluate({
+            expression: `JSON.stringify({ready: document.readyState, bodyLen: document.body ? document.body.innerText.length : 0})`,
+            returnByValue: true,
+          });
+          const { ready, bodyLen } = JSON.parse((state.result.value as string) || "{}");
+          if (ready === "complete" || bodyLen > 0) {
+            return;
+          }
+          context.channel.appendLine(`[debug] page appears stuck loading — recovering (attempt ${attempt + 1}).`);
+          await client!.Page.stopLoading();
+          await client!.Page.reload({ ignoreCache: true });
+        } catch {
+          return; // session ending / page navigating — leave it alone
+        }
+      }
+    })();
 
     // 6. Hot refresh: on rebuild, reload the page (debounced).
     fs.mkdirSync(binDir, { recursive: true });
@@ -270,7 +302,7 @@ export async function debugWebResources(context: DataversePowerToolsContext): Pr
     //    regardless of whether the debugger attaches).
     try {
       attachStartedAt = Date.now();
-      await vscode.debug.startDebugging(workspaceFolder, buildAttachDebugConfig(browser.kind, port) as vscode.DebugConfiguration);
+      await vscode.debug.startDebugging(workspaceFolder, buildAttachDebugConfig(browser.kind, port, workspacePath, prefix) as vscode.DebugConfiguration);
     } catch (error: any) {
       context.channel.appendLine(`[debug] could not attach the VS Code debugger (interception still active): ${error?.message || error}`);
     }

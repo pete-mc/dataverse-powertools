@@ -11,7 +11,14 @@ describe("parseInstances", () => {
       ],
     });
     expect(result.map((e) => e.friendlyName)).toEqual(["Dev", "Prod"]);
-    expect(result[0]).toEqual({ friendlyName: "Dev", uniqueName: "orgdev", url: "https://orgdev.crm.dynamics.com" });
+    expect(result[0]).toEqual({ friendlyName: "Dev", uniqueName: "orgdev", url: "https://orgdev.crm.dynamics.com", environmentId: undefined });
+  });
+
+  it("carries the EnvironmentId through (Admin Center / Maker Portal links need it)", () => {
+    const result = parseInstances({
+      value: [{ FriendlyName: "Dev", UniqueName: "orgdev", Url: "https://orgdev.crm.dynamics.com", State: 0, EnvironmentId: "11111111-2222-3333-4444-555555555555" }],
+    });
+    expect(result[0].environmentId).toBe("11111111-2222-3333-4444-555555555555");
   });
 
   it("drops disabled instances and ones without a url", () => {

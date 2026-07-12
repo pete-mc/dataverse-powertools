@@ -3,6 +3,7 @@ import * as fs from "fs";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
 import { loadE2EEnv, freshWorkspace, answerText, answerFlexible, pickByLabel, runCommand, waitForFile, dismissOverlays, sleep, E2EClient } from "./lib";
+import { resetAllCredentials } from "./lib";
 
 // End-to-end: create a Plugins project via the real wizard using INTERACTIVE (OAuth) sign-in —
 // then Build Package & Deploy it to the live environment and verify it landed. The interactive
@@ -65,6 +66,8 @@ describe("Plugin lifecycle — interactive auth (e2e)", function () {
   it("creates a Plugins project via the wizard using interactive sign-in", async () => {
     const log = (m: string) => console.log(`    [e2e] ${m}`);
     log("running Initialise Project");
+    // Fresh-credential isolation: each suite proves its own auth path from zero.
+    await resetAllCredentials(log);
     await runCommand("Dataverse PowerTools: Initialise Project");
     log("project type");
     await pickByLabel("Plugins");

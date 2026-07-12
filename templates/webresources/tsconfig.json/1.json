@@ -1,36 +1,20 @@
 {
   "compilerOptions": {
-    "target": "es2015",
+    "target": "es2020",
     "module": "commonjs",
     "moduleResolution": "node",
-    "lib": [
-      "es2015",
-      "dom"
-    ],
+    "lib": ["es2020", "dom"],
     "outDir": "webresources",
     "rootDir": "webresources_src",
     "removeComments": true,
     "strict": true,
-    "alwaysStrict": true,
-    "strictFunctionTypes": true,
-    "strictNullChecks": true,
-    "strictPropertyInitialization": true,
-    "strictBindCallApply": true,
     "forceConsistentCasingInFileNames": true,
-    "noImplicitAny": true,
     "noImplicitReturns": true,
-    "noImplicitThis": true,
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true,
-    "downlevelIteration": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
     "sourceMap": true,
     "pretty": true,
-    "typeRoots": [
-      "./typings",
-      "./node_modules"
-    ],
-    "types": [
-      "@types/jest"
-    ]
+    "typeRoots": ["./typings", "./node_modules"],
+    "types": ["@types/jest"]
   }
 }

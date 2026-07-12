@@ -6,6 +6,7 @@ import DataversePowerToolsContext from "./context";
 import { getProjectTypeActivation, registerAllComponentCommands } from "./projectTypes/activation";
 import { componentScopedContext } from "./components/componentDiscovery";
 import { componentsOfType } from "./components/discovery";
+import { clearStoredCredentials } from "./general/connectionStringManager";
 import { registerMenuPanel } from "./panel/menuPanel";
 import { registerSystemRequirementCommands } from "./general/systemRequirements";
 import { initInteractiveTokenCache } from "./general/dataverse/tokenAcquisition";
@@ -19,6 +20,8 @@ export async function activate(vscodeContext: vscode.ExtensionContext) {
   // while settings load (#100).
   registerMenuPanel(context);
   registerSystemRequirementCommands(context);
+  // Sign-out is always available, even before a project loads.
+  context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.clearCredentials", () => clearStoredCredentials(context)));
   // Every project type's commands register ONCE here; handlers resolve which
   // component an invocation targets (#47) — no per-type registration anymore.
   registerAllComponentCommands(context);

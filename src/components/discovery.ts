@@ -19,6 +19,7 @@ export interface ComponentSettings {
   prefix?: string;
   solutionName?: string;
   environmentLabel?: string;
+  environmentId?: string;
   [key: string]: unknown;
 }
 
@@ -57,7 +58,7 @@ function parentDirectory(filePath: string): string {
 /** Fields a subfolder component inherits from the ROOT settings file when it
  * doesn't set them itself: the connection and its non-secret companions.
  * (One environment per workspace in v1 — see the #47 design comment.) */
-const INHERITED_FIELDS = ["connectionString", "tenantId", "prefix", "environmentLabel"] as const;
+const INHERITED_FIELDS = ["connectionString", "tenantId", "prefix", "environmentLabel", "environmentId"] as const;
 
 /**
  * Resolve discovered settings files into components.

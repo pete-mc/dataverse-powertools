@@ -9,7 +9,7 @@ import { initialiseSolutions } from "../solution/initialiseSolutions";
 import { initialisePortals } from "../portals/initialisePortals";
 import { initialisePlugins } from "../plugins/initialisePlugins";
 import { createPluginClass, createWorkflowClass } from "../plugins/createClasses";
-import { pluginTableSelector as pluginTableSelectorV3 } from "../plugins/pluginTables";
+import { openEarlyboundConfig } from "../plugins/pluginTables";
 import { promptAndSetupPluginUnitTesting, runPluginUnitTests, createPluginTest } from "../plugins/unitTesting";
 import { buildProject } from "../plugins/buildProject";
 import { buildAndDeploy } from "../plugins/buildAndDeploy";
@@ -33,6 +33,9 @@ import { addFormDecoration } from "../webresources/addFormDecoration";
 import { saveFormData } from "../webresources/saveFormData";
 import { upgradeFromSpkl } from "../webresources/upgradeFromSpkl";
 import { debugWebResources, stopDebugWebResources } from "../webresources/debug/debugWebresources";
+import { switchWebresourceOutput } from "../webresources/switchOutputMode";
+import { runWebresourceTests } from "../webresources/runTests";
+import { openFormIntersects } from "../webresources/tableIntersects/tableIntersects";
 import { extractSolution } from "../solution/extractSolution";
 import { packSolution } from "../solution/packSolution";
 import { deploySolution } from "../solution/deploySolution";
@@ -88,17 +91,26 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
     async initialise(context) {
       if (isPluginV3(context)) {
         await initialisePlugins(context);
-        await pluginTableSelectorV3(context);
+        // The earlybound tree is NOT loaded here: one view can't represent several
+        // plugin components, so "Configure Earlybound" on the project card opens
+        // it on demand, scoped to the invoking component (#47).
       } else {
         context.channel.appendLine("[Deprecated] Plugin template version 2 is deprecated.");
         context.channel.appendLine("[Deprecated] Please create a new Plugin project and manually migrate your plugin code to the new structure.");
         await initialisePluginsOld(context);
         await pluginTableSelectorOld(context);
+        // Legacy still loads its tree eagerly — reveal the view for it.
+        await vscode.commands.executeCommand("setContext", "dataverse-powertools.earlyboundTreeLoaded", true);
       }
     },
     commands: {
       "dataverse-powertools.generateEarlyBound": pluginImpl(tracked("Generate early bound", generateEarlyBoundV3), tracked("Generate early bound", generateEarlyBoundOld)),
       "dataverse-powertools.configurePluginEarlyBound": (context) => configureModelBuilderSettings(context),
+      "dataverse-powertools.openEarlyboundConfig": pluginImpl(
+        (context) => openEarlyboundConfig(context),
+        // Legacy loads its tree at initialise — just bring the view forward.
+        () => vscode.commands.executeCommand("dataversePowerToolsTree.focus"),
+      ),
       "dataverse-powertools.buildAndDeploy": pluginImpl(tracked("Build & deploy package", buildAndDeploy), tracked("Build & deploy package", buildDeployPluginOld)),
       "dataverse-powertools.buildDeployPlugin": pluginImpl(tracked("Build & deploy package", buildAndDeploy), tracked("Build & deploy package", buildDeployPluginOld)),
       "dataverse-powertools.buildProject": pluginImpl(tracked("Build", buildProject), tracked("Build", buildProjectOld)),
@@ -138,10 +150,6 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
     async onProjectCreated(context) {
       if (isPluginV3(context)) {
         await initialisePlugins(context);
-        // Register the early-bound settings tree provider now, mirroring activation
-        // (extension.ts initialise). Without this the side panel shows "error
-        // loading" for a freshly created project until VS Code is reloaded.
-        await pluginTableSelectorV3(context);
         context.channel.appendLine("Plugin project initialised using pac plugin init --skip-signing.");
         // The pac sample class is removed during layout normalisation — offer a
         // real one instead, mirroring the web-resources flow.
@@ -187,6 +195,9 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
       "dataverse-powertools.upgradeFromSpkl": (context) => upgradeFromSpkl(context),
       "dataverse-powertools.debugWebresources": (context) => debugWebResources(context),
       "dataverse-powertools.stopDebugWebresources": () => stopDebugWebResources(),
+      "dataverse-powertools.switchWebresourceOutput": (context) => switchWebresourceOutput(context),
+      "dataverse-powertools.runWebresourceTests": tracked("Tests", runWebresourceTests),
+      "dataverse-powertools.openFormIntersects": (context) => openFormIntersects(context),
     },
     async onProjectCreated(context) {
       await generateTypings(context);

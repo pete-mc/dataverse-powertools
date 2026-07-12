@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.7.4",
+  "version": "0.7.5",
   "engines": {
     "vscode": "^1.93.0"
   },
@@ -146,7 +146,7 @@
           "icon": "media/dep.svg",
           "contextualTitle": "Package Explorer",
           "type": "tree",
-          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+          "when": "dataverse-powertools.earlyboundTreeLoaded"
         },
         {
           "id": "dataversePowerToolsTableIntersectTree",
@@ -154,7 +154,7 @@
           "icon": "media/dep.svg",
           "contextualTitle": "Package Explorer",
           "type": "tree",
-          "when": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
+          "when": "dataverse-powertools.formIntersectTreeLoaded"
         }
       ],
       "explorer": []
@@ -331,6 +331,26 @@
         "command": "dataverse-powertools.initialiseProject",
         "title": "Dataverse PowerTools: Initialise Project",
         "enablement": "!dataverse-powertools.showLoaded"
+      },
+      {
+        "command": "dataverse-powertools.openEarlyboundConfig",
+        "title": "Dataverse PowerTools: Configure Earlybound",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
+        "command": "dataverse-powertools.openEnvironment",
+        "title": "Dataverse PowerTools: Open Environment",
+        "enablement": "dataverse-powertools.showLoaded"
+      },
+      {
+        "command": "dataverse-powertools.openAdminCenter",
+        "title": "Dataverse PowerTools: Open Admin Center",
+        "enablement": "dataverse-powertools.showLoaded"
+      },
+      {
+        "command": "dataverse-powertools.openMakerPortal",
+        "title": "Dataverse PowerTools: Open Maker Portal",
+        "enablement": "dataverse-powertools.showLoaded"
       },
       {
         "command": "dataverse-powertools.configurePluginEarlyBound",
@@ -534,6 +554,25 @@
         "command": "dataverse-powertools.uploadPortal",
         "title": "Dataverse PowerTools: Upload Portal",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPortal"
+      },
+      {
+        "command": "dataverse-powertools.switchWebresourceOutput",
+        "title": "Dataverse PowerTools: Switch Web Resource Output Mode",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
+      },
+      {
+        "command": "dataverse-powertools.runWebresourceTests",
+        "title": "Dataverse PowerTools: Run Web Resource Tests",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
+      },
+      {
+        "command": "dataverse-powertools.openFormIntersects",
+        "title": "Dataverse PowerTools: Configure Form Intersects",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
+      },
+      {
+        "command": "dataverse-powertools.clearCredentials",
+        "title": "Dataverse PowerTools: Clear Stored Credentials"
       },
       {
         "command": "dataverse-powertools.showLog",

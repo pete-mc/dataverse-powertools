@@ -36,6 +36,22 @@ export default class DataversePowerToolsContext {
   constructor(vscodeContext: vscode.ExtensionContext) {
     this.vscode = vscodeContext;
     this.channel = vscode.window.createOutputChannel("dataverse-powertools");
+    // Test-only seam: when DVPT_TEST_LOG_FILE is set (the e2e launcher), mirror
+    // every channel line to that file so a post-run audit can scan the FULL log
+    // for failure signatures the suites' coded gates didn't predict. Inert
+    // otherwise. The UI's clear/scroll never touches the mirror.
+    const testLogFile = process.env.DVPT_TEST_LOG_FILE;
+    if (testLogFile) {
+      const original = this.channel.appendLine.bind(this.channel);
+      this.channel.appendLine = (value: string) => {
+        try {
+          require("fs").appendFileSync(testLogFile, value + "\n");
+        } catch {
+          /* never let the mirror break the extension */
+        }
+        original(value);
+      };
+    }
     this.statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     this.statusBar.tooltip = "Dataverse PowerTools";
     this.statusBar.command = "dataverse-powertools.openSettings";
@@ -151,6 +167,8 @@ interface ProjectSettings {
   tenantId?: string;
   /** Optional environment tag (e.g. DEV / TEST / PROD) shown as a badge in the actions panel. */
   environmentLabel?: string;
+  /** Environment GUID (from Global Discovery) — addresses the Admin Center / Maker Portal. */
+  environmentId?: string;
   solutionName?: string;
   webresourceSolutionName?: string;
   connectionString?: string;
@@ -168,6 +186,13 @@ interface ProjectSettings {
   portalWebsiteId?: string;
   portalWebsiteName?: string;
   portalDownloadPath?: string;
+  /** Solution pack/unpack config — replaces the legacy spkl.json (migrated on first read). */
+  solutionConfig?: {
+    uniqueName: string;
+    packagePath: string;
+    zipPath: string;
+    packageType: "Managed" | "Unmanaged" | "Both";
+  };
 }
 
 export interface PluginModelBuilderSettings {

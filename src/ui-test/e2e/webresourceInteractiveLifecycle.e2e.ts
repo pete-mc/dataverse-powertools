@@ -17,6 +17,7 @@ import {
   sleep,
   E2EClient,
 } from "./lib";
+import { resetAllCredentials } from "./lib";
 
 // End-to-end: create a Web Resources project via the real wizard using INTERACTIVE (OAuth) sign-in,
 // then generate typings, create a class + test, build, and deploy — the full lifecycle under
@@ -78,6 +79,8 @@ describe("Web resources lifecycle — interactive auth (e2e)", function () {
   it("creates a Web Resources project via the wizard using interactive sign-in", async () => {
     const log = (m: string) => console.log(`    [e2e] ${m}`);
     log("running Initialise Project");
+    // Fresh-credential isolation: each suite proves its own auth path from zero.
+    await resetAllCredentials(log);
     await runCommand("Dataverse PowerTools: Initialise Project");
     log("project type");
     await pickByLabel("Web Resources");
@@ -143,8 +146,8 @@ describe("Web resources lifecycle — interactive auth (e2e)", function () {
     // that OAuth sign-in never sets, reporting "Could not connect to dataverse." (then silently
     // no-op'ing the publish). Gate on "Publish Complete" and fail fast on the old symptom.
     await expectOutput("Publish Complete", {
-      timeoutMs: 180000,
-      failMarkers: ["Could not connect to dataverse.", "Error registering events."],
+      timeoutMs: 300000, // publish retries when another publish is still running
+      failMarkers: ["Could not connect to dataverse.", "Error registering events.", "Failed to save form", "Failed to publish customizations"],
       step: "register form events (interactive)",
     });
     await sleep(10000);

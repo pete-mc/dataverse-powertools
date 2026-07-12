@@ -4,6 +4,7 @@ import { isSupportedProjectType } from "../projectTypes/registry";
 import { discoverWorkspaceComponents } from "../components/componentDiscovery";
 import { addComponent } from "../components/addComponent";
 import { createServicePrincipalString, updateConnectionString, switchEnvironment, refreshConnection } from "./connectionStringManager";
+import { openEnvironment, openAdminCenter, openMakerPortal } from "./openPortals";
 import { createNewProject } from "./generateTemplates";
 import { restoreDependencies } from "./restoreDependencies";
 import { DataverseContext } from "./dataverse/dataverseContext";
@@ -31,6 +32,9 @@ export async function generalInitialise(context: DataversePowerToolsContext) {
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.updateConnectionString", () => updateConnectionString(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.switchEnvironment", () => switchEnvironment(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.refreshConnection", () => refreshConnection(context)));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.openEnvironment", () => openEnvironment(context)));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.openAdminCenter", () => openAdminCenter(context)));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.openMakerPortal", () => openMakerPortal(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.openSettings", () => context.openSettings()));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.addComponent", () => addComponent(context)));
   }
