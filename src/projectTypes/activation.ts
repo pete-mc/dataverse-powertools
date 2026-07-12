@@ -16,6 +16,7 @@ import { buildAndDeploy } from "../plugins/buildAndDeploy";
 import { addClassDecoration, updateFilteringAttributes } from "../plugins/decorations";
 import { viewPluginTraceLogs } from "../plugins/traceLogs";
 import { downloadPluginProfiles } from "../plugins/downloadProfiles";
+import { capturePluginRun } from "../plugins/profilerCapture";
 import { generatePluginReplayTest } from "../plugins/replayTest";
 import { guidePluginProfiling } from "../plugins/profilerGuide";
 import { generateEarlyBoundV3, configureModelBuilderSettings } from "../general/modelbuilder";
@@ -163,6 +164,7 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
       "dataverse-powertools.viewPluginTraceLogs": (context) => viewPluginTraceLogs(context),
       // Profiles are org-side records — works for both template versions.
       "dataverse-powertools.downloadPluginProfiles": (context) => downloadPluginProfiles(context),
+      "dataverse-powertools.capturePluginRun": (context) => capturePluginRun(context),
       "dataverse-powertools.generatePluginReplayTest": (context) => generatePluginReplayTest(context),
       "dataverse-powertools.guidePluginProfiling": (context) => guidePluginProfiling(context),
     },

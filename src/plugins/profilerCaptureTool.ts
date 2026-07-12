@@ -64,13 +64,14 @@ export function isCaptureSupported(): boolean {
   return process.platform === "win32";
 }
 
-/** Run the capture tool with the extension's token; resolves its PRT dependencies
- * by running from the fetched PRT assemblies folder. Returns the parsed result. */
-export async function runProfilerTool(context: DataversePowerToolsContext, args: string[], prtToolsDir: string): Promise<ProfilerToolResult> {
+/** Run the capture tool with the extension's token. `runtimeDir` holds a copy of the
+ * exe next to the full PRT assemblies (see ensureCaptureToolRuntime) so .NET Framework
+ * resolves its dependencies. Returns the parsed result. */
+export async function runProfilerTool(context: DataversePowerToolsContext, args: string[], runtimeDir: string): Promise<ProfilerToolResult> {
   if (!isCaptureSupported()) {
     return { ok: false, error: "Plugin profiling capture is Windows-only. On macOS/Linux, capture in the Plugin Registration Tool, then Download or drop in the profile." };
   }
-  const exe = profilerToolPath(context.vscode.extensionPath);
+  const exe = path.join(runtimeDir, "DvptPluginProfiler.exe");
   if (!fs.existsSync(exe)) {
     return { ok: false, error: `Capture tool not found at ${exe}. Reinstall/update the extension.` };
   }
@@ -81,10 +82,10 @@ export async function runProfilerTool(context: DataversePowerToolsContext, args:
   const token = await dataverse.getAuthorizationToken();
 
   return new Promise<ProfilerToolResult>((resolve) => {
-    // Run the exe from the PRT tools dir so the CLR resolves PluginProfiler.Library
-    // / Microsoft.Xrm.Tooling.Connector alongside it. Token via env, never argv.
+    // Run the exe from its runtime dir so the CLR resolves PluginProfiler.Library /
+    // Microsoft.Xrm.Tooling.Connector alongside it. Token via env, never argv.
     const childEnv = { ...process.env, DVPT_TOKEN: token }; // eslint-disable-line @typescript-eslint/naming-convention -- env var name
-    cp.execFile(exe, args, { cwd: prtToolsDir, env: childEnv, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
+    cp.execFile(exe, args, { cwd: runtimeDir, env: childEnv, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
       if (stderr) {
         context.channel.appendLine(stderr.trimEnd());
       }

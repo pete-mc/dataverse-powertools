@@ -556,6 +556,11 @@
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
+        "command": "dataverse-powertools.capturePluginRun",
+        "title": "Dataverse PowerTools: Profile the Next Plugin Run (capture)",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
         "command": "dataverse-powertools.generatePluginReplayTest",
         "title": "Dataverse PowerTools: Replay Plugin Profile as Unit Test",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"

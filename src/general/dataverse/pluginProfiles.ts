@@ -43,6 +43,46 @@ export function pluginProfileContentQuery(profileId: string): string {
   return `mbs_pluginprofiles(${profileId})?$select=mbs_profile`;
 }
 
+export interface ProfilableStep {
+  stepId: string;
+  name: string;
+  typeName: string;
+  message?: string;
+  primaryEntity?: string;
+  /** 0 = synchronous, 1 = asynchronous. */
+  mode?: number;
+}
+
+/** Steps that can be profiled (Start Profiling), optionally scoped to one plugin
+ * assembly. Joins step -> plugintype -> pluginassembly and drops the profiler's own
+ * "(Profiled)" clones. Read-only. Undefined on failure. */
+export async function getProfilableSteps(context: DataversePowerToolsContext, assemblyName?: string): Promise<ProfilableStep[] | undefined> {
+  const expand =
+    "$expand=sdkmessageid($select=name),sdkmessagefilterid($select=primaryobjecttypecode),eventhandler_plugintype($select=typename;$expand=pluginassemblyid($select=name))";
+  const resource = `sdkmessageprocessingsteps?$select=name,mode,statecode&${expand}&$filter=statecode eq 0&$top=200`;
+  const body = await getJson(context, "List profilable plugin steps", resource);
+  if (!body) {
+    return undefined;
+  }
+  const rows: any[] = body.value ?? [];
+  return rows
+    .map((row) => {
+      const type = row.eventhandler_plugintype;
+      return {
+        stepId: row.sdkmessageprocessingstepid as string,
+        name: (row.name as string) ?? "",
+        typeName: (type?.typename as string) ?? "",
+        assemblyName: (type?.pluginassemblyid?.name as string) ?? "",
+        message: row.sdkmessageid?.name as string | undefined,
+        primaryEntity: row.sdkmessagefilterid?.primaryobjecttypecode as string | undefined,
+        mode: row.mode as number | undefined,
+      };
+    })
+    .filter((step) => step.typeName && !step.typeName.startsWith("Microsoft.") && !/\(Profiled\)/.test(step.name))
+    .filter((step) => !assemblyName || step.assemblyName === assemblyName)
+    .map(({ assemblyName: _assemblyName, ...step }) => step);
+}
+
 async function getJson(context: DataversePowerToolsContext, operation: string, resourcePath: string): Promise<any | undefined> {
   const dataverse = context.dataverse;
   if (!dataverse || !canCallDataverseApi({ organizationUrl: dataverse.organizationUrl, isValid: dataverse.isValid })) {
