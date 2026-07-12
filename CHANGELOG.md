@@ -2,6 +2,14 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.8.2 (pre-release)
+
+One-click plugin profiling — capture comes back into the extension (Windows).
+
+- **Profile the next plugin run, in VS Code (#63).** The plugin card's **Debugging** section gains **Profile next run**: it installs the Plugin Profiler solution if needed, starts profiling the step you pick, waits while you trigger the plug-in, then downloads the captured run and stops profiling — no Plugin Registration Tool GUI, no separate sign-in, under both service-principal and interactive auth. This restores the capability the 0.8.1 rearchitecture had punted to PRT: a bundled net48 helper calls the profiler's own `EnablePlugin` API (what makes the profiler pipeline-executable — raw Web-API step edits don't) with the extension's own access token. **Windows-only** for capture (the profiler is .NET Framework, like replay); macOS/Linux keep the cross-platform **Download a run** / **Replay a downloaded profile** path, and the Debugging block gates the capture action accordingly.
+- **Replay no longer prompts for the plugin type.** The profiler's `mbs_profile` stream is compressed, so the type is now recovered from the downloaded profile's file name — download → **Replay & debug** is prompt-free.
+- Proven end to end by a new headless live lifecycle test (deploy → capture via the shipping tool → download → replay green) and the full UI suite; wiki [Debugging Plugins](https://github.com/pete-mc/dataverse-powertools/wiki/Debugging-Plugins) rewritten for the in-extension flow.
+
 ## 0.8.1 (pre-release)
 
 Plugin-debugging rearchitecture + upgrade experience — the last pre-release before 1.0.0.
