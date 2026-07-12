@@ -495,6 +495,23 @@ async function pollBanner(client: CDP.Client, patterns: string[], timeoutMs: num
   return last;
 }
 
+/** Resolve the hosts the app needs from the TEST HOST — degraded VM DNS mid-run is a known
+ *  failure mode (#106); surfacing it makes environmental failures self-identifying. */
+export async function networkDiag(orgHost: string | undefined): Promise<string> {
+  const dns = await import("dns");
+  const hosts = ["login.microsoftonline.com", ...(orgHost ? [orgHost] : [])];
+  const results: string[] = [];
+  for (const host of hosts) {
+    try {
+      await dns.promises.resolve4(host);
+      results.push(`${host}: ok`);
+    } catch (error: any) {
+      results.push(`${host}: DNS FAIL (${error?.code || error?.message || error})`);
+    }
+  }
+  return results.join(", ");
+}
+
 /** Navigate the browser to the record form and return the onload notification banner it renders
  *  (or "(none)"). `patterns` are the banner substrings to look for; `want` optionally requires a
  *  specific one before returning. */
@@ -508,17 +525,37 @@ export async function bannerOnForm(port: number, recordUrl: string, patterns: st
       })
     ).result.value as string;
   try {
-    // The model-driven app on the persistent debug profile occasionally comes up blank on the first
-    // navigation (nothing rendered); reload once more before giving up.
-    for (let attempt = 0; attempt < 2; attempt++) {
+    // The model-driven app occasionally comes up blank/hung on a navigation. A page stuck at
+    // readyState "loading" has a wedged main-document request that a plain re-navigate won't
+    // recover (#106) — stop loading and reset through about:blank between attempts.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) {
+        try {
+          await client.Page.stopLoading();
+          await client.Page.navigate({ url: "about:blank" });
+          await sleep(1500);
+        } catch {
+          /* best-effort reset */
+        }
+      }
       await client.Page.navigate({ url: recordUrl });
-      const banner = await pollBanner(client, patterns, attempt === 0 ? Math.min(timeoutMs, 60000) : timeoutMs, want);
+      const banner = await pollBanner(client, patterns, attempt < 2 ? Math.min(timeoutMs, 60000) : timeoutMs, want);
       if (banner !== "(none)") {
         return banner;
       }
       if (log) {
         log(`[debug] no-banner diag (attempt ${attempt + 1}): ${await diag()}`);
       }
+    }
+    if (log) {
+      const orgHost = (() => {
+        try {
+          return new URL(recordUrl).hostname;
+        } catch {
+          return undefined;
+        }
+      })();
+      log(`[debug] network diag: ${await networkDiag(orgHost)}`);
     }
     return "(none)";
   } finally {
