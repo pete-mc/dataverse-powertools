@@ -541,6 +541,10 @@
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
       },
       {
+        "command": "dataverse-powertools.clearCredentials",
+        "title": "Dataverse PowerTools: Clear Stored Credentials"
+      },
+      {
         "command": "dataverse-powertools.showLog",
         "title": "Dataverse PowerTools: Show Log"
       },

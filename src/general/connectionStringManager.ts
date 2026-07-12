@@ -1,5 +1,7 @@
-import { window } from "vscode";
+import { window, workspace } from "vscode";
 import DataversePowerToolsContext from "../context";
+import { clearInteractiveTokenCache } from "./dataverse/tokenAcquisition";
+import { runPacResult } from "./pacAuth";
 import { projectTypeRegistry, getProjectTypeDescriptor } from "../projectTypes/registry";
 import { MultiStepInput, shouldResume, validationIgnore } from "./inputControls";
 import { getSolutions } from "./dataverse/getSolutions";
@@ -117,11 +119,44 @@ export async function getServicePrincipalString(context: DataversePowerToolsCont
   return servicePrincipal === undefined ? "" : servicePrincipal.split("TenantID=")[0];
 }
 
+// SecretStorage can't enumerate keys, so every stored service-principal key is
+// tracked in globalState — that's what lets Clear Stored Credentials find them.
+const SECRET_KEY_INDEX = "dataverse-powertools.storedSecretKeys";
+
 export async function saveServicePrincipalString(context: DataversePowerToolsContext, name: string, clientId: string, clientSecret: string, tenantId: string): Promise<void> {
   const value = "ClientId=" + clientId + ";" + "ClientSecret=" + clientSecret + ";" + "TenantID=" + tenantId + ";";
   name = name.replace(/\/+$/, "");
   await context.vscode.secrets.store(name, value);
+  const index = context.vscode.globalState.get<string[]>(SECRET_KEY_INDEX, []);
+  if (!index.includes(name)) {
+    await context.vscode.globalState.update(SECRET_KEY_INDEX, [...index, name]);
+  }
   context.channel.appendLine("Settings Saved!");
+}
+
+/** Sign out everywhere: delete every tracked service-principal secret, the MSAL
+ * token cache, and (best-effort) pac's auth profiles. Registered as
+ * "Clear Stored Credentials" — also used by the e2e suites so one auth type's
+ * leftovers can't mask issues in the other (found via the no-environment bug). */
+export async function clearStoredCredentials(context: DataversePowerToolsContext): Promise<void> {
+  const index = context.vscode.globalState.get<string[]>(SECRET_KEY_INDEX, []);
+  for (const key of index) {
+    try {
+      await context.vscode.secrets.delete(key);
+    } catch {
+      /* already gone */
+    }
+  }
+  await context.vscode.globalState.update(SECRET_KEY_INDEX, []);
+  await clearInteractiveTokenCache();
+  const workspaceRoot = workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+  const pacCleared = await runPacResult(["auth", "clear"], workspaceRoot);
+  context.channel.appendLine(
+    `Cleared stored credentials: ${index.length} service-principal secret(s), the interactive token cache${pacCleared.code === 0 ? ", and all pac auth profiles" : " (pac auth clear failed — see pac output)"}.`,
+  );
+  context.dataverse.authorizationToken = "";
+  context.refreshPanel?.();
+  window.showInformationMessage("Dataverse PowerTools credentials cleared. Reconnect via Update Dataverse Authentication.");
 }
 
 export async function createServicePrincipalString(context: DataversePowerToolsContext, _update: boolean = false): Promise<string> {

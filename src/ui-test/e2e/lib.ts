@@ -517,3 +517,35 @@ export class E2EClient {
     }
   }
 }
+
+/**
+ * Reset ALL credentials — pac auth profiles (host-side `pac auth clear`) and the
+ * extension's stored secrets/token cache (via the Clear Stored Credentials
+ * command, which also runs pac auth clear in-extension; the host-side clear is
+ * kept as a belt-and-braces for runs where the extension isn't active yet).
+ * Every suite calls this before its wizard so each auth type proves its FULL
+ * path from zero — service-principal leftovers masked the OAuth
+ * no-active-environment bug, and this prevents the reverse too. The seeded
+ * MSAL test cache FILE is untouched (the launcher owns it; interactive suites
+ * re-read it).
+ */
+export async function resetAllCredentials(log?: (m: string) => void): Promise<void> {
+  const cp = await import("child_process");
+  const { pacInvocation } = await import("../../general/pac");
+  const { command, args } = pacInvocation(["auth", "clear"]);
+  const result = cp.spawnSync(command, args, { encoding: "utf8", timeout: 60000 });
+  if (log) {
+    log(`[reset] pac auth clear -> exit ${result.status}`);
+  }
+  try {
+    await runCommand("Dataverse PowerTools: Clear Stored Credentials");
+    await sleep(2000);
+    if (log) {
+      log("[reset] extension credentials cleared");
+    }
+  } catch {
+    if (log) {
+      log("[reset] Clear Stored Credentials command unavailable (extension not active yet) — pac cleared host-side");
+    }
+  }
+}

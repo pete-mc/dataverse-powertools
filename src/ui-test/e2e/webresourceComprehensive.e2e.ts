@@ -19,6 +19,7 @@ import {
   sleep,
   E2EClient,
 } from "./lib";
+import { resetAllCredentials } from "./lib";
 import { signInFreshBrowser, autoLoginWithRetry, bannerOnForm, bannerAfterReload, findDebugPortByProfile, killBrowsersByProfile, killStaleE2EProcesses } from "./browserLib";
 import { resolveBrowser } from "../../webresources/debug/browserResolver";
 
@@ -108,6 +109,8 @@ describe("Web resources — comprehensive UI lifecycle (e2e)", function () {
 
   it("1. initialises a clean Web Resources project via the wizard", async () => {
     log("Initialise Project");
+    // Fresh-credential isolation: each suite proves its own auth path from zero.
+    await resetAllCredentials(log);
     await runCommand("Dataverse PowerTools: Initialise Project");
     await pickByLabel("Web Resources");
     await pickByLabel("Service principal (client secret)");

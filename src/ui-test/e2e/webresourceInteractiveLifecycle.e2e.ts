@@ -17,6 +17,7 @@ import {
   sleep,
   E2EClient,
 } from "./lib";
+import { resetAllCredentials } from "./lib";
 
 // End-to-end: create a Web Resources project via the real wizard using INTERACTIVE (OAuth) sign-in,
 // then generate typings, create a class + test, build, and deploy — the full lifecycle under
@@ -78,6 +79,8 @@ describe("Web resources lifecycle — interactive auth (e2e)", function () {
   it("creates a Web Resources project via the wizard using interactive sign-in", async () => {
     const log = (m: string) => console.log(`    [e2e] ${m}`);
     log("running Initialise Project");
+    // Fresh-credential isolation: each suite proves its own auth path from zero.
+    await resetAllCredentials(log);
     await runCommand("Dataverse PowerTools: Initialise Project");
     log("project type");
     await pickByLabel("Web Resources");
