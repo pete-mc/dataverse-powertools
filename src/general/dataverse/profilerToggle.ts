@@ -31,15 +31,22 @@ export interface StepSnapshot {
   typename: string;
 }
 
+/** Executions the profiler captures before it auto-stops. The PRT's default is a
+ * finite positive number; a nil/zero value persists NOTHING (the shipped 0.8.0
+ * config left this nil, so captures never landed). */
+export const DEFAULT_MAX_PROFILED_EXECUTIONS = 100;
+
 /** The exact unsecure-configuration XML the ProfilerPlugin deserializes. */
 export function profilerConfigurationXml(options: {
   originalPluginTypeId: string;
   originalTypeName: string;
   originalConfiguration: string | null;
   persistenceSessionKey: string;
+  maxNumberOfExecutions?: number;
 }): string {
   const original = options.originalConfiguration;
   const configurationElement = original === null || original === undefined ? `<Configuration i:nil="true" />` : `<Configuration>${escapeXml(original)}</Configuration>`;
+  const maxExecutions = options.maxNumberOfExecutions ?? DEFAULT_MAX_PROFILED_EXECUTIONS;
   return (
     `<Configuration xmlns:i="http://www.w3.org/2001/XMLSchema-instance">` +
     `<AssemblyId xmlns:d2p1="http://schemas.microsoft.com/xrm/2011/Contracts" i:nil="true" />` +
@@ -51,10 +58,10 @@ export function profilerConfigurationXml(options: {
     `<d2p1:Name i:nil="true" />` +
     `<d2p1:RowVersion i:nil="true" />` +
     `</EventHandler>` +
-    `<IncludeSecureInformation i:nil="true" />` +
+    `<IncludeSecureInformation>false</IncludeSecureInformation>` +
     `<IsContextReplay i:nil="true" />` +
     `<IsProfilePersistedToEntity>true</IsProfilePersistedToEntity>` +
-    `<MaxNumberOfExecutions i:nil="true" />` +
+    `<MaxNumberOfExecutions>${maxExecutions}</MaxNumberOfExecutions>` +
     `<OriginalEventHandlerName>${escapeXml(options.originalTypeName)}</OriginalEventHandlerName>` +
     `<PersistenceSessionKey>${escapeXml(options.persistenceSessionKey)}</PersistenceSessionKey>` +
     `<TypeName>${escapeXml(options.originalTypeName)}</TypeName>` +
