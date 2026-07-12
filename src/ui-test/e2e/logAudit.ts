@@ -25,7 +25,8 @@ const SUSPICIOUS: { name: string; pattern: RegExp }[] = [
   { name: "node-network", pattern: /\b(ENOTFOUND|ECONNREFUSED|ETIMEDOUT|ECONNRESET|EINVAL|ENOENT)\b/ },
   { name: "schema", pattern: /does not conform|schema validation/i },
   { name: "auth", pattern: /unauthorized|forbidden|token.*expired/i },
-  { name: "stuck", pattern: /timed? ?out|hang|stuck/i },
+  // \b guards: "hang" is inside "Unchanged", which the sync summaries print.
+  { name: "stuck", pattern: /timed? ?out|\bhangs?\b|\bhanging\b|\bstuck\b/i },
   { name: "cannot", pattern: /\bcannot\b|\bunable to\b|not recognized/i },
 ];
 

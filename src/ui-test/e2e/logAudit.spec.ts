@@ -40,6 +40,11 @@ describe("auditLog", () => {
     expect(findings).toHaveLength(1);
   });
 
+  it("does not flag 'Unchanged' in sync summaries (contains 'hang')", () => {
+    expect(auditLog("Plugin step sync complete. Created: 0, Updated: 0, Unchanged: 3, Skipped: 0.")).toEqual([]);
+    expect(auditLog("the page hangs on load")).toHaveLength(1);
+  });
+
   it("deduplicates repeated identical lines", () => {
     const findings = auditLog("Error registering events.\nError registering events.\nError registering events.");
     expect(findings).toHaveLength(1);
