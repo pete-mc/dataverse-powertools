@@ -81,7 +81,8 @@ function webApiClientFor(context: DataversePowerToolsContext): WebApiClient | un
   };
 }
 
-export async function profilePluginStep(context: DataversePowerToolsContext): Promise<void> {
+/** @param typeNameFilter CodeLens scope (#112): only this class's steps are offered. */
+export async function profilePluginStep(context: DataversePowerToolsContext, typeNameFilter?: string): Promise<void> {
   const componentRoot = activeComponentRoot(context);
   const client = componentRoot ? webApiClientFor(context) : undefined;
   if (!componentRoot || !client) {
@@ -100,7 +101,7 @@ export async function profilePluginStep(context: DataversePowerToolsContext): Pr
   }
   const steps = (await client.get(stepsForAssemblyQuery(assemblyName))).value as any[];
   const backups = await readBackups(componentRoot);
-  const candidates = steps.filter((step) => !parseProfilerConfiguration(step.configuration));
+  const candidates = steps.filter((step) => !parseProfilerConfiguration(step.configuration)).filter((step) => !typeNameFilter || step.plugintypeid?.typename === typeNameFilter);
   if (candidates.length === 0) {
     vscode.window.showInformationMessage(
       steps.length > 0 ? "All of this project's steps are already profiled." : `No registered steps found for assembly '${assemblyName}' — deploy first.`,
@@ -143,14 +144,15 @@ export async function profilePluginStep(context: DataversePowerToolsContext): Pr
   vscode.window.showInformationMessage(`Profiling '${backups[stepId].name}' — trigger it, then run Download Captured Profiles. Stop profiling when done.`);
 }
 
-export async function stopProfilingPluginStep(context: DataversePowerToolsContext): Promise<void> {
+/** @param typeNameFilter CodeLens scope (#112): only this class's backups are offered. */
+export async function stopProfilingPluginStep(context: DataversePowerToolsContext, typeNameFilter?: string): Promise<void> {
   const componentRoot = activeComponentRoot(context);
   const client = componentRoot ? webApiClientFor(context) : undefined;
   if (!componentRoot || !client) {
     return;
   }
   const backups = await readBackups(componentRoot);
-  const entries = Object.values(backups);
+  const entries = Object.values(backups).filter((snapshot) => !typeNameFilter || snapshot.typename === typeNameFilter);
   if (entries.length === 0) {
     vscode.window.showInformationMessage("No profiled steps recorded for this project.");
     return;
