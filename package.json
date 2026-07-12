@@ -561,6 +561,21 @@
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
+        "command": "dataverse-powertools.profilePluginStep",
+        "title": "Dataverse PowerTools: Profile a Plugin Step",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
+        "command": "dataverse-powertools.stopProfilingPluginStep",
+        "title": "Dataverse PowerTools: Stop Profiling a Plugin Step",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
+        "command": "dataverse-powertools.repairProfiledSteps",
+        "title": "Dataverse PowerTools: Repair Profiled Steps",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
         "command": "dataverse-powertools.uploadPortal",
         "title": "Dataverse PowerTools: Upload Portal",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPortal"

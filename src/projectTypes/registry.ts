@@ -93,6 +93,9 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
       `${prefix}viewPluginTraceLogs`,
       `${prefix}downloadPluginProfiles`,
       `${prefix}generatePluginReplayTest`,
+      `${prefix}profilePluginStep`,
+      `${prefix}stopProfilingPluginStep`,
+      `${prefix}repairProfiledSteps`,
     ],
     menu(state) {
       const legacy = (state.templateVersion ?? 0) < 3;
@@ -112,6 +115,9 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
           { command: `${prefix}viewPluginTraceLogs`, label: "View plugin trace logs" },
           { command: `${prefix}downloadPluginProfiles`, label: "Download captured profiles" },
           { command: `${prefix}generatePluginReplayTest`, label: "Replay profile as unit test" },
+          { command: `${prefix}profilePluginStep`, label: "Profile a step…" },
+          { command: `${prefix}stopProfilingPluginStep`, label: "Stop profiling…" },
+          { command: `${prefix}repairProfiledSteps`, label: "Repair profiled steps" },
           ...(legacy
             ? [
                 { command: `${prefix}createSNKKey`, label: "Create SNK key" },

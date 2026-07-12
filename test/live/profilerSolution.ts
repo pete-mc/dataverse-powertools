@@ -27,7 +27,36 @@ export async function acquireToken(env: LiveEnv): Promise<string> {
   return data.access_token;
 }
 
-export async function webApi(env: LiveEnv, token: string, method: string, resourcePath: string, body?: unknown): Promise<{ status: number; body: any }> {
+/** A profilerToggle-compatible client over the raw live connection. */
+export function liveWebApiClient(env: LiveEnv, token: string): { get(p: string): Promise<any>; patch(p: string, b: Record<string, unknown>): Promise<void>; post(p: string, b: Record<string, unknown>): Promise<string | undefined>; del(p: string): Promise<void> } {
+  return {
+    async get(p) {
+      const result = await webApi(env, token, "GET", p);
+      if (result.status !== 200) {
+        throw new Error(`GET ${p} -> ${result.status}: ${JSON.stringify(result.body).slice(0, 300)}`);
+      }
+      return result.body;
+    },
+    async patch(p, b) {
+      const result = await webApi(env, token, "PATCH", p, b);
+      if (result.status !== 204) {
+        throw new Error(`PATCH ${p} -> ${result.status}: ${JSON.stringify(result.body).slice(0, 300)}`);
+      }
+    },
+    async post(p, b) {
+      const result = await webApi(env, token, "POST", p, b);
+      if (result.status !== 204 && result.status !== 201) {
+        throw new Error(`POST ${p} -> ${result.status}: ${JSON.stringify(result.body).slice(0, 300)}`);
+      }
+      return result.entityId;
+    },
+    async del(p) {
+      await webApi(env, token, "DELETE", p);
+    },
+  };
+}
+
+export async function webApi(env: LiveEnv, token: string, method: string, resourcePath: string, body?: unknown): Promise<{ status: number; body: any; entityId?: string }> {
   /* eslint-disable @typescript-eslint/naming-convention */
   const response = await fetch(`${env.url.replace(/\/+$/, "")}/api/data/v9.2/${resourcePath}`, {
     method,
@@ -42,7 +71,10 @@ export async function webApi(env: LiveEnv, token: string, method: string, resour
   } catch {
     parsed = { raw: text };
   }
-  return { status: response.status, body: parsed };
+  // OData-EntityId header carries the created record's id on 204 creates.
+  const entityHeader = response.headers.get("odata-entityid") ?? undefined;
+  const entityId = entityHeader?.match(/\(([0-9a-f-]{36})\)/i)?.[1];
+  return { status: response.status, body: parsed, entityId };
 }
 
 /** Download + cache the PRT nupkg, returning the path to the profiler solution ZIP. */
