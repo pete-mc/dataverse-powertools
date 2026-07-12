@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildAttachDebugConfig } from "./debugConfig";
+import { buildAttachDebugConfig, anyOverrideMatches, overridePatternMatches } from "./debugConfig";
 
 describe("buildAttachDebugConfig", () => {
   it("builds an msedge attach config on the given port", () => {
@@ -24,5 +24,25 @@ describe("buildAttachDebugConfig", () => {
     expect(cfg.sourceMapPathOverrides?.["webpack://dvpt/*"]).toBe("C:/repo/web/*");
     expect(cfg.sourceMapPathOverrides?.["webpack://?:*/*"]).toBe("C:/repo/web/*");
     expect(cfg.sourceMapPathOverrides?.["webpack:///./*"]).toBe("C:/repo/web/*");
+  });
+});
+
+describe("override ↔ source-map parity matcher", () => {
+  const { sourceMapPathOverrides } = buildAttachDebugConfig("edge", 9222, "C:/repo/web", "dvpt");
+
+  it("matches the namespaced source names webpack 5 actually emits", () => {
+    expect(anyOverrideMatches(sourceMapPathOverrides, "webpack://dvpt/./webresources_src/Account.ts")).toBe(true);
+    expect(anyOverrideMatches(sourceMapPathOverrides, "webpack://other_ns/./webresources_src/Account.ts")).toBe(true);
+    expect(anyOverrideMatches(sourceMapPathOverrides, "webpack:///./webresources_src/Account.ts")).toBe(true);
+  });
+
+  it("rejects non-webpack sources", () => {
+    expect(anyOverrideMatches(sourceMapPathOverrides, "node_modules/foo/index.js")).toBe(false);
+    expect(anyOverrideMatches(undefined, "webpack://dvpt/./x.ts")).toBe(false);
+  });
+
+  it("treats * as the only wildcard (dots stay literal)", () => {
+    expect(overridePatternMatches("webpack://dvpt/./*", "webpack://dvpt/./a/b.ts")).toBe(true);
+    expect(overridePatternMatches("webpack://dvpt/./*", "webpackX//dvpt/./a.ts")).toBe(false);
   });
 });

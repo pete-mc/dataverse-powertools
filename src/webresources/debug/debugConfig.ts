@@ -45,3 +45,24 @@ export function buildAttachDebugConfig(browserKind: BrowserKind, port: number, w
     sourceMapPathOverrides: overrides,
   };
 }
+
+/** Whether one sourceMapPathOverrides pattern matches a source-map source URL
+ * (js-debug semantics: `*` is the only wildcard, everything else literal).
+ * Pure — the e2e suites assert the ACTUAL built bundle's source names match
+ * our overrides, so a template/devtool drift can't silently unbind breakpoints. */
+export function overridePatternMatches(pattern: string, source: string): boolean {
+  const regex = new RegExp(
+    "^" +
+      pattern
+        .split("*")
+        .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+        .join(".*") +
+      "$",
+  );
+  return regex.test(source);
+}
+
+/** True when ANY override pattern claims the given source URL. */
+export function anyOverrideMatches(overrides: Record<string, string> | undefined, source: string): boolean {
+  return Object.keys(overrides ?? {}).some((pattern) => overridePatternMatches(pattern, source));
+}

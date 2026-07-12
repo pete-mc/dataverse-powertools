@@ -17,7 +17,7 @@ import {
   sleep,
   E2EClient,
 } from "./lib";
-import { resetAllCredentials } from "./lib";
+import { resetAllCredentials, assertSourceMapBindsBreakpoints } from "./lib";
 
 // End-to-end for PER-FILE output mode (#88, user request): every step the bundled
 // lifecycle covers, PLUS the two things only per-file mode can get wrong —
@@ -131,6 +131,10 @@ describe("Web resources lifecycle — per-file output (e2e)", function () {
     expect(g[prefix()][className], `${prefix()}.${className}`).to.exist;
     expect(g[prefix()][className].OnLoad, `${prefix()}.${className}.OnLoad`).to.be.a("function");
     delete g[prefix()];
+
+    // Breakpoint-binding parity: the bundle's REAL source-map names must match
+    // the attach config's overrides (the "unbound breakpoints" bug class).
+    assertSourceMapBindsBreakpoints(built, workspace, prefix(), `${className}.ts`);
   });
 
   it("deploys the per-file webresource to Dataverse under its own name", async () => {

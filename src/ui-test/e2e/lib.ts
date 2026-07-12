@@ -582,3 +582,31 @@ export async function resetAllCredentials(log?: (m: string) => void): Promise<vo
     }
   }
 }
+
+/**
+ * Breakpoint-binding parity check (user request): the built bundle's inline
+ * source map must contain the class's source under a name our attach config's
+ * sourceMapPathOverrides actually match — the exact mismatch that shipped as
+ * "unbound breakpoints". Throws with the real source names on failure.
+ */
+export function assertSourceMapBindsBreakpoints(builtBundlePath: string, componentRoot: string, prefix: string, classFileName: string): void {
+  // Compiled e2e code lives in out/ui-test/e2e; the compiled extension modules in out/.
+
+  const { buildAttachDebugConfig, anyOverrideMatches } = require("../../webresources/debug/debugConfig");
+  const code = fs.readFileSync(builtBundlePath, "utf8");
+  const match = code.match(/\/\/# sourceMappingURL=data:application\/json[^,]*,([A-Za-z0-9+/=]+)/);
+  if (!match) {
+    throw new Error(`${path.basename(builtBundlePath)} has no inline source map — webpack.dev.js devtool drifted from inline-source-map (breakpoints cannot bind).`);
+  }
+  const sources: string[] = JSON.parse(Buffer.from(match[1], "base64").toString("utf8")).sources ?? [];
+  const classSource = sources.find((source) => source.includes(`webresources_src/${classFileName}`));
+  if (!classSource) {
+    throw new Error(`Source map does not carry webresources_src/${classFileName}. Sources: ${sources.slice(0, 10).join(", ")}`);
+  }
+  const config = buildAttachDebugConfig("edge", 9222, componentRoot, prefix);
+  if (!anyOverrideMatches(config.sourceMapPathOverrides, classSource)) {
+    throw new Error(
+      `sourceMapPathOverrides do not match the bundle's actual source name '${classSource}' — breakpoints would be UNBOUND. Overrides: ${Object.keys(config.sourceMapPathOverrides ?? {}).join(" | ")}`,
+    );
+  }
+}
