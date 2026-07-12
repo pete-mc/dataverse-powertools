@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveComponents, componentForPath, componentsOfType, normalizeFsPath } from "./discovery";
+import { resolveComponents, componentForPath, componentsOfType, normalizeFsPath, resolveTargetComponent, DiscoveredComponent } from "./discovery";
 
 const root = "C:\\repo";
 const file = (path: string, settings: object) => ({ path, content: JSON.stringify(settings) });
@@ -97,5 +97,55 @@ describe("componentsOfType + normalizeFsPath", () => {
   it("normalises separators, trailing slashes and drive-letter case", () => {
     expect(normalizeFsPath("C:\\Repo\\Sub\\")).toBe("c:/Repo/Sub");
     expect(normalizeFsPath("/home/user/repo/")).toBe("/home/user/repo");
+  });
+});
+
+describe("resolveTargetComponent (#119 command target)", () => {
+  // Two plugin components + one web-resource, so "several of type" is exercised.
+  const components = resolveComponents(root, [
+    file("C:\\repo\\dataverse-powertools.json", { connectionString: "cs" }),
+    file("C:\\repo\\pluginA\\dataverse-powertools.json", { type: "plugin" }),
+    file("C:\\repo\\pluginB\\dataverse-powertools.json", { type: "plugin" }),
+    file("C:\\repo\\web\\dataverse-powertools.json", { type: "webresources" }),
+  ]).components;
+  const rootOf = (r: string) => (components.find((c) => c.relativeRoot === r) as DiscoveredComponent).root;
+  const resolvedRoot = (res: ReturnType<typeof resolveTargetComponent>) => (res.kind === "resolved" ? res.component.relativeRoot : res.kind);
+
+  it("an explicit resource hint wins (the file's owning component)", () => {
+    expect(resolvedRoot(resolveTargetComponent(components, "plugin", "C:\\repo\\pluginB\\Foo.cs", undefined))).toBe("pluginB");
+  });
+
+  it("a panel-card hint names a component root exactly", () => {
+    expect(resolvedRoot(resolveTargetComponent(components, "plugin", rootOf("pluginA"), undefined))).toBe("pluginA");
+  });
+
+  it("auto-selects the only component of the type (no hint, single)", () => {
+    expect(resolvedRoot(resolveTargetComponent(components, "webresources", undefined, undefined))).toBe("web");
+  });
+
+  it("infers from the active editor when several match and no hint", () => {
+    expect(resolvedRoot(resolveTargetComponent(components, "plugin", undefined, "C:\\repo\\pluginA\\src\\Bar.cs"))).toBe("pluginA");
+    expect(resolvedRoot(resolveTargetComponent(components, "plugin", undefined, "C:\\repo\\pluginB\\Baz.cs"))).toBe("pluginB");
+  });
+
+  it("asks (pick) when several match and the active file is the wrong type or absent", () => {
+    expect(resolveTargetComponent(components, "plugin", undefined, "C:\\repo\\web\\lib.ts").kind).toBe("pick");
+    expect(resolveTargetComponent(components, "plugin", undefined, undefined).kind).toBe("pick");
+    expect(resolveTargetComponent(components, "plugin", undefined, "C:\\elsewhere\\x.cs").kind).toBe("pick");
+  });
+
+  it("does not use active-editor inference when an explicit (but wrong-type) hint was given", () => {
+    // hint points at a web-resource file, command is plugin, active editor is pluginA:
+    // the explicit hint suppresses inference → pick among the plugins.
+    expect(resolveTargetComponent(components, "plugin", "C:\\repo\\web\\lib.ts", "C:\\repo\\pluginA\\Bar.cs").kind).toBe("pick");
+  });
+
+  it("returns none when no component of the type exists", () => {
+    expect(resolveTargetComponent(components, "solution", undefined, undefined).kind).toBe("none");
+  });
+
+  it("pick candidates are exactly the components of the type", () => {
+    const res = resolveTargetComponent(components, "plugin", undefined, undefined);
+    expect(res.kind === "pick" && res.candidates.map((c) => c.relativeRoot)).toEqual(["pluginA", "pluginB"]);
   });
 });
