@@ -150,6 +150,44 @@ describe("project cards", () => {
   });
 });
 
+describe("plugin debugging block (#63)", () => {
+  const pluginState = (over: Partial<ProjectCardState> = {}) => state({ projects: [project({ type: "plugin", ...over })] });
+
+  it("embeds a Debugging block on plugin cards only", () => {
+    expect(card(pluginState(), "project").debugging).toBeDefined();
+    expect(card(state({ projects: [project({ type: "webresources", detail: undefined })] }), "project").debugging).toBeUndefined();
+  });
+
+  it("offers Profile + Download when idle; the actions target the component", () => {
+    const d = card(pluginState({ root: "c:/repo/plugins", isRoot: false, relativeRoot: "plugins" }), "project").debugging!;
+    expect(d.profile.command).toBe("dataverse-powertools.profilePluginStep");
+    expect(d.download.command).toBe("dataverse-powertools.downloadPluginProfiles");
+    expect(d.profile.args).toContain("c:/repo/plugins");
+    expect(d.stop).toBeUndefined();
+    expect(d.repair).toBeUndefined();
+    expect(d.replay).toBeUndefined();
+  });
+
+  it("shows Stop + Repair while profiling is active", () => {
+    const d = card(pluginState({ profilingSteps: 2 }), "project").debugging!;
+    expect(d.profilingSteps).toBe(2);
+    expect(d.stop!.command).toBe("dataverse-powertools.stopProfilingPluginStep");
+    expect(d.repair!.command).toBe("dataverse-powertools.repairProfiledSteps");
+  });
+
+  it("offers Replay only once a profile is downloaded", () => {
+    expect(card(pluginState({ downloadedProfiles: 0 }), "project").debugging!.replay).toBeUndefined();
+    expect(card(pluginState({ downloadedProfiles: 3 }), "project").debugging!.replay!.command).toBe("dataverse-powertools.generatePluginReplayTest");
+  });
+
+  it("keeps the profiler commands out of the card overflow (they live in the block)", () => {
+    const overflow = card(pluginState(), "project").overflow.map((a) => a.command);
+    expect(overflow).not.toContain("dataverse-powertools.profilePluginStep");
+    expect(overflow).not.toContain("dataverse-powertools.downloadPluginProfiles");
+    expect(overflow).not.toContain("dataverse-powertools.generatePluginReplayTest");
+  });
+});
+
 describe("webresource extras", () => {
   const webState = (overrides: Partial<PanelState> = {}) => state({ projects: [project({ type: "webresources", detail: undefined })], ...overrides });
 

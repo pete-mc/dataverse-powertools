@@ -48,6 +48,26 @@ export interface RegistrationsBlock {
   note?: string;
 }
 
+/** The profiler/debugging block embedded in a plugin project card (#63/#112).
+ * Everything here is derived from LOCAL files (the backup file + profiles/), so
+ * the panel stays network-free; the actions open the real commands. */
+export interface DebuggingBlock {
+  /** Steps currently profiled (backup-file entries); 0 = not profiling. */
+  profilingSteps: number;
+  /** Profiles downloaded into profiles/. */
+  downloadedProfiles: number;
+  /** Enable profiling on a step (always available). */
+  profile: MenuAction;
+  /** Fetch captured profiles from the org (always available). */
+  download: MenuAction;
+  /** Stop profiling / restore — only while profiling is active. */
+  stop?: MenuAction;
+  /** Restore all profiled steps from backup — only while profiling is active. */
+  repair?: MenuAction;
+  /** Generate + debug a replay test — only when at least one profile is downloaded. */
+  replay?: MenuAction;
+}
+
 /** Registrations shown before collapsing into a "+N more" note (big repos can have hundreds). */
 export const MAX_REGISTRATION_ROWS = 8;
 
@@ -80,6 +100,8 @@ export type Card =
       status?: StatusLine;
       /** Web-resource cards embed their own registrations, right under the buttons (#47). */
       registrations?: RegistrationsBlock;
+      /** Plugin cards embed a profiler/debugging block, right under the buttons (#63). */
+      debugging?: DebuggingBlock;
     }
   | { kind: "session"; id: "session"; text: string; detail?: string; stop: MenuAction }
   | { kind: "activity"; id: "activity"; items: ActivityItem[] };
@@ -105,6 +127,10 @@ export interface ProjectCardState extends ProjectMenuState {
   isRoot: boolean;
   /** Secondary line (e.g. the csproj); the relativeRoot is shown when set. */
   detail?: string;
+  /** Plugin cards only: steps currently profiled (from the local backup file). */
+  profilingSteps?: number;
+  /** Plugin cards only: profiles downloaded into profiles/ (local scan). */
+  downloadedProfiles?: number;
 }
 
 export interface PanelState {
@@ -216,6 +242,22 @@ function registrationsFor(state: PanelState, project: ProjectCardState): Registr
   };
 }
 
+/** The profiler/debugging block for one plugin card. Status comes from local
+ * files only (the backup file + profiles/), so no network is needed to render. */
+function debuggingFor(project: ProjectCardState): DebuggingBlock {
+  const profilingSteps = project.profilingSteps ?? 0;
+  const downloadedProfiles = project.downloadedProfiles ?? 0;
+  return {
+    profilingSteps,
+    downloadedProfiles,
+    profile: forComponent({ command: "dataverse-powertools.profilePluginStep", label: "Profile a step" }, project),
+    download: forComponent({ command: "dataverse-powertools.downloadPluginProfiles", label: "Download profiles" }, project),
+    stop: profilingSteps > 0 ? forComponent({ command: "dataverse-powertools.stopProfilingPluginStep", label: "Stop profiling" }, project) : undefined,
+    repair: profilingSteps > 0 ? forComponent({ command: "dataverse-powertools.repairProfiledSteps", label: "Repair" }, project) : undefined,
+    replay: downloadedProfiles > 0 ? forComponent({ command: "dataverse-powertools.generatePluginReplayTest", label: "Replay & debug" }, project) : undefined,
+  };
+}
+
 /** Latest operation attributed to a project card: operations record the
  * component root they ran against; root-component operations record none. */
 function statusFromActivity(activity: ActivityItem[], project: ProjectCardState): StatusLine | undefined {
@@ -290,6 +332,7 @@ export function buildMenuModel(state: PanelState): MenuModel {
     }
     const menu = descriptor.menu(project);
     const isWebresource = descriptor.id === "webresources";
+    const isPlugin = descriptor.id === "plugin";
     cards.push({
       kind: "project",
       id: `project:${descriptor.id}${project.isRoot ? "" : `:${project.relativeRoot}`}`,
@@ -303,6 +346,8 @@ export function buildMenuModel(state: PanelState): MenuModel {
       // Each web-resource card carries its OWN registrations (multiple
       // components of the type each get theirs), right under the buttons.
       registrations: isWebresource ? registrationsFor(state, project) : undefined,
+      // Plugin cards carry the profiler/debugging workflow (#63).
+      debugging: isPlugin ? debuggingFor(project) : undefined,
     });
     if (isWebresource) {
       hasWebresourceCard = true;

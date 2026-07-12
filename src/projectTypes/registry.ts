@@ -116,15 +116,12 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
           { command: `${prefix}generateEarlyBound`, label: "Generate Earlybound" },
           ...(legacy ? [] : [{ command: `${prefix}openEarlyboundConfig`, label: "Configure Earlybound" }]),
         ],
+        // The profiler workflow (Profile / Download / Replay / Stop / Repair)
+        // lives in the card's Debugging block, not the overflow (#63).
         overflow: [
           { command: `${prefix}createPluginClass`, label: "New plugin class" },
           { command: `${prefix}createWorkflowClass`, label: "New workflow class" },
           { command: `${prefix}viewPluginTraceLogs`, label: "View plugin trace logs" },
-          { command: `${prefix}downloadPluginProfiles`, label: "Download captured profiles" },
-          { command: `${prefix}generatePluginReplayTest`, label: "Replay profile as unit test" },
-          { command: `${prefix}profilePluginStep`, label: "Profile a step…" },
-          { command: `${prefix}stopProfilingPluginStep`, label: "Stop profiling…" },
-          { command: `${prefix}repairProfiledSteps`, label: "Repair profiled steps" },
           ...(legacy
             ? [
                 { command: `${prefix}createSNKKey`, label: "Create SNK key" },

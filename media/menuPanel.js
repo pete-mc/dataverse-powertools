@@ -198,6 +198,10 @@
     if (card.registrations) {
       c.appendChild(registrationsBlock(card.registrations));
     }
+    // Plugin cards embed the profiler/debugging workflow.
+    if (card.debugging) {
+      c.appendChild(debuggingBlock(card.debugging));
+    }
     if (card.status) {
       const status = el("div", "statusline");
       status.appendChild(statusIcon(card.status.icon === "ok" ? "success" : card.status.icon === "running" ? "running" : "error"));
@@ -242,6 +246,42 @@
     if (block.note) {
       c.appendChild(el("div", "small", block.note));
     }
+    return c;
+  }
+
+  function debuggingBlock(block) {
+    const c = el("div", "debugging");
+    const row = el("div", "head");
+    row.appendChild(el("h3", "inline", "Debugging"));
+    row.appendChild(el("span", "grow"));
+    c.appendChild(row);
+    // Non-intrusive status: only shows a line while profiling is active.
+    if (block.profilingSteps > 0) {
+      const status = el("div", "statusline");
+      status.appendChild(statusIcon("running"));
+      status.appendChild(el("span", null, "Profiling " + block.profilingSteps + " step" + (block.profilingSteps === 1 ? "" : "s") + " — trigger it, then Download"));
+      c.appendChild(status);
+    }
+    // Action row: Profile/Stop, Download, Replay, Repair (conditional).
+    const actions = el("div", "secondary-row");
+    if (block.stop) {
+      actions.appendChild(button(block.stop, "action"));
+    } else {
+      actions.appendChild(button(block.profile, "action"));
+    }
+    actions.appendChild(button(block.download, "action"));
+    if (block.replay) {
+      actions.appendChild(button(block.replay, "action"));
+    }
+    if (block.repair) {
+      actions.appendChild(button(block.repair, "action"));
+    }
+    c.appendChild(actions);
+    const note =
+      block.downloadedProfiles > 0
+        ? block.downloadedProfiles + " profile" + (block.downloadedProfiles === 1 ? "" : "s") + " downloaded · Replay to debug"
+        : "Profile a step, trigger it, download the capture, then Replay to debug it as a test.";
+    c.appendChild(el("div", "small", note));
     return c;
   }
 
