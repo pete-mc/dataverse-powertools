@@ -4,12 +4,12 @@ All notable changes to the "dataverse-powertools" extension will be documented i
 
 ## 0.8.1 (pre-release)
 
-Profiler polish + upgrade experience — the last pre-release before 1.0.0.
+Plugin-debugging rearchitecture + upgrade experience — the last pre-release before 1.0.0.
 
-- **CodeLens profiler toggle (#112).** *Profile this step* appears above `[CrmPluginRegistration]`-decorated plugin classes (switching to *Stop profiling* while that class has an un-restored backup). Same rails as the commands: backup-first, own-assembly only, scoped to the class you clicked.
+- **Plugin debugging: capture in PRT, debug in VS Code (#63/#112).** Profiling a step is done in the Plugin Registration Tool (its *Install Profiler* is the only way to make the profiler pipeline-executable — an automated capture over the Web API couldn't produce reliable profiles). Dataverse PowerTools owns the better half: **Replay a captured profile as a unit test you F5-debug in VS Code** — with the exact captured server context — instead of attaching Visual Studio to the Plugin Registration Tool. **Replay** takes a profile from *Download Captured Profiles* or any file you drop into `profiles/` (or pick via a file dialog — the same input as PRT's Replay dialog). A **Debugging** section on the plugin card and a *Profile & debug…* CodeLens on `[CrmPluginRegistration]` classes tie it together; the new [Debugging Plugins](https://github.com/pete-mc/dataverse-powertools/wiki/Debugging-Plugins) wiki page walks the flow. (The 0.8.0 in-app profiling toggle is removed — it rewired steps but never actually captured.)
 - **Stale config detection + one-click refresh (#113).** Projects whose extension-owned config files (webpack/tsconfig/jest…) predate the current templates are detected on load and offered **Refresh config files**: originals are backed up to `.dvpt-upgrade-backup/<timestamp>/` first, the current templates re-render with your project's placeholders, and your code is never touched. The [Upgrading Projects](https://github.com/pete-mc/dataverse-powertools/wiki/Upgrading-Projects) wiki page (new) covers every upgrade scenario.
-- **Debugging is now proven by tests (#114).** The comprehensive e2e sets a breakpoint in `OnLoad` through the editor, asserts it *binds*, asserts the debugger *pauses* on the hot-reloaded form, and continues; a new suite runs the whole profiler chain — profile a real step, trigger it, download the capture, restore the step byte-identical, generate the replay test and run it green under `dotnet test`.
-- Wiki refreshed (pac/cross-platform rewrite + the new upgrade guide).
+- **Web-resource debugging proven by tests (#114).** The comprehensive e2e sets a breakpoint in `OnLoad` through the editor, asserts it *binds*, asserts the debugger *pauses* on the hot-reloaded form, then continues.
+- Wiki refreshed (pac/cross-platform rewrite + the upgrade and debugging guides).
 
 ## 0.8.0 (pre-release)
 
