@@ -1,11 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { extractProfileTypeName, replayTestSource, csprojWithProfilerRefs, replayClassName } from "./replayTest";
+import { extractProfileTypeName, extractTypeFromProfileFileName, replayTestSource, csprojWithProfilerRefs, replayClassName } from "./replayTest";
 
 describe("extractProfileTypeName", () => {
   it("reads TypeName from a DataContract report, with or without a namespace prefix", () => {
     expect(extractProfileTypeName("<ProfilerPluginReport><TypeName>Contoso.AccountPlugin</TypeName></ProfilerPluginReport>")).toBe("Contoso.AccountPlugin");
     expect(extractProfileTypeName("<a:ProfilerPluginReport><a:TypeName>Contoso.X</a:TypeName></a:ProfilerPluginReport>")).toBe("Contoso.X");
     expect(extractProfileTypeName("<nothing/>")).toBeUndefined();
+  });
+});
+
+describe("extractTypeFromProfileFileName", () => {
+  it("recovers the type from a downloaded profile file name", () => {
+    expect(extractTypeFromProfileFileName("Contoso.AccountPlugin_20260712-014500.profile.xml")).toBe("Contoso.AccountPlugin");
+    expect(extractTypeFromProfileFileName("DvptProbe.ProbePlugin_20260712-153600.profile")).toBe("DvptProbe.ProbePlugin");
+    expect(extractTypeFromProfileFileName("Contoso.X_unknown-time.profile")).toBe("Contoso.X");
+  });
+
+  it("returns undefined for names that aren't the download pattern", () => {
+    expect(extractTypeFromProfileFileName("some-random-file.xml")).toBeUndefined();
+    expect(extractTypeFromProfileFileName("profile.profile")).toBeUndefined();
+    expect(extractTypeFromProfileFileName("Contoso.Plugin.profile")).toBeUndefined();
   });
 });
 
