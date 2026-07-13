@@ -5,10 +5,33 @@ on:
 
 name: Deploy Extension
 env:
+  # publish-vscode-extension still ships a node20 action.yml; GitHub force-runs it on
+  # node24 via this flag (checkout/setup-node/setup-dotnet are already native node24).
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 permissions:
   contents: read
 jobs:
+  version-check:
+    # Every push to main runs this workflow, but the Marketplace rejects a duplicate
+    # version — so only publish when package.json's version actually changed vs the
+    # previous commit. A docs/CI-only push then skips deploy instead of failing on a
+    # "version already exists" republish (which would leave main red).
+    name: Version changed?
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.check.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+      - id: check
+        shell: bash
+        run: |
+          new=$(jq -r .version package.json)
+          old=$(git show HEAD~1:package.json 2>/dev/null | jq -r .version 2>/dev/null || echo "none")
+          echo "previous=$old current=$new"
+          if [ "$new" != "$old" ]; then echo "changed=true" >> "$GITHUB_OUTPUT"; else echo "changed=false" >> "$GITHUB_OUTPUT"; fi
+
   build-test:
     name: Lint, build & test
     runs-on: ubuntu-latest
@@ -30,7 +53,8 @@ jobs:
 
   deploy:
     name: Publish to Marketplace
-    needs: build-test
+    needs: [build-test, version-check]
+    if: needs.version-check.outputs.changed == 'true'
     # Windows runner: vscode:prepublish builds the net48 capture tool
     # (profiler-tool/ -> tools/pluginprofiler/) from source, which .NET Framework
     # can only compile on Windows. Everything else (webpack/vsce) is cross-platform.
@@ -42,7 +66,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 20
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "8.0.x"
       - run: npm ci
