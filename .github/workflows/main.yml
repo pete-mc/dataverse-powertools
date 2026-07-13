@@ -31,7 +31,10 @@ jobs:
   deploy:
     name: Publish to Marketplace
     needs: build-test
-    runs-on: ubuntu-latest
+    # Windows runner: vscode:prepublish builds the net48 capture tool
+    # (profiler-tool/ -> tools/pluginprofiler/) from source, which .NET Framework
+    # can only compile on Windows. Everything else (webpack/vsce) is cross-platform.
+    runs-on: windows-latest
     permissions:
       contents: read
     steps:
@@ -39,6 +42,9 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 20
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
       - run: npm ci
       - name: Publish to Visual Studio Marketplace
         uses: HaaLeo/publish-vscode-extension@v2

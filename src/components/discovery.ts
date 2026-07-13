@@ -144,3 +144,51 @@ export function componentForPath(components: DiscoveredComponent[], fsPath: stri
 export function componentsOfType(components: DiscoveredComponent[], type: string): DiscoveredComponent[] {
   return components.filter((c) => c.settings.type === type);
 }
+
+/** Outcome of resolving which component a command targets (#119). */
+export type TargetResolution = { kind: "resolved"; component: DiscoveredComponent } | { kind: "pick"; candidates: DiscoveredComponent[] } | { kind: "none" };
+
+/**
+ * Pure resolver for "which component does this command act on?" (#119). The ladder,
+ * mirroring VS Code's own resource-command behaviour, is: explicit resource → active
+ * editor → picker.
+ *
+ * - `hintPath` — an explicit target: an Explorer/CodeLens resource path or a panel-card
+ *   component root. When present it wins (owning component of the right type, or an exact
+ *   root match); it never falls through to active-editor inference.
+ * - Exactly one component of the type → that one.
+ * - Several, no usable hint → infer from `activeFilePath` (the active editor) when it
+ *   belongs to a component of the right type; otherwise ask (`pick`).
+ * - None → `none` (the caller decides: legacy unscoped run, or an error).
+ */
+export function resolveTargetComponent(components: DiscoveredComponent[], type: string, hintPath: string | undefined, activeFilePath: string | undefined): TargetResolution {
+  const ofType = componentsOfType(components, type);
+  const owningOfType = (fsPath: string | undefined): DiscoveredComponent | undefined => {
+    if (!fsPath) {
+      return undefined;
+    }
+    const owner = componentForPath(components, fsPath);
+    return owner && owner.settings.type === type ? owner : undefined;
+  };
+
+  if (hintPath) {
+    // An explicit resource hint wins; a panel-card hint names a root exactly.
+    const owner = owningOfType(hintPath) ?? ofType.find((c) => c.root === normalizeFsPath(hintPath));
+    if (owner) {
+      return { kind: "resolved", component: owner };
+    }
+    // Hint given but unresolved (e.g. a wrong-type Explorer file) — resolve by count,
+    // without active-editor inference (the user pointed at something specific).
+    return ofType.length === 1 ? { kind: "resolved", component: ofType[0] } : ofType.length === 0 ? { kind: "none" } : { kind: "pick", candidates: ofType };
+  }
+
+  if (ofType.length === 1) {
+    return { kind: "resolved", component: ofType[0] };
+  }
+  if (ofType.length === 0) {
+    return { kind: "none" };
+  }
+  // Several candidates, no hint: infer from the active editor, else ask.
+  const active = owningOfType(activeFilePath);
+  return active ? { kind: "resolved", component: active } : { kind: "pick", candidates: ofType };
+}

@@ -420,11 +420,22 @@ a.download:hover {
 /* Footer */
 .panel-footer {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   padding: 6px 2px 2px;
   border-top: 1px solid var(--vscode-sideBarSectionHeader-border, rgba(128, 128, 128, 0.15));
   font-size: 0.9em;
+  color: var(--vscode-descriptionForeground);
+}
+
+.panel-footer .help-links {
+  flex-basis: 100%;
+  margin-top: 4px;
+  text-align: right;
+}
+
+.panel-footer .help-links .sep {
   color: var(--vscode-descriptionForeground);
 }
 

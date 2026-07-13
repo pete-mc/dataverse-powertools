@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import fs = require("fs");
 import DataversePowerToolsContext from "../context";
-import { resolveComponents, componentForPath, componentsOfType, DiscoveredComponent, normalizeFsPath } from "./discovery";
+import { resolveComponents, DiscoveredComponent, resolveTargetComponent } from "./discovery";
 import { fsMigrationIo } from "../general/migrationIo";
 import { ProjectTypes } from "../projectTypes/registry";
 
@@ -69,13 +69,14 @@ export function componentScopedContext(context: DataversePowerToolsContext, comp
 
 /**
  * Resolve which component a command invocation targets and run it with a
- * component-scoped context.
- * - An Explorer resource URI wins (the clicked file's owning component).
- * - A string hint (component root path, e.g. from a panel card) wins likewise.
- * - Exactly one component of the type → it (today's behaviour).
+ * component-scoped context (#47, #119). The ladder is explicit resource → active
+ * editor → picker (see resolveTargetComponent):
+ * - An Explorer/CodeLens resource URI or panel-card root string wins.
+ * - Exactly one component of the type → it.
+ * - Several, no hint → infer from the active editor when it belongs to a component
+ *   of the right type; otherwise quick-pick.
  * - None → legacy fallback: run unscoped when the root settings claim the type
  *   (pre-discovery workspaces), else explain.
- * - Several → quick-pick.
  */
 export async function runForComponent<T>(
   context: DataversePowerToolsContext,
@@ -83,36 +84,32 @@ export async function runForComponent<T>(
   hint: vscode.Uri | string | undefined,
   run: (scoped: DataversePowerToolsContext) => Promise<T> | T,
 ): Promise<T | undefined> {
-  const ofType = componentsOfType(context.components ?? [], type);
+  const components = context.components ?? [];
+  const hintPath = hint === undefined ? undefined : typeof hint === "string" ? hint : hint.fsPath;
+  const activeFilePath = vscode.window.activeTextEditor?.document.uri.fsPath;
+
+  const resolution = resolveTargetComponent(components, type, hintPath, activeFilePath);
 
   let component: DiscoveredComponent | undefined;
-  if (hint) {
-    const hintPath = typeof hint === "string" ? hint : hint.fsPath;
-    const owner = componentForPath(context.components ?? [], hintPath);
-    if (owner && owner.settings.type === type) {
-      component = owner;
-    } else if (typeof hint === "string") {
-      // A panel-card hint names a component root explicitly — mismatches are a bug.
-      component = ofType.find((c) => c.root === normalizeFsPath(hintPath));
+  if (resolution.kind === "resolved") {
+    component = resolution.component;
+  } else if (resolution.kind === "pick") {
+    const pick = await vscode.window.showQuickPick(
+      resolution.candidates.map((c) => ({
+        label: c.relativeRoot || "(workspace root)",
+        description: (c.settings.solutionName ?? c.settings.pluginProjectName) as string | undefined,
+        target: c,
+      })),
+      { placeHolder: "Which component?", ignoreFocusOut: true },
+    );
+    component = pick?.target;
+  } else {
+    // none
+    if (context.projectSettings.type === type) {
+      return run(context); // legacy: settings loaded but discovery found nothing (e.g. mid-initialise)
     }
-  }
-
-  if (!component) {
-    if (ofType.length === 1) {
-      component = ofType[0];
-    } else if (ofType.length === 0) {
-      if (context.projectSettings.type === type) {
-        return run(context); // legacy: settings loaded but discovery found nothing (e.g. mid-initialise)
-      }
-      vscode.window.showErrorMessage(`No ${type} component found in this workspace.`);
-      return undefined;
-    } else {
-      const pick = await vscode.window.showQuickPick(
-        ofType.map((c) => ({ label: c.relativeRoot || "(workspace root)", description: c.settings.solutionName as string | undefined, target: c })),
-        { placeHolder: "Which component?" },
-      );
-      component = pick?.target;
-    }
+    vscode.window.showErrorMessage(`No ${type} component found in this workspace.`);
+    return undefined;
   }
 
   if (!component) {

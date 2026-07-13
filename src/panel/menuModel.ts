@@ -109,6 +109,8 @@ export interface MenuModel {
     /** All requirements green — render the collapsed "✓ requirements" line. */
     requirementsOk: boolean;
     log: MenuAction;
+    /** Help & feedback links (Docs, Report an issue) — #120. */
+    help: readonly { label: string; url: string }[];
   };
 }
 
@@ -169,8 +171,14 @@ const DOWNLOAD_URLS = {
   pac: "https://aka.ms/PowerPlatformCLI",
 } as const;
 
+/** Help & feedback links shown in the panel footer (#120). */
+export const HELP_LINKS: readonly { label: string; url: string }[] = [
+  { label: "Docs", url: "https://github.com/pete-mc/dataverse-powertools/wiki" },
+  { label: "Report an issue", url: "https://github.com/pete-mc/dataverse-powertools/issues/new/choose" },
+];
+
 /** URLs the webview is allowed to ask the host to open. */
-export const ALLOWED_EXTERNAL_URLS: readonly string[] = Object.values(DOWNLOAD_URLS);
+export const ALLOWED_EXTERNAL_URLS: readonly string[] = [...Object.values(DOWNLOAD_URLS), ...HELP_LINKS.map((l) => l.url)];
 
 /** Short environment name from the org URL: https://contoso.crm.dynamics.com -> contoso. */
 export function environmentName(organizationUrl: string | undefined): string {
@@ -277,7 +285,7 @@ function forComponent(action: MenuAction, project: ProjectCardState): MenuAction
  * card is on screen — never both at once. */
 function footerFor(state: PanelState, cards: Card[]): MenuModel["footer"] {
   const cardShown = cards.some((c) => c.kind === "requirements");
-  return { requirementsOk: allRequirementsOk(state) && !cardShown, log: { command: "dataverse-powertools.showLog", label: "Show Log" } };
+  return { requirementsOk: allRequirementsOk(state) && !cardShown, log: { command: "dataverse-powertools.showLog", label: "Show Log" }, help: HELP_LINKS };
 }
 
 export function buildMenuModel(state: PanelState): MenuModel {

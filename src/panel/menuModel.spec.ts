@@ -263,6 +263,14 @@ describe("activity + requirements placement", () => {
     expect(model.footer.requirementsOk).toBe(true);
   });
 
+  it("footer carries whitelisted Help & feedback links (#120)", () => {
+    const model = buildMenuModel(state());
+    expect(model.footer.help.map((l) => l.label)).toEqual(["Docs", "Report an issue"]);
+    for (const link of model.footer.help) {
+      expect(ALLOWED_EXTERNAL_URLS).toContain(link.url);
+    }
+  });
+
   it("surfaces the requirements card when something is missing", () => {
     const s = state({ requirements: { scanning: false, scanned: true, dotnet: true, node: true, pac: false } });
     const requirements = card(s, "requirements");
