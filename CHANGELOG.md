@@ -2,6 +2,13 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.8.4 (pre-release)
+
+Arrange your projects (#118).
+
+- **Drag-and-drop reordering + grouping.** In a multi-component repo, drag project cards in the Actions panel to reorder them, drop one onto a group header (or the "start a group" zone) to group related projects, and collapse groups with the caret. The arrangement (order + groups) is remembered in the connection-only root's `dataverse-powertools.json` and restored next session.
+- **Add Component is gated to a components workspace.** It appears only when the root is connection-only (Empty). A single-typed-project root instead offers **Convert to a components workspace**, which moves the project into a subfolder and leaves a connection-only root — after which you can add and arrange components.
+
 ## 0.8.3 (pre-release)
 
 Multi-component polish + build-pipeline hardening.

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildMenuModel, PanelState, ProjectCardState, ALLOWED_EXTERNAL_URLS, environmentName, Card } from "./menuModel";
+import { buildMenuModel, PanelState, ProjectCardState, ALLOWED_EXTERNAL_URLS, environmentName, sanitizeLayout, Card } from "./menuModel";
 import { projectTypeRegistry } from "../projectTypes/registry";
 
 function project(overrides: Partial<ProjectCardState> = {}): ProjectCardState {
@@ -310,5 +310,61 @@ describe("registry menu self-parity", () => {
       expect(p.primary.command.length).toBeGreaterThan(0);
       expect(p.typeLabel).toBe(d.displayName.toUpperCase());
     }
+  });
+});
+
+describe("project layout (#118)", () => {
+  const multi = (over: Partial<PanelState> = {}) =>
+    state({
+      projects: [
+        project({ type: "plugin", relativeRoot: "plugins", root: "c:/repo/plugins", isRoot: false }),
+        project({ type: "webresources", relativeRoot: "web", root: "c:/repo/web", isRoot: false }),
+        project({ type: "solution", relativeRoot: "sol", root: "c:/repo/sol", isRoot: false }),
+      ],
+      rootIsEmpty: true,
+      ...over,
+    });
+  const projectDnd = (cards: ReturnType<typeof buildMenuModel>["cards"]) => cards.filter((c) => c.kind === "project").map((c) => (c as { dndId: string }).dndId);
+  const addCmd = (cards: ReturnType<typeof buildMenuModel>["cards"]) =>
+    (cards.find((c) => c.kind === "actions" && c.id === "addComponent") as { actions: { command: string }[] }).actions[0].command;
+
+  it("orders sub-project cards by layout.order (unlisted append)", () => {
+    expect(projectDnd(buildMenuModel(multi({ layout: { order: ["web", "sol"] } })).cards)).toEqual(["web", "sol", "plugins"]);
+  });
+
+  it("emits a collapsible group card holding its member project cards", () => {
+    const cards = buildMenuModel(multi({ layout: { order: ["web", "plugins", "sol"], groups: [{ name: "Backend", members: ["plugins", "sol"], collapsed: true }] } })).cards;
+    const group = cards.find((c) => c.kind === "group") as { name: string; collapsed: boolean; projects: { dndId: string }[] };
+    expect(group.name).toBe("Backend");
+    expect(group.collapsed).toBe(true);
+    expect(group.projects.map((p) => p.dndId)).toEqual(["plugins", "sol"]);
+    // The grouped members are not also emitted as top-level project cards.
+    expect(projectDnd(cards)).toEqual(["web"]);
+  });
+
+  it("gates Add Component to Empty roots; a typed root offers convert", () => {
+    expect(addCmd(buildMenuModel(multi({ rootIsEmpty: true })).cards)).toBe("dataverse-powertools.addComponent");
+    expect(addCmd(buildMenuModel(multi({ rootIsEmpty: false })).cards)).toBe("dataverse-powertools.convertToComponentsWorkspace");
+  });
+});
+
+describe("sanitizeLayout (#118 untrusted webview input)", () => {
+  it("keeps well-formed order + groups", () => {
+    expect(sanitizeLayout({ order: ["a", "b"], groups: [{ name: "G", members: ["a"], collapsed: true }] })).toEqual({
+      order: ["a", "b"],
+      groups: [{ name: "G", members: ["a"], collapsed: true }],
+    });
+  });
+
+  it("drops non-strings, nameless/empty groups, and caps the name", () => {
+    const out = sanitizeLayout({ order: ["a", 3, null], groups: [{ name: "", members: ["a"] }, { name: "G", members: [] }, { name: "H", members: ["x", 5] }, 7] });
+    expect(out.order).toEqual(["a"]);
+    expect(out.groups).toEqual([{ name: "H", members: ["x"], collapsed: false }]);
+  });
+
+  it("tolerates junk", () => {
+    expect(sanitizeLayout(undefined)).toEqual({ order: [], groups: [] });
+    expect(sanitizeLayout("nope")).toEqual({ order: [], groups: [] });
+    expect(sanitizeLayout({ order: "x" }).order).toEqual([]);
   });
 });

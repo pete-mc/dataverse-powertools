@@ -7,7 +7,7 @@
 // each a card; actions hang off the object they belong to; rare actions live
 // in a per-card ⋯ overflow; requirements collapse to a footer line once green.
 import { MenuAction, ProjectMenuState, getProjectTypeDescriptor } from "../projectTypes/registry";
-import { normalizeFsPath } from "../components/discovery";
+import { normalizeFsPath, applyLayout, Layout } from "../components/discovery";
 
 export interface RequirementRow {
   id: "dotnet" | "node" | "pac";
@@ -91,6 +91,8 @@ export type Card =
       name: string;
       typeLabel: string;
       detail?: string;
+      /** relativeRoot — the drag id for reordering/grouping (#118); "" for the root card (not draggable). */
+      dndId: string;
       primary: MenuAction;
       secondary: MenuAction[];
       overflow: MenuAction[];
@@ -100,6 +102,8 @@ export type Card =
       /** Plugin cards embed a profiler/debugging block, right under the buttons (#63). */
       debugging?: DebuggingBlock;
     }
+  /** A user-defined group of project cards (#118), collapsible, a drop target. */
+  | { kind: "group"; id: string; name: string; collapsed: boolean; projects: Card[] }
   | { kind: "session"; id: "session"; text: string; detail?: string; stop: MenuAction }
   | { kind: "activity"; id: "activity"; items: ActivityItem[] };
 
@@ -160,6 +164,10 @@ export interface PanelState {
     node: boolean;
     pac: boolean;
   };
+  /** User-arranged sidebar layout from the root settings (#118). */
+  layout?: Layout;
+  /** The root is connection-only (Empty) — Add Component is offered only then (#118). */
+  rootIsEmpty?: boolean;
 }
 
 /** Full walkthrough reference: <publisher>.<extension>#<walkthrough id in package.json>. */
@@ -179,6 +187,24 @@ export const HELP_LINKS: readonly { label: string; url: string }[] = [
 
 /** URLs the webview is allowed to ask the host to open. */
 export const ALLOWED_EXTERNAL_URLS: readonly string[] = [...Object.values(DOWNLOAD_URLS), ...HELP_LINKS.map((l) => l.url)];
+
+/** Validate a layout arriving from the webview (untrusted) into a well-formed shape (#118).
+ * Keeps only string ids, caps group names, drops empty/nameless groups. Pure. */
+export function sanitizeLayout(raw: unknown): Layout {
+  const obj = (raw ?? {}) as { order?: unknown; groups?: unknown };
+  const order = Array.isArray(obj.order) ? obj.order.filter((x): x is string => typeof x === "string") : [];
+  const groups = Array.isArray(obj.groups)
+    ? obj.groups
+        .filter((g): g is { name: unknown; members: unknown; collapsed?: unknown } => !!g && typeof g === "object")
+        .map((g) => ({
+          name: typeof g.name === "string" ? g.name.slice(0, 60) : "",
+          members: Array.isArray(g.members) ? g.members.filter((m): m is string => typeof m === "string") : [],
+          collapsed: !!g.collapsed,
+        }))
+        .filter((g) => g.name && g.members.length)
+    : [];
+  return { order, groups };
+}
 
 /** Short environment name from the org URL: https://contoso.crm.dynamics.com -> contoso. */
 export function environmentName(organizationUrl: string | undefined): string {
@@ -322,37 +348,51 @@ export function buildMenuModel(state: PanelState): MenuModel {
     });
   }
 
-  for (const project of state.projects) {
+  const buildProjectCard = (project: ProjectCardState): Card => {
     const descriptor = getProjectTypeDescriptor(project.type);
     if (!descriptor) {
-      cards.push({
+      return {
         kind: "notice",
         id: `unsupported:${project.relativeRoot || "root"}`,
         text: `Project type "${project.type}"${project.relativeRoot ? ` (${project.relativeRoot})` : ""} is not supported by this version of the extension.`,
-      });
-      continue;
+      };
     }
     const menu = descriptor.menu(project);
     const isWebresource = descriptor.id === "webresources";
-    const isPlugin = descriptor.id === "plugin";
-    cards.push({
+    if (isWebresource) {
+      hasWebresourceCard = true;
+    }
+    return {
       kind: "project",
       id: `project:${descriptor.id}${project.isRoot ? "" : `:${project.relativeRoot}`}`,
       name: project.name || descriptor.displayName,
       typeLabel: descriptor.displayName.toUpperCase(),
       detail: project.isRoot ? project.detail : [project.relativeRoot, project.detail].filter(Boolean).join(" · "),
+      dndId: project.isRoot ? "" : project.relativeRoot,
       primary: forComponent({ ...menu.primary, label: menu.primary.label.replace("{environment}", environment) }, project),
       secondary: menu.secondary.map((action) => forComponent(action, project)),
       overflow: [...menu.overflow, { command: "dataverse-powertools.restoreDependencies", label: "Restore dependencies" }].map((action) => forComponent(action, project)),
       status: statusFromActivity(state.activity, project),
-      // Each web-resource card carries its OWN registrations (multiple
-      // components of the type each get theirs), right under the buttons.
+      // Each web-resource card carries its OWN registrations (multiple components each).
       registrations: isWebresource ? registrationsFor(state, project) : undefined,
       // Plugin cards carry the profiler/debugging workflow (#63).
-      debugging: isPlugin ? debuggingFor(project) : undefined,
-    });
-    if (isWebresource) {
-      hasWebresourceCard = true;
+      debugging: descriptor.id === "plugin" ? debuggingFor(project) : undefined,
+    };
+  };
+
+  // Root/typed-root cards stay pinned above the arranged sub-components (#118). Sub
+  // components are ordered + grouped per the saved layout.
+  for (const project of state.projects.filter((p) => p.isRoot)) {
+    cards.push(buildProjectCard(project));
+  }
+  for (const row of applyLayout(
+    state.projects.filter((p) => !p.isRoot),
+    state.layout,
+  )) {
+    if (row.kind === "component") {
+      cards.push(buildProjectCard(row.component));
+    } else {
+      cards.push({ kind: "group", id: `group:${row.name}`, name: row.name, collapsed: row.collapsed, projects: row.components.map(buildProjectCard) });
     }
   }
 
@@ -366,11 +406,16 @@ export function buildMenuModel(state: PanelState): MenuModel {
     });
   }
 
-  // A workspace becomes multi-component by adding one — no upfront mono choice.
+  // Add Component only when the root is connection-only (Empty). A typed root offers
+  // an explicit convert-to-components-workspace step first (#118).
   cards.push({
     kind: "actions",
     id: "addComponent",
-    actions: [{ command: "dataverse-powertools.addComponent", label: "＋ Add Component…" }],
+    actions: [
+      state.rootIsEmpty === false
+        ? { command: "dataverse-powertools.convertToComponentsWorkspace", label: "Convert to a components workspace…" }
+        : { command: "dataverse-powertools.addComponent", label: "＋ Add Component…" },
+    ],
   });
 
   if (state.activity.length > 0) {

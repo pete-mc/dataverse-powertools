@@ -208,7 +208,191 @@
       status.appendChild(el("span", null, card.status.text));
       c.appendChild(status);
     }
+    // Drag to reorder / group (#118). Only sub-component cards (dndId set) are draggable.
+    if (card.dndId) {
+      c.draggable = true;
+      c.dataset.dndid = card.dndId;
+      c.classList.add("draggable");
+      c.addEventListener("dragstart", onCardDragStart);
+      c.addEventListener("dragover", onCardDragOver);
+      c.addEventListener("dragleave", onCardDragLeave);
+      c.addEventListener("drop", onCardDrop);
+      c.addEventListener("dragend", onDragEnd);
+    }
     return c;
+  }
+
+  // --- drag-and-drop layout (#118) ---
+  let dragId = null;
+  let lastCards = [];
+
+  function deriveLayout(cards) {
+    const order = [];
+    const groups = [];
+    for (const card of cards) {
+      if (card.kind === "project" && card.dndId) {
+        order.push(card.dndId);
+      } else if (card.kind === "group") {
+        const members = card.projects.filter((p) => p.dndId).map((p) => p.dndId);
+        order.push.apply(order, members);
+        groups.push({ name: card.name, members: members, collapsed: card.collapsed });
+      }
+    }
+    return { order: order, groups: groups };
+  }
+
+  function moveCard(layout, id, targetId, after) {
+    const groups = layout.groups.map(function (g) {
+      return { name: g.name, collapsed: g.collapsed, members: g.members.filter((m) => m !== id) };
+    });
+    const targetGroup = layout.groups.find((g) => g.members.indexOf(targetId) !== -1);
+    if (targetGroup) {
+      const g = groups.find((x) => x.name === targetGroup.name);
+      const ti = g.members.indexOf(targetId);
+      g.members.splice(after ? ti + 1 : ti, 0, id);
+    }
+    const order = layout.order.filter((x) => x !== id);
+    const oi = order.indexOf(targetId);
+    order.splice(after ? oi + 1 : oi, 0, id);
+    return { order: order, groups: groups.filter((g) => g.members.length) };
+  }
+
+  function addToGroup(layout, id, groupName) {
+    const groups = layout.groups.map(function (g) {
+      return { name: g.name, collapsed: g.collapsed, members: g.members.filter((m) => m !== id) };
+    });
+    const g = groups.find((x) => x.name === groupName);
+    if (!g) {
+      return layout;
+    }
+    const order = layout.order.filter((x) => x !== id);
+    let lastIdx = -1;
+    g.members.forEach(function (m) {
+      lastIdx = Math.max(lastIdx, order.indexOf(m));
+    });
+    order.splice(lastIdx + 1, 0, id);
+    g.members.push(id);
+    return { order: order, groups: groups };
+  }
+
+  function sendLayout(layout) {
+    vscode.postMessage({ type: "updateLayout", layout: layout });
+  }
+
+  function clearDropHints() {
+    const nodes = document.querySelectorAll(".drop-before,.drop-after,.drop-into");
+    for (const n of nodes) {
+      n.classList.remove("drop-before", "drop-after", "drop-into");
+    }
+  }
+
+  function onCardDragStart(e) {
+    dragId = this.dataset.dndid;
+    e.dataTransfer.effectAllowed = "move";
+    this.classList.add("dragging");
+  }
+  function onDragEnd() {
+    dragId = null;
+    clearDropHints();
+    const dn = document.querySelector(".dragging");
+    if (dn) {
+      dn.classList.remove("dragging");
+    }
+  }
+  function onCardDragOver(e) {
+    if (!dragId || dragId === this.dataset.dndid) {
+      return;
+    }
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    const after = e.offsetY > this.offsetHeight / 2;
+    this.classList.toggle("drop-after", after);
+    this.classList.toggle("drop-before", !after);
+  }
+  function onCardDragLeave() {
+    this.classList.remove("drop-before", "drop-after");
+  }
+  function onCardDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const target = this.dataset.dndid;
+    this.classList.remove("drop-before", "drop-after");
+    if (!dragId || dragId === target) {
+      return;
+    }
+    const after = e.offsetY > this.offsetHeight / 2;
+    sendLayout(moveCard(deriveLayout(lastCards), dragId, target, after));
+  }
+
+  function renderGroup(card) {
+    const c = el("section", "group");
+    c.dataset.group = card.name;
+    const head = el("div", "group-head");
+    const caret = el("button", "iconbtn caret");
+    caret.type = "button";
+    caret.textContent = card.collapsed ? "▸" : "▾";
+    caret.setAttribute("aria-label", (card.collapsed ? "Expand" : "Collapse") + " group " + card.name);
+    caret.addEventListener("click", function () {
+      const layout = deriveLayout(lastCards);
+      const g = layout.groups.find((x) => x.name === card.name);
+      if (g) {
+        g.collapsed = !g.collapsed;
+      }
+      sendLayout(layout);
+    });
+    head.appendChild(caret);
+    head.appendChild(el("span", "group-name grow-text", card.name));
+    head.appendChild(el("span", "small", card.projects.length + ""));
+    // Header is a drop target: dropping a card here adds it to the group.
+    head.addEventListener("dragover", function (e) {
+      if (dragId) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        c.classList.add("drop-into");
+      }
+    });
+    head.addEventListener("dragleave", function () {
+      c.classList.remove("drop-into");
+    });
+    head.addEventListener("drop", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      c.classList.remove("drop-into");
+      if (dragId) {
+        sendLayout(addToGroup(deriveLayout(lastCards), dragId, card.name));
+      }
+    });
+    c.appendChild(head);
+    if (!card.collapsed) {
+      const body = el("div", "group-body");
+      for (const project of card.projects) {
+        body.appendChild(renderProject(project));
+      }
+      c.appendChild(body);
+    }
+    return c;
+  }
+
+  function newGroupZone() {
+    const z = el("div", "new-group-zone small", "Drag a project here to start a group");
+    z.addEventListener("dragover", function (e) {
+      if (dragId) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        z.classList.add("drop-into");
+      }
+    });
+    z.addEventListener("dragleave", function () {
+      z.classList.remove("drop-into");
+    });
+    z.addEventListener("drop", function (e) {
+      e.preventDefault();
+      z.classList.remove("drop-into");
+      if (dragId) {
+        vscode.postMessage({ type: "newGroupFromDrop", member: dragId });
+      }
+    });
+    return z;
   }
 
   function registrationsBlock(block) {
@@ -319,6 +503,7 @@
     ["requirements", renderRequirements],
     ["environment", renderEnvironment],
     ["project", renderProject],
+    ["group", renderGroup],
     ["session", renderSession],
     ["activity", renderActivity],
   ]);
@@ -357,13 +542,22 @@
     }
     closeOverflow();
     root.replaceChildren();
+    lastCards = message.model.cards;
+    let draggableCount = 0;
     for (const card of message.model.cards) {
+      if ((card.kind === "project" && card.dndId) || card.kind === "group") {
+        draggableCount++;
+      }
       const renderer = renderers.get(card.kind);
       if (typeof renderer === "function") {
         const node = renderer(card);
         node.dataset.cardId = card.id;
         root.appendChild(node);
       }
+    }
+    // Offer grouping once there are at least two arrangeable projects.
+    if (draggableCount >= 2) {
+      root.appendChild(newGroupZone());
     }
     root.appendChild(renderFooter(message.model.footer));
   });

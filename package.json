@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.8.3",
+  "version": "0.8.4",
   "engines": {
     "vscode": "^1.93.0"
   },
@@ -543,6 +543,11 @@
       {
         "command": "dataverse-powertools.addComponent",
         "title": "Dataverse PowerTools: Add Component",
+        "enablement": "dataverse-powertools.showLoaded"
+      },
+      {
+        "command": "dataverse-powertools.convertToComponentsWorkspace",
+        "title": "Dataverse PowerTools: Convert to a Components Workspace",
         "enablement": "dataverse-powertools.showLoaded"
       },
       {

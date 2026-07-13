@@ -443,3 +443,57 @@ a.download:hover {
   width: auto;
   white-space: nowrap;
 }
+
+/* Project drag-and-drop layout (#118) */
+.card.draggable {
+  cursor: grab;
+}
+.card.dragging {
+  opacity: 0.5;
+}
+.card.drop-before {
+  box-shadow: inset 0 2px 0 0 var(--vscode-focusBorder);
+}
+.card.drop-after {
+  box-shadow: inset 0 -2px 0 0 var(--vscode-focusBorder);
+}
+.group {
+  border: 1px solid var(--vscode-sideBarSectionHeader-border, rgba(128, 128, 128, 0.2));
+  border-radius: 8px;
+  margin: 6px 0;
+  padding: 2px;
+}
+.group.drop-into {
+  border-color: var(--vscode-focusBorder);
+}
+.group-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  font-weight: 500;
+}
+.group-head .caret {
+  width: auto;
+  padding: 0 2px;
+}
+.group-head .group-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.group-body {
+  padding: 0 4px 4px;
+}
+.new-group-zone {
+  border: 1px dashed var(--vscode-sideBarSectionHeader-border, rgba(128, 128, 128, 0.35));
+  border-radius: 8px;
+  padding: 8px;
+  margin: 6px 0;
+  text-align: center;
+  color: var(--vscode-descriptionForeground);
+}
+.new-group-zone.drop-into {
+  border-color: var(--vscode-focusBorder);
+  color: var(--vscode-foreground);
+}

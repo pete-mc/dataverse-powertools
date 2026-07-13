@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
-import { buildMenuModel, ALLOWED_EXTERNAL_URLS } from "./menuModel";
+import { buildMenuModel, ALLOWED_EXTERNAL_URLS, sanitizeLayout } from "./menuModel";
+import { Layout } from "../components/discovery";
 import { computePanelState } from "./panelState";
 import { projectTypeRegistry } from "../projectTypes/registry";
 import { onDebugSessionChanged } from "../webresources/debug/debugWebresources";
@@ -11,6 +12,7 @@ import { openScannedRegistration } from "./registrationsScanner";
 const GENERAL_PANEL_COMMANDS = [
   "dataverse-powertools.initialiseProject",
   "dataverse-powertools.addComponent",
+  "dataverse-powertools.convertToComponentsWorkspace",
   "dataverse-powertools.restoreDependencies",
   "dataverse-powertools.refreshConnection",
   "dataverse-powertools.updateConnectionString",
@@ -67,7 +69,7 @@ export class MenuPanelViewProvider implements vscode.WebviewViewProvider {
     void this.view.webview.postMessage({ type: "model", model: buildMenuModel(computePanelState(this.context)) });
   }
 
-  private async onMessage(message: { type?: string; command?: string; args?: unknown[]; url?: string; index?: number }): Promise<void> {
+  private async onMessage(message: { type?: string; command?: string; args?: unknown[]; url?: string; index?: number; layout?: unknown; member?: unknown }): Promise<void> {
     switch (message?.type) {
       case "ready":
         this.refresh();
@@ -94,7 +96,33 @@ export class MenuPanelViewProvider implements vscode.WebviewViewProvider {
           await vscode.env.openExternal(vscode.Uri.parse(message.url));
         }
         break;
+      case "updateLayout":
+        // Re-arranged in the webview (#118): persist the sanitised layout on the root settings.
+        await this.saveLayout(sanitizeLayout(message.layout));
+        break;
+      case "newGroupFromDrop": {
+        if (typeof message.member !== "string") {
+          break;
+        }
+        const member = message.member;
+        const name = (await vscode.window.showInputBox({ prompt: "Name for the new group", ignoreFocusOut: true }))?.trim();
+        if (!name) {
+          break;
+        }
+        const current = sanitizeLayout(this.context.projectSettings.layout);
+        const groups = (current.groups ?? []).map((group) => ({ ...group, members: group.members.filter((m) => m !== member) })).filter((group) => group.members.length);
+        groups.push({ name: name.slice(0, 60), members: [member] });
+        await this.saveLayout({ order: current.order, groups });
+        break;
+      }
     }
+  }
+
+  /** Persist the sidebar layout on the root settings and re-render (#118). */
+  private async saveLayout(layout: Layout): Promise<void> {
+    this.context.projectSettings.layout = layout;
+    await this.context.writeSettings();
+    this.refresh();
   }
 
   private renderHtml(webview: vscode.Webview): string {

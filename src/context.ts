@@ -7,7 +7,7 @@ import { workspaceFilePath } from "./general/paths";
 import { parseConnectionString, buildConnectionString, getOrganizationUrl, mergeCredentialConnectionString } from "./general/connectionString";
 import { parseAuthType, DataverseAuthType } from "./general/dataverse/authTypes";
 import { ProjectTypes } from "./projectTypes/registry";
-import type { DiscoveredComponent } from "./components/discovery";
+import type { DiscoveredComponent, Layout } from "./components/discovery";
 import { migrateSettings } from "./general/settingsMigrations";
 import { fsMigrationIo } from "./general/migrationIo";
 import path = require("path");
@@ -174,6 +174,8 @@ interface ProjectSettings {
   environmentId?: string;
   /** Revision of the type's template CONFIG FILES this project last received (#113). */
   configRevision?: number;
+  /** Sidebar arrangement of sub-components (#118) — only on the root (Empty) settings. */
+  layout?: Layout;
   solutionName?: string;
   webresourceSolutionName?: string;
   connectionString?: string;

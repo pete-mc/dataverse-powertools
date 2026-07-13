@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveComponents, componentForPath, componentsOfType, normalizeFsPath, resolveTargetComponent, DiscoveredComponent } from "./discovery";
+import { resolveComponents, componentForPath, componentsOfType, normalizeFsPath, resolveTargetComponent, applyLayout, DiscoveredComponent } from "./discovery";
 
 const root = "C:\\repo";
 const file = (path: string, settings: object) => ({ path, content: JSON.stringify(settings) });
@@ -147,5 +147,45 @@ describe("resolveTargetComponent (#119 command target)", () => {
   it("pick candidates are exactly the components of the type", () => {
     const res = resolveTargetComponent(components, "plugin", undefined, undefined);
     expect(res.kind === "pick" && res.candidates.map((c) => c.relativeRoot)).toEqual(["pluginA", "pluginB"]);
+  });
+});
+
+describe("applyLayout (#118 sidebar arrangement)", () => {
+  const components = resolveComponents(root, [
+    file("C:\\repo\\dataverse-powertools.json", { connectionString: "cs" }),
+    file("C:\\repo\\plugins\\dataverse-powertools.json", { type: "plugin" }),
+    file("C:\\repo\\web\\dataverse-powertools.json", { type: "webresources" }),
+    file("C:\\repo\\solution\\dataverse-powertools.json", { type: "solution" }),
+  ]).components;
+  const shape = (rows: ReturnType<typeof applyLayout>) =>
+    rows.map((r) => (r.kind === "component" ? r.component.relativeRoot : `[${r.name}:${r.components.map((c) => c.relativeRoot).join(",")}${r.collapsed ? " ×" : ""}]`));
+
+  it("excludes the root and keeps discovery order with no layout", () => {
+    expect(shape(applyLayout(components, undefined))).toEqual(["plugins", "solution", "web"]);
+  });
+
+  it("orders by layout.order, appending unlisted in discovery order", () => {
+    expect(shape(applyLayout(components, { order: ["solution", "plugins"] }))).toEqual(["solution", "plugins", "web"]);
+  });
+
+  it("emits a group at its first member's position with all members nested", () => {
+    const rows = applyLayout(components, { order: ["web", "plugins", "solution"], groups: [{ name: "Backend", members: ["plugins", "solution"] }] });
+    expect(shape(rows)).toEqual(["web", "[Backend:plugins,solution]"]);
+  });
+
+  it("carries the collapsed flag and honours member order within a group", () => {
+    const rows = applyLayout(components, { order: ["solution", "plugins", "web"], groups: [{ name: "G", members: ["plugins", "solution"], collapsed: true }] });
+    expect(shape(rows)).toEqual(["[G:solution,plugins ×]", "web"]);
+  });
+
+  it("ignores stale layout entries and a member listed in two groups (first wins)", () => {
+    const rows = applyLayout(components, {
+      order: ["plugins", "gone"],
+      groups: [
+        { name: "A", members: ["plugins"] },
+        { name: "B", members: ["plugins", "web"] },
+      ],
+    });
+    expect(shape(rows)).toEqual(["[A:plugins]", "solution", "[B:web]"]);
   });
 });
