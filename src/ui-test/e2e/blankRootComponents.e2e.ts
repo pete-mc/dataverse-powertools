@@ -2,7 +2,20 @@ import * as path from "path";
 import * as fs from "fs";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
-import { loadE2EEnv, freshWorkspace, answerText, answerFlexible, pickByLabel, pickExactLabel, runCommand, waitForFile, dismissOverlays, sleep, E2EClient } from "./lib";
+import {
+  loadE2EEnv,
+  freshWorkspace,
+  answerText,
+  answerFlexible,
+  pickByLabel,
+  pickExactLabel,
+  runCommand,
+  runCommandResilient,
+  waitForFile,
+  dismissOverlays,
+  sleep,
+  E2EClient,
+} from "./lib";
 import { resetAllCredentials } from "./lib";
 
 // End-to-end for the BLANK (connection-only) root + Add Component (user request):
@@ -209,8 +222,11 @@ describe("Blank root + two components of each type (e2e)", function () {
     // ask which one; picking webresources2 scopes Switch Output Mode's settings write to it
     // alone — the first component's settings must be untouched. This is the UI-level #119 proof.
     await closeAllEditors();
-    await runCommand("Dataverse PowerTools: Switch Web Resource Output Mode");
+    // Clear any lingering "component added" toast — it can intercept the quick-pick click.
+    await dismissOverlays();
+    await runCommandResilient("Dataverse PowerTools: Switch Web Resource Output Mode");
     await pickExactLabel("webresources2", 30000); // the "Which component?" picker
+    await dismissOverlays(); // drop toasts before the second pick (they overlap the list)
     await pickByLabel("One file per web resource", 30000); // the mode picker
     expect(await waitForSettings("webresources2", (s) => s.webresourceOutput === "perFile", 30000), "webresources2 switched to perFile").to.equal(true);
     expect(readSettings("webresources").webresourceOutput, "the FIRST component's output mode is untouched").to.not.equal("perFile");
