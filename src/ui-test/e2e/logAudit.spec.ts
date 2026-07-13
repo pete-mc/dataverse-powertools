@@ -35,6 +35,14 @@ describe("auditLog", () => {
     expect(auditLog("A publish is already running — retrying in 20s (1/7)…\nPublish Complete")).toEqual([]);
   });
 
+  it("does not flag build/restore timings whose ms count looks like an HTTP status", () => {
+    // The http-error rule is case-insensitive, so "401 ms" would match "401 " + a letter.
+    expect(auditLog("Restored c:\\repo\\plugin2\\Plugin2.csproj (in 401 ms).")).toEqual([]);
+    expect(auditLog("Determining projects to restore... Restored (in 429 ms).")).toEqual([]);
+    // A genuine HTTP 401 with a reason phrase is still caught.
+    expect(auditLog("Request failed: 401 Unauthorized")).toHaveLength(1);
+  });
+
   it("flags network errors and HRESULTs", () => {
     const findings = auditLog("request to https://login.microsoftonline.com failed, reason: getaddrinfo ENOTFOUND login.microsoftonline.com");
     expect(findings).toHaveLength(1);

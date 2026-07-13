@@ -8,6 +8,11 @@ import { resolveTestProjectPath } from "./unitTesting";
 import { parseDotnetListTests } from "./parseDotnetListTests";
 import { parseTrx, TrxTestResult } from "./parseTrx";
 import { activeComponentRoot } from "../components/componentDiscovery";
+import { scopedTestControllerId } from "../components/discovery";
+
+// One controller per component, keyed by its unique id — re-initialising the same
+// component (re-discovery) disposes the stale controller instead of colliding on the id.
+const controllersById = new Map<string, vscode.TestController>();
 
 // Test Explorer integration for a plugin project's .NET tests (#84). Discovers tests via
 // `dotnet test --list-tests`, runs them via `dotnet test --logger trx` and parses the TRX for live
@@ -195,7 +200,14 @@ async function runHandler(
 }
 
 export function createPluginTestController(context: DataversePowerToolsContext): vscode.TestController {
-  const controller = vscode.tests.createTestController("dataverse-powertools.pluginTests", "Plugin Tests (.NET)");
+  // Scope the controller id to the component so two plugin components don't collide
+  // ("Attempt to insert a duplicate controller with ID …", #47). Label by folder so the
+  // user can tell each component's tests apart in the Test Explorer.
+  const id = scopedTestControllerId("dataverse-powertools.pluginTests", activeComponentRoot(context), !context.activeComponent);
+  controllersById.get(id)?.dispose();
+  const rel = context.activeComponent?.relativeRoot;
+  const controller = vscode.tests.createTestController(id, rel ? `Plugin Tests (.NET) — ${rel}` : "Plugin Tests (.NET)");
+  controllersById.set(id, controller);
   controller.resolveHandler = async (item) => {
     if (!item) {
       await discover(context, controller);
@@ -207,6 +219,13 @@ export function createPluginTestController(context: DataversePowerToolsContext):
   controller.createRunProfile("Run", vscode.TestRunProfileKind.Run, (request, token) => void runHandler(context, controller, request, token, false), true);
   controller.createRunProfile("Debug", vscode.TestRunProfileKind.Debug, (request, token) => void runHandler(context, controller, request, token, true), false);
   void discover(context, controller);
-  context.vscode.subscriptions.push(controller);
+  context.vscode.subscriptions.push({
+    dispose: () => {
+      controller.dispose();
+      if (controllersById.get(id) === controller) {
+        controllersById.delete(id);
+      }
+    },
+  });
   return controller;
 }

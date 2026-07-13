@@ -33,6 +33,11 @@ export interface DiscoveredComponent {
   /** True for the workspace-root component (today's single-project layout). */
   isRoot: boolean;
   settings: ComponentSettings;
+  /** Fields whose value was inherited from the root at discovery (not present in this
+   * component's own file). They're merged into `settings` for a complete in-memory view,
+   * but must NOT be persisted back — writeSettings strips them so the component keeps
+   * inheriting the root's connection/tenant/env instead of baking in a stale copy (#47). */
+  inheritedFields?: string[];
 }
 
 export interface DiscoveryResult {
@@ -110,10 +115,15 @@ export function resolveComponents(
       if (component.isRoot || component.settings.connectionString) {
         continue;
       }
+      const inherited: string[] = [];
       for (const field of INHERITED_FIELDS) {
         if (component.settings[field] === undefined && rootComponent.settings[field] !== undefined) {
           component.settings[field] = rootComponent.settings[field];
+          inherited.push(field);
         }
+      }
+      if (inherited.length > 0) {
+        component.inheritedFields = inherited;
       }
     }
   }
@@ -145,6 +155,16 @@ export function componentForPath(components: DiscoveredComponent[], fsPath: stri
 /** Components of a given project type (registry id). */
 export function componentsOfType(components: DiscoveredComponent[], type: string): DiscoveredComponent[] {
   return components.filter((c) => c.settings.type === type);
+}
+
+/** A VS Code TestController id scoped to one component (#84/#47). VS Code throws
+ * "duplicate controller with ID" if two controllers share an id, so a base id like
+ * `dataverse-powertools.webresourceTests` must be suffixed with the component root when
+ * a workspace has TWO components of the same type. The root component keeps the bare id
+ * (byte-identical single-project behaviour). Normalised so the same component maps to the
+ * same id across re-inits. */
+export function scopedTestControllerId(baseId: string, componentRoot: string | undefined, isRoot: boolean): string {
+  return !componentRoot || isRoot ? baseId : `${baseId}::${normalizeFsPath(componentRoot)}`;
 }
 
 /** User-arranged sidebar layout (#118), stored on the root (Empty) component's

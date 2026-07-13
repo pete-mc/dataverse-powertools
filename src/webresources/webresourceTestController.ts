@@ -4,6 +4,11 @@ import DataversePowerToolsContext from "../context";
 import { parseJestJson, extractJestJson, JestAssertion } from "./parseJestJson";
 import { jestPathArgs } from "./jestPaths";
 import { activeComponentRoot } from "../components/componentDiscovery";
+import { scopedTestControllerId } from "../components/discovery";
+
+// One controller per component, keyed by its unique id — re-initialising the same
+// component (re-discovery) disposes the stale controller instead of colliding on the id.
+const controllersById = new Map<string, vscode.TestController>();
 
 // Test Explorer integration for a Web Resources project's Jest tests (#84). Discovers the test files,
 // runs them via the project's LOCAL jest (through `npx`, like the webpack build), and reports live
@@ -174,7 +179,14 @@ function* mapIterable(items: vscode.TestItemCollection): Generator<vscode.TestIt
 }
 
 export function createWebresourceTestController(context: DataversePowerToolsContext): vscode.TestController {
-  const controller = vscode.tests.createTestController("dataverse-powertools.webresourceTests", "Web Resource Tests (Jest)");
+  // Scope the controller id to the component so two web-resource components don't collide
+  // ("Attempt to insert a duplicate controller with ID …", #47). Label by folder so the
+  // user can tell each component's tests apart in the Test Explorer.
+  const id = scopedTestControllerId("dataverse-powertools.webresourceTests", activeComponentRoot(context), !context.activeComponent);
+  controllersById.get(id)?.dispose();
+  const rel = context.activeComponent?.relativeRoot;
+  const controller = vscode.tests.createTestController(id, rel ? `Web Resource Tests (Jest) — ${rel}` : "Web Resource Tests (Jest)");
+  controllersById.set(id, controller);
   controller.resolveHandler = async (item) => {
     if (!item) {
       await discoverTestFiles(controller);
@@ -186,6 +198,13 @@ export function createWebresourceTestController(context: DataversePowerToolsCont
   controller.createRunProfile("Run", vscode.TestRunProfileKind.Run, (request, token) => void runHandler(context, controller, request, token, false), true);
   controller.createRunProfile("Debug", vscode.TestRunProfileKind.Debug, (request, token) => void runHandler(context, controller, request, token, true), false);
   void discoverTestFiles(controller);
-  context.vscode.subscriptions.push(controller);
+  context.vscode.subscriptions.push({
+    dispose: () => {
+      controller.dispose();
+      if (controllersById.get(id) === controller) {
+        controllersById.delete(id);
+      }
+    },
+  });
   return controller;
 }

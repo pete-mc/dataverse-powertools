@@ -44,6 +44,7 @@ const BENIGN: RegExp[] = [
   /hierarchyLevel|errorhandler/i, // metadata/typings identifiers containing "error"
   /Failed=0\b/i, // trx-style counters
   /passExecutionContext/i, // form XML attribute containing "ExecutionContext"
+  /\(in \d+\s*ms\)/i, // build/restore timing "Restored … (in 401 ms)" — the http-error rule's /i makes [A-Z] match the "ms", not an HTTP 401
 ];
 
 /** Audit a full e2e log. Returns findings for suspicious lines not covered by

@@ -9,6 +9,7 @@ import { componentsOfType } from "./components/discovery";
 import { clearStoredCredentials } from "./general/connectionStringManager";
 import { checkConfigRevision } from "./general/configRefresh";
 import { registerProfilerCodeLens } from "./plugins/profilerCodeLens";
+import { registerDecorationCodeLens } from "./plugins/decorationsCodeLens";
 import { registerMenuPanel } from "./panel/menuPanel";
 import { registerSystemRequirementCommands } from "./general/systemRequirements";
 import { initInteractiveTokenCache } from "./general/dataverse/tokenAcquisition";
@@ -29,6 +30,10 @@ export async function activate(vscodeContext: vscode.ExtensionContext) {
   registerAllComponentCommands(context);
   // Profiler toggle CodeLens on [CrmPluginRegistration] classes (#112).
   registerProfilerCodeLens(context);
+  // Class-decoration / filtering-attribute CodeLens on plugin .cs files. Registered
+  // ONCE here (its commands + provider are global) — never per plugin component, or a
+  // second plugin component's initialise throws "command … already exists" (#47).
+  registerDecorationCodeLens(context);
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.folderStateReady", false);
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.detectingFolderSettings", true);
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.hasSupportedProjectType", true);

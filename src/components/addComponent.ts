@@ -164,13 +164,18 @@ export async function addComponent(context: DataversePowerToolsContext): Promise
   const componentRoot = path.join(workspaceRoot, folderName);
   await fs.promises.mkdir(componentRoot, { recursive: true });
 
-  // The component's own settings: type + template version only — everything
-  // else (connection, prefix, environment label) is inherited from the root.
+  // The component's own settings. The connection stays inherited from the root
+  // (never written here), but the publisher PREFIX is carried so template
+  // generation can substitute SOLUTIONPREFIX now — the same prefix gets baked into
+  // the component's webpack.common.js, so it belongs with the component (and
+  // discovery would inherit the same value anyway). Fixes SOLUTIONPREFIX not being
+  // replaced when adding a web-resource component to a blank root.
   const componentSettings: DiscoveredComponent["settings"] = {
     type: descriptor.id,
     templateversion: descriptor.defaultTemplateVersion,
     configRevision: descriptor.configRevision,
     solutionName: context.projectSettings.solutionName,
+    prefix: context.projectSettings.prefix,
   };
   const component: DiscoveredComponent = {
     root: normalizeFsPath(componentRoot),

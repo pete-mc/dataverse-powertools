@@ -5,6 +5,7 @@ import { MultiStepInput, shouldResume, validationIgnore } from "../general/input
 import { getDataverseForms } from "../general/dataverse/getDataverseForms";
 import { getDataverseTables } from "../general/dataverse/getDataverseTables";
 import { createTemplatedFile } from "../general/generateTemplates";
+import { activeComponentRoot } from "../components/componentDiscovery";
 import { buildWebResourceClassPlaceholders } from "./webResourceClassTemplate";
 import path = require("path");
 
@@ -26,18 +27,21 @@ export async function createWebResourceClass(context: DataversePowerToolsContext
   });
   await createTemplatedFile(context, "class", outputs.className ?? "", placeholders);
   // In perFile output mode (#88) every source file is its own entry — the
-  // library.ts re-export barrel only exists for the bundled mode.
+  // library.ts re-export barrel only exists for the bundled mode. Resolve it
+  // against the ACTIVE COMPONENT root (not the workspace root) so it works for a
+  // web-resource component in a subfolder, matching createTemplatedFile.
   if (context.projectSettings.webresourceOutput !== "perFile") {
-    var library = (await vscode.workspace.fs.readFile(vscode.Uri.file(path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, "webresources_src", "library.ts")))).toString();
+    const componentRoot = activeComponentRoot(context) ?? vscode.workspace.workspaceFolders[0].uri.fsPath;
+    const libraryUri = vscode.Uri.file(path.join(componentRoot, "webresources_src", "library.ts"));
+    let library = (await vscode.workspace.fs.readFile(libraryUri)).toString();
     library = library.trim() + ('\nexport * from "./' + outputs.className + '";\n');
-    await vscode.workspace.fs.writeFile(
-      vscode.Uri.file(path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, "webresources_src", "library.ts")),
-      Buffer.from(library, "utf8"),
-    );
+    await vscode.workspace.fs.writeFile(libraryUri, Buffer.from(library, "utf8"));
   }
 
-  const testsPlaceholders = [{ placeholder: "ClassName", value: outputs.className ?? "" }] as TemplatePlaceholder[];
-  await createTemplatedFile(context, "sample.test", (outputs.className ?? "") + ".test", testsPlaceholders);
+  if (outputs.addTest) {
+    const testsPlaceholders = [{ placeholder: "ClassName", value: outputs.className ?? "" }] as TemplatePlaceholder[];
+    await createTemplatedFile(context, "sample.test", (outputs.className ?? "") + ".test", testsPlaceholders);
+  }
 }
 
 async function collectInputs(context: DataversePowerToolsContext) {
