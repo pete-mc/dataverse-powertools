@@ -546,6 +546,11 @@
         "enablement": "dataverse-powertools.showLoaded"
       },
       {
+        "command": "dataverse-powertools.convertToComponentsWorkspace",
+        "title": "Dataverse PowerTools: Convert to a Components Workspace",
+        "enablement": "dataverse-powertools.showLoaded"
+      },
+      {
         "command": "dataverse-powertools.viewPluginTraceLogs",
         "title": "Dataverse PowerTools: View Plugin Trace Logs",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"

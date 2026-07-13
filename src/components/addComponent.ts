@@ -49,7 +49,12 @@ async function offerNestedMigration(context: DataversePowerToolsContext, workspa
   if (pick.target === "keep") {
     return true;
   }
+  return performNestedMigration(context, workspaceRoot, typeName);
+}
 
+/** Move the current typed root project into a subfolder so the workspace root
+ * becomes connection-only (Empty). Returns true when the migration completed (#118). */
+export async function performNestedMigration(context: DataversePowerToolsContext, workspaceRoot: string, typeName: string): Promise<boolean> {
   const folderInput = await vscode.window.showInputBox({
     ignoreFocusOut: true,
     prompt: `Subfolder to move the existing ${typeName} project into`,
@@ -210,4 +215,29 @@ export async function addComponent(context: DataversePowerToolsContext): Promise
     },
   );
   vscode.window.showInformationMessage(`${descriptor.displayName} component added in ${folderName} (inherits the workspace connection).`);
+}
+
+/** Convert a single-typed-project workspace into a components workspace (#118): move
+ * the root project into a subfolder so the root is connection-only, then Add Component
+ * becomes available. On an already-Empty root it just points at Add Component. */
+export async function convertToComponentsWorkspace(context: DataversePowerToolsContext): Promise<void> {
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!workspaceRoot) {
+    vscode.window.showErrorMessage("Open a workspace folder first.");
+    return;
+  }
+  if (!context.projectSettings.type) {
+    const choice = await vscode.window.showInformationMessage("This workspace is already a components workspace (connection-only root).", "Add Component");
+    if (choice === "Add Component") {
+      await addComponent(context);
+    }
+    return;
+  }
+  const typeName = getProjectTypeDescriptor(context.projectSettings.type)?.displayName ?? context.projectSettings.type;
+  if (await performNestedMigration(context, workspaceRoot, typeName)) {
+    const choice = await vscode.window.showInformationMessage(`Converted — the ${typeName} project moved to a subfolder and the root is now connection-only.`, "Add Component");
+    if (choice === "Add Component") {
+      await addComponent(context);
+    }
+  }
 }

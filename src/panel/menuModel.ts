@@ -188,6 +188,24 @@ export const HELP_LINKS: readonly { label: string; url: string }[] = [
 /** URLs the webview is allowed to ask the host to open. */
 export const ALLOWED_EXTERNAL_URLS: readonly string[] = [...Object.values(DOWNLOAD_URLS), ...HELP_LINKS.map((l) => l.url)];
 
+/** Validate a layout arriving from the webview (untrusted) into a well-formed shape (#118).
+ * Keeps only string ids, caps group names, drops empty/nameless groups. Pure. */
+export function sanitizeLayout(raw: unknown): Layout {
+  const obj = (raw ?? {}) as { order?: unknown; groups?: unknown };
+  const order = Array.isArray(obj.order) ? obj.order.filter((x): x is string => typeof x === "string") : [];
+  const groups = Array.isArray(obj.groups)
+    ? obj.groups
+        .filter((g): g is { name: unknown; members: unknown; collapsed?: unknown } => !!g && typeof g === "object")
+        .map((g) => ({
+          name: typeof g.name === "string" ? g.name.slice(0, 60) : "",
+          members: Array.isArray(g.members) ? g.members.filter((m): m is string => typeof m === "string") : [],
+          collapsed: !!g.collapsed,
+        }))
+        .filter((g) => g.name && g.members.length)
+    : [];
+  return { order, groups };
+}
+
 /** Short environment name from the org URL: https://contoso.crm.dynamics.com -> contoso. */
 export function environmentName(organizationUrl: string | undefined): string {
   if (!organizationUrl) {

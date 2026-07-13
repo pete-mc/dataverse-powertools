@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildMenuModel, PanelState, ProjectCardState, ALLOWED_EXTERNAL_URLS, environmentName, Card } from "./menuModel";
+import { buildMenuModel, PanelState, ProjectCardState, ALLOWED_EXTERNAL_URLS, environmentName, sanitizeLayout, Card } from "./menuModel";
 import { projectTypeRegistry } from "../projectTypes/registry";
 
 function project(overrides: Partial<ProjectCardState> = {}): ProjectCardState {
@@ -345,5 +345,26 @@ describe("project layout (#118)", () => {
   it("gates Add Component to Empty roots; a typed root offers convert", () => {
     expect(addCmd(buildMenuModel(multi({ rootIsEmpty: true })).cards)).toBe("dataverse-powertools.addComponent");
     expect(addCmd(buildMenuModel(multi({ rootIsEmpty: false })).cards)).toBe("dataverse-powertools.convertToComponentsWorkspace");
+  });
+});
+
+describe("sanitizeLayout (#118 untrusted webview input)", () => {
+  it("keeps well-formed order + groups", () => {
+    expect(sanitizeLayout({ order: ["a", "b"], groups: [{ name: "G", members: ["a"], collapsed: true }] })).toEqual({
+      order: ["a", "b"],
+      groups: [{ name: "G", members: ["a"], collapsed: true }],
+    });
+  });
+
+  it("drops non-strings, nameless/empty groups, and caps the name", () => {
+    const out = sanitizeLayout({ order: ["a", 3, null], groups: [{ name: "", members: ["a"] }, { name: "G", members: [] }, { name: "H", members: ["x", 5] }, 7] });
+    expect(out.order).toEqual(["a"]);
+    expect(out.groups).toEqual([{ name: "H", members: ["x"], collapsed: false }]);
+  });
+
+  it("tolerates junk", () => {
+    expect(sanitizeLayout(undefined)).toEqual({ order: [], groups: [] });
+    expect(sanitizeLayout("nope")).toEqual({ order: [], groups: [] });
+    expect(sanitizeLayout({ order: "x" }).order).toEqual([]);
   });
 });
