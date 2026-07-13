@@ -2,6 +2,16 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.8.5 (pre-release)
+
+Multi-component robustness — fixes for repos with two components of the same type.
+
+- **Create Webresource Class works in a subfolder component (and honours the "create test?" answer).** In a multi-component repo, **New class** threw `ENOENT` on `library.ts` — it looked at the workspace root instead of the web-resource component, so the class file was created but the barrel export and the test were not. It now resolves against the active component, and only writes the test when you ask for one.
+- **Adding a Web Resources component to a blank root substitutes the publisher prefix.** `webpack.common.js` kept the literal `SOLUTIONPREFIX` token instead of your prefix, so the built library was misnamed. The new component now carries the inherited prefix at scaffold time.
+- **A second component of the same type no longer errors.** Adding a second web-resource or plugin component used to fail at the end of **Add Component** with *"duplicate controller with ID"* / *"command … already exists"* (the component was scaffolded, but the command reported an error): the Test Explorer controller collided on a hardcoded id and the plugin decoration commands re-registered. Controllers are now scoped per component, and those commands register once.
+- **Component settings stay inheritance-clean.** Running a settings-writing command (e.g. **Switch Output Mode**) on a subfolder component no longer bakes the root's connection into that component's `dataverse-powertools.json` — which would have made it self-contained and stopped it tracking the root's connection changes.
+- Covered by a new headless monorepo test and an extended blank-root e2e that adds **two of every component type** and verifies command targeting; the full e2e suite (43 tests, both auth types) is green.
+
 ## 0.8.4 (pre-release)
 
 Arrange your projects (#118).
