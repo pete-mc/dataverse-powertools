@@ -12,6 +12,7 @@ import {
   runCommand,
   runCommandResilient,
   waitForFile,
+  waitForOutput,
   dismissOverlays,
   sleep,
   E2EClient,
@@ -53,6 +54,18 @@ describe("Blank root + two components of each type (e2e)", function () {
       }
       await sleep(2000);
     }
+  }
+
+  /** Gate on the Add Component command FULLY completing. Its last step logs
+   * "[Components] N components discovered"; without waiting for it the test returns
+   * as soon as the npm/paket lockfile appears (mid-add), so mocha starts the NEXT
+   * add while this one is still restoring + discovering — the two scaffolds then
+   * overlap (doubled restore/discovery output). `count` = components after this add
+   * (the connection-only root + every component added so far). */
+  async function waitForAddComplete(count: number): Promise<void> {
+    const seen = await waitForOutput(`${count} components discovered`, 180000);
+    expect(seen, `Add Component finished (discovery logged ${count} components)`).to.not.equal(undefined);
+    await sleep(3000); // let the post-discovery tail (initialise + panel refresh) settle
   }
 
   /** Read visible notification text from the DOM. Must run BEFORE dismissOverlays (which
@@ -198,6 +211,7 @@ describe("Blank root + two components of each type (e2e)", function () {
     expect(webpackCommon, "SOLUTIONPREFIX token substituted").to.not.contain("SOLUTIONPREFIX");
     expect(settings.prefix, "component carries the inherited publisher prefix").to.be.a("string").and.not.equal("");
     expect(webpackCommon, "webpack.common.js uses the real prefix").to.contain(`${settings.prefix}_library.js`);
+    await waitForAddComplete(2); // root + webresources — don't let the next add overlap
   });
 
   it("adds a SECOND Web Resources component into a distinct subfolder", async () => {
@@ -212,6 +226,7 @@ describe("Blank root + two components of each type (e2e)", function () {
     const webpackCommon = fs.readFileSync(path.join(workspace, "webresources2", "webpack.common.js"), "utf8");
     expect(webpackCommon, "SOLUTIONPREFIX substituted in the second component too").to.not.contain("SOLUTIONPREFIX");
     expect(webpackCommon).to.contain(`${settings.prefix}_library.js`);
+    await waitForAddComplete(3); // root + webresources + webresources2
     // The second web-resource component's Test Explorer controller must get a distinct id —
     // a duplicate id makes Add Component throw "duplicate controller with ID" (#47).
     await assertCommandDidNotError("second Web Resources add");
@@ -247,6 +262,7 @@ describe("Blank root + two components of each type (e2e)", function () {
     expect(settings.type).to.equal("plugin");
     expect(settings.pluginProjectName).to.equal("E2EBlankPlugin");
     expect(settings.connectionString).to.equal(undefined);
+    await waitForAddComplete(4); // root + 2 webresources + plugin
   });
 
   it("adds a SECOND Plugins component into a distinct subfolder (own project scaffold)", async () => {
@@ -261,6 +277,7 @@ describe("Blank root + two components of each type (e2e)", function () {
     expect(settings.type).to.equal("plugin");
     expect(settings.pluginProjectName, "second plugin keeps its own project name").to.equal("E2EBlankPlugin2");
     expect(settings.connectionString).to.equal(undefined);
+    await waitForAddComplete(5); // root + 2 webresources + 2 plugins
     // Same duplicate-controller guard for the plugin Test Explorer controller (#47).
     await assertCommandDidNotError("second Plugins add");
   });
@@ -276,6 +293,7 @@ describe("Blank root + two components of each type (e2e)", function () {
     expect(settings.type).to.equal("solution");
     expect(settings.templateversion, "integer template version (1.1 float retired, #71)").to.equal(2);
     expect(settings.connectionString).to.equal(undefined);
+    await waitForAddComplete(6); // root + 2 webresources + 2 plugins + solution
   });
 
   it("adds a SECOND Solution component into a distinct subfolder", async () => {
@@ -287,6 +305,7 @@ describe("Blank root + two components of each type (e2e)", function () {
     const settings = readSettings("solution2");
     expect(settings.type).to.equal("solution");
     expect(settings.connectionString).to.equal(undefined);
+    await waitForAddComplete(7); // root + 2 webresources + 2 plugins + 2 solutions
   });
 
   it("adds a Portal component into a subfolder", async () => {
@@ -296,6 +315,7 @@ describe("Blank root + two components of each type (e2e)", function () {
     const settings = readSettings("portal");
     expect(settings.type).to.equal("portal");
     expect(settings.connectionString).to.equal(undefined);
+    await waitForAddComplete(8); // root + 2 webresources + 2 plugins + 2 solutions + portal
   });
 
   it("adds a SECOND Portal component into a distinct subfolder", async () => {
@@ -305,6 +325,7 @@ describe("Blank root + two components of each type (e2e)", function () {
     const settings = readSettings("portal2");
     expect(settings.type).to.equal("portal");
     expect(settings.connectionString).to.equal(undefined);
+    await waitForAddComplete(9); // root + two of every type
   });
 
   it("root stays a typeless connection-only file after all additions", async () => {
