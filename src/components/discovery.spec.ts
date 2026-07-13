@@ -45,10 +45,14 @@ describe("resolveComponents", () => {
     expect(inherited.settings.tenantId).toBe("t-1");
     expect(inherited.settings.prefix).toBe("ctso");
     expect(inherited.settings.environmentLabel).toBe("DEV");
-    // Self-contained component keeps its own values untouched.
+    // The inherited fields are recorded so writeSettings can strip them (not bake them
+    // into the component's file, which would make it self-contained — #47).
+    expect(inherited.inheritedFields).toEqual(["connectionString", "tenantId", "prefix", "environmentLabel"]);
+    // Self-contained component keeps its own values untouched and inherits nothing.
     const selfContained = components.find((c) => c.relativeRoot === "other")!;
     expect(selfContained.settings.connectionString).toBe("own-cs");
     expect(selfContained.settings.prefix).toBe("own");
+    expect(selfContained.inheritedFields).toBeUndefined();
   });
 
   it("reports malformed settings files without dropping the rest", () => {

@@ -88,6 +88,13 @@ export default class DataversePowerToolsContext {
     if (filePath !== undefined) {
       let toWrite = JSON.parse(JSON.stringify(this.projectSettings));
       delete toWrite.pluginModelBuilder;
+      // A subfolder component must not PERSIST fields it only inherited from the root
+      // (connection, tenant, env). Discovery merges them into its in-memory settings for a
+      // complete view, but writing them back would make the component self-contained — it
+      // would then stop tracking the root's connection changes (#47).
+      for (const field of this.activeComponent?.inheritedFields ?? []) {
+        delete toWrite[field];
+      }
       if (typeof toWrite.connectionString === "string" && toWrite.connectionString.length > 0) {
         // Persist only the non-secret base; client id/secret live in secret storage.
         const parts = parseConnectionString(toWrite.connectionString);
