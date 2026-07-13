@@ -2,16 +2,19 @@ import * as path from "path";
 import * as fs from "fs";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
-import { loadE2EEnv, freshWorkspace, answerText, answerFlexible, pickByLabel, runCommand, waitForFile, dismissOverlays, sleep, E2EClient } from "./lib";
+import { loadE2EEnv, freshWorkspace, answerText, answerFlexible, pickByLabel, pickExactLabel, runCommand, waitForFile, dismissOverlays, sleep, E2EClient } from "./lib";
 import { resetAllCredentials } from "./lib";
 
 // End-to-end for the BLANK (connection-only) root + Add Component (user request):
-// initialise an "Empty (components in subfolders)" workspace, then add one
-// component of EVERY other type into subfolders. Each component's settings file
+// initialise an "Empty (components in subfolders)" workspace, then add TWO
+// components of EVERY other type into subfolders. Each component's settings file
 // must carry its type but NO connection (it inherits the root's); the root file
 // must stay typeless with the connection. Scaffold + restore per type is proven
 // by a marker file (plugin's is the pac-init csproj, so its restore path runs).
-describe("Blank root + one component of each type (e2e)", function () {
+// With two web-resource components present, a webresources command must target
+// the ONE the user picks (runForComponent's picker) and scope its write to it —
+// the UI-level proof of #119 command targeting the headless monorepo spec models.
+describe("Blank root + two components of each type (e2e)", function () {
   this.timeout(1500000);
   const env = loadE2EEnv();
   let workspace: string;
@@ -19,6 +22,35 @@ describe("Blank root + one component of each type (e2e)", function () {
 
   function readSettings(relative: string): any {
     return JSON.parse(fs.readFileSync(path.join(workspace, relative, "dataverse-powertools.json"), "utf8"));
+  }
+
+  /** Poll a component's settings until a predicate holds (a command's write landed). */
+  async function waitForSettings(relative: string, predicate: (settings: any) => boolean, timeoutMs: number): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      try {
+        if (predicate(readSettings(relative))) {
+          return true;
+        }
+      } catch {
+        /* file mid-write — retry */
+      }
+      if (Date.now() > deadline) {
+        return false;
+      }
+      await sleep(2000);
+    }
+  }
+
+  /** Clear the active editor so runForComponent falls to its picker (not active-editor inference). */
+  async function closeAllEditors(): Promise<void> {
+    try {
+      await runCommand("View: Close All Editors");
+    } catch {
+      /* nothing open */
+    }
+    await sleep(1000);
+    await dismissOverlays();
   }
 
   /** Poll for any file matching a predicate under a folder (recursive). */
@@ -136,6 +168,32 @@ describe("Blank root + one component of each type (e2e)", function () {
     expect(webpackCommon, "webpack.common.js uses the real prefix").to.contain(`${settings.prefix}_library.js`);
   });
 
+  it("adds a SECOND Web Resources component into a distinct subfolder", async () => {
+    await startAddComponent("Web Resources");
+    await answerText("webresources2"); // a second web-resource component alongside the first
+    expect(await waitForFile(path.join(workspace, "webresources2", "dataverse-powertools.json"), 600000), "webresources2 settings").to.equal(true);
+    expect(await waitForFile(path.join(workspace, "webresources2", "webpack.common.js"), 60000), "webresources2 scaffold").to.equal(true);
+    expect(await waitForFile(path.join(workspace, "webresources2", "node_modules", ".package-lock.json"), 600000), "npm install finished").to.equal(true);
+    const settings = readSettings("webresources2");
+    expect(settings.type).to.equal("webresources");
+    expect(settings.connectionString, "second component also inherits the root connection").to.equal(undefined);
+    const webpackCommon = fs.readFileSync(path.join(workspace, "webresources2", "webpack.common.js"), "utf8");
+    expect(webpackCommon, "SOLUTIONPREFIX substituted in the second component too").to.not.contain("SOLUTIONPREFIX");
+    expect(webpackCommon).to.contain(`${settings.prefix}_library.js`);
+  });
+
+  it("a webresources command targets the component the user picks (two present) and scopes its write", async () => {
+    // Two web-resource components now exist. With no active editor, runForComponent must
+    // ask which one; picking webresources2 scopes Switch Output Mode's settings write to it
+    // alone — the first component's settings must be untouched. This is the UI-level #119 proof.
+    await closeAllEditors();
+    await runCommand("Dataverse PowerTools: Switch Web Resource Output Mode");
+    await pickExactLabel("webresources2", 30000); // the "Which component?" picker
+    await pickByLabel("One file per web resource", 30000); // the mode picker
+    expect(await waitForSettings("webresources2", (s) => s.webresourceOutput === "perFile", 30000), "webresources2 switched to perFile").to.equal(true);
+    expect(readSettings("webresources").webresourceOutput, "the FIRST component's output mode is untouched").to.not.equal("perFile");
+  });
+
   it("adds a Plugins component into a subfolder (pac init + restore)", async () => {
     await startAddComponent("Plugins");
     await answerText("plugin"); // subfolder
@@ -153,6 +211,20 @@ describe("Blank root + one component of each type (e2e)", function () {
     expect(settings.connectionString).to.equal(undefined);
   });
 
+  it("adds a SECOND Plugins component into a distinct subfolder (own project scaffold)", async () => {
+    await startAddComponent("Plugins");
+    await answerText("plugin2"); // second plugin component alongside the first
+    await answerText("E2EBlankPlugin2"); // distinct plugin project name
+    expect(await waitForFile(path.join(workspace, "plugin2", "dataverse-powertools.json"), 600000), "plugin2 settings").to.equal(true);
+    expect(await waitForMatch(path.join(workspace, "plugin2"), (file) => file.endsWith(".csproj"), 600000), "plugin2 csproj scaffolded").to.equal(true);
+    expect(await waitForMatch(path.join(workspace, "plugin2"), (file) => file.endsWith(".sln"), 300000), "plugin2 normalised layout (.sln)").to.equal(true);
+    expect(await waitForMatch(path.join(workspace, "plugin2"), (file) => file === "project.assets.json", 600000), "plugin2 dotnet restore finished").to.equal(true);
+    const settings = readSettings("plugin2");
+    expect(settings.type).to.equal("plugin");
+    expect(settings.pluginProjectName, "second plugin keeps its own project name").to.equal("E2EBlankPlugin2");
+    expect(settings.connectionString).to.equal(undefined);
+  });
+
   it("adds a Solution component into a subfolder", async () => {
     await startAddComponent("Solution");
     await answerText("solution"); // subfolder
@@ -166,6 +238,17 @@ describe("Blank root + one component of each type (e2e)", function () {
     expect(settings.connectionString).to.equal(undefined);
   });
 
+  it("adds a SECOND Solution component into a distinct subfolder", async () => {
+    await startAddComponent("Solution");
+    await answerText("solution2"); // second solution component alongside the first
+    expect(await waitForFile(path.join(workspace, "solution2", "dataverse-powertools.json"), 600000), "solution2 settings").to.equal(true);
+    expect(await waitForFile(path.join(workspace, "solution2", "nuget.config"), 120000), "solution2 scaffold").to.equal(true);
+    expect(await waitForFile(path.join(workspace, "solution2", "paket.lock"), 600000), "solution2 paket install finished").to.equal(true);
+    const settings = readSettings("solution2");
+    expect(settings.type).to.equal("solution");
+    expect(settings.connectionString).to.equal(undefined);
+  });
+
   it("adds a Portal component into a subfolder", async () => {
     await startAddComponent("Portal");
     await answerText("portal"); // subfolder
@@ -175,9 +258,22 @@ describe("Blank root + one component of each type (e2e)", function () {
     expect(settings.connectionString).to.equal(undefined);
   });
 
+  it("adds a SECOND Portal component into a distinct subfolder", async () => {
+    await startAddComponent("Portal");
+    await answerText("portal2"); // second portal component alongside the first
+    expect(await waitForFile(path.join(workspace, "portal2", "dataverse-powertools.json"), 300000), "portal2 settings").to.equal(true);
+    const settings = readSettings("portal2");
+    expect(settings.type).to.equal("portal");
+    expect(settings.connectionString).to.equal(undefined);
+  });
+
   it("root stays a typeless connection-only file after all additions", async () => {
     const settings = readSettings(".");
     expect(settings.type).to.equal(undefined);
     expect(settings.connectionString).to.be.a("string").and.not.equal("");
+    // Eight components discovered off the root: two of every type, each type-scoped, none owning a connection.
+    for (const rel of ["webresources", "webresources2", "plugin", "plugin2", "solution", "solution2", "portal", "portal2"]) {
+      expect(readSettings(rel).connectionString, `${rel} inherits (owns no connection)`).to.equal(undefined);
+    }
   });
 });
