@@ -128,6 +128,12 @@ describe("Blank root + one component of each type (e2e)", function () {
     const settings = readSettings("webresources");
     expect(settings.type).to.equal("webresources");
     expect(settings.connectionString, "component inherits the root connection — no own connectionString").to.equal(undefined);
+    // Template substitution must run at Add-Component time (the component carries the
+    // inherited prefix): webpack.common.js has the real prefix, not the literal token.
+    const webpackCommon = fs.readFileSync(path.join(workspace, "webresources", "webpack.common.js"), "utf8");
+    expect(webpackCommon, "SOLUTIONPREFIX token substituted").to.not.contain("SOLUTIONPREFIX");
+    expect(settings.prefix, "component carries the inherited publisher prefix").to.be.a("string").and.not.equal("");
+    expect(webpackCommon, "webpack.common.js uses the real prefix").to.contain(`${settings.prefix}_library.js`);
   });
 
   it("adds a Plugins component into a subfolder (pac init + restore)", async () => {
