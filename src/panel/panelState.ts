@@ -99,5 +99,9 @@ export function computePanelState(context: DataversePowerToolsContext): PanelSta
     })),
     activity: activityItems(),
     requirements: getSystemRequirementsStatus(),
+    // Sidebar arrangement + Add-Component gating (#118): the root's own layout, and
+    // whether the root is connection-only (Empty) vs a typed single-project root.
+    layout: (settings.layout as PanelState["layout"]) ?? undefined,
+    rootIsEmpty: loaded ? !settings.type : undefined,
   };
 }

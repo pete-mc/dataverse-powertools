@@ -20,6 +20,8 @@ export interface ComponentSettings {
   solutionName?: string;
   environmentLabel?: string;
   environmentId?: string;
+  /** Sidebar arrangement (#118) — only meaningful on the root (Empty) component. */
+  layout?: Layout;
   [key: string]: unknown;
 }
 
@@ -143,6 +145,75 @@ export function componentForPath(components: DiscoveredComponent[], fsPath: stri
 /** Components of a given project type (registry id). */
 export function componentsOfType(components: DiscoveredComponent[], type: string): DiscoveredComponent[] {
   return components.filter((c) => c.settings.type === type);
+}
+
+/** User-arranged sidebar layout (#118), stored on the root (Empty) component's
+ * dataverse-powertools.json. relativeRoots identify components. */
+export interface LayoutGroup {
+  name: string;
+  members: string[];
+  collapsed?: boolean;
+}
+export interface Layout {
+  /** Display order of components, by relativeRoot. Unlisted ones append (discovery order). */
+  order?: string[];
+  /** Named groups; a component belongs to at most one (first that lists it). */
+  groups?: LayoutGroup[];
+}
+
+/** One top-level row of the arranged sidebar: a standalone item or a group. Generic
+ * over the item so it serves both DiscoveredComponent and the panel's project cards. */
+export type LayoutRow<T> = { kind: "component"; component: T } | { kind: "group"; name: string; collapsed: boolean; components: T[] };
+
+/** The minimum an item needs to be arranged: its relativeRoot id and whether it's the root. */
+export interface Arrangeable {
+  relativeRoot: string;
+  isRoot: boolean;
+}
+
+/**
+ * Arrange the non-root items into ordered top-level rows per the saved layout (#118). Pure.
+ * - Order: `layout.order` (by relativeRoot); items not listed keep their given order after the listed ones.
+ * - Groups: a group appears at the position of its first ordered member, with all its members nested (in order).
+ * - Stale layout entries (deleted components) are ignored; newly-added components simply append / stay ungrouped.
+ */
+export function applyLayout<T extends Arrangeable>(components: T[], layout: Layout | undefined): LayoutRow<T>[] {
+  const subs = components.filter((c) => !c.isRoot);
+  const order = layout?.order ?? [];
+  const orderIndex = (c: Arrangeable) => {
+    const i = order.indexOf(c.relativeRoot);
+    return i === -1 ? Number.MAX_SAFE_INTEGER : i;
+  };
+  const ordered = subs
+    .map((c, i) => ({ c, i }))
+    .sort((a, b) => orderIndex(a.c) - orderIndex(b.c) || a.i - b.i)
+    .map((x) => x.c);
+
+  const groupOf = new Map<string, string>();
+  const collapsedOf = new Map<string, boolean>();
+  for (const group of layout?.groups ?? []) {
+    if (!collapsedOf.has(group.name)) {
+      collapsedOf.set(group.name, !!group.collapsed);
+    }
+    for (const member of group.members) {
+      if (!groupOf.has(member)) {
+        groupOf.set(member, group.name);
+      }
+    }
+  }
+
+  const rows: LayoutRow<T>[] = [];
+  const emitted = new Set<string>();
+  for (const component of ordered) {
+    const groupName = groupOf.get(component.relativeRoot);
+    if (!groupName) {
+      rows.push({ kind: "component", component });
+    } else if (!emitted.has(groupName)) {
+      emitted.add(groupName);
+      rows.push({ kind: "group", name: groupName, collapsed: collapsedOf.get(groupName) ?? false, components: ordered.filter((c) => groupOf.get(c.relativeRoot) === groupName) });
+    }
+  }
+  return rows;
 }
 
 /** Outcome of resolving which component a command targets (#119). */
