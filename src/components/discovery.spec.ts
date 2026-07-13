@@ -1,5 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { resolveComponents, componentForPath, componentsOfType, normalizeFsPath, resolveTargetComponent, applyLayout, DiscoveredComponent } from "./discovery";
+import {
+  resolveComponents,
+  componentForPath,
+  componentsOfType,
+  normalizeFsPath,
+  resolveTargetComponent,
+  applyLayout,
+  scopedTestControllerId,
+  DiscoveredComponent,
+} from "./discovery";
 
 const root = "C:\\repo";
 const file = (path: string, settings: object) => ({ path, content: JSON.stringify(settings) });
@@ -147,6 +156,32 @@ describe("resolveTargetComponent (#119 command target)", () => {
   it("pick candidates are exactly the components of the type", () => {
     const res = resolveTargetComponent(components, "plugin", undefined, undefined);
     expect(res.kind === "pick" && res.candidates.map((c) => c.relativeRoot)).toEqual(["pluginA", "pluginB"]);
+  });
+});
+
+describe("scopedTestControllerId (#84/#47 duplicate-controller guard)", () => {
+  const components = resolveComponents(root, [
+    file("C:\\repo\\dataverse-powertools.json", { connectionString: "cs" }),
+    file("C:\\repo\\web\\dataverse-powertools.json", { type: "webresources" }),
+    file("C:\\repo\\web2\\dataverse-powertools.json", { type: "webresources" }),
+  ]).components;
+
+  it("gives two same-type components DISTINCT ids (no VS Code duplicate-controller crash)", () => {
+    const [a, b] = componentsOfType(components, "webresources");
+    const idA = scopedTestControllerId("dataverse-powertools.webresourceTests", a.root, a.isRoot);
+    const idB = scopedTestControllerId("dataverse-powertools.webresourceTests", b.root, b.isRoot);
+    expect(idA).not.toEqual(idB);
+    expect(idA).toBe("dataverse-powertools.webresourceTests::c:/repo/web");
+    expect(idB).toBe("dataverse-powertools.webresourceTests::c:/repo/web2");
+  });
+
+  it("keeps the bare id for the root component (single-project behaviour unchanged)", () => {
+    expect(scopedTestControllerId("dataverse-powertools.pluginTests", "C:\\repo", true)).toBe("dataverse-powertools.pluginTests");
+    expect(scopedTestControllerId("dataverse-powertools.pluginTests", undefined, false)).toBe("dataverse-powertools.pluginTests");
+  });
+
+  it("is stable across re-inits of the same component (same root → same id)", () => {
+    expect(scopedTestControllerId("x", "C:\\repo\\web", false)).toBe(scopedTestControllerId("x", "c:/repo/web/", false));
   });
 });
 

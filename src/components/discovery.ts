@@ -147,6 +147,16 @@ export function componentsOfType(components: DiscoveredComponent[], type: string
   return components.filter((c) => c.settings.type === type);
 }
 
+/** A VS Code TestController id scoped to one component (#84/#47). VS Code throws
+ * "duplicate controller with ID" if two controllers share an id, so a base id like
+ * `dataverse-powertools.webresourceTests` must be suffixed with the component root when
+ * a workspace has TWO components of the same type. The root component keeps the bare id
+ * (byte-identical single-project behaviour). Normalised so the same component maps to the
+ * same id across re-inits. */
+export function scopedTestControllerId(baseId: string, componentRoot: string | undefined, isRoot: boolean): string {
+  return !componentRoot || isRoot ? baseId : `${baseId}::${normalizeFsPath(componentRoot)}`;
+}
+
 /** User-arranged sidebar layout (#118), stored on the root (Empty) component's
  * dataverse-powertools.json. relativeRoots identify components. */
 export interface LayoutGroup {

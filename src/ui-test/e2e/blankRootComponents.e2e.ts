@@ -42,6 +42,25 @@ describe("Blank root + two components of each type (e2e)", function () {
     }
   }
 
+  /** Read visible notification text from the DOM. Must run BEFORE dismissOverlays (which
+   * wipes toasts) so a command-error notification can be asserted. A command that throws
+   * shows "Command '…' resulted in an error" — e.g. the duplicate-TestController crash a
+   * second same-type component used to trigger (#47). */
+  async function assertCommandDidNotError(context: string): Promise<void> {
+    await sleep(6000); // let the command settle so any error notification has surfaced
+    let text = "";
+    try {
+      text = String(
+        (await VSBrowser.instance.driver.executeScript(
+          "return Array.from(document.querySelectorAll('.notification-list-item-message, .notification-toast, .monaco-dialog-box')).map(function(e){return e.textContent || '';}).join(' ||| ');",
+        )) ?? "",
+      );
+    } catch {
+      /* no notifications surface readable */
+    }
+    expect(/resulted in an error/i.test(text), `${context}: a command surfaced an error notification — "${text.slice(0, 300)}"`).to.equal(false);
+  }
+
   /** Clear the active editor so runForComponent falls to its picker (not active-editor inference). */
   async function closeAllEditors(): Promise<void> {
     try {
@@ -180,6 +199,9 @@ describe("Blank root + two components of each type (e2e)", function () {
     const webpackCommon = fs.readFileSync(path.join(workspace, "webresources2", "webpack.common.js"), "utf8");
     expect(webpackCommon, "SOLUTIONPREFIX substituted in the second component too").to.not.contain("SOLUTIONPREFIX");
     expect(webpackCommon).to.contain(`${settings.prefix}_library.js`);
+    // The second web-resource component's Test Explorer controller must get a distinct id —
+    // a duplicate id makes Add Component throw "duplicate controller with ID" (#47).
+    await assertCommandDidNotError("second Web Resources add");
   });
 
   it("a webresources command targets the component the user picks (two present) and scopes its write", async () => {
@@ -223,6 +245,8 @@ describe("Blank root + two components of each type (e2e)", function () {
     expect(settings.type).to.equal("plugin");
     expect(settings.pluginProjectName, "second plugin keeps its own project name").to.equal("E2EBlankPlugin2");
     expect(settings.connectionString).to.equal(undefined);
+    // Same duplicate-controller guard for the plugin Test Explorer controller (#47).
+    await assertCommandDidNotError("second Plugins add");
   });
 
   it("adds a Solution component into a subfolder", async () => {
