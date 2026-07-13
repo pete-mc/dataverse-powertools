@@ -7,7 +7,7 @@ All notable changes to the "dataverse-powertools" extension will be documented i
 Multi-component polish + build-pipeline hardening.
 
 - **Commands target the right component automatically (#119).** In a repo with several components (multiple plugins, or a mix of plugins and web resources), running a command from the palette or command bar now infers the target from the **active editor** — the file you're looking at picks its own component — and only asks when the active file is the wrong type or nothing is open. Explicit invocations (Explorer file, panel card) still win; single-component workspaces are unchanged.
-- **Help & feedback links (#120).** The Actions panel footer gains **Docs** and **Report an issue** links.
+- **UI polish (#120).** The Actions panel footer gains **Docs** and **Report an issue** links, and the extension has a **new logo** — a blue→violet hexagon with a lightning bolt (Power Platform × PowerTools), redrawn as crisp SVG/PNG that reads down to activity-bar size.
 - **Publish pipeline builds the capture tool from source (build only).** The Marketplace publish job now runs on a **Windows runner** and compiles the net48 plugin-profiler tool at publish time (into `tools/pluginprofiler/`) instead of shipping a committed binary. .NET Framework only builds on Windows; everything else stays cross-platform, and lint/build/test still runs on Linux.
 
 ## 0.8.2 (pre-release)
