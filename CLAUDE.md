@@ -74,6 +74,15 @@ whatever else has focus. Key facts:
   tree-kills its watcher on stop; the comprehensive suite reaps stragglers in `before`. In a
   very long session, background full-e2e runs can get killed ~10 min in — run subsets or start
   fresh. Never kill the user's own VS Code (`AppData\Local\Programs\Microsoft VS Code`).
+- **Authoring UI e2e steps — two traps that cost a run each:** (1) Gate each step on the command's
+  FINAL signal (its last log line, e.g. `[Components] N components discovered`), NOT an intermediate
+  artifact like an npm/paket lockfile — those are written mid-command, so the test proceeds while the
+  command is still running and the *next* command overlaps it (interleaved output, a busy UI). (2)
+  Select quick-pick items by keyboard (type-to-filter + Enter via `answerText`), not a coordinate
+  click — closing all editors reveals the empty-editor watermark whose `<p>` hints sit over the
+  quick-pick rows and intercept clicks (`ElementClickInterceptedError`). Also: file-existence asserts
+  pass even when a command errored *after* scaffolding, so assert no "resulted in an error"
+  notification too.
 
 ## Traps specific to this repo
 
@@ -91,6 +100,27 @@ whatever else has focus. Key facts:
   access token authorizes the call, not the tenant. This class of bug shipped three times
   (#91 typings, #90/register form events under interactive). The e2e's `*InteractiveLifecycle`
   suites exist to catch it — if you touch a Dataverse path, they must stay green.
+- **A per-type `initialise*` runs ONCE PER COMPONENT — never register global singletons there.**
+  With multi-component workspaces (#47), two components of the *same type* both run that type's
+  `initialise*`. Anything registered there with a fixed identity collides on the second one:
+  a `vscode.tests.createTestController(id, …)` throws "duplicate controller with ID", a
+  `registerCommand(id, …)` throws "command … already exists". Fixes: TestController ids are
+  scoped per component (`scopedTestControllerId` + a dispose-on-reinit registry, in
+  [pluginTestController.ts](src/plugins/pluginTestController.ts)/[webresourceTestController.ts](src/webresources/webresourceTestController.ts));
+  commands and CodeLens providers register ONCE globally in [extension.ts](src/extension.ts) /
+  `registerAllComponentCommands` — never in an `initialise*`. **Both of these shipped in 0.8.4**
+  and were caught by the two-of-each e2e (below), not by any unit test.
+- **A scoped component's `writeSettings()` must not persist INHERITED fields.** Discovery
+  ([resolveComponents](src/components/discovery.ts)) merges the root's connection/tenant/prefix/env
+  into each subfolder component's in-memory settings for a complete view. `writeSettings` strips
+  `activeComponent.inheritedFields` before writing so they aren't baked into the component's file —
+  otherwise the component gains its own `connectionString`, which makes `resolveComponents` treat it
+  as self-contained and it STOPS tracking the root's connection changes. Any command that writes a
+  subfolder component's settings (e.g. Switch Output Mode) hits this path.
+- **Two components of the same type is a distinct test surface.** The three bugs above are invisible
+  to unit tests and to a one-of-each e2e — the [blankRootComponents](src/ui-test/e2e/blankRootComponents.e2e.ts)
+  suite now adds TWO of every type and asserts targeting + no error notification. Keep it green when
+  touching any per-type `initialise*`, discovery, or `runForComponent`.
 - **Build/tests run the project's LOCAL bins via `npx`, never a bare `webpack`/`jest`.** The
   template installs webpack/jest/ts-loader as devDependencies; a bare `webpack` only resolves a
   *global* install and fails ("'webpack' is not recognized") where there isn't one. See
@@ -145,10 +175,13 @@ modern plugin flow already shells out to `dotnet`/`pac`.
 ## Test Explorer (native Testing API, #84)
 
 Plugin (.NET) and web-resource (Jest) tests surface in VS Code's Testing side bar via a
-`TestController` created per project type in the feature `initialise*`
+`TestController` created per COMPONENT in the feature `initialise*`
 ([src/plugins/pluginTestController.ts](src/plugins/pluginTestController.ts),
 [src/webresources/webresourceTestController.ts](src/webresources/webresourceTestController.ts)),
-disposed through `context.subscriptions`. The result/discovery **parsers are pure and
+disposed through `context.subscriptions`. The controller id is scoped per component
+(`scopedTestControllerId`) so two same-type components don't collide on a duplicate id (see the
+multi-component trap above), and a per-id registry disposes the stale controller on re-discovery.
+The result/discovery **parsers are pure and
 unit-tested** — `parseTrx`, `parseDotnetListTests` (plugins), `parseJestJson` (web resources);
 keep parsing logic there, not in the controllers. Plugins run `dotnet test --logger trx`
 (+ `--filter`); web resources run the local `npx jest --json --testLocationInResults`.
