@@ -8,7 +8,6 @@ import {
   answerText,
   answerFlexible,
   pickByLabel,
-  pickExactLabel,
   runCommand,
   runCommandResilient,
   waitForFile,
@@ -237,12 +236,13 @@ describe("Blank root + two components of each type (e2e)", function () {
     // ask which one; picking webresources2 scopes Switch Output Mode's settings write to it
     // alone — the first component's settings must be untouched. This is the UI-level #119 proof.
     await closeAllEditors();
-    // Clear any lingering "component added" toast — it can intercept the quick-pick click.
     await dismissOverlays();
     await runCommandResilient("Dataverse PowerTools: Switch Web Resource Output Mode");
-    await pickExactLabel("webresources2", 30000); // the "Which component?" picker
-    await dismissOverlays(); // drop toasts before the second pick (they overlap the list)
-    await pickByLabel("One file per web resource", 30000); // the mode picker
+    // Select by keyboard (type-to-filter + Enter), NOT a coordinate click: closing all
+    // editors reveals the empty-editor watermark, whose keybinding-hint <p> elements sit
+    // over the quick-pick rows and intercept clicks (ElementClickInterceptedError).
+    await answerText("webresources2"); // the "Which component?" picker → filters to the one, Enter selects
+    await answerText("One file per web resource"); // the mode picker
     expect(await waitForSettings("webresources2", (s) => s.webresourceOutput === "perFile", 30000), "webresources2 switched to perFile").to.equal(true);
     expect(readSettings("webresources").webresourceOutput, "the FIRST component's output mode is untouched").to.not.equal("perFile");
   });
