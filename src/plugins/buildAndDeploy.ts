@@ -9,6 +9,7 @@ import { PluginPackageMetadata, upsertDataversePluginPackage, waitForDataversePl
 import { PluginStepRegistration, registerPluginSteps } from "../general/dataverse/registerPluginSteps";
 import { findPrimaryPluginCsproj, hasDeployablePluginTypes } from "./projectPaths";
 import { activeComponentRoot } from "../components/componentDiscovery";
+import { prefixedPackageId, pluginPackageUniqueName } from "./pluginPackageNaming";
 import { registerWorkflowActivities, WorkflowActivityRegistration } from "../general/dataverse/registerWorkflowActivities";
 
 interface ExecResult {
@@ -214,34 +215,8 @@ async function findBuiltPackagePath(workspacePath: string, csprojPath: string, p
   return withStats.sort((a, b) => b.mtimeMs - a.mtimeMs)[0].filePath;
 }
 
-function sanitizeUniqueNameSegment(value: string): string {
-  return value
-    .replace(/[^A-Za-z0-9_]/g, "_")
-    .replace(/_+/g, "_") // collapse runs first, so the trims below only ever see a single underscore (avoids polynomial backtracking)
-    .replace(/^_/, "")
-    .replace(/_$/, "");
-}
-
-function normalizeCustomizationPrefix(prefix: string | undefined): string {
-  // `[^A-Za-z0-9]` already removes underscores, so no separate trailing-underscore trim is needed.
-  const sanitized = (prefix || "").trim().replace(/[^A-Za-z0-9]/g, "");
-
-  if (!sanitized) {
-    return "dpt";
-  }
-
-  if (!/^[A-Za-z]/.test(sanitized)) {
-    return `p${sanitized}`;
-  }
-
-  return sanitized;
-}
-
 function getPrefixedPackageId(context: DataversePowerToolsContext, csprojPath: string): string {
-  const normalizedPrefix = normalizeCustomizationPrefix(context.projectSettings.prefix);
-  const configuredName = sanitizeUniqueNameSegment(context.projectSettings.pluginPackageName || "");
-  const projectName = configuredName || sanitizeUniqueNameSegment(path.basename(csprojPath, ".csproj")) || "Plugin";
-  return `${normalizedPrefix}_${projectName}`;
+  return prefixedPackageId(context.projectSettings.prefix, context.projectSettings.pluginPackageName, path.basename(csprojPath, ".csproj"));
 }
 
 function getConfiguredPluginPackageVersion(context: DataversePowerToolsContext): string {
@@ -254,16 +229,32 @@ function getConfiguredPluginPackageVersion(context: DataversePowerToolsContext):
 }
 
 function buildPluginPackageUniqueName(context: DataversePowerToolsContext, packageName: string): string {
-  const normalizedPrefix = normalizeCustomizationPrefix(context.projectSettings.prefix);
-  const segment = sanitizeUniqueNameSegment(packageName);
-  const baseSegment = segment.length > 0 ? segment : "pluginpackage";
+  return pluginPackageUniqueName(context.projectSettings.prefix, packageName);
+}
 
-  let uniqueName = /^[A-Za-z][A-Za-z0-9]*_/.test(baseSegment) ? baseSegment : `${normalizedPrefix}_${baseSegment}`;
-  if (uniqueName.length > 128) {
-    uniqueName = uniqueName.substring(0, 128);
+/** Delete stale *.nupkg/*.snupkg under the project's bin before packing, so pack leaves
+ * exactly one, correctly named package for findBuiltPackagePath to select (#134 — otherwise
+ * an old unprefixed/stale package from a previous run can be picked and deployed). */
+async function removeStalePackages(context: DataversePowerToolsContext, projectDirectory: string): Promise<void> {
+  const binDirectory = path.join(projectDirectory, "bin");
+  if (!fs.existsSync(binDirectory)) {
+    return;
   }
-
-  return uniqueName;
+  let removed = 0;
+  for (const file of await walkDirectory(binDirectory)) {
+    const lower = file.toLowerCase();
+    if (lower.endsWith(".nupkg") || lower.endsWith(".snupkg")) {
+      try {
+        await fs.promises.rm(file, { force: true });
+        removed++;
+      } catch {
+        /* best effort — a locked file just gets superseded by mtime in findBuiltPackagePath */
+      }
+    }
+  }
+  if (removed > 0) {
+    context.channel.appendLine(`Cleared ${removed} stale package file(s) from ${binDirectory} before pack.`);
+  }
 }
 
 function parsePackageMetadata(context: DataversePowerToolsContext, csprojPath: string, packagePath: string): PluginPackageMetadata {
@@ -573,10 +564,12 @@ export async function buildAndDeploy(context: DataversePowerToolsContext): Promi
       const csprojPathForPack = await findPrimaryPluginCsproj(workspacePath, context.projectSettings.pluginProjectName);
       let expectedPackageId: string | undefined;
       if (csprojPathForPack) {
-        const prefixedPackageId = getPrefixedPackageId(context, csprojPathForPack);
+        // Clear stale packages first so pack yields exactly one, deterministically named .nupkg.
+        await removeStalePackages(context, path.dirname(csprojPathForPack));
+        const packageId = getPrefixedPackageId(context, csprojPathForPack);
         const configuredPackageVersion = getConfiguredPluginPackageVersion(context);
-        expectedPackageId = prefixedPackageId;
-        packArgs.push(`-p:PackageId=${prefixedPackageId}`);
+        expectedPackageId = packageId;
+        packArgs.push(`-p:PackageId=${packageId}`);
         packArgs.push(`-p:Version=${configuredPackageVersion}`);
         context.channel.appendLine(`Using PackageId override for pack: ${prefixedPackageId}`);
         context.channel.appendLine(`Using package Version override for pack: ${configuredPackageVersion}`);

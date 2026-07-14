@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseProfilableSteps } from "./pluginProfiles";
+import { parseProfilableSteps, profilableStepsDiagnostics } from "./pluginProfiles";
 
 /* eslint-disable @typescript-eslint/naming-convention -- Dataverse OData navigation/field names */
 
@@ -55,5 +55,26 @@ describe("parseProfilableSteps", () => {
     // message/primaryEntity are optional — a step with no filter/message still shapes.
     const minimal = { sdkmessageprocessingstepid: "m", name: "n", eventhandler_plugintype: { typename: "A.B", pluginassemblyid: { name: "Asm" } } };
     expect(parseProfilableSteps({ value: [minimal] })).toEqual([{ stepId: "m", name: "n", typeName: "A.B", message: undefined, primaryEntity: undefined, mode: undefined }]);
+  });
+});
+
+describe("profilableStepsDiagnostics (#135 — explain an empty result)", () => {
+  it("counts each drop reason so a 'no steps' outcome is diagnosable", () => {
+    const microsoft = { ...validRow, sdkmessageprocessingstepid: "ms", eventhandler_plugintype: { typename: "Microsoft.Crm.X", pluginassemblyid: { name: "Microsoft" } } };
+    const profiled = { ...validRow, sdkmessageprocessingstepid: "prof", name: "My.Plugins.AccountCreate (Profiled): Create of account" };
+    const noType = { ...validRow, sdkmessageprocessingstepid: "nt", eventhandler_plugintype: null };
+    const diag = profilableStepsDiagnostics({ value: [validRow, microsoft, profiled, noType] });
+    expect(diag).toEqual({ total: 4, kept: 1, droppedNoType: 1, droppedSystem: 1, droppedProfiled: 1, droppedByAssembly: 0 });
+  });
+
+  it("attributes the whole result to the empty-plugintype bucket when that's the cause", () => {
+    const noType = { ...validRow, eventhandler_plugintype: null };
+    const diag = profilableStepsDiagnostics({ value: [noType] });
+    expect(diag).toEqual({ total: 1, kept: 0, droppedNoType: 1, droppedSystem: 0, droppedProfiled: 0, droppedByAssembly: 0 });
+  });
+
+  it("counts assembly-scoped drops", () => {
+    const other = { ...validRow, sdkmessageprocessingstepid: "o", eventhandler_plugintype: { typename: "Other.Plugin", pluginassemblyid: { name: "OtherAsm" } } };
+    expect(profilableStepsDiagnostics({ value: [validRow, other] }, "MyPlugins")).toMatchObject({ total: 2, kept: 1, droppedByAssembly: 1 });
   });
 });

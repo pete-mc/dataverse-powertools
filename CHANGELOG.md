@@ -2,6 +2,15 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.11.0 (pre-release)
+
+Plugins — deterministic packaging and diagnosable profiling.
+
+- **Deterministic plugin package name + no stale deploys (#134).** *Build Package & Deploy* now clears stale `*.nupkg` from the project's `bin` before packing, so exactly one, correctly prefixed package (`<prefix>_<name>.<version>.nupkg`) is produced and deployed — fixing the intermittent `Plugin.1.0.0` vs `dvpt_Plugin.1.0.0` naming and the occasional stale-DLL deploy. The naming rules now live in one shared, unit-tested module so every path names the package identically.
+- **Profiling explains an empty step list (#135).** When *Profile a step* finds no profilable steps even though steps are registered, the output now breaks down exactly why each was skipped (no resolved plugin type / system / already-profiled / other assembly), so the cause is visible instead of a bare "No registered plugin steps to profile". (The underlying case where a live step's plugin-type lookup returns empty is still under investigation — this makes it diagnosable.)
+
+> Still open in this milestone: the trace-log status tag (#137) and the per-step profiling toggle UX (#139) are larger panel features tracked for a following release.
+
 ## 0.10.0 (pre-release)
 
 Plugins — early-bound authoring quality-of-life.

@@ -64,7 +64,58 @@ export async function getProfilableSteps(context: DataversePowerToolsContext, as
   if (!body) {
     return undefined;
   }
-  return parseProfilableSteps(body, assemblyName);
+  const steps = parseProfilableSteps(body, assemblyName);
+  // #135: the query succeeded but every step was filtered out — log WHY so a "No registered
+  // plugin steps" dead-end is diagnosable (which bucket the user's live step fell into).
+  if (steps.length === 0 && (body?.value?.length ?? 0) > 0) {
+    const d = profilableStepsDiagnostics(body, assemblyName);
+    context.channel.appendLine(
+      `[Profiler] ${d.total} active step(s) returned but none were profilable${assemblyName ? ` for assembly "${assemblyName}"` : ""}: ` +
+        `${d.droppedNoType} without a resolved plugin type, ${d.droppedSystem} system (Microsoft.*), ` +
+        `${d.droppedProfiled} already-profiled clones, ${d.droppedByAssembly} in other assemblies. ` +
+        (d.droppedNoType > 0
+          ? `A registered, firing step counted under "without a resolved plugin type" means its plugintype expand came back empty — redeploy the plugin and retry; if it persists, report the step name.`
+          : ""),
+    );
+  }
+  return steps;
+}
+
+export interface ProfilableStepsDiagnostics {
+  total: number;
+  kept: number;
+  droppedNoType: number;
+  droppedSystem: number;
+  droppedProfiled: number;
+  droppedByAssembly: number;
+}
+
+/**
+ * Classify each returned step by why parseProfilableSteps keeps or drops it (pure,
+ * unit-tested). Mirrors the same filter order so the counts explain an empty result — the
+ * diagnostic behind #135's "No registered plugin steps to profile".
+ */
+export function profilableStepsDiagnostics(body: any, assemblyName?: string): ProfilableStepsDiagnostics {
+  const rows: any[] = body?.value ?? [];
+  const diag: ProfilableStepsDiagnostics = { total: rows.length, kept: 0, droppedNoType: 0, droppedSystem: 0, droppedProfiled: 0, droppedByAssembly: 0 };
+  for (const row of rows) {
+    const type = row.eventhandler_plugintype;
+    const typeName = (type?.typename as string) ?? "";
+    const name = (row.name as string) ?? "";
+    const stepAssembly = (type?.pluginassemblyid?.name as string) ?? "";
+    if (!typeName) {
+      diag.droppedNoType++;
+    } else if (typeName.startsWith("Microsoft.")) {
+      diag.droppedSystem++;
+    } else if (/\(Profiled\)/.test(name)) {
+      diag.droppedProfiled++;
+    } else if (assemblyName && stepAssembly !== assemblyName) {
+      diag.droppedByAssembly++;
+    } else {
+      diag.kept++;
+    }
+  }
+  return diag;
 }
 
 /**
