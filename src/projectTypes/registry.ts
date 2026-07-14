@@ -95,8 +95,6 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
       `${prefix}addWorkflowDecoration`,
       `${prefix}updateFilteringAttributes`,
       `${prefix}editModelBuilderSetting`,
-      `${prefix}editPluginMessageFilter`,
-      `${prefix}togglePluginEmitEntityEtc`,
       `${prefix}viewPluginTraceLogs`,
       `${prefix}downloadPluginProfiles`,
       `${prefix}capturePluginRun`,
