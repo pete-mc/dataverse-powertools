@@ -45,6 +45,11 @@ import { extractSolution } from "../solution/extractSolution";
 import { packSolution } from "../solution/packSolution";
 import { deploySolution } from "../solution/deploySolution";
 import { connectPortal } from "../portals/connectPortal";
+import { initialisePcf } from "../pcf/initialisePcf";
+import { buildPcf } from "../pcf/buildPcf";
+import { pushPcf } from "../pcf/pushPcf";
+import { deployPcf } from "../pcf/deployPcf";
+import { refreshPcfTypes } from "../pcf/refreshPcfTypes";
 
 type CommandImpl = (context: DataversePowerToolsContext, resourceUri?: vscode.Uri) => unknown;
 
@@ -280,6 +285,15 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
       "dataverse-powertools.connectPortal": tracked("Connect portal", (context) => connectPortal(context, "connect")),
       "dataverse-powertools.downloadPortal": tracked("Download portal", (context) => connectPortal(context, "download")),
       "dataverse-powertools.uploadPortal": tracked("Upload portal", (context) => connectPortal(context, "upload")),
+    },
+  },
+  [ProjectTypes.pcf]: {
+    initialise: (context) => initialisePcf(context),
+    commands: {
+      "dataverse-powertools.buildPcf": tracked("Build", buildPcf),
+      "dataverse-powertools.pushPcf": tracked("Push", pushPcf),
+      "dataverse-powertools.deployPcf": tracked("Add to solution", deployPcf),
+      "dataverse-powertools.refreshPcfTypes": (context) => refreshPcfTypes(context),
     },
   },
 };

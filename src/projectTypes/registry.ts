@@ -13,6 +13,7 @@ export enum ProjectTypes {
   webresource = "webresources",
   solution = "solution",
   portal = "portal",
+  pcf = "pcf",
 }
 
 /** A button in the actions panel (#100). `command` is executed with `args` when clicked. */
@@ -234,6 +235,31 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
         secondary: [
           { command: `${prefix}uploadPortal`, label: "Upload" },
           { command: `${prefix}connectPortal`, label: "Select site" },
+        ],
+        overflow: [],
+      };
+    },
+  },
+  {
+    id: ProjectTypes.pcf,
+    displayName: "PCF Control",
+    templateFolder: "pcf",
+    defaultTemplateVersion: 1,
+    contextKey: "isPcf",
+    configRevision: 0,
+    refreshableFiles: [],
+    // Foundational slice (#141): scaffold + build + push + deploy (hand-to-solution) +
+    // refresh-types. Debug/hot-reload, service-layer template and Jest Test Explorer are
+    // explicit fast-follows.
+    commandIds: [`${prefix}buildPcf`, `${prefix}pushPcf`, `${prefix}deployPcf`, `${prefix}refreshPcfTypes`],
+    menu() {
+      return {
+        // Push (pac pcf push) is the one-click dev inner loop.
+        primary: { command: `${prefix}pushPcf`, label: "Push to {environment}" },
+        secondary: [
+          { command: `${prefix}buildPcf`, label: "Local Build" },
+          { command: `${prefix}refreshPcfTypes`, label: "Refresh Types" },
+          { command: `${prefix}deployPcf`, label: "Add to Solution" },
         ],
         overflow: [],
       };

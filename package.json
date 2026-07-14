@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.11.0",
+  "version": "0.12.0",
   "engines": {
     "vscode": "^1.93.0"
   },
@@ -580,6 +580,26 @@
         "command": "dataverse-powertools.refreshConfigFiles",
         "title": "Dataverse PowerTools: Refresh Project Config Files",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
+      },
+      {
+        "command": "dataverse-powertools.buildPcf",
+        "title": "Dataverse PowerTools: Build PCF Control",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPcf"
+      },
+      {
+        "command": "dataverse-powertools.pushPcf",
+        "title": "Dataverse PowerTools: Push PCF Control",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPcf"
+      },
+      {
+        "command": "dataverse-powertools.deployPcf",
+        "title": "Dataverse PowerTools: Add PCF Control to Solution",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPcf"
+      },
+      {
+        "command": "dataverse-powertools.refreshPcfTypes",
+        "title": "Dataverse PowerTools: Refresh PCF Types",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPcf"
       },
       {
         "command": "dataverse-powertools.clearCredentials",
