@@ -86,11 +86,6 @@
           "group": "inline"
         },
         {
-          "command": "dataverse-powertools.togglePluginEmitEntityEtc",
-          "when": "view == dataversePowerToolsTree && viewItem == EmitEntityEtcSetting",
-          "group": "inline"
-        },
-        {
           "command": "dataverse-powertools.editModelBuilderSetting",
           "when": "view == dataversePowerToolsTree && (viewItem == ModelBuilderSetting || viewItem == ModelBuilderFilterItem)",
           "group": "inline"
@@ -368,20 +363,6 @@
         "icon": {
           "light": "media/light/edit.svg",
           "dark": "media/dark/edit.svg"
-        }
-      },
-      {
-        "command": "dataverse-powertools.editPluginMessageFilter",
-        "title": "Dataverse PowerTools: Edit Plugin Message Filter",
-        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && dataverse-powertools.isPluginV3"
-      },
-      {
-        "command": "dataverse-powertools.togglePluginEmitEntityEtc",
-        "title": "Dataverse PowerTools: Toggle Emit Entity Type Code",
-        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && dataverse-powertools.isPluginV3",
-        "icon": {
-          "light": "media/light/sync.svg",
-          "dark": "media/dark/sync.svg"
         }
       },
       {

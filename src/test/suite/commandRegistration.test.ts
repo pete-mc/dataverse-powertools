@@ -1,6 +1,7 @@
 import * as assert from "assert";
 import * as vscode from "vscode";
 import { projectTypeActivations } from "../../projectTypes/activation";
+import { projectTypeRegistry } from "../../projectTypes/registry";
 
 // Integration test (real VS Code extension host): activate the extension and assert
 // its command wiring. Catches renamed/missing commands and a broken
@@ -28,6 +29,18 @@ suite("Command registration (integration)", () => {
     const expected = Object.values(projectTypeActivations).flatMap((activation) => Object.keys(activation.commands));
     const missing = expected.filter((id) => !registered.has(id));
     assert.deepStrictEqual(missing, [], `commands in activation.commands not registered: ${missing.join(", ")}`);
+  });
+
+  test("every registry command is registered, or is a known lazily-registered one (#147 — no dead declarations)", async () => {
+    // The registry's commandIds are declared AND contributed in package.json but must also
+    // be REGISTERED somewhere — otherwise they show in the Command Palette and fail
+    // "command not found" when invoked (as editPluginMessageFilter/togglePluginEmitEntityEtc
+    // did until they were removed). Everything except the lazily-registered modelbuilder tree
+    // editor (created on first openEarlyboundConfig) is registered at activation.
+    const registered = new Set(await vscode.commands.getCommands(true));
+    const KNOWN_LAZY = new Set(["dataverse-powertools.editModelBuilderSetting"]);
+    const orphans = projectTypeRegistry.flatMap((descriptor) => [...descriptor.commandIds]).filter((id) => !registered.has(id) && !KNOWN_LAZY.has(id));
+    assert.deepStrictEqual(orphans, [], `registry commands neither registered nor known-lazy (dead / unwired): ${orphans.join(", ")}`);
   });
 
   test("the decoration CodeLens commands are registered globally (not per plugin component, #124)", async () => {
