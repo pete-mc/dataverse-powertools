@@ -2,6 +2,16 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.12.0 (pre-release)
+
+New component type: **PCF (Power Apps Component Framework) controls** — foundational slice (#141).
+
+- **Create a PCF Control project/component.** "PCF Control" is now offered in the project-type picker and as a component you can add to a multi-component workspace. Scaffolds via `pac pcf init` and slots into the same discovery / per-component model as plugins and web resources.
+- **Lifecycle commands on the PCF card:** **Push** (`pac pcf push` — the one-click dev inner loop, authenticates from the connection under both service-principal and interactive auth), **Local Build** (`npm run build`), **Refresh Types** (`npm run refreshTypes`), and **Add to Solution** (hands off to the Solution feature / `pac solution add-reference`).
+- Pure, unit-tested `pac pcf` argument builders; registry ↔ package.json parity and command registration covered by the integration suite.
+
+> **Foundational slice — please verify the live scaffold before relying on it.** Deferred to a fast-follow (per #141): live-form debug/hot-reload, the opinionated React + Fluent service-layer template with a seeded vertical slice, scaffold-time field/dataset × framework quick-pick, and Jest Test Explorer wiring. The `pac pcf init` scaffold and `pac pcf push` paths are wired but have not been run against a live environment in CI — try them and revert this pre-release if the scaffold needs additional flags (e.g. `--name`/`--namespace`).
+
 ## 0.11.0 (pre-release)
 
 Plugins — deterministic packaging and diagnosable profiling.

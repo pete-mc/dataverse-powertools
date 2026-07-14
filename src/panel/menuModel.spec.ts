@@ -69,7 +69,7 @@ describe("top-level states", () => {
   });
 
   it("flags an unsupported project type instead of rendering a project card", () => {
-    const model = buildMenuModel(state({ projects: [project({ type: "pcf" })] }));
+    const model = buildMenuModel(state({ projects: [project({ type: "notarealtype" })] }));
     expect(model.cards[1].kind).toBe("notice");
     expect((model.cards[1] as { text: string }).text).toMatch(/not supported/);
   });

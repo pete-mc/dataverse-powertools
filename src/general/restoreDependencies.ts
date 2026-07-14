@@ -165,6 +165,9 @@ const ALLOWED_ARGV: ReadonlyArray<ReadonlyArray<string>> = [
   ["dotnet", "paket", "install"],
   ["dotnet", "add", "package", "Microsoft.CrmSdk.Workflow"],
   ["pac", "plugin", "init", "--skip-signing"],
+  // PCF scaffold (#141): pac pcf init writes the project into the component root
+  // directly (no nesting, so no resolveInitCommand special-casing needed).
+  ["pac", "pcf", "init", "--template", "field", "--framework", "none"],
   ["npm", "install", "--loglevel=error"],
   // Pin to TypeScript 5.x: @typescript-eslint/* v8 (installed below) peers on
   // typescript ">=4.8.4 <6.1.0", and a bare install now resolves to TypeScript 7,

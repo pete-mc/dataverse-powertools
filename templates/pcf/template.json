@@ -1,0 +1,17 @@
+[
+  {
+    "version": 1,
+    "files": [],
+    "placeholders": [],
+    "initCommands": [
+      {
+        "command": "pac pcf init --template field --framework none"
+      }
+    ],
+    "restoreCommands": [
+      {
+        "command": "npm install --loglevel=error"
+      }
+    ]
+  }
+]
