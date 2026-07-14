@@ -93,6 +93,8 @@ export type Card =
       detail?: string;
       /** relativeRoot — the drag id for reordering/grouping (#118); "" for the root card (not draggable). */
       dndId: string;
+      /** Card minimised (#156): the webview hides the action rows, shows just name/type/status. */
+      collapsed: boolean;
       primary: MenuAction;
       secondary: MenuAction[];
       overflow: MenuAction[];
@@ -109,6 +111,9 @@ export type Card =
 
 export interface MenuModel {
   cards: Card[];
+  /** More than one component — cards default to minimised; the webview reconstructs the
+   * per-card collapse OVERRIDES (collapsedCards) as `collapsed !== multiComponent` (#156). */
+  multiComponent: boolean;
   footer: {
     /** All requirements green — render the collapsed "✓ requirements" line. */
     requirementsOk: boolean;
@@ -168,6 +173,8 @@ export interface PanelState {
   layout?: Layout;
   /** The root is connection-only (Empty) — Add Component is offered only then (#118). */
   rootIsEmpty?: boolean;
+  /** More than one discovered component — cards default to minimised (#156). */
+  multiComponent?: boolean;
 }
 
 /** Full walkthrough reference: <publisher>.<extension>#<walkthrough id in package.json>. */
@@ -191,7 +198,7 @@ export const ALLOWED_EXTERNAL_URLS: readonly string[] = [...Object.values(DOWNLO
 /** Validate a layout arriving from the webview (untrusted) into a well-formed shape (#118).
  * Keeps only string ids, caps group names, drops empty/nameless groups. Pure. */
 export function sanitizeLayout(raw: unknown): Layout {
-  const obj = (raw ?? {}) as { order?: unknown; groups?: unknown };
+  const obj = (raw ?? {}) as { order?: unknown; groups?: unknown; collapsedCards?: unknown };
   const order = Array.isArray(obj.order) ? obj.order.filter((x): x is string => typeof x === "string") : [];
   const groups = Array.isArray(obj.groups)
     ? obj.groups
@@ -203,7 +210,9 @@ export function sanitizeLayout(raw: unknown): Layout {
         }))
         .filter((g) => g.name && g.members.length)
     : [];
-  return { order, groups };
+  // Per-card collapse overrides (#156) — untrusted webview input, keep only string ids.
+  const collapsedCards = Array.isArray(obj.collapsedCards) ? obj.collapsedCards.filter((x): x is string => typeof x === "string") : [];
+  return { order, groups, collapsedCards };
 }
 
 /** Short environment name from the org URL: https://contoso.crm.dynamics.com -> contoso. */
@@ -317,7 +326,7 @@ function footerFor(state: PanelState, cards: Card[]): MenuModel["footer"] {
 export function buildMenuModel(state: PanelState): MenuModel {
   if (state.detecting) {
     const cards: Card[] = [{ kind: "notice", id: "detecting", text: "Getting things ready — detecting your Dataverse project…", spinner: true }];
-    return { cards, footer: footerFor(state, cards) };
+    return { cards, multiComponent: !!state.multiComponent, footer: footerFor(state, cards) };
   }
 
   if (!state.loaded) {
@@ -333,7 +342,7 @@ export function buildMenuModel(state: PanelState): MenuModel {
       },
       requirementsCard(state),
     ];
-    return { cards, footer: footerFor(state, cards) };
+    return { cards, multiComponent: !!state.multiComponent, footer: footerFor(state, cards) };
   }
 
   const cards: Card[] = [environmentCard(state)];
@@ -369,6 +378,9 @@ export function buildMenuModel(state: PanelState): MenuModel {
       typeLabel: descriptor.displayName.toUpperCase(),
       detail: project.isRoot ? project.detail : [project.relativeRoot, project.detail].filter(Boolean).join(" · "),
       dndId: project.isRoot ? "" : project.relativeRoot,
+      // Minimised by default in a multi-component workspace; collapsedCards holds the
+      // user's overrides so a manual expand/collapse persists (#156). Root card never collapses.
+      collapsed: !project.isRoot && state.multiComponent !== (state.layout?.collapsedCards ?? []).includes(project.relativeRoot),
       primary: forComponent({ ...menu.primary, label: menu.primary.label.replace("{environment}", environment) }, project),
       secondary: menu.secondary.map((action) => forComponent(action, project)),
       overflow: [...menu.overflow, { command: "dataverse-powertools.restoreDependencies", label: "Restore dependencies" }].map((action) => forComponent(action, project)),
@@ -413,7 +425,7 @@ export function buildMenuModel(state: PanelState): MenuModel {
     id: "addComponent",
     actions: [
       state.rootIsEmpty === false
-        ? { command: "dataverse-powertools.convertToComponentsWorkspace", label: "Convert to a components workspace…" }
+        ? { command: "dataverse-powertools.convertToComponentsWorkspace", label: "Convert to a multi-component project…" }
         : { command: "dataverse-powertools.addComponent", label: "＋ Add Component…" },
     ],
   });
@@ -426,5 +438,5 @@ export function buildMenuModel(state: PanelState): MenuModel {
     cards.push(requirementsCard(state));
   }
 
-  return { cards, footer: footerFor(state, cards) };
+  return { cards, multiComponent: !!state.multiComponent, footer: footerFor(state, cards) };
 }

@@ -411,10 +411,11 @@ export type ProjectTypePick = "cancelled" | "empty" | "selected";
 export async function getProjectType(context: DataversePowerToolsContext): Promise<ProjectTypePick> {
   const result = await window.showQuickPick(
     [
+      // The multi-component container floated to the top (#156): a connection-only root
+      // with each component in its own subfolder — the recommended layout for anything
+      // beyond a single project. `target: undefined` keeps the connection-only-root semantics.
+      { label: "Multi-component project (two or more types)", description: "one connection-only root; each component in its own subfolder", target: undefined },
       ...projectTypeRegistry.map((d) => ({ label: d.displayName, description: d.displayName, target: d.id as string | undefined })),
-      // A connection-only root: components are added into subfolders later
-      // (Add Component), with no parent project type (user feedback).
-      { label: "Empty (components in subfolders)", description: "connection-only root — add components later", target: undefined },
     ],
     { placeHolder: "Select a Project Type." },
   );

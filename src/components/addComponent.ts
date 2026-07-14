@@ -23,35 +23,6 @@ function sanitizeFolderName(input: string): string | undefined {
   return trimmed;
 }
 
-/** When the workspace root is itself a typed project (the single-project layout),
- * offer to switch to the nested layout before adding the second component: move
- * the existing project into a subfolder and leave a connection-only root behind,
- * exactly like the "Empty (components in subfolders)" wizard option. Returns
- * false when the user cancels the whole Add Component flow. */
-async function offerNestedMigration(context: DataversePowerToolsContext, workspaceRoot: string): Promise<boolean> {
-  if (!context.projectSettings.type) {
-    return true; // root is already connection-only — nothing to migrate
-  }
-  const typeName = getProjectTypeDescriptor(context.projectSettings.type)?.displayName ?? context.projectSettings.type;
-  const pick = await vscode.window.showQuickPick(
-    [
-      { label: `Yes — move the ${typeName} project into a subfolder first`, description: "recommended", target: "migrate" },
-      { label: "No — keep it at the root and nest the new component inside it", target: "keep" },
-    ],
-    {
-      placeHolder: `This workspace is a single ${typeName} project. Switch to the nested layout (connection-only root, one subfolder per component)?`,
-      ignoreFocusOut: true,
-    },
-  );
-  if (!pick) {
-    return false;
-  }
-  if (pick.target === "keep") {
-    return true;
-  }
-  return performNestedMigration(context, workspaceRoot, typeName);
-}
-
 /** Move the current typed root project into a subfolder so the workspace root
  * becomes connection-only (Empty). Returns true when the migration completed (#118). */
 export async function performNestedMigration(context: DataversePowerToolsContext, workspaceRoot: string, typeName: string): Promise<boolean> {
@@ -122,6 +93,21 @@ export async function addComponent(context: DataversePowerToolsContext): Promise
     return;
   }
 
+  // Cap single-type projects at one component (#156): only the multi-component container
+  // (connection-only root) may hold 2+. A typed single-project root must be converted
+  // explicitly first — no silent nested-migration-into-a-sibling from here.
+  if (context.projectSettings.type) {
+    const typeName = getProjectTypeDescriptor(context.projectSettings.type)?.displayName ?? context.projectSettings.type;
+    const choice = await vscode.window.showInformationMessage(
+      `This is a single ${typeName} project. To hold more than one component, convert it to a multi-component project first.`,
+      "Convert to a multi-component project",
+    );
+    if (choice === "Convert to a multi-component project") {
+      await convertToComponentsWorkspace(context);
+    }
+    return;
+  }
+
   const typePick = await vscode.window.showQuickPick(
     projectTypeRegistry.map((d) => ({ label: d.displayName, target: d })),
     { placeHolder: "Which component type?" },
@@ -130,12 +116,6 @@ export async function addComponent(context: DataversePowerToolsContext): Promise
     return;
   }
   const descriptor = typePick.target;
-
-  // Single-project root? Offer the switch to the nested layout first (the
-  // existing project moves into a subfolder, the root goes connection-only).
-  if (!(await offerNestedMigration(context, workspaceRoot))) {
-    return;
-  }
 
   const folderInput = await vscode.window.showInputBox({
     ignoreFocusOut: true,

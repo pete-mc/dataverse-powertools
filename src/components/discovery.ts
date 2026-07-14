@@ -189,6 +189,11 @@ export interface Layout {
   order?: string[];
   /** Named groups; a component belongs to at most one (first that lists it). */
   groups?: LayoutGroup[];
+  /** Component cards (by relativeRoot) whose collapse state DIFFERS from the workspace
+   * default (#156). The default is collapsed for a multi-component workspace, expanded for
+   * a single-component one — so this is the set of user overrides; a card's rendered
+   * collapse is `multiComponent XOR collapsedCards.includes(relativeRoot)`. */
+  collapsedCards?: string[];
 }
 
 /** One top-level row of the arranged sidebar: a standalone item or a group. Generic
