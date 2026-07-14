@@ -2,6 +2,13 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.8.6 (pre-release)
+
+Test hardening + safer form-event registration.
+
+- **Form-event registration fails fast on the schema-bug shape.** The form-XML builder now refuses to write a web-resource `<Library>` without a resolved name — the exact shape that once broke a form with `0x80048425` — turning a would-be corrupt form into a clear error. Behaviour is otherwise unchanged.
+- **Under the hood (no functional change):** a new CI-runnable **integration test layer** (asserts command registration and guards the multi-component duplicate-`TestController` crash that shipped in 0.8.4), and the highest-risk internal logic extracted into pure, unit-tested modules — the form-XML builder, the model-builder (earlybound) settings helpers, and the plugin profilable-steps filter (the code path behind "No registered plugin steps to profile"). Unit coverage 358 → 386. See the testing-strategy epic (#143).
+
 ## 0.8.5 (pre-release)
 
 Multi-component robustness — fixes for repos with two components of the same type.
