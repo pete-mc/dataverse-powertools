@@ -2,6 +2,16 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.9.0 (pre-release)
+
+Foundation & Quality — multi-component polish, safer onboarding, and a real integration test layer.
+
+- **Panel: minimise & organise component cards (#156).** **Ungroup** a group (its members return to the list in order); **minimise/expand individual component cards**; a **multi-component workspace opens with cards minimised** by default (your manual expand/collapse persists and wins next time). A single-type project is now **capped at one component** — to hold more, convert it to a **multi-component project**, which is also renamed and **floated to the top** of the new-project picker ("Multi-component project (two or more types)").
+- **Every component initialises on load (#146).** In a workspace with two components of the same type, the second one's Test Explorer tests + watchers now appear immediately instead of only after re-adding it.
+- **Web Resources onboarding on Add Component (#126).** Adding a Web Resources component now generates typings and offers to create a class — the same first-create experience a standalone project gets.
+- **Removed two broken Command Palette entries (#147)** — *Edit Plugin Message Filter* and *Toggle Emit Entity Type Code* were contributed but never wired up, so they failed "command not found"; both were superseded by the model-builder settings tree.
+- **Under the hood:** a new CI-runnable **integration test layer** (asserts command registration and guards the multi-component Test Explorer wiring), a guard against dead command declarations, and more internal logic extracted to pure, unit-tested modules. Unit coverage 358 → 394.
+
 ## 0.8.6 (pre-release)
 
 Test hardening + safer form-event registration.

@@ -133,7 +133,17 @@ async function waitForPicks(input: InputBox, timeoutMs: number): Promise<number>
 export async function pickByLabel(label: string, timeoutMs = 30000): Promise<void> {
   const input = await waitForInput(timeoutMs);
   await waitForPicks(input, Math.min(timeoutMs, 30000));
-  await input.selectQuickPick(label);
+  try {
+    await input.selectQuickPick(label);
+  } catch (err) {
+    // A coordinate click on a quick-pick row can be intercepted by the empty-editor
+    // watermark <p> when the target row isn't first (ElementClickInterceptedError) —
+    // e.g. picking "Plugins" after "Multi-component project" was floated to the top.
+    // Fall back to type-to-filter + Enter, which can't be intercepted.
+    await input.setText(label);
+    await sleep(800);
+    await input.confirm();
+  }
   await sleep(2500);
 }
 
