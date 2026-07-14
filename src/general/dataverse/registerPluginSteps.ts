@@ -3,6 +3,7 @@ import DataversePowerToolsContext from "../../context";
 import { addDataverseSolutionComponent } from "./addDataverseSolutionComponent";
 import { DataverseContext, Options } from "./dataverseContext";
 import { dataverseApiUrl, logDataverseHttpError } from "./webApi";
+import { escapeODataString } from "./odata";
 
 export interface PluginStepRegistration {
   className: string;
@@ -15,10 +16,6 @@ export interface PluginStepRegistration {
   stepName: string;
   executionOrder: number;
   stepId?: string;
-}
-
-function escapeODataString(value: string): string {
-  return value.replace(/'/g, "''");
 }
 
 async function ensureDataverseContext(context: DataversePowerToolsContext): Promise<boolean> {

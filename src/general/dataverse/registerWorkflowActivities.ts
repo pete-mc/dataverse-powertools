@@ -3,6 +3,7 @@ import DataversePowerToolsContext from "../../context";
 import { addDataverseSolutionComponent } from "./addDataverseSolutionComponent";
 import { DataverseContext, Options } from "./dataverseContext";
 import { dataverseApiUrl, logDataverseHttpError } from "./webApi";
+import { escapeODataString } from "./odata";
 
 export interface WorkflowActivityRegistration {
   className: string;
@@ -29,10 +30,6 @@ interface ExistingWorkflowSnapshot {
 interface ResolvedWorkflowPluginType {
   plugintypeid: string;
   snapshot: ExistingWorkflowSnapshot;
-}
-
-function escapeODataString(value: string): string {
-  return value.replace(/'/g, "''");
 }
 
 function normalizeString(value: string | undefined): string {
