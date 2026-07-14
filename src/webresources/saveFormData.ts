@@ -4,6 +4,7 @@ import { DataverseForm } from "../general/dataverse/DataverseForm";
 import { randomUUID } from "crypto";
 import { parseRegisterEvents, validateRegisterEvent, RegisterEventDecoration } from "./registerEventParser";
 import { webresourceLibraryName, candidateLibraryNames } from "./libraryNames";
+import { applyFormRegistrations, ResolvedRegistration } from "./formRegistrationXml";
 import { activeComponentRoot } from "../components/componentDiscovery";
 
 type SourcedRegisterEvent = RegisterEventDecoration & { sourceFile: string };
@@ -108,93 +109,18 @@ export async function saveFormDataExec(context: DataversePowerToolsContext, opti
       failedForms++;
       continue;
     }
-    /* eslint-disable @typescript-eslint/naming-convention */
-    if (!form.form.form.formLibraries) {
-      form.form.form.formLibraries = { Library: [] };
-    }
-    // One <Library> per distinct library the form's events bind to (per-file
-    // mode can need several; bundle mode needs one).
-    for (const neededLibrary of new Set(groupedRegisterEvents[formId].map(libraryFor))) {
-      if (!form.form.form.formLibraries.Library.find((l: any) => l["@_name"] === neededLibrary)) {
-        form.form.form.formLibraries.Library.push({
-          "@_name": neededLibrary,
-          "@_libraryUniqueId": "{" + randomUUID() + "}", //create a random guid
-        });
-      }
-    }
-    //loop through the groupedRegisterEvents and add the events to the form
-    for (const registerEvent of groupedRegisterEvents[formId]) {
-      const libraryName = libraryFor(registerEvent);
-      // look through the form for the event or add it if it doesn't exist
-      if (!form.form.form.events) {
-        form.form.form.events = { event: [] };
-      }
-      const event = form.form.form.events.event.find((e: any) => e["@_name"] === registerEvent.event);
+    // Resolve each event's library (prefix + output mode + source file) up front, then
+    // apply the form-XML mutation via the pure, unit-tested builder (formRegistrationXml).
+    const registrations: ResolvedRegistration[] = groupedRegisterEvents[formId].map((registerEvent) => ({
+      event: registerEvent.event,
+      function: registerEvent.function,
+      libraryName: libraryFor(registerEvent),
+      parameters: registerEvent.parameters,
+      executionContext: registerEvent.executionContext,
+      triggerId: registerEvent.triggerId,
+    }));
+    applyFormRegistrations(form.form.form, registrations, ownedLibraries, randomUUID);
 
-      if (!event) {
-        form.form.form.events.event.push({
-          "@_name": registerEvent.event,
-          "@_active": "true",
-          "@_application": "true",
-          Handlers: {
-            Handler: [
-              {
-                "@_enabled": "true",
-                "@_functionName": registerEvent.function,
-                "@_libraryName": libraryName,
-                "@_parameters": registerEvent.parameters ?? "",
-                "@_passExecutionContext": registerEvent.executionContext ? "true" : "false",
-                "@_handlerUniqueId": "{" + registerEvent.triggerId + "}",
-              },
-            ],
-          },
-        });
-      }
-      // look through the event for the handler or add it if it doesn't exist
-      else {
-        if (!event.Handlers) {
-          event.Handlers = { Handler: [] };
-        }
-        const handler = event.Handlers.Handler.find((h: any) => h["@_handlerUniqueId"] === "{" + registerEvent.triggerId + "}");
-        if (!handler) {
-          event.Handlers.Handler.push({
-            "@_functionName": registerEvent.function,
-            "@_libraryName": libraryName,
-            "@_handlerUniqueId": "{" + registerEvent.triggerId + "}",
-            "@_enabled": "true",
-            "@_parameters": registerEvent.parameters ?? "",
-            "@_passExecutionContext": registerEvent.executionContext ? "true" : "false",
-          });
-        }
-        // update the handler if it exists
-        else {
-          handler["@_functionName"] = registerEvent.function;
-          handler["@_libraryName"] = libraryName;
-          handler["@_parameters"] = registerEvent.parameters ?? "";
-          handler["@_passExecutionContext"] = registerEvent.executionContext ? "true" : "false";
-        }
-      }
-    }
-    //remove any handlers bound to one of OUR library names (either output mode) whose
-    //handlerUniqueId is no longer decorated — other solutions' handlers are untouchable
-    if (form.form.form.events) {
-      for (const event of form.form.form.events.event) {
-        if (event.Handlers) {
-          event.Handlers.Handler = event.Handlers.Handler.filter((h: any) => {
-            return !ownedLibraries.has(h["@_libraryName"]) || groupedRegisterEvents[formId].find((r) => "{" + r.triggerId + "}" === h["@_handlerUniqueId"]);
-          });
-        }
-      }
-    }
-
-    //remove any empty event arrays
-    if (form.form.form.events) {
-      form.form.form.events.event = form.form.form.events.event.filter((e: any) => {
-        return e.Handlers && e.Handlers.Handler.length > 0;
-      });
-    }
-
-    /* eslint-enable @typescript-eslint/naming-convention */
     context.channel.appendLine(`Saving Form: ${form.id}`);
     if (!(await form.saveForm())) {
       failedForms++;
