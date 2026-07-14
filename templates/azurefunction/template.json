@@ -40,12 +40,6 @@
       },
       {
         "path": [],
-        "filename": "OnAccountCreate",
-        "extension": ".cs",
-        "version": 1
-      },
-      {
-        "path": [],
         "filename": "host",
         "extension": ".json",
         "version": 1

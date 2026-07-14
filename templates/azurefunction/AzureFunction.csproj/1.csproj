@@ -12,7 +12,12 @@
     <!-- .NET 8 isolated worker -->
     <PackageReference Include="Microsoft.Azure.Functions.Worker" Version="1.23.0" />
     <PackageReference Include="Microsoft.Azure.Functions.Worker.Sdk" Version="1.17.4" />
+    <!-- Trigger extensions. Which sample handler is scaffolded depends on the trigger you chose,
+         but both are referenced so you can add an HTTP or timer function later without editing
+         this file. (Worker.Extensions.ServiceBus is NOT referenced: it currently collides with
+         Microsoft.PowerPlatform.Dataverse.Client in the WorkerExtensions build — MSB3030.) -->
     <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Http" Version="3.2.0" />
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Timer" Version="4.3.1" />
     <!-- Callback into Dataverse (ServiceClient) + the Xrm.Sdk types the webhook payload uses -->
     <PackageReference Include="Microsoft.PowerPlatform.Dataverse.Client" Version="1.2.2" />
   </ItemGroup>

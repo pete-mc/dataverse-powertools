@@ -50,6 +50,8 @@ function projectCard(settings: ComponentSettings, root: string, relativeRoot: st
     hasPluginUnitTesting: !!settings.pluginUnitTestingEnabled,
     hasSpkl: fs.existsSync(path.join(root, "spkl.json")),
     webresourceOutput: settings.webresourceOutput as "bundle" | "perFile" | undefined,
+    // #145: the card's primary action follows the trigger (webhook leads with Register, others with Build).
+    azureFunctionTrigger: settings.azureFunctionTrigger as string | undefined,
     downloadedProfiles: isPlugin ? countDownloadedProfiles(root) : undefined,
     captureSupported: isPlugin ? process.platform === "win32" : undefined,
   };
