@@ -3,7 +3,7 @@ import * as fs from "fs";
 import DataversePowerToolsContext from "../context";
 import { parsePacPagesList, PacPage } from "./pacOutput";
 import { pacPagesListArgs, pacPagesDownloadArgs, pacPagesUploadArgs } from "./pacPagesArgs";
-import { ensurePacAuthForCurrentConnection, runPacLogged, runPacResult } from "../general/pacAuth";
+import { ensurePacAuthForCurrentConnection, runPacLoggedHealing, runPacResult } from "../general/pacAuth";
 import { activeComponentRoot } from "../components/componentDiscovery";
 import path = require("path");
 
@@ -92,7 +92,7 @@ export async function connectPortal(context: DataversePowerToolsContext, mode: P
           return;
         }
         const downloadPath = portalDownloadDirectory(context, workspacePath);
-        const ok = await runPacLogged(context, pacPagesDownloadArgs({ websiteId, path: downloadPath, overwrite: true }), workspacePath);
+        const ok = await runPacLoggedHealing(context, pacPagesDownloadArgs({ websiteId, path: downloadPath, overwrite: true }), workspacePath);
         if (ok) {
           vscode.window.showInformationMessage(`Power Pages site downloaded to ${path.basename(downloadPath)}.`);
         } else {
@@ -116,7 +116,7 @@ export async function connectPortal(context: DataversePowerToolsContext, mode: P
         }
         uploadPath = path.join(uploadRoot, siteFolder.name);
       }
-      const ok = await runPacLogged(context, pacPagesUploadArgs({ path: uploadPath }), workspacePath);
+      const ok = await runPacLoggedHealing(context, pacPagesUploadArgs({ path: uploadPath }), workspacePath);
       if (ok) {
         vscode.window.showInformationMessage("Power Pages site uploaded.");
       } else {

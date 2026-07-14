@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import DataversePowerToolsContext from "../../context";
 import { runPac } from "./commandRunner";
-import { ensurePacAuthForCurrentConnection } from "../pacAuth";
+import { ensurePacAuthForCurrentConnection, isPacAuthError, reestablishPacAuthForCurrentConnection } from "../pacAuth";
 import {
   applyDefaults,
   ensurePluginModelBuilderSettingsLoaded,
@@ -14,6 +14,26 @@ import {
 } from "./settingsFile";
 import { configureEditableSettings, editSingleSetting, ModelBuilderSettingKey } from "./ui";
 import { activeComponentRoot } from "../../components/componentDiscovery";
+
+/** Run pac; if it fails with a pac AUTH error, re-establish the extension's pac
+ * profile and retry ONCE before giving up. runPac (commandRunner) rejects with
+ * { error, stdout, stderr } on failure, so we inspect that payload. Non-auth
+ * failures re-throw unchanged for the caller's existing error handling. */
+async function runPacWithAuthRetry(context: DataversePowerToolsContext, args: string[], workspacePath: string): Promise<{ stdout: string; stderr: string }> {
+  try {
+    return await runPac(args, workspacePath);
+  } catch (error: any) {
+    const combined = `${error?.stdout ?? ""}\n${error?.stderr ?? ""}\n${error?.error?.message ?? error?.message ?? ""}`;
+    if (!isPacAuthError(combined)) {
+      throw error;
+    }
+    context.channel.appendLine("[pac] Authentication error — re-establishing the pac profile and retrying once.");
+    if (!(await reestablishPacAuthForCurrentConnection(context, workspacePath))) {
+      throw error;
+    }
+    return runPac(args, workspacePath);
+  }
+}
 
 async function createSettingsTemplateFile(context: DataversePowerToolsContext, namespace: string, serviceContextName: string, outputDirectory: string): Promise<void> {
   const workspacePath = getWorkspacePath(context);
@@ -291,7 +311,7 @@ export async function generateEarlyBoundV3(context: DataversePowerToolsContext) 
         if (!(await ensurePacAuthForCurrentConnection(context, workspacePath))) {
           return;
         }
-        const { stdout, stderr } = await runPac(args, workspacePath);
+        const { stdout, stderr } = await runPacWithAuthRetry(context, args, workspacePath);
         if (stdout) {
           context.channel.appendLine(stdout);
         }

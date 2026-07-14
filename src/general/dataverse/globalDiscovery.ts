@@ -72,8 +72,11 @@ async function callDiscovery(accessToken: string): Promise<DataverseEnvironment[
  * Sign in interactively (if needed) and return the user's Dataverse environments.
  * Returns undefined if sign-in fails or the discovery call errors.
  */
-export async function discoverEnvironments(clientId?: string): Promise<DataverseEnvironment[] | undefined> {
-  const token = await acquireInteractiveForScopes(GLOBAL_DISCOVERY_SCOPES, clientId, true);
+export async function discoverEnvironments(clientId?: string, opts?: { forceInteractive?: boolean }): Promise<DataverseEnvironment[] | undefined> {
+  // forceInteractive (#159): on an EXPLICIT connect/switch to OAuth, force MSAL's
+  // account picker so the user can choose a different identity — not on env switches
+  // that reuse the current sign-in.
+  const token = await acquireInteractiveForScopes(GLOBAL_DISCOVERY_SCOPES, clientId, true, opts);
   return token?.accessToken ? callDiscovery(token.accessToken) : undefined;
 }
 

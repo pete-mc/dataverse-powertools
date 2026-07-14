@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
 import { runPac } from "../general/modelbuilder/commandRunner";
-import { ensurePacAuthForCurrentConnection } from "../general/pacAuth";
+import { ensurePacAuthForCurrentConnection, isPacAuthError, reestablishPacAuthForCurrentConnection } from "../general/pacAuth";
 import { activeComponentRoot } from "../components/componentDiscovery";
 import { pcfPushArgs } from "./pcfArgs";
 
@@ -12,6 +12,25 @@ import { pcfPushArgs } from "./pcfArgs";
 //
 // Auth: gate on the live connection via ensurePacAuthForCurrentConnection — NEVER on
 // tenantId (interactive/OAuth connections carry no tenantId; see CLAUDE.md #90/#91).
+/** Run pac; if it fails with a pac AUTH error, re-establish the extension's pac
+ * profile and retry ONCE. runPac rejects with { error, stdout, stderr }; non-auth
+ * failures re-throw for the caller's existing error handling. */
+async function runPacWithAuthRetry(context: DataversePowerToolsContext, args: string[], workspacePath: string): Promise<{ stdout: string; stderr: string }> {
+  try {
+    return await runPac(args, workspacePath);
+  } catch (error: any) {
+    const combined = `${error?.stdout ?? ""}\n${error?.stderr ?? ""}\n${error?.error?.message ?? error?.message ?? ""}`;
+    if (!isPacAuthError(combined)) {
+      throw error;
+    }
+    context.channel.appendLine("[pac] Authentication error — re-establishing the pac profile and retrying once.");
+    if (!(await reestablishPacAuthForCurrentConnection(context, workspacePath))) {
+      throw error;
+    }
+    return runPac(args, workspacePath);
+  }
+}
+
 export async function pushPcf(context: DataversePowerToolsContext): Promise<void> {
   const workspacePath = activeComponentRoot(context);
   if (!workspacePath) {
@@ -40,7 +59,7 @@ export async function pushPcf(context: DataversePowerToolsContext): Promise<void
         if (!(await ensurePacAuthForCurrentConnection(context, workspacePath))) {
           return;
         }
-        const { stdout, stderr } = await runPac(pcfPushArgs(prefix), workspacePath);
+        const { stdout, stderr } = await runPacWithAuthRetry(context, pcfPushArgs(prefix), workspacePath);
         if (stdout) {
           context.channel.appendLine(stdout);
         }
