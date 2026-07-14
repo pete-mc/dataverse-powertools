@@ -2,6 +2,16 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.10.0 (pre-release)
+
+Plugins — early-bound authoring quality-of-life.
+
+- **New plugin classes ship ready for early-bound types (#131, #132).** A newly created plugin class now includes a `using` for the project's early-bound namespace (read from your modelbuilder settings; commented with a hint until you've run *Generate Earlybound*, so it always compiles), plus clear commented **early-bound vs late-bound** starter examples so there's a working pattern to copy.
+- **Generated early-bound files compile automatically (#130).** The plugin `.csproj` now includes `..\generated\**\*.cs`, so the classes *Generate Earlybound* produces are picked up by the build without manual `<Compile>` edits (a missing folder is simply ignored).
+- **Earlybound generation is now covered end-to-end.** The plugin-lifecycle e2e generates early-bound classes and builds them into the deployed package, guarding the generation → compile path against regressions.
+
+> Note on interactive (OAuth) earlybound (#128/#129): `pac modelbuilder` authenticates through its own pac profile, which under interactive sign-in still requires a one-time `pac` browser sign-in separate from the extension's token. That limitation is documented and tracked; these two items remain open.
+
 ## 0.9.1 (pre-release)
 
 Foundation & Quality (cont.) — test-layer depth, no user-facing change.

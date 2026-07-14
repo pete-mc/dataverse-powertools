@@ -5,6 +5,8 @@ import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
 import { findPrimaryPluginCsproj } from "./projectPaths";
 import { activeComponentRoot } from "../components/componentDiscovery";
+import { readModelBuilderSettingsFile } from "../general/modelbuilder/settingsFile";
+import { earlyboundUsingLine, DEFAULT_SERVICE_CONTEXT } from "./earlyboundClassScaffold";
 
 const requiredWorkflowPackage = "Microsoft.CrmSdk.Workflow";
 const fallbackWorkflowPackage = "Microsoft.CrmSdk.CoreAssemblies";
@@ -92,6 +94,41 @@ async function detectNamespace(projectPath: string): Promise<string> {
   }
 
   return "Plugin";
+}
+
+/** True if the early-bound output directory holds at least one generated `.cs` file (so an
+ * active `using` for the early-bound namespace will compile). Scans one level of subfolders —
+ * modelbuilder can split entities/messages/optionsets into their own folders. */
+async function earlyboundTypesExist(generatedDir: string): Promise<boolean> {
+  try {
+    const entries = await fs.promises.readdir(generatedDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name.toLowerCase().endsWith(".cs")) {
+        return true;
+      }
+      if (entry.isDirectory()) {
+        const nested = await fs.promises.readdir(path.join(generatedDir, entry.name));
+        if (nested.some((name) => name.toLowerCase().endsWith(".cs"))) {
+          return true;
+        }
+      }
+    }
+  } catch {
+    /* no generated dir yet */
+  }
+  return false;
+}
+
+/** Resolve the early-bound `using` line and service-context name for a new plugin class from
+ * the component's modelbuilder settings (#131), degrading to defaults + a commented hint when
+ * early-bound hasn't been generated. */
+async function resolveEarlyboundScaffold(context: DataversePowerToolsContext, componentRoot: string): Promise<{ usingLine: string; serviceContext: string }> {
+  const settings = (await readModelBuilderSettingsFile(context).catch(() => undefined)) ?? context.projectSettings.pluginModelBuilder;
+  const namespace = settings?.namespace;
+  const serviceContext = settings?.serviceContextName || DEFAULT_SERVICE_CONTEXT;
+  const outputDirectory = settings?.outputDirectory || "generated";
+  const hasGenerated = await earlyboundTypesExist(path.join(componentRoot, outputDirectory));
+  return { usingLine: earlyboundUsingLine(namespace, hasGenerated), serviceContext };
 }
 
 async function readTemplate(context: DataversePowerToolsContext, relativePath: string): Promise<string> {
@@ -233,8 +270,13 @@ export async function createPluginClass(context: DataversePowerToolsContext, tar
   }
 
   const namespaceName = await detectNamespace(pluginProjectDirectory);
+  const { usingLine, serviceContext } = await resolveEarlyboundScaffold(context, workspacePath);
   let template = await readTemplate(context, path.join("templates", "plugin", "pluginClassV3.cs", "1.cs"));
-  template = template.replace(/NAMESPACEPLACEHOLDER/g, namespaceName).replace(/CLASSNAMEPLACEHOLDER/g, className);
+  template = template
+    .replace(/NAMESPACEPLACEHOLDER/g, namespaceName)
+    .replace(/CLASSNAMEPLACEHOLDER/g, className)
+    .replace(/EARLYBOUNDUSINGPLACEHOLDER/g, usingLine)
+    .replace(/SERVICECONTEXTPLACEHOLDER/g, serviceContext);
 
   const destination = await writeClassFile(targetDirectory, className, template);
   if (!destination) {

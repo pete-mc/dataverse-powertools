@@ -2,7 +2,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
-import { loadE2EEnv, freshWorkspace, answerText, answerFlexible, pickByLabel, runCommand, waitForFile, dismissOverlays, sleep, E2EClient } from "./lib";
+import { loadE2EEnv, freshWorkspace, answerText, answerFlexible, pickByLabel, runCommand, waitForFile, dismissOverlays, sleep, expectOutput, E2EClient } from "./lib";
 import { resetAllCredentials } from "./lib";
 
 // End-to-end: create a Plugins project from scratch via the real wizard (pac plugin init
@@ -111,6 +111,43 @@ describe("Plugin lifecycle (e2e)", function () {
     expect(await waitForFile(path.join(workspace, projectName, `${projectName}.csproj`), 300000), `${projectName}/${projectName}.csproj`).to.equal(true);
     expect(await waitForFile(path.join(workspace, projectName, "E2EPluginClass.cs"), 120000), `${projectName}/E2EPluginClass.cs`).to.equal(true);
     expect(fs.existsSync(path.join(workspace, projectName, "Plugin1.cs")), "pac sample Plugin1.cs removed").to.equal(false);
+  });
+
+  it("generates early-bound classes and compiles them into the package (#129/#130)", async () => {
+    // Seed modelbuilder.json so "Generate Early Bound" runs pac modelbuilder directly
+    // (no config wizard). Proves earlybound generation works end-to-end under
+    // service-principal auth (#129) and, because the next step builds the package, that
+    // the csproj picks up ..\generated\**\*.cs (#130) — a build failure there would fail
+    // the deploy step.
+    fs.writeFileSync(
+      path.join(workspace, "modelbuilder.json"),
+      JSON.stringify({ namespace: "Dataverse.Plugins", serviceContextName: "XrmSvc", outputDirectory: "generated" }, null, 2),
+      "utf8",
+    );
+
+    await runCommand("Dataverse PowerTools: Generate Early Bound");
+    await expectOutput("Plugin early bound generation complete.", {
+      timeoutMs: 300000,
+      failMarkers: ["Error running pac modelbuilder", "pac authentication failed", "No active environment"],
+      step: "generate early bound (service principal)",
+    });
+
+    // pac modelbuilder must have written at least one generated .cs into generated/.
+    const generatedDir = path.join(workspace, "generated");
+    const deadline = Date.now() + 30000;
+    let hasGenerated = false;
+    do {
+      try {
+        hasGenerated = fs.existsSync(generatedDir) && fs.readdirSync(generatedDir).some((name) => name.toLowerCase().endsWith(".cs"));
+      } catch {
+        hasGenerated = false;
+      }
+      if (hasGenerated) {
+        break;
+      }
+      await sleep(2000);
+    } while (Date.now() < deadline);
+    expect(hasGenerated, "generated/*.cs produced by pac modelbuilder").to.equal(true);
   });
 
   it("builds and deploys the plugin package to Dataverse", async () => {
