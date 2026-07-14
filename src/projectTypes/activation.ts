@@ -64,6 +64,11 @@ export interface ProjectTypeActivation {
   onProjectScaffolded?(context: DataversePowerToolsContext): Promise<void>;
   /** Runs during createNewProject after generalInitialise (per-type first-run steps). */
   onProjectCreated?(context: DataversePowerToolsContext): Promise<void>;
+  /** Runs after a component is added via Add Component (#126), once it's scaffolded,
+   * restored and initialised — the first-create niceties the standalone create flow gets
+   * (e.g. generate typings, offer to create a class). Best-effort: the component already
+   * exists, so a failure here doesn't fail Add Component. */
+  onComponentAdded?(context: DataversePowerToolsContext): Promise<void>;
 }
 
 function isPluginV3(context: DataversePowerToolsContext): boolean {
@@ -241,6 +246,24 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
             await createWebResourceClass(context);
           }
         });
+    },
+    async onComponentAdded(context) {
+      // First-create onboarding for a Web Resources component added via Add Component
+      // (#126): generate typings, then offer to create a class — the same niceties the
+      // standalone create flow (onProjectCreated) gives. initialiseWebresources already ran
+      // via initialise(). Typings is best-effort (needs a live connection).
+      try {
+        await generateTypings(context);
+      } catch (error) {
+        context.channel.appendLine(`[Add Component] Generate typings skipped (non-fatal): ${error}`);
+      }
+      // Offer via a NON-blocking notification (fire-and-forget): a quick pick would block
+      // adding further components. The user can ignore it and add more.
+      void vscode.window.showInformationMessage("Web Resources component added. Create a web resource class?", "Create class").then(async (choice) => {
+        if (choice === "Create class") {
+          await createWebResourceClass(context);
+        }
+      });
     },
   },
   [ProjectTypes.solution]: {

@@ -211,6 +211,9 @@ describe("Blank root + two components of each type (e2e)", function () {
     expect(settings.prefix, "component carries the inherited publisher prefix").to.be.a("string").and.not.equal("");
     expect(webpackCommon, "webpack.common.js uses the real prefix").to.contain(`${settings.prefix}_library.js`);
     await waitForAddComplete(2); // root + webresources — don't let the next add overlap
+    // #126: Add Component auto-generates typings for the new web-resource component; gate on
+    // its output so the run doesn't proceed while typings is still generating.
+    expect(await waitForFile(path.join(workspace, "webresources", "webresources_src", "lib", "dg.xrmquery.web.min.js"), 300000), "typings generated on add (#126)").to.equal(true);
   });
 
   it("adds a SECOND Web Resources component into a distinct subfolder", async () => {
@@ -226,6 +229,11 @@ describe("Blank root + two components of each type (e2e)", function () {
     expect(webpackCommon, "SOLUTIONPREFIX substituted in the second component too").to.not.contain("SOLUTIONPREFIX");
     expect(webpackCommon).to.contain(`${settings.prefix}_library.js`);
     await waitForAddComplete(3); // root + webresources + webresources2
+    // #126: gate on the auto-generated typings before proceeding (see the first add).
+    expect(
+      await waitForFile(path.join(workspace, "webresources2", "webresources_src", "lib", "dg.xrmquery.web.min.js"), 300000),
+      "typings generated on second add (#126)",
+    ).to.equal(true);
     // The second web-resource component's Test Explorer controller must get a distinct id —
     // a duplicate id makes Add Component throw "duplicate controller with ID" (#47).
     await assertCommandDidNotError("second Web Resources add");

@@ -220,6 +220,14 @@ export async function addComponent(context: DataversePowerToolsContext): Promise
     },
   );
   vscode.window.showInformationMessage(`${descriptor.displayName} component added in ${folderName} (inherits the workspace connection).`);
+
+  // First-create onboarding (#126) — e.g. web resources generate typings + offer a class.
+  // Best-effort: the component is already added, so a hiccup here must not fail Add Component.
+  try {
+    await getProjectTypeActivation(descriptor.id)?.onComponentAdded?.(scoped);
+  } catch (error) {
+    scoped.channel.appendLine(`[Add Component] Post-add onboarding failed (non-fatal): ${error}`);
+  }
 }
 
 /** Convert a single-typed-project workspace into a components workspace (#118): move
