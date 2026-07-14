@@ -3,10 +3,7 @@ import * as fs from "fs";
 import DataversePowerToolsContext from "../../context";
 import { DataverseContext, Options } from "./dataverseContext";
 import { dataverseApiUrl, logDataverseHttpError, logDataverseError } from "./webApi";
-
-function escapeODataString(value: string): string {
-  return value.replace(/'/g, "''");
-}
+import { escapeODataString } from "./odata";
 
 function isStrongNameRequiredError(errorText: string): boolean {
   const lower = errorText.toLowerCase();

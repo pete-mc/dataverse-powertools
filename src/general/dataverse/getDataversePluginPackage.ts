@@ -3,10 +3,7 @@ import * as fs from "fs";
 import DataversePowerToolsContext from "../../context";
 import { DataverseContext, Options } from "./dataverseContext";
 import { dataverseApiUrl, logDataverseHttpError } from "./webApi";
-
-function escapeODataString(value: string): string {
-  return value.replace(/'/g, "''");
-}
+import { escapeODataString } from "./odata";
 
 async function ensureDataverseContext(context: DataversePowerToolsContext): Promise<boolean> {
   if (!context.dataverse) {

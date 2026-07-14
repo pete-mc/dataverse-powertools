@@ -2,6 +2,14 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.9.1 (pre-release)
+
+Foundation & Quality (cont.) — test-layer depth, no user-facing change.
+
+- **Plugin-component integration coverage (#147).** A new integration test opens a plugin-component fixture, drives *Configure Earlybound*, and asserts the **full** set of registry commands is registered — closing the gap the no-workspace test couldn't reach (the model-builder tree's `editModelBuilderSetting` registers lazily on first use). A renamed or dropped command in any of the three registration paths now fails in CI instead of only in the manual e2e.
+- **Consolidated the duplicated OData string-escaper (#143).** `escapeODataString` — copy-pasted into four Dataverse Web API modules (plugin/workflow registration, assembly, package) — is now one shared, unit-tested pure module, with tests covering the `$filter` injection shape it exists to prevent. Behaviour is byte-identical.
+- **e2e:** the wizard project-type quick-pick now falls back to keyboard selection when a coordinate click is intercepted by the empty-editor watermark — fixes four plugin-lifecycle e2e steps that broke after the project-type picker was reordered.
+
 ## 0.9.0 (pre-release)
 
 Foundation & Quality — multi-component polish, safer onboarding, and a real integration test layer.
