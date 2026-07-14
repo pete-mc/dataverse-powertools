@@ -5,7 +5,7 @@ import fs = require("fs");
 import DataversePowerToolsContext from "./context";
 import { getProjectTypeActivation, registerAllComponentCommands } from "./projectTypes/activation";
 import { componentScopedContext } from "./components/componentDiscovery";
-import { componentsOfType } from "./components/discovery";
+import { componentsToInitialise } from "./components/discovery";
 import { clearStoredCredentials } from "./general/connectionStringManager";
 import { checkConfigRevision } from "./general/configRefresh";
 import { registerProfilerCodeLens } from "./plugins/profilerCodeLens";
@@ -54,26 +54,30 @@ export async function initialise(context: DataversePowerToolsContext) {
     await vscode.commands.executeCommand("setContext", `dataverse-powertools.${key}`, false);
   }
 
-  const presentTypes = new Set<string>();
-  for (const component of context.components) {
-    if (component.settings.type) {
-      presentTypes.add(component.settings.type);
+  // Initialise EVERY typed component on load (#146) — not just the first of each type —
+  // so each component's scoped Test Explorer controller + watchers are created (safe now
+  // that controller ids are per-component, #124). Type context keys set inside initialise*
+  // are idempotent. A legacy single-project workspace resolves to one root component and
+  // behaves exactly as before; a workspace whose only type is on the (undiscovered) root
+  // falls back to the base context.
+  const toInitialise = componentsToInitialise(context.components);
+  if (toInitialise.length > 0) {
+    for (const component of toInitialise) {
+      const activation = getProjectTypeActivation(component.settings.type);
+      if (!activation) {
+        continue;
+      }
+      const scoped = componentScopedContext(context, component);
+      await activation.initialise(scoped);
+      // Stale config-file detection (#113): offer the one-click refresh.
+      checkConfigRevision(scoped);
     }
-  }
-  if (presentTypes.size === 0 && context.projectSettings.type) {
-    presentTypes.add(context.projectSettings.type);
-  }
-
-  for (const type of presentTypes) {
-    const activation = getProjectTypeActivation(type);
-    if (!activation) {
-      continue;
+  } else if (context.projectSettings.type) {
+    const activation = getProjectTypeActivation(context.projectSettings.type);
+    if (activation) {
+      await activation.initialise(context);
+      checkConfigRevision(context);
     }
-    const first = componentsOfType(context.components, type)[0];
-    const scoped = first ? componentScopedContext(context, first) : context;
-    await activation.initialise(scoped);
-    // Stale config-file detection (#113): offer the one-click refresh.
-    checkConfigRevision(scoped);
   }
   context.refreshPanel?.();
 }
