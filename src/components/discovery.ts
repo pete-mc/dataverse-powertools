@@ -8,6 +8,7 @@
 // path→component resolution. Unit-tested in discovery.spec.ts.
 
 import { migrateSettings, MigrationIo } from "../general/settingsMigrations";
+import { isSupportedProjectType } from "../projectTypes/registry";
 
 /** The parsed shape of a component's dataverse-powertools.json (loosely typed —
  * the full ProjectSettings interface lives in context.ts, which imports vscode). */
@@ -155,6 +156,15 @@ export function componentForPath(components: DiscoveredComponent[], fsPath: stri
 /** Components of a given project type (registry id). */
 export function componentsOfType(components: DiscoveredComponent[], type: string): DiscoveredComponent[] {
   return components.filter((c) => c.settings.type === type);
+}
+
+/** Every discovered component with a supported project type — the set the activation
+ * loop initialises on load. It returns ALL of them, not just the first of each type
+ * (#146): each component needs its own scoped Test Explorer controller + watchers
+ * created, which is safe now that controller ids are per-component (#124). The
+ * connection-only root (no type) and unknown types are excluded. */
+export function componentsToInitialise(components: DiscoveredComponent[]): DiscoveredComponent[] {
+  return components.filter((c) => isSupportedProjectType(c.settings.type));
 }
 
 /** A VS Code TestController id scoped to one component (#84/#47). VS Code throws

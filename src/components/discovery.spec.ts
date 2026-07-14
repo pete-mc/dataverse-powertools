@@ -3,6 +3,7 @@ import {
   resolveComponents,
   componentForPath,
   componentsOfType,
+  componentsToInitialise,
   normalizeFsPath,
   resolveTargetComponent,
   applyLayout,
@@ -160,6 +161,37 @@ describe("resolveTargetComponent (#119 command target)", () => {
   it("pick candidates are exactly the components of the type", () => {
     const res = resolveTargetComponent(components, "plugin", undefined, undefined);
     expect(res.kind === "pick" && res.candidates.map((c) => c.relativeRoot)).toEqual(["pluginA", "pluginB"]);
+  });
+});
+
+describe("componentsToInitialise (#146 per-component init on load)", () => {
+  it("returns EVERY typed component — both of each type — not just the first", () => {
+    const { components } = resolveComponents(root, [
+      file("C:\\repo\\dataverse-powertools.json", { connectionString: "cs" }), // connection-only root, no type
+      file("C:\\repo\\web1\\dataverse-powertools.json", { type: "webresources" }),
+      file("C:\\repo\\web2\\dataverse-powertools.json", { type: "webresources" }),
+      file("C:\\repo\\plugin1\\dataverse-powertools.json", { type: "plugin" }),
+      file("C:\\repo\\plugin2\\dataverse-powertools.json", { type: "plugin" }),
+    ]);
+    // The bug (#146): the old loop initialised only the first of each type, so web2/plugin2
+    // never got a Test Explorer controller on load. This must list all four.
+    expect(componentsToInitialise(components).map((c) => c.relativeRoot)).toEqual(["plugin1", "plugin2", "web1", "web2"]);
+  });
+
+  it("excludes the connection-only root and unsupported/unknown types", () => {
+    const { components } = resolveComponents(root, [
+      file("C:\\repo\\dataverse-powertools.json", { connectionString: "cs" }),
+      file("C:\\repo\\mystery\\dataverse-powertools.json", { type: "not-a-real-type" }),
+      file("C:\\repo\\plugin\\dataverse-powertools.json", { type: "plugin" }),
+    ]);
+    expect(componentsToInitialise(components).map((c) => c.relativeRoot)).toEqual(["plugin"]);
+  });
+
+  it("returns the single root component for a legacy single-project workspace", () => {
+    const { components } = resolveComponents(root, [file("C:\\repo\\dataverse-powertools.json", { type: "webresources", connectionString: "cs" })]);
+    const toInit = componentsToInitialise(components);
+    expect(toInit).toHaveLength(1);
+    expect(toInit[0].isRoot).toBe(true);
   });
 });
 
