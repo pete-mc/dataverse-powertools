@@ -14,6 +14,7 @@ export enum ProjectTypes {
   solution = "solution",
   portal = "portal",
   pcf = "pcf",
+  azurefunction = "azurefunction",
 }
 
 /** A button in the actions panel (#100). `command` is executed with `args` when clicked. */
@@ -30,6 +31,9 @@ export interface ProjectMenuState {
   hasSpkl?: boolean;
   /** Web resources: current build output mode (#88). */
   webresourceOutput?: "bundle" | "perFile";
+  /** Azure Functions: how the function is triggered (#145) — decides the card's primary action.
+   * Absent (a component scaffolded before this existed) reads as the webhook default. */
+  azureFunctionTrigger?: string;
 }
 
 /** The action set a project card renders (#100 v2): one call-to-action, a short
@@ -262,6 +266,34 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
           { command: `${prefix}deployPcf`, label: "Add to Solution" },
         ],
         overflow: [],
+      };
+    },
+  },
+  {
+    id: ProjectTypes.azurefunction,
+    displayName: "Azure Function",
+    templateFolder: "azurefunction",
+    defaultTemplateVersion: 1,
+    contextKey: "isAzureFunction",
+    configRevision: 0,
+    refreshableFiles: [],
+    // v1 core (#145): scaffold + typed RemoteExecutionContext + register webhook/step +
+    // ServiceClient callback + early-bound. Azure publish and local `func start` /
+    // send-test-context are explicit fast-follows (#145 items 6 and 7).
+    commandIds: [`${prefix}registerWebhookStep`, `${prefix}buildAzureFunction`, `${prefix}generateAzureFunctionEarlyBound`, `${prefix}deployAzureFunctionGuide`],
+    menu(state) {
+      // A function component need not be a Dataverse webhook (#145) — it may be a plain HTTP
+      // API, a timer, or a Service Bus consumer. Only the HTTP-webhook trigger leads with
+      // "Register webhook & step"; every other trigger leads with Build and keeps the
+      // registration available (you can always add a webhook handler later).
+      const webhook = (state.azureFunctionTrigger ?? "webhook") === "webhook";
+      const register = { command: `${prefix}registerWebhookStep`, label: webhook ? "Register webhook & step in {environment}" : "Register webhook & step" };
+      const build = { command: `${prefix}buildAzureFunction`, label: "Local Build" };
+      return {
+        // The Azure publish itself is done with the Azure Functions extension / func CLI (guide only).
+        primary: webhook ? register : build,
+        secondary: [...(webhook ? [build] : [register]), { command: `${prefix}generateAzureFunctionEarlyBound`, label: "Generate Earlybound" }],
+        overflow: [{ command: `${prefix}deployAzureFunctionGuide`, label: "Deploy to Azure…" }],
       };
     },
   },

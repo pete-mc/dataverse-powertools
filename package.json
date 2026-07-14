@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.12.0",
+  "version": "0.14.0",
   "engines": {
     "vscode": "^1.93.0"
   },
@@ -600,6 +600,26 @@
         "command": "dataverse-powertools.refreshPcfTypes",
         "title": "Dataverse PowerTools: Refresh PCF Types",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPcf"
+      },
+      {
+        "command": "dataverse-powertools.registerWebhookStep",
+        "title": "Dataverse PowerTools: Register Webhook & Step",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isAzureFunction"
+      },
+      {
+        "command": "dataverse-powertools.buildAzureFunction",
+        "title": "Dataverse PowerTools: Build Azure Function",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isAzureFunction"
+      },
+      {
+        "command": "dataverse-powertools.generateAzureFunctionEarlyBound",
+        "title": "Dataverse PowerTools: Generate Azure Function Early Bound Classes",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isAzureFunction"
+      },
+      {
+        "command": "dataverse-powertools.deployAzureFunctionGuide",
+        "title": "Dataverse PowerTools: Deploy Azure Function to Azure",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isAzureFunction"
       },
       {
         "command": "dataverse-powertools.clearCredentials",

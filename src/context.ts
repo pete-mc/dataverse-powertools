@@ -195,6 +195,13 @@ interface ProjectSettings {
   pluginUnitTestingProject?: string;
   pluginModelBuilder?: PluginModelBuilderSettings;
   controlName?: string;
+  /** Azure Function (#145): how the function is triggered — "webhook" | "http" | "timer" | "servicebus".
+   * A function component need not be a Dataverse webhook; this is chosen at scaffold time. */
+  azureFunctionTrigger?: string;
+  /** Azure Function (#145): the Dataverse webhook (serviceendpoint) name this component registers as. */
+  azureFunctionEndpointName?: string;
+  /** Azure Function (#145): the function's HTTPS endpoint. NON-SECRET — the webhook key lives in secret storage. */
+  azureFunctionUrl?: string;
   formIntersect?: FormIntersect[];
   /** Power Pages (#74): the remembered site + download folder for this component. */
   portalWebsiteId?: string;
