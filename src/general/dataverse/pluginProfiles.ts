@@ -64,7 +64,18 @@ export async function getProfilableSteps(context: DataversePowerToolsContext, as
   if (!body) {
     return undefined;
   }
-  const rows: any[] = body.value ?? [];
+  return parseProfilableSteps(body, assemblyName);
+}
+
+/**
+ * Shape + filter the sdkmessageprocessingsteps response into profilable steps (pure,
+ * unit-tested). Drops steps whose plugintype expand didn't resolve a typeName, system
+ * (Microsoft.*) steps, and the profiler's own "(Profiled)" clones; optionally scopes to
+ * one assembly. NB: an active, registered step whose `eventhandler_plugintype` expand
+ * comes back empty is dropped here (typeName ""), the suspected #135 failure mode.
+ */
+export function parseProfilableSteps(body: any, assemblyName?: string): ProfilableStep[] {
+  const rows: any[] = body?.value ?? [];
   return rows
     .map((row) => {
       const type = row.eventhandler_plugintype;
