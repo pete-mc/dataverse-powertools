@@ -14,6 +14,7 @@ export enum ProjectTypes {
   solution = "solution",
   portal = "portal",
   pcf = "pcf",
+  azurefunction = "azurefunction",
 }
 
 /** A button in the actions panel (#100). `command` is executed with `args` when clicked. */
@@ -262,6 +263,31 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
           { command: `${prefix}deployPcf`, label: "Add to Solution" },
         ],
         overflow: [],
+      };
+    },
+  },
+  {
+    id: ProjectTypes.azurefunction,
+    displayName: "Azure Function",
+    templateFolder: "azurefunction",
+    defaultTemplateVersion: 1,
+    contextKey: "isAzureFunction",
+    configRevision: 0,
+    refreshableFiles: [],
+    // v1 core (#145): scaffold + typed RemoteExecutionContext + register webhook/step +
+    // ServiceClient callback + early-bound. Azure publish and local `func start` /
+    // send-test-context are explicit fast-follows (#145 items 6 and 7).
+    commandIds: [`${prefix}registerWebhookStep`, `${prefix}buildAzureFunction`, `${prefix}generateAzureFunctionEarlyBound`, `${prefix}deployAzureFunctionGuide`],
+    menu() {
+      return {
+        // Wiring the function into Dataverse is the call to action — the Azure publish
+        // itself is done with the Azure Functions extension / func CLI (guide only).
+        primary: { command: `${prefix}registerWebhookStep`, label: "Register webhook & step in {environment}" },
+        secondary: [
+          { command: `${prefix}buildAzureFunction`, label: "Local Build" },
+          { command: `${prefix}generateAzureFunctionEarlyBound`, label: "Generate Earlybound" },
+        ],
+        overflow: [{ command: `${prefix}deployAzureFunctionGuide`, label: "Deploy to Azure…" }],
       };
     },
   },

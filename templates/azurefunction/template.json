@@ -1,0 +1,74 @@
+[
+  {
+    "version": 1,
+    "files": [
+      {
+        "path": [],
+        "filename": "AzureFunction",
+        "extension": ".csproj",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": "Program",
+        "extension": ".cs",
+        "version": 1
+      },
+      {
+        "path": [
+          "Dataverse"
+        ],
+        "filename": "RemoteExecutionContext",
+        "extension": ".cs",
+        "version": 1
+      },
+      {
+        "path": [
+          "Dataverse"
+        ],
+        "filename": "RemoteExecutionContextExtensions",
+        "extension": ".cs",
+        "version": 1
+      },
+      {
+        "path": [
+          "Dataverse"
+        ],
+        "filename": "DataverseServiceClientFactory",
+        "extension": ".cs",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": "OnAccountCreate",
+        "extension": ".cs",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": "host",
+        "extension": ".json",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": "local.settings",
+        "extension": ".json",
+        "version": 1
+      },
+      {
+        "path": [],
+        "filename": "",
+        "extension": ".gitignore",
+        "version": 1
+      }
+    ],
+    "placeholders": [],
+    "initCommands": [],
+    "restoreCommands": [
+      {
+        "command": "dotnet restore"
+      }
+    ]
+  }
+]

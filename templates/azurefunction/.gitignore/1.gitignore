@@ -1,0 +1,4 @@
+/**/bin
+/**/obj
+# Dev-only settings: holds the Dataverse connection string / secrets. Never commit.
+local.settings.json

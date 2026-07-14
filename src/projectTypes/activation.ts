@@ -50,6 +50,11 @@ import { buildPcf } from "../pcf/buildPcf";
 import { pushPcf } from "../pcf/pushPcf";
 import { deployPcf } from "../pcf/deployPcf";
 import { refreshPcfTypes } from "../pcf/refreshPcfTypes";
+import { initialiseAzureFunction } from "../azurefunction/initialiseAzureFunction";
+import { buildAzureFunction } from "../azurefunction/buildAzureFunction";
+import { registerWebhookStep } from "../azurefunction/registerWebhookStep";
+import { generateAzureFunctionEarlyBound } from "../azurefunction/generateAzureFunctionEarlyBound";
+import { deployAzureFunctionGuide } from "../azurefunction/deployAzureFunctionGuide";
 
 type CommandImpl = (context: DataversePowerToolsContext, resourceUri?: vscode.Uri) => unknown;
 
@@ -294,6 +299,15 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
       "dataverse-powertools.pushPcf": tracked("Push", pushPcf),
       "dataverse-powertools.deployPcf": tracked("Add to solution", deployPcf),
       "dataverse-powertools.refreshPcfTypes": (context) => refreshPcfTypes(context),
+    },
+  },
+  [ProjectTypes.azurefunction]: {
+    initialise: (context) => initialiseAzureFunction(context),
+    commands: {
+      "dataverse-powertools.buildAzureFunction": tracked("Build", buildAzureFunction),
+      "dataverse-powertools.registerWebhookStep": tracked("Register webhook & step", registerWebhookStep),
+      "dataverse-powertools.generateAzureFunctionEarlyBound": tracked("Generate early bound", generateAzureFunctionEarlyBound),
+      "dataverse-powertools.deployAzureFunctionGuide": (context) => deployAzureFunctionGuide(context),
     },
   },
 };

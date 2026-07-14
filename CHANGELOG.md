@@ -2,6 +2,16 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.0 (pre-release)
+
+New component type: **Azure Functions** (Dataverse webhook handler) — v1 core (#145).
+
+- **Create an Azure Function component.** Scaffolds a **.NET 8 isolated-worker** Functions project wired for Dataverse: a strongly-typed **`RemoteExecutionContext`** (the well-known webhook payload) with a `ReadRemoteExecutionContextAsync()` helper, so your handler reads `ctx.InputParameters` as typed values instead of raw JSON — plus a `ServiceClient` factory for calling back into Dataverse, a sample HTTP-triggered function, and `local.settings.json` placeholders.
+- **Register the webhook + step from the editor.** *Register Webhook & Step* creates/updates the Dataverse **Service Endpoint** (webhook) and the **SDK message-processing step** pointing at your function URL — the wiring that otherwise means clicking through the Plugin Registration Tool. Works under **both auth types** (gates on the live connection, never on a tenant id). The **webhook key is stored in VS Code secret storage**, never in `dataverse-powertools.json`.
+- **Local Build** (`dotnet build`) and **Generate Earlybound** (reuses the existing `pac modelbuilder` path) on the component card.
+
+> **v1 core — please verify the live registration before relying on it.** Deferred (per #145): Azure publish (`func`/`az`) and local `func start` / send-test-context — *Deploy to Azure…* is a guide only, and no new system requirements were added. The scaffolded project is confirmed to `dotnet build` clean, and the webhook/step payload shapes are unit-tested against the documented option-set values (contract=8 Webhook, messageformat=2 Json, authtype=4 WebhookKey/5 HttpHeader, `eventhandler_serviceendpoint@odata.bind`) — but the **create/update calls have not been run against a live org**. If registration is rejected, the most likely culprit is the `authvalue` encoding for the Http Header auth type.
+
 ## 0.12.0 (pre-release)
 
 New component type: **PCF (Power Apps Component Framework) controls** — foundational slice (#141).

@@ -157,6 +157,8 @@ export async function restoreDependencies(context: DataversePowerToolsContext, i
 // depth against a tampered template.json and means no file-derived string is ever
 // passed to a shell. Keep in sync with templates/<type>/template.json.
 const ALLOWED_ARGV: ReadonlyArray<ReadonlyArray<string>> = [
+  // Also the ONLY restore command the Azure Function template (#145) needs: its project is
+  // scaffolded from bundled template files (no `dotnet new`), so a plain restore suffices.
   ["dotnet", "restore"],
   ["dotnet", "new", "tool-manifest"],
   ["dotnet", "new", "tool-manifest", "--force"],
