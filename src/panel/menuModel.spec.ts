@@ -349,11 +349,17 @@ describe("project layout (#118)", () => {
 });
 
 describe("sanitizeLayout (#118 untrusted webview input)", () => {
-  it("keeps well-formed order + groups", () => {
-    expect(sanitizeLayout({ order: ["a", "b"], groups: [{ name: "G", members: ["a"], collapsed: true }] })).toEqual({
+  it("keeps well-formed order + groups + collapsedCards", () => {
+    expect(sanitizeLayout({ order: ["a", "b"], groups: [{ name: "G", members: ["a"], collapsed: true }], collapsedCards: ["b"] })).toEqual({
       order: ["a", "b"],
       groups: [{ name: "G", members: ["a"], collapsed: true }],
+      collapsedCards: ["b"],
     });
+  });
+
+  it("keeps only string ids in collapsedCards (#156, untrusted)", () => {
+    expect(sanitizeLayout({ collapsedCards: ["a", 3, null, "b"] }).collapsedCards).toEqual(["a", "b"]);
+    expect(sanitizeLayout({ collapsedCards: "nope" }).collapsedCards).toEqual([]);
   });
 
   it("drops non-strings, nameless/empty groups, and caps the name", () => {
@@ -363,8 +369,48 @@ describe("sanitizeLayout (#118 untrusted webview input)", () => {
   });
 
   it("tolerates junk", () => {
-    expect(sanitizeLayout(undefined)).toEqual({ order: [], groups: [] });
-    expect(sanitizeLayout("nope")).toEqual({ order: [], groups: [] });
+    expect(sanitizeLayout(undefined)).toEqual({ order: [], groups: [], collapsedCards: [] });
+    expect(sanitizeLayout("nope")).toEqual({ order: [], groups: [], collapsedCards: [] });
     expect(sanitizeLayout({ order: "x" }).order).toEqual([]);
+  });
+});
+
+describe("card minimise default (#156)", () => {
+  const webState = (over: Partial<PanelState> = {}): PanelState =>
+    state({
+      loaded: true,
+      projects: [project({ type: "webresources", relativeRoot: "web1", isRoot: false }), project({ type: "plugin", relativeRoot: "plugin1", isRoot: false })],
+      ...over,
+    });
+  const projectCards = (s: PanelState) => buildMenuModel(s).cards.filter((c) => c.kind === "project") as Extract<Card, { kind: "project" }>[];
+
+  it("multi-component workspace defaults all component cards to collapsed", () => {
+    const collapsed = projectCards(webState({ multiComponent: true })).map((c) => c.collapsed);
+    expect(collapsed).toEqual([true, true]);
+  });
+
+  it("single-component workspace shows cards expanded", () => {
+    const collapsed = projectCards(webState({ multiComponent: false })).map((c) => c.collapsed);
+    expect(collapsed).toEqual([false, false]);
+  });
+
+  it("collapsedCards overrides the default per card (multi → expand one; single → collapse one)", () => {
+    // Multi default collapsed; overriding web1 expands just it.
+    let cards = projectCards(webState({ multiComponent: true, layout: { collapsedCards: ["web1"] } }));
+    expect(cards.map((c) => [c.dndId, c.collapsed])).toEqual([
+      ["web1", false],
+      ["plugin1", true],
+    ]);
+    // Single default expanded; overriding web1 collapses just it.
+    cards = projectCards(webState({ multiComponent: false, layout: { collapsedCards: ["web1"] } }));
+    expect(cards.map((c) => [c.dndId, c.collapsed])).toEqual([
+      ["web1", true],
+      ["plugin1", false],
+    ]);
+  });
+
+  it("exposes multiComponent on the model for the webview override maths", () => {
+    expect(buildMenuModel(webState({ multiComponent: true })).multiComponent).toBe(true);
+    expect(buildMenuModel(webState({ multiComponent: false })).multiComponent).toBe(false);
   });
 });

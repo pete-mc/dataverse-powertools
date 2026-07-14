@@ -103,5 +103,7 @@ export function computePanelState(context: DataversePowerToolsContext): PanelSta
     // whether the root is connection-only (Empty) vs a typed single-project root.
     layout: (settings.layout as PanelState["layout"]) ?? undefined,
     rootIsEmpty: loaded ? !settings.type : undefined,
+    // More than one discovered component → the panel minimises cards by default (#156).
+    multiComponent: (context.components?.length ?? 0) > 1,
   };
 }

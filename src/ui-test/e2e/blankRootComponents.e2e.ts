@@ -174,7 +174,7 @@ describe("Blank root + two components of each type (e2e)", function () {
     await resetAllCredentials(log);
     await runCommand("Dataverse PowerTools: Initialise Project");
     log("project type: Empty");
-    await pickByLabel("Empty (components in subfolders)");
+    await pickByLabel("Multi-component project (two or more types)");
     log("auth type");
     await pickByLabel("Service principal (client secret)");
     await answerText(env!.tenantId);

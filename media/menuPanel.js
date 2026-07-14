@@ -174,6 +174,17 @@
   function renderProject(card) {
     const c = el("section", "card");
     const row = el("div", "head");
+    // Minimise/expand toggle (#156) — only sub-component cards (dndId set) collapse.
+    if (card.dndId) {
+      const caret = el("button", "iconbtn caret");
+      caret.type = "button";
+      caret.textContent = card.collapsed ? "▸" : "▾";
+      caret.setAttribute("aria-label", (card.collapsed ? "Expand" : "Collapse") + " " + card.name);
+      caret.addEventListener("click", function () {
+        toggleCardCollapse(card.dndId);
+      });
+      row.appendChild(caret);
+    }
     row.appendChild(el("span", "title", card.name));
     row.appendChild(el("span", "badge type", card.typeLabel));
     row.appendChild(el("span", "grow"));
@@ -186,21 +197,24 @@
     if (card.detail) {
       c.appendChild(el("div", "small", card.detail));
     }
-    c.appendChild(button({ command: card.primary.command, args: card.primary.args, label: "▶ " + card.primary.label }, "action primary big"));
-    if (card.secondary.length) {
-      const secondaryRow = el("div", "secondary-row");
-      for (const action of card.secondary) {
-        secondaryRow.appendChild(button(action, "action"));
+    // Collapsed cards show just name/type/detail/status — hide the action rows (#156).
+    if (!card.collapsed) {
+      c.appendChild(button({ command: card.primary.command, args: card.primary.args, label: "▶ " + card.primary.label }, "action primary big"));
+      if (card.secondary.length) {
+        const secondaryRow = el("div", "secondary-row");
+        for (const action of card.secondary) {
+          secondaryRow.appendChild(button(action, "action"));
+        }
+        c.appendChild(secondaryRow);
       }
-      c.appendChild(secondaryRow);
-    }
-    // Web-resource cards embed their own Form Registrations, right under the buttons.
-    if (card.registrations) {
-      c.appendChild(registrationsBlock(card.registrations));
-    }
-    // Plugin cards embed the profiler/debugging workflow.
-    if (card.debugging) {
-      c.appendChild(debuggingBlock(card.debugging));
+      // Web-resource cards embed their own Form Registrations, right under the buttons.
+      if (card.registrations) {
+        c.appendChild(registrationsBlock(card.registrations));
+      }
+      // Plugin cards embed the profiler/debugging workflow.
+      if (card.debugging) {
+        c.appendChild(debuggingBlock(card.debugging));
+      }
     }
     if (card.status) {
       const status = el("div", "statusline");
@@ -225,20 +239,32 @@
   // --- drag-and-drop layout (#118) ---
   let dragId = null;
   let lastCards = [];
+  let lastMultiComponent = false;
 
+  // Reconstruct the full layout from the rendered cards. collapsedCards (#156) is the set
+  // of cards whose collapse DIFFERS from the workspace default (multiComponent) — derived
+  // from each card's rendered `collapsed`, so it round-trips through a re-render.
   function deriveLayout(cards) {
     const order = [];
     const groups = [];
+    const collapsedCards = [];
+    function noteCollapse(p) {
+      if (p.dndId && !!p.collapsed !== lastMultiComponent) {
+        collapsedCards.push(p.dndId);
+      }
+    }
     for (const card of cards) {
       if (card.kind === "project" && card.dndId) {
         order.push(card.dndId);
+        noteCollapse(card);
       } else if (card.kind === "group") {
         const members = card.projects.filter((p) => p.dndId).map((p) => p.dndId);
         order.push.apply(order, members);
         groups.push({ name: card.name, members: members, collapsed: card.collapsed });
+        card.projects.forEach(noteCollapse);
       }
     }
-    return { order: order, groups: groups };
+    return { order: order, groups: groups, collapsedCards: collapsedCards };
   }
 
   function moveCard(layout, id, targetId, after) {
@@ -254,7 +280,7 @@
     const order = layout.order.filter((x) => x !== id);
     const oi = order.indexOf(targetId);
     order.splice(after ? oi + 1 : oi, 0, id);
-    return { order: order, groups: groups.filter((g) => g.members.length) };
+    return { order: order, groups: groups.filter((g) => g.members.length), collapsedCards: layout.collapsedCards };
   }
 
   function addToGroup(layout, id, groupName) {
@@ -272,7 +298,20 @@
     });
     order.splice(lastIdx + 1, 0, id);
     g.members.push(id);
-    return { order: order, groups: groups };
+    return { order: order, groups: groups, collapsedCards: layout.collapsedCards };
+  }
+
+  // Toggle a card's minimise state (#156): flip its membership in collapsedCards (the
+  // override set), which flips its rendered `collapsed` on the next model.
+  function toggleCardCollapse(dndId) {
+    const layout = deriveLayout(lastCards);
+    const i = layout.collapsedCards.indexOf(dndId);
+    if (i === -1) {
+      layout.collapsedCards.push(dndId);
+    } else {
+      layout.collapsedCards.splice(i, 1);
+    }
+    sendLayout(layout);
   }
 
   function sendLayout(layout) {
@@ -343,6 +382,19 @@
     head.appendChild(caret);
     head.appendChild(el("span", "group-name grow-text", card.name));
     head.appendChild(el("span", "small", card.projects.length + ""));
+    // Ungroup (#156): dissolve the group; members fall back to the ungrouped list in order
+    // (deriveLayout already keeps them in `order`, so dropping the group entry is enough).
+    const ungroup = el("button", "iconbtn");
+    ungroup.type = "button";
+    ungroup.textContent = "⊗";
+    ungroup.title = "Ungroup";
+    ungroup.setAttribute("aria-label", "Ungroup " + card.name);
+    ungroup.addEventListener("click", function () {
+      const layout = deriveLayout(lastCards);
+      layout.groups = layout.groups.filter((g) => g.name !== card.name);
+      sendLayout(layout);
+    });
+    head.appendChild(ungroup);
     // Header is a drop target: dropping a card here adds it to the group.
     head.addEventListener("dragover", function (e) {
       if (dragId) {
@@ -543,6 +595,7 @@
     closeOverflow();
     root.replaceChildren();
     lastCards = message.model.cards;
+    lastMultiComponent = !!message.model.multiComponent;
     let draggableCount = 0;
     for (const card of message.model.cards) {
       if ((card.kind === "project" && card.dndId) || card.kind === "group") {
