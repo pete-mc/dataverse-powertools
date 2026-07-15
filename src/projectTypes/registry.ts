@@ -300,6 +300,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
       `${prefix}deployAzureFunctionGuide`,
       `${prefix}publishAzureFunction`,
       `${prefix}startAzureFunctionHost`,
+      `${prefix}sendTestContext`,
     ],
     menu(state) {
       // A function component need not be a Dataverse webhook (#145) — it may be a plain HTTP
@@ -315,6 +316,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
         secondary: [...(webhook ? [build] : [register]), { command: `${prefix}generateAzureFunctionEarlyBound`, label: "Generate Earlybound" }],
         overflow: [
           { command: `${prefix}startAzureFunctionHost`, label: "Run locally (func start)" },
+          { command: `${prefix}sendTestContext`, label: "Send test context (local)" },
           { command: `${prefix}publishAzureFunction`, label: "Publish to Azure (func)" },
           { command: `${prefix}deployAzureFunctionGuide`, label: "Deploy to Azure…" },
         ],

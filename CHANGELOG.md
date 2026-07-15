@@ -2,6 +2,14 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.20 (pre-release)
+
+Azure Functions (#145) — **Send test context** (issue #7), the local inner loop for webhook functions.
+
+- **Send test RemoteExecutionContext to local function** builds a sample Dataverse webhook payload — a `RemoteExecutionContext` in the platform's **exact documented DataContractJson wire format** (typed `InputParameters["Target"]` entity with the `__type` discriminator, `/Date(ms)/` timestamps, all top-level fields) — and POSTs it to your locally-running function (`func start`), so you can exercise the typed handler without a live Dataverse trigger. Prompts for the function name, message, and primary entity. The payload builder is pure + unit-tested against the documented shape (5 tests), so `ReadRemoteExecutionContextAsync` deserializes it correctly.
+
+> This closes the last v1-core-adjacent gap in #145 — earlier deferred because I wouldn't hand-generate the payload blind; the shape is now taken verbatim from the [official webhook docs](https://learn.microsoft.com/power-apps/developer/data-platform/use-webhooks). Requires the local host running (`Run locally (func start)`).
+
 ## 0.14.19 (pre-release)
 
 Power Pages / Portals (#150) — **portal-wide build** (issues #1 + #2 together), on the portal card.
