@@ -15,6 +15,7 @@ import { buildProject } from "../plugins/buildProject";
 import { buildAndDeploy } from "../plugins/buildAndDeploy";
 import { addClassDecoration, updateFilteringAttributes } from "../plugins/decorations";
 import { viewPluginTraceLogs } from "../plugins/traceLogs";
+import { newCustomApi, generateCustomApiHandlers } from "../customapi/customApiCommands";
 import { downloadPluginProfiles } from "../plugins/downloadProfiles";
 import { capturePluginRun } from "../plugins/profilerCapture";
 import { generatePluginReplayTest } from "../plugins/replayTest";
@@ -183,6 +184,9 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
       "dataverse-powertools.capturePluginRun": (context) => capturePluginRun(context),
       "dataverse-powertools.generatePluginReplayTest": (context) => generatePluginReplayTest(context),
       "dataverse-powertools.guidePluginProfiling": (context) => guidePluginProfiling(context),
+      // Custom API definition-as-code (#142) — plugin-scoped.
+      "dataverse-powertools.newCustomApi": (context) => newCustomApi(context),
+      "dataverse-powertools.generateCustomApiHandlers": (context) => generateCustomApiHandlers(context),
     },
     async onProjectScaffolded(context) {
       if (isPluginV3(context)) {

@@ -105,6 +105,8 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
       `${prefix}capturePluginRun`,
       `${prefix}generatePluginReplayTest`,
       `${prefix}guidePluginProfiling`,
+      `${prefix}newCustomApi`,
+      `${prefix}generateCustomApiHandlers`,
     ],
     menu(state) {
       const legacy = (state.templateVersion ?? 0) < 3;
@@ -135,6 +137,8 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
                 { command: `${prefix}configurePluginEarlyBound`, label: "Configure all earlybound settings" },
                 { command: `${prefix}updateFilteringAttributes`, label: "Update filtering attributes" },
                 { command: `${prefix}addClassDecoration`, label: "Add class decoration" },
+                { command: `${prefix}newCustomApi`, label: "New Custom API definition" },
+                { command: `${prefix}generateCustomApiHandlers`, label: "Generate Custom API handlers" },
               ]),
           { command: `${prefix}buildDeployWorkflow`, label: "Build & deploy workflow" },
           // The profiling how-to lives here now (#139) — per-step Profile toggles + the card's

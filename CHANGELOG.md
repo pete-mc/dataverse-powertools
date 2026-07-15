@@ -2,6 +2,16 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.6 (pre-release)
+
+New: **Custom API / Custom Actions — definition-as-code** (#142), the core enabler + typed handler generation. Revives the parked Custom API milestone.
+
+- **One definition file is the source of truth.** A `*.customapi.json` describes the API — unique name, binding (Global / Entity / EntityCollection), function-vs-action, request parameters + response properties (typed), the implementing plugin type — with field names that mirror the Dataverse `CustomAPI` tables so a future metadata deploy maps 1:1. **New Custom API definition** (plugin card / palette) seeds a valid sample.
+- **Typed C# handler generation — the differentiator (#142 issue #2).** **Generate Custom API handlers** reads every definition in the plugin, validates it, and emits a strongly-typed handler: a request wrapper that reads `InputParameters` as typed values (`request.AccountId` is an `EntityReference`, not a magic-string cast), a response wrapper that writes `OutputParameters`, and the `IPlugin` class stub. Change the definition, regenerate, and the **compiler points at the drift**.
+- **Local validation before deploy (#142 issues #1/#6).** Catches the errors the platform would otherwise reject — missing required fields, invalid unique names, binding-requires-bound-entity (and Global-forbids-it), duplicate parameter names, invalid types — with readable messages.
+
+> **Architecture decision (v1):** a Custom API is a **plugin-scoped** definition file (it lives in a plugin component and is implemented by that plugin), not a separate component type — matching "almost always implemented by a plugin" and avoiding a duplicate component surface. The pure core (definition / validate / codegen) is unit-tested (27 tests). **Metadata deploy (#3, create/update/reconcile `CustomAPI` + params via the Web API) and the invoke-from-editor / typed-caller fast-follows (#4–#5) are not in this slice** — the generated handler and definition are ready; wiring them into the deploy is next.
+
 ## 0.14.5 (pre-release)
 
 PCF (#141) — ship the service-layer pattern as **VS Code snippets** (the 80/20 alternative to code-generator commands).

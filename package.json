@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.14.5",
+  "version": "0.14.6",
   "engines": {
     "vscode": "^1.93.0"
   },
@@ -574,6 +574,16 @@
       {
         "command": "dataverse-powertools.guidePluginProfiling",
         "title": "Dataverse PowerTools: Profile a Plugin (how to capture)",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
+        "command": "dataverse-powertools.newCustomApi",
+        "title": "Dataverse PowerTools: New Custom API definition",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
+        "command": "dataverse-powertools.generateCustomApiHandlers",
+        "title": "Dataverse PowerTools: Generate Custom API handlers",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {
