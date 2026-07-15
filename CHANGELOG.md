@@ -2,6 +2,12 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.13 (pre-release)
+
+Testing epic (#143, Move 2) — **verify the Custom API deploy orchestration against a mocked Dataverse Web API**, in CI, no live org.
+
+- New `deployCustomApi.spec.ts` drives the deploy (shipped in 0.14.7) through the existing `node-fetch` mock + `fakeDataverseContext` harness and asserts it hits the right endpoints in the right order: **create** a new `CustomAPI` + its parameters when none exists, **PATCH** an existing one instead of re-creating, **reconcile** — `DELETE` a parameter that's been removed from the definition while `PATCH`-ing the ones that remain — and **fail cleanly** when the implementing plugin type isn't deployed. This converts the Custom API metadata deploy from "unit-tested payloads only" to "orchestration verified" (only a live org's acceptance of the payloads is now unconfirmed). +4 tests.
+
 ## 0.14.12 (pre-release)
 
 Azure Functions (#145) — real **Azure publish** and **local run** (issues #6/#7), upgrading the previous guide-only deploy.
