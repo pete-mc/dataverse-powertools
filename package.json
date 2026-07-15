@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.14.4",
+  "version": "0.14.5",
   "engines": {
     "vscode": "^1.93.0"
   },
@@ -23,6 +23,16 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "snippets": [
+      {
+        "language": "typescript",
+        "path": "./snippets/dvpt-pcf.code-snippets"
+      },
+      {
+        "language": "typescriptreact",
+        "path": "./snippets/dvpt-pcf.code-snippets"
+      }
+    ],
     "menus": {
       "explorer/context": [
         {

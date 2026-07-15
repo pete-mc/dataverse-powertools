@@ -2,6 +2,17 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.5 (pre-release)
+
+PCF (#141) — ship the service-layer pattern as **VS Code snippets** (the 80/20 alternative to code-generator commands).
+
+- **Three snippets, discoverable in IntelliSense**, that seed the extension's opinionated service/hook/component separation without adding commands or context keys:
+  - `dvpt-service` — a pure-TS service (Dataverse `WebApi` + domain logic, no React/PCF types → unit-testable).
+  - `dvpt-hook` — a thin `useXyz()` binding that wires a service to React state (loading/error handled).
+  - `dvpt-component` — a presentational Fluent UI component driven entirely by props.
+
+  Type the prefix in any `.ts`/`.tsx` file. They compose with the existing `pac pcf init` field/dataset × framework scaffold, so you can grow a plain React control into the layered structure incrementally. Guarded by a unit test (valid JSON, expected prefixes, still registered in `package.json`).
+
 ## 0.14.4 (pre-release)
 
 Testing epic (#143), Move 3 — extract trapped pure logic into `vscode`-free modules and unit-test it, so the network/registration payload shapes and the panel/test-scaffold logic are guarded in CI instead of only by the manual e2e. No behaviour change; 62 new unit tests (478 → 540).
