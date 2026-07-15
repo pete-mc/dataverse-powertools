@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.14.10",
+  "version": "0.14.11",
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -683,6 +683,11 @@
         "command": "dataverse-powertools.invokeCustomApi",
         "title": "Dataverse PowerTools: Run Custom API",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
+        "command": "dataverse-powertools.lintServerLogic",
+        "title": "Dataverse PowerTools: Lint Power Pages Server Logic",
+        "enablement": "editorLangId == javascript || editorLangId == typescript"
       },
       {
         "command": "dataverse-powertools.uploadPortal",

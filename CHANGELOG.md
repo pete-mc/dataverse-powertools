@@ -2,6 +2,14 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.11 (pre-release)
+
+Power Pages / Portals (#150) — **Server Logic restricted-pattern lint**, the first slice of the Portals TypeScript story.
+
+- **Lint Power Pages Server Logic** (palette, any JS/TS editor) checks your script against the platform's [blocked-pattern list](https://learn.microsoft.com/power-pages/configure/author-server-logic#limitations) — `import`/`require`, `eval`/`Function`, `setTimeout`/`setInterval`/`setImmediate`, `process`/`child_process`, `fs`, prototype manipulation (`__proto__`, `Object.setPrototypeOf`, `constructor.constructor`), `Proxy`/`Reflect`, `with`/`delete`, `debugger`, and more — plus unavailable browser APIs (`fetch`, `XMLHttpRequest`). Findings show as inline diagnostics (errors for blocked, warnings for unsupported) so you catch them **before** `pac powerpages upload` rejects the script with a cryptic message. Comments and string literals are ignored to avoid false positives. Pure lint engine, 27 unit tests.
+
+> This is one slice of the larger Portals component (#150). The TypeScript build pipeline (front-end bundle, Server-Logic-to-single-script bundling with inlined shared code, hot-reload, typed clients) is still to come and needs live-site verification.
+
 ## 0.14.10 (pre-release)
 
 Custom API (#142) — **Run Custom API from the editor** (issue #4). Completes the Custom API feature set: define → generate handler → deploy → **invoke**, plus the typed caller.
