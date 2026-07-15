@@ -2,6 +2,13 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.26 (pre-release)
+
+PCF (#141) — **ControlManifest parser + de-duplicated control-dir lookup.**
+
+- New pure `parseControlManifest(xml)` turns a `ControlManifest.Input.xml` into a typed shape — namespace, constructor, version, display-name-key, and the **inferred** pac template (`field` vs `dataset`, from `<data-set>`) and framework (`none` vs `react`, from a React `<platform-library>`). Unit-tested (the "#141 manifest parse" test item); reusable by the panel, the scaffold flow, and any "which control is this" logic.
+- The `ControlManifest.Input.xml` directory walk that was copy-pasted in `addServiceLayer.ts` and `runHarness.ts` is now a single shared `findControlDir` alongside the parser. No behaviour change. +8 tests (710).
+
 ## 0.14.25 (pre-release)
 
 Testing (#143) — **the webview panel's browser JS is now under test.** `media/menuPanel.js` (the script that turns the host-side card model into DOM and posts clicks back) previously had zero coverage anywhere — only the host-side view-model was tested. A new jsdom suite loads the *shipping script unchanged* and asserts the rendered DOM + the messages it posts: `ready` on load, one card section per model card, action-button → `execute`, the #137 trace-log pill → its execute action, requirements Download → `openExternal`, the new-group drop zone appearing at two arrangeable cards, stale-DOM clearing, and non-model messages ignored. No change to the browser code, so no regression risk to the live panel. +8 tests (702).

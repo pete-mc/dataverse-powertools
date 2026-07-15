@@ -10,31 +10,7 @@ import * as path from "path";
 import DataversePowerToolsContext from "../context";
 import { activeComponentRoot } from "../components/componentDiscovery";
 import { serviceLayerFiles } from "./pcfServiceLayer";
-
-/** Find the directory holding a control's ControlManifest.Input.xml under a root. */
-function findControlDir(root: string): string | undefined {
-  const walk = (dir: string): string | undefined => {
-    let entries: fs.Dirent[] = [];
-    try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
-      return undefined;
-    }
-    if (entries.some((e) => e.isFile() && e.name === "ControlManifest.Input.xml")) {
-      return dir;
-    }
-    for (const e of entries) {
-      if (e.isDirectory() && e.name !== "node_modules" && e.name !== "out" && e.name !== "generated" && !e.name.startsWith(".")) {
-        const found = walk(path.join(dir, e.name));
-        if (found) {
-          return found;
-        }
-      }
-    }
-    return undefined;
-  };
-  return walk(root);
-}
+import { findControlDir } from "./controlManifest";
 
 export async function addPcfServiceLayer(context: DataversePowerToolsContext): Promise<void> {
   const root = activeComponentRoot(context);
