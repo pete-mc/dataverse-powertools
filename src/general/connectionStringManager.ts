@@ -285,10 +285,10 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
     // back to manual url entry when nothing comes back.
     const environments =
       state.authType === DataverseAuthType.oauth
-        ? // #159: this is the explicit user-initiated connect/switch to OAuth — force MSAL's
-          // account picker so a DIFFERENT user can be chosen (silent reuse would keep the
-          // previous account). Env-only switches (switchEnvironment) don't force.
-          await discoverEnvironments(state.applicationId, { forceInteractive: true })
+        ? // Silent-first (reuses a valid cached sign-in). To sign in as a DIFFERENT user
+          // (#159), Clear Stored Credentials first — that empties the token cache, so this
+          // falls through to an interactive sign-in with the account picker forced.
+          await discoverEnvironments(state.applicationId)
         : await discoverEnvironmentsWithSecret(state.applicationId ?? "", state.clientSecret ?? "", state.tenantId ?? "");
     if (!environments || environments.length === 0) {
       context.channel.appendLine("No environments returned from Global Discovery; enter the organisation URL manually.");

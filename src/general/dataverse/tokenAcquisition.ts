@@ -155,13 +155,8 @@ export async function acquireClientSecretToken(clientId: string, clientSecret: s
  * pops the browser when it genuinely has to. `promptIfNeeded` gates that browser prompt:
  * true on an explicit connect, false on background refresh.
  */
-export async function acquireInteractiveToken(
-  organizationUrl: string,
-  clientId: string | undefined,
-  promptIfNeeded: boolean,
-  opts?: { forceInteractive?: boolean },
-): Promise<TokenResult | undefined> {
-  return acquireInteractiveForScopes(buildDataverseScopes(organizationUrl), clientId, promptIfNeeded, opts);
+export async function acquireInteractiveToken(organizationUrl: string, clientId: string | undefined, promptIfNeeded: boolean): Promise<TokenResult | undefined> {
+  return acquireInteractiveForScopes(buildDataverseScopes(organizationUrl), clientId, promptIfNeeded);
 }
 
 /**
@@ -170,12 +165,7 @@ export async function acquireInteractiveToken(
  * single sign-in covers discovery and every environment: silent first, browser only
  * when promptIfNeeded and nothing usable is cached.
  */
-export async function acquireInteractiveForScopes(
-  scopes: string[],
-  clientId: string | undefined,
-  promptIfNeeded: boolean,
-  opts?: { forceInteractive?: boolean },
-): Promise<TokenResult | undefined> {
+export async function acquireInteractiveForScopes(scopes: string[], clientId: string | undefined, promptIfNeeded: boolean): Promise<TokenResult | undefined> {
   if (scopes.length === 0) {
     return undefined;
   }
@@ -186,12 +176,6 @@ export async function acquireInteractiveForScopes(
     app = { pca: new PublicClientApplication({ auth: { clientId: effectiveClientId, authority: INTERACTIVE_AUTHORITY }, cache: { cachePlugin } }) };
     interactiveApps.set(key, app);
   }
-
-  // #159: an EXPLICIT OAuth switch forces the account picker so the user can pick a
-  // DIFFERENT identity — otherwise the silent path below always reuses the previous
-  // one (getAllAccounts()[0]). Only ever passed on a user-initiated switch; background
-  // renewals never force, and promptIfNeeded===false still never pops UI.
-  const forceInteractive = opts?.forceInteractive === true && promptIfNeeded;
 
   // Recover the account from the persisted cache after a restart (the map is empty
   // but the refresh token was saved to secret storage), so we can renew silently.
@@ -206,9 +190,8 @@ export async function acquireInteractiveForScopes(
     }
   }
 
-  // Try silent first (MSAL's cached refresh token) so renewals don't reopen the
-  // browser — SKIPPED when forcing the account picker (#159).
-  if (app.account && !forceInteractive) {
+  // Try silent first (MSAL's cached refresh token) so renewals don't reopen the browser.
+  if (app.account) {
     try {
       const silent = await app.pca.acquireTokenSilent({ account: app.account, scopes });
       if (silent?.accessToken) {
@@ -224,10 +207,15 @@ export async function acquireInteractiveForScopes(
     return undefined;
   }
 
+  // Reaching the interactive sign-in means silent had nothing usable — a first sign-in,
+  // or the token cache was cleared to switch user ("Clear Stored Credentials" then
+  // reconnect). Force MSAL's account chooser (#159) so a DIFFERENT identity can be
+  // picked, rather than silently reusing the browser's existing SSO session. Silent
+  // above is never skipped, so a same-user reconnect and background renewals are
+  // unaffected, and promptIfNeeded===false still never pops UI.
   const result = await app.pca.acquireTokenInteractive({
     scopes,
-    // Force MSAL's account chooser on an explicit switch so a new user can be picked.
-    prompt: forceInteractive ? "select_account" : undefined,
+    prompt: "select_account",
     openBrowser: async (url: string) => {
       await vscode.env.openExternal(vscode.Uri.parse(url));
     },
