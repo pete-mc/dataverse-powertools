@@ -207,8 +207,15 @@ export async function acquireInteractiveForScopes(scopes: string[], clientId: st
     return undefined;
   }
 
+  // Reaching the interactive sign-in means silent had nothing usable — a first sign-in,
+  // or the token cache was cleared to switch user ("Clear Stored Credentials" then
+  // reconnect). Force MSAL's account chooser (#159) so a DIFFERENT identity can be
+  // picked, rather than silently reusing the browser's existing SSO session. Silent
+  // above is never skipped, so a same-user reconnect and background renewals are
+  // unaffected, and promptIfNeeded===false still never pops UI.
   const result = await app.pca.acquireTokenInteractive({
     scopes,
+    prompt: "select_account",
     openBrowser: async (url: string) => {
       await vscode.env.openExternal(vscode.Uri.parse(url));
     },
@@ -218,6 +225,8 @@ export async function acquireInteractiveForScopes(scopes: string[], clientId: st
   if (!result?.accessToken) {
     return undefined;
   }
+  // Track the NEW account so subsequent silent renewals follow this user, not
+  // getAllAccounts()[0] (which could still be the previous sign-in). (#159)
   app.account = result.account ?? app.account;
   return { accessToken: result.accessToken, expiresOn: result.expiresOn ?? null };
 }

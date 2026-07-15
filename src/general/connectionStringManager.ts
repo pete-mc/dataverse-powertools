@@ -1,7 +1,7 @@
 import { window, workspace } from "vscode";
 import DataversePowerToolsContext from "../context";
 import { clearInteractiveTokenCache } from "./dataverse/tokenAcquisition";
-import { runPacResult } from "./pacAuth";
+import { runPacResult, clearPacProfile } from "./pacAuth";
 import { projectTypeRegistry, getProjectTypeDescriptor } from "../projectTypes/registry";
 import { MultiStepInput, shouldResume, validationIgnore } from "./inputControls";
 import { getSolutions } from "./dataverse/getSolutions";
@@ -201,6 +201,25 @@ export async function clearStoredCredentials(context: DataversePowerToolsContext
   window.showInformationMessage("Dataverse PowerTools credentials cleared. Reconnect via Update Dataverse Authentication.");
 }
 
+/** Delete just the extension's own named pac profile (dataverse-powertools),
+ * leaving the user's other pac profiles and the Dataverse token cache intact.
+ * The targeted counterpart to Clear Stored Credentials — use it when the pac
+ * profile has gone stale/wrong (e.g. a bad OAuth sign-in) and you want a clean
+ * re-establish on the next pac command. */
+export async function clearPacCredentials(context: DataversePowerToolsContext): Promise<void> {
+  const workspacePath = workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+  const choice = await window.showWarningMessage(
+    "Delete the extension's saved pac sign-in (dataverse-powertools profile)? You'll be asked to sign in again next time.",
+    { modal: true },
+    "Clear",
+  );
+  if (choice !== "Clear") {
+    return;
+  }
+  await clearPacProfile(context, workspacePath);
+  window.showInformationMessage("Cleared the extension's pac sign-in. The next pac command will re-establish it.");
+}
+
 export async function createServicePrincipalString(context: DataversePowerToolsContext, _update: boolean = false): Promise<string> {
   const title = "Creating the Credentials";
   const state = await collectInputs();
@@ -266,7 +285,10 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
     // back to manual url entry when nothing comes back.
     const environments =
       state.authType === DataverseAuthType.oauth
-        ? await discoverEnvironments()
+        ? // Silent-first (reuses a valid cached sign-in). To sign in as a DIFFERENT user
+          // (#159), Clear Stored Credentials first — that empties the token cache, so this
+          // falls through to an interactive sign-in with the account picker forced.
+          await discoverEnvironments(state.applicationId)
         : await discoverEnvironmentsWithSecret(state.applicationId ?? "", state.clientSecret ?? "", state.tenantId ?? "");
     if (!environments || environments.length === 0) {
       context.channel.appendLine("No environments returned from Global Discovery; enter the organisation URL manually.");

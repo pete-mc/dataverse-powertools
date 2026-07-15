@@ -3,14 +3,14 @@ import * as fs from "fs";
 import * as path from "path";
 import DataversePowerToolsContext from "../context";
 import { parseConnectionString, normalizeOrganizationUrl } from "../general/connectionString";
-import { runPacLogged, ensurePacAuth, ensurePacAuthForCurrentConnection } from "../general/pacAuth";
+import { runPacLoggedHealing, ensurePacAuth, ensurePacAuthForCurrentConnection, clearPacProfile, reestablishPacAuthForCurrentConnection } from "../general/pacAuth";
 import { SolutionConfig } from "./solutionConfig";
 
 // pac auth handling (profile creation, logged runs) lives in ../general/pacAuth
 // — shared with the plugin modelbuilder. Re-export for existing callers.
 // Solution flows use the auth-type-aware variant so OAuth works (user report:
 // extract failed under OAuth — ensurePacAuth is service-principal-only).
-export { ensurePacAuth, ensurePacAuthForCurrentConnection };
+export { ensurePacAuth, ensurePacAuthForCurrentConnection, clearPacProfile, reestablishPacAuthForCurrentConnection };
 
 /** The solution pack/unpack config. Lives in dataverse-powertools.json
  * (settings.solutionConfig); a legacy spkl.json is imported into settings by
@@ -42,5 +42,7 @@ export function getEnvironmentUrl(context: DataversePowerToolsContext): string {
 
 /** Run a single pac solution command, logging output. Resolves to true on success. */
 export async function runPacSolution(context: DataversePowerToolsContext, args: string[], workspacePath: string): Promise<boolean> {
-  return runPacLogged(context, args, workspacePath);
+  // Self-healing: if the run fails with a pac auth error, the extension's profile
+  // is re-established and the command retried once (OAuth borrowed-identity fix).
+  return runPacLoggedHealing(context, args, workspacePath);
 }

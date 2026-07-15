@@ -2,6 +2,18 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.1 (pre-release)
+
+Interactive (OAuth) auth becomes first-class for `pac` commands — fixes a whole class of "works under service principal, broken under OAuth" bugs (#128, #129, #159).
+
+- **The extension now owns its `pac` sign-in under OAuth.** Previously, service-principal connections created a named, extension-owned `pac` profile (`dataverse-powertools`) and reused it deterministically, while interactive connections **borrowed whatever `pac` profile happened to be active** on the machine — a different tenant, user, or stale environment. That asymmetry is why early-bound generation, PCF push, portals, and solution commands could misbehave under OAuth while working under a service principal. Now an interactive connection establishes and reuses its **own** named profile too, bound to the project's environment.
+- **Sign-in uses device code, falling back to a browser.** Establishing the profile runs `pac auth create … --deviceCode` and surfaces the code + sign-in link in a notification (and the output channel); if device code doesn't complete it falls back to a browser sign-in. The profile is **reused** on later commands and across environment switches (re-pointed with `pac org select`), and only re-created on a mismatch or expiry — so you sign in once, not on every command.
+- **`pac` commands self-heal on an auth error.** If any `pac`-backed command (early-bound, PCF push, portals, solutions) fails with an authentication error, the extension re-establishes the profile and retries once, instead of logging a cryptic error and leaving you to work out the fix.
+- **New command: *Clear pac Credentials*** — deletes the extension's saved `pac` sign-in, for a clean re-auth (e.g. to sign in as a different user).
+- **Interactive sign-in respects "switch user" (#159).** Explicitly switching/reselecting an interactive connection now forces the Microsoft **account picker** (`prompt=select_account`) instead of silently reusing the previously signed-in account, and tracks the chosen account so token renewals follow the new user. Background token renewals are unchanged and never pop UI.
+
+> Note: because `pac`'s device-code/browser sign-in needs a person the first time (there is no way to hand `pac` the extension's token), automated CI/e2e can only exercise the **reuse** path once a `dataverse-powertools` `pac` profile exists on the machine — the initial sign-in is manual by nature.
+
 ## 0.14.0 (pre-release)
 
 New component type: **Azure Functions** (Dataverse webhook handler) — v1 core (#145).
