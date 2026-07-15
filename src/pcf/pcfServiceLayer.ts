@@ -123,6 +123,31 @@ export const ${E}Container: React.FC<{ service: ${E}Service }> = ({ service }) =
 `;
 }
 
+/** A Jest unit test for the service — proves the domain layer is testable in
+ * isolation with a mocked WebApi (the point of the service/hook/component split). */
+export function serviceTestContent(entity: string): string {
+  const E = pascal(entity);
+  return `import { ${E}Service } from "./${E}Service";
+
+// The service is pure TS — unit-test it with a mocked ComponentFramework.WebApi,
+// no PCF host and no live Dataverse needed. Runs under Jest (\`npx jest\`).
+describe("${E}Service", () => {
+  it("maps retrieved records to the domain type", async () => {
+    const webApi = {
+      retrieveMultipleRecords: jest.fn().mockResolvedValue({
+        entities: [{ accountid: "1", name: "Contoso" }],
+      }),
+    } as unknown as ComponentFramework.WebApi;
+
+    const result = await new ${E}Service(webApi).getAll();
+
+    expect(webApi.retrieveMultipleRecords).toHaveBeenCalledWith("account", "?$select=name");
+    expect(result).toEqual([{ id: "1", name: "Contoso" }]);
+  });
+});
+`;
+}
+
 /** A wired index.ts matching the documented ReactControl contract. Written as
  * `.example` — copy the updateView/imports into your generated index.ts. */
 export function indexExampleContent(entity: string): string {
@@ -160,6 +185,7 @@ export function serviceLayerFiles(entity = "Widget"): ServiceLayerFile[] {
   const E = pascal(entity);
   return [
     { path: `services/${E}Service.ts`, content: serviceFileContent(entity) },
+    { path: `services/${E}Service.spec.ts`, content: serviceTestContent(entity) },
     { path: `hooks/use${E}s.ts`, content: hookFileContent(entity) },
     { path: `components/${E}List.tsx`, content: listComponentContent(entity) },
     { path: `components/${E}Container.tsx`, content: containerComponentContent(entity) },

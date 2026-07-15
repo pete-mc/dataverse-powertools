@@ -2,6 +2,10 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.23 (pre-release)
+
+PCF (#141) / testing (#150 #6) — the **service-layer template now ships with a Jest test**. **Add PCF service-layer structure** additionally writes `services/<Entity>Service.spec.ts` — a Jest unit test that exercises the service with a mocked `ComponentFramework.WebApi`, demonstrating that the domain layer is testable in isolation (no PCF host, no live Dataverse). This is the "service-layer templates have Jest tests" piece of the test story; the extension's existing Jest TestController (`parseJestJson`) then surfaces it once `npx jest` is wired in the control. +1 test.
+
 ## 0.14.22 (pre-release)
 
 PCF (#141) — the **service-layer template** (option 3, the opinionated structure), as a scaffold you can add to any control.
