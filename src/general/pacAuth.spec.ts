@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { AUTH_PROFILE_NAME, pacAuthCreateInteractiveArgs, pacAuthSelectArgs, pacAuthDeleteArgs, pacOrgSelectArgs, isPacAuthError, parseDeviceCode } from "./pacAuth";
+import { AUTH_PROFILE_NAME, pacAuthCreateInteractiveArgs, pacAuthSelectArgs, pacAuthDeleteArgs, pacOrgSelectArgs, isPacAuthError, parseDeviceCode, pacOutputHasError, pacSucceeded, listHasNamedProfile } from "./pacAuth";
 
 describe("pacAuthCreateInteractiveArgs", () => {
   it("builds an interactive create for a named profile + environment", () => {
@@ -85,5 +85,38 @@ describe("parseDeviceCode", () => {
 
   it("returns undefined for empty input", () => {
     expect(parseDeviceCode("")).toBeUndefined();
+  });
+});
+
+describe("pacOutputHasError / pacSucceeded — pac exits 0 even on failure (#128/#129)", () => {
+  // Real pac 2.8.1 output: these all returned exit code 0.
+  const noProfiles = "Microsoft PowerPlatform CLI\nVersion: 2.8.1\n\nError: No profiles were found on this computer. Please run 'pac auth create' to create one.";
+  const badName = "Error: AuthProfileNameDoesNotExist\nThere is no authentication profile with name \"dataverse-powertools\"";
+  const good = "Connected to... org32218dcd\nThe early bound classes were generated successfully.";
+
+  it("detects pac's Error: banner in output", () => {
+    expect(pacOutputHasError(noProfiles)).toBe(true);
+    expect(pacOutputHasError(badName)).toBe(true);
+    expect(pacOutputHasError(good)).toBe(false);
+    expect(pacOutputHasError("")).toBe(false);
+  });
+
+  it("treats exit 0 with an Error banner as a FAILURE (the core bug)", () => {
+    expect(pacSucceeded({ code: 0, stdout: noProfiles, stderr: "" })).toBe(false);
+    expect(pacSucceeded({ code: 0, stdout: "", stderr: badName })).toBe(false);
+    expect(pacSucceeded({ code: 0, stdout: good, stderr: "" })).toBe(true);
+    // A non-zero exit is also a failure even without a banner.
+    expect(pacSucceeded({ code: 1, stdout: "", stderr: "" })).toBe(false);
+  });
+});
+
+describe("listHasNamedProfile — parse `pac auth list` (it exits 0 even with no profiles)", () => {
+  it("is false when pac reports no profiles", () => {
+    expect(listHasNamedProfile("No profiles were found on this computer. Please run 'pac auth create'.", "dataverse-powertools")).toBe(false);
+  });
+  it("is true only when the named profile appears in the list", () => {
+    const list = "Index Active Kind      Name                 Friendly Name        Url\n[1]   *      UNIVERSAL      dataverse-powertools dataverse-powertools https://org.crm.dynamics.com";
+    expect(listHasNamedProfile(list, "dataverse-powertools")).toBe(true);
+    expect(listHasNamedProfile(list, "some-other-profile")).toBe(false);
   });
 });

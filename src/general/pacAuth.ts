@@ -77,10 +77,11 @@ export async function runPacLogged(context: DataversePowerToolsContext, args: st
   if (result.stderr) {
     context.channel.appendLine(redact(result.stderr, secret));
   }
-  if (result.code !== 0) {
+  const ok = pacSucceeded(result);
+  if (!ok) {
     context.channel.show();
   }
-  return result.code === 0;
+  return ok;
 }
 
 /**
@@ -181,6 +182,37 @@ export function pacAuthSelectArgs(profileName: string): string[] {
   return ["auth", "select", "--name", profileName];
 }
 
+/** `pac auth list`. */
+export function pacAuthListArgs(): string[] {
+  return ["auth", "list"];
+}
+
+/**
+ * pac exits 0 even when it FAILS — `pac auth select`/`pac org select`/`pac modelbuilder`
+ * all print "Error: …" to output while returning exit code 0 (confirmed against pac 2.8.1).
+ * So a zero exit code is NOT proof of success: also scan the output for pac's error banner.
+ * Without this the extension "reuses" a non-existent profile and reports early-bound
+ * generation "complete" when it produced nothing (#128/#129).
+ */
+export function pacOutputHasError(text: string): boolean {
+  return /(^|\n)\s*Error:/i.test(text || "");
+}
+
+/** True only when pac genuinely succeeded (exit 0 AND no error banner in its output). */
+export function pacSucceeded(result: PacResult): boolean {
+  return result.code === 0 && !pacOutputHasError(`${result.stdout}\n${result.stderr}`);
+}
+
+/** Whether the extension's named profile appears in `pac auth list` output. The list command
+ * always exits 0 (even with no profiles), so parse the text, not the code. */
+export function listHasNamedProfile(listOutput: string, profileName: string): boolean {
+  const text = listOutput || "";
+  if (/no profiles were found/i.test(text)) {
+    return false;
+  }
+  return new RegExp(`(^|\\s)${profileName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\s|$)`, "m").test(text);
+}
+
 /** True when pac output signals an auth/identity failure (missing/expired/invalid
  * profile) that re-establishing the extension's profile could fix. Targeted on
  * purpose — a generic "file not found" or build error must NOT match, or the
@@ -277,16 +309,24 @@ export function runPacStreaming(context: DataversePowerToolsContext, args: strin
  * instead of borrowing the ambient-active one.
  */
 export async function ensureInteractivePacProfile(context: DataversePowerToolsContext, workspacePath: string, environmentUrl: string): Promise<boolean> {
-  const selected = await runPacResult(pacAuthSelectArgs(AUTH_PROFILE_NAME), workspacePath);
-  if (selected.code === 0) {
-    const org = await runPacResult(pacOrgSelectArgs(environmentUrl), workspacePath);
-    if (org.code === 0) {
+  // pac exits 0 even when the named profile doesn't exist (`pac auth select` prints
+  // "Error: AuthProfileNameDoesNotExist" and still returns 0), so DON'T trust exit codes —
+  // check `pac auth list` output for our profile. Trusting the code made the extension
+  // "reuse" a profile that wasn't there and never sign in, so pac modelbuilder later failed
+  // with "No profiles were found" (#128/#129).
+  const list = await runPacResult(pacAuthListArgs(), workspacePath);
+  if (listHasNamedProfile(`${list.stdout}\n${list.stderr}`, AUTH_PROFILE_NAME)) {
+    const selected = await runPacResult(pacAuthSelectArgs(AUTH_PROFILE_NAME), workspacePath);
+    const org = pacSucceeded(selected) ? await runPacResult(pacOrgSelectArgs(environmentUrl), workspacePath) : selected;
+    if (pacSucceeded(selected) && pacSucceeded(org)) {
       context.channel.appendLine(`Reusing the '${AUTH_PROFILE_NAME}' pac profile for ${environmentUrl}.`);
       return true;
     }
-    // The profile exists but can't target this environment (org mismatch or an
-    // expired token) — fall through and recreate it from scratch.
+    // The profile exists but can't target this environment (org mismatch or an expired
+    // token) — fall through and recreate it from scratch.
     context.channel.appendLine(`The '${AUTH_PROFILE_NAME}' pac profile could not select ${environmentUrl} (mismatch or expiry) — re-establishing it.`);
+  } else {
+    context.channel.appendLine(`No '${AUTH_PROFILE_NAME}' pac profile found — establishing one for ${environmentUrl}.`);
   }
   return createInteractivePacProfile(context, workspacePath, environmentUrl);
 }
@@ -332,7 +372,7 @@ export async function createInteractivePacProfile(context: DataversePowerToolsCo
     },
   );
 
-  if (result.code === 0) {
+  if (pacSucceeded(result)) {
     context.channel.appendLine(`Created the '${AUTH_PROFILE_NAME}' pac profile for ${environmentUrl}.`);
     return true;
   }
@@ -381,7 +421,8 @@ export async function clearPacProfile(context: DataversePowerToolsContext, works
  * extension's profile and retry ONCE. Non-auth failures are returned as-is. */
 export async function runPacHealing(context: DataversePowerToolsContext, args: string[], workspacePath: string, _opts?: { secret?: string }): Promise<PacResult> {
   const first = await runPacResult(args, workspacePath);
-  if (first.code !== 0 && isPacAuthError(`${first.stdout}\n${first.stderr}`)) {
+  // pac exits 0 on failure, so gate on the OUTPUT (pacSucceeded), not the exit code.
+  if (!pacSucceeded(first) && isPacAuthError(`${first.stdout}\n${first.stderr}`)) {
     context.channel.appendLine("[pac] Authentication error — re-establishing the pac profile and retrying once.");
     const reestablished = await reestablishPacAuthForCurrentConnection(context, workspacePath);
     if (reestablished) {
@@ -401,8 +442,9 @@ export async function runPacLoggedHealing(context: DataversePowerToolsContext, a
   if (result.stderr) {
     context.channel.appendLine(redact(result.stderr, opts?.secret));
   }
-  if (result.code !== 0) {
+  const ok = pacSucceeded(result);
+  if (!ok) {
     context.channel.show();
   }
-  return result.code === 0;
+  return ok;
 }
