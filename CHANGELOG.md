@@ -2,6 +2,15 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.7 (pre-release)
+
+Custom API (#142) — **metadata deploy** (issue #3), the second half of the v1 core. A definition now round-trips: edit → generate handler → **deploy the message to Dataverse**.
+
+- **Deploy Custom APIs** (plugin card / palette) pushes every `*.customapi.json` in the plugin to the environment: creates or updates the `CustomAPI` record, then **reconciles** its request parameters and response properties — creating new ones, updating changed labels, and **deleting any removed from the file** (the definition is the source of truth). Resolves the implementing plugin type first (and tells you to deploy the plugin if it's missing), then adds the Custom API to the project's solution.
+- **Correct by construction.** Option-set values (binding 0–2, processing-step 0–2, `customapifieldtype` 0–12) and the **immutable-after-save** column rules (updates omit `bindingtype` / `isfunction` / `uniquename` / `type` so the platform doesn't reject them) are taken straight from the Microsoft docs and unit-tested (12 tests). Works under **both auth types** (gates on the live connection, not the tenant).
+
+> **Pre-release — verify against an org before relying.** The payload shapes, option-set values and reconcile logic are docs-verified and unit-tested, but the create/update/**delete** calls have not yet been exercised against a live environment (there's no headless Web API test harness). Treat the first real deploy as a supervised check — especially the delete-reconcile of parameters. Remaining #142 fast-follows: invoke-from-editor (#4) and reverse-engineer + typed caller (#5).
+
 ## 0.14.6 (pre-release)
 
 New: **Custom API / Custom Actions — definition-as-code** (#142), the core enabler + typed handler generation. Revives the parked Custom API milestone.
