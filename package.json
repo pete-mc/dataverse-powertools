@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.14.11",
+  "version": "0.14.12",
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -752,6 +752,16 @@
       {
         "command": "dataverse-powertools.deployAzureFunctionGuide",
         "title": "Dataverse PowerTools: Deploy Azure Function to Azure",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isAzureFunction"
+      },
+      {
+        "command": "dataverse-powertools.publishAzureFunction",
+        "title": "Dataverse PowerTools: Publish Azure Function (func)",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isAzureFunction"
+      },
+      {
+        "command": "dataverse-powertools.startAzureFunctionHost",
+        "title": "Dataverse PowerTools: Run Azure Function locally (func start)",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isAzureFunction"
       },
       {

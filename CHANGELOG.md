@@ -2,6 +2,17 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.12 (pre-release)
+
+Azure Functions (#145) — real **Azure publish** and **local run** (issues #6/#7), upgrading the previous guide-only deploy.
+
+- **Publish to Azure (func)** — prompts for the Function App name and runs `func azure functionapp publish <app>` in a terminal (Azure sign-in handled interactively by `func`). The guide-only "Deploy to Azure…" stays as a fallback.
+- **Run locally (func start)** — starts the Functions host in a terminal for the inner loop.
+
+Both sit on the Azure Functions component card's overflow. Pure `func` arg building is unit-tested.
+
+> **Pre-release:** these shell out to Azure Functions Core Tools (`func`) and, for publish, expect you to be signed in to Azure with the Function App already created — verify against your subscription. Not yet delivered for #145: a **Send Test Context** command — the `RemoteExecutionContext` webhook payload uses `DataContractJsonSerializer`'s exact wire format, which I won't hand-generate blindly; it needs a captured real payload or a live func host to validate against.
+
 ## 0.14.11 (pre-release)
 
 Power Pages / Portals (#150) — **Server Logic restricted-pattern lint**, the first slice of the Portals TypeScript story.
