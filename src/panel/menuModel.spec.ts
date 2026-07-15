@@ -54,6 +54,50 @@ describe("environmentName", () => {
   });
 });
 
+describe("pac in-flight banner (device-code sign-in)", () => {
+  it("shows a busy notice at the top while a pac operation runs with no code yet", () => {
+    const s = state({ pacOperation: { label: "Signing in to Power Platform CLI" } });
+    const cards = buildMenuModel(s).cards;
+    expect(cards[0].id).toBe("pacBusy");
+    expect(cards[0].kind).toBe("notice");
+    expect((cards[0] as { text: string; spinner?: boolean }).text).toBe("Signing in to Power Platform CLI…");
+    expect((cards[0] as { spinner?: boolean }).spinner).toBe(true);
+  });
+
+  it("shows a prominent sign-in card (code + url) once the device code is known", () => {
+    const s = state({
+      pacOperation: { label: "Signing in to Power Platform CLI" },
+      deviceCodeSignIn: { url: "https://microsoft.com/devicelogin", code: "ABCD-EFGH" },
+    });
+    const signin = card(s, "signin");
+    expect(signin.code).toBe("ABCD-EFGH");
+    expect(signin.url).toBe("https://microsoft.com/devicelogin");
+    expect(signin.title).toBe("Signing in to Power Platform CLI");
+    // It is the very first card — impossible to miss.
+    expect(buildMenuModel(s).cards[0].id).toBe("signin");
+  });
+
+  it("prefers the sign-in card over the busy notice when both would apply", () => {
+    const s = state({
+      pacOperation: { label: "Signing in to Power Platform CLI" },
+      deviceCodeSignIn: { url: "u", code: "X-Y" },
+    });
+    const ids = cardIds(s);
+    expect(ids).toContain("signin");
+    expect(ids).not.toContain("pacBusy");
+  });
+
+  it("renders the sign-in banner even before a project is loaded (top-level branch)", () => {
+    const s = state({ loaded: false, projects: [], deviceCodeSignIn: { url: "u", code: "X-Y" } });
+    expect(buildMenuModel(s).cards[0].id).toBe("signin");
+  });
+
+  it("has no banner when no pac operation is in flight", () => {
+    expect(cardIds(state())).not.toContain("signin");
+    expect(cardIds(state())).not.toContain("pacBusy");
+  });
+});
+
 describe("top-level states", () => {
   it("shows only a spinner notice while folder settings load", () => {
     const model = buildMenuModel(state({ detecting: true }));

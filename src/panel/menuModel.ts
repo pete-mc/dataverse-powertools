@@ -84,6 +84,9 @@ export const MAX_REGISTRATION_ROWS = 8;
 
 export type Card =
   | { kind: "notice"; id: string; text: string; spinner?: boolean }
+  /** A pending pac device-code sign-in (persistent, prominent) — the code + link the
+   * user must act on, with copy-code / open-page buttons. Cleared when the op finishes. */
+  | { kind: "signin"; id: "signin"; title: string; hint: string; url: string; code: string }
   | { kind: "getStarted"; id: "getStarted"; text: string; actions: MenuAction[] }
   | { kind: "actions"; id: string; actions: MenuAction[] }
   | { kind: "requirements"; id: "requirements"; scanning: boolean; rows: RequirementRow[]; recheck?: MenuAction }
@@ -198,6 +201,12 @@ export interface PanelState {
   rootIsEmpty?: boolean;
   /** More than one discovered component — cards default to minimised (#156). */
   multiComponent?: boolean;
+  /** A long pac command is in flight (e.g. "Signing in to Power Platform CLI") — shows a
+   * persistent busy banner at the top of the panel. Cleared when the command finishes. */
+  pacOperation?: { label: string };
+  /** A pac device-code sign-in is pending — the panel shows a prominent card with the code
+   * and link so the user isn't left waiting on an easy-to-miss toast. Undefined otherwise. */
+  deviceCodeSignIn?: { url: string; code: string };
 }
 
 /** Full walkthrough reference: <publisher>.<extension>#<walkthrough id in package.json>. */
@@ -353,10 +362,39 @@ function footerFor(state: PanelState, cards: Card[]): MenuModel["footer"] {
   return { requirementsOk: allRequirementsOk(state) && !cardShown, log: { command: "dataverse-powertools.showLog", label: "Show Log" }, help: HELP_LINKS };
 }
 
+/** In-flight pac state, rendered at the very TOP of the panel so a pending sign-in
+ * or a long command is impossible to miss (the toast auto-dismisses; the output
+ * channel isn't open by default). The device-code card takes precedence over the
+ * plain busy banner — once pac prints the code, the banner becomes the actionable card. */
+function bannerCards(state: PanelState): Card[] {
+  if (state.deviceCodeSignIn) {
+    return [
+      {
+        kind: "signin",
+        id: "signin",
+        title: state.pacOperation?.label ?? "Signing in to Power Platform CLI",
+        hint: "Open the sign-in page and enter this code to continue:",
+        url: state.deviceCodeSignIn.url,
+        code: state.deviceCodeSignIn.code,
+      },
+    ];
+  }
+  if (state.pacOperation) {
+    return [{ kind: "notice", id: "pacBusy", text: `${state.pacOperation.label}…`, spinner: true }];
+  }
+  return [];
+}
+
+/** Assemble the final model, prepending any in-flight pac banner to the branch's cards. */
+function model(state: PanelState, cards: Card[]): MenuModel {
+  const withBanner = [...bannerCards(state), ...cards];
+  return { cards: withBanner, multiComponent: !!state.multiComponent, footer: footerFor(state, withBanner) };
+}
+
 export function buildMenuModel(state: PanelState): MenuModel {
   if (state.detecting) {
     const cards: Card[] = [{ kind: "notice", id: "detecting", text: "Getting things ready — detecting your Dataverse project…", spinner: true }];
-    return { cards, multiComponent: !!state.multiComponent, footer: footerFor(state, cards) };
+    return model(state, cards);
   }
 
   if (!state.loaded) {
@@ -372,7 +410,7 @@ export function buildMenuModel(state: PanelState): MenuModel {
       },
       requirementsCard(state),
     ];
-    return { cards, multiComponent: !!state.multiComponent, footer: footerFor(state, cards) };
+    return model(state, cards);
   }
 
   const cards: Card[] = [environmentCard(state)];
@@ -468,5 +506,5 @@ export function buildMenuModel(state: PanelState): MenuModel {
     cards.push(requirementsCard(state));
   }
 
-  return { cards, multiComponent: !!state.multiComponent, footer: footerFor(state, cards) };
+  return model(state, cards);
 }

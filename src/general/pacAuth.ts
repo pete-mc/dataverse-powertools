@@ -4,6 +4,7 @@ import DataversePowerToolsContext from "../context";
 import { parseConnectionString, normalizeOrganizationUrl } from "./connectionString";
 import { pacInvocation } from "./pac";
 import { parseAuthType, DataverseAuthType } from "./dataverse/authTypes";
+import { beginPacOperation, setDeviceCodeSignIn, endPacOperation } from "../panel/pacActivityState";
 
 // Shared pac authentication for every feature that shells out to `pac`
 // (solutions, plugin modelbuilder). A single, clearly-named profile is
@@ -342,48 +343,58 @@ export async function createInteractivePacProfile(context: DataversePowerToolsCo
   // Clear a stale profile of the same name (ignore the result — it may not exist).
   await runPacResult(pacAuthDeleteArgs(AUTH_PROFILE_NAME), workspacePath);
 
+  // Surface the sign-in in the panel itself, not just a toast (which auto-dismisses) and the
+  // output channel (not open by default). beginPacOperation shows a busy banner immediately;
+  // once pac prints the device code, setDeviceCodeSignIn turns it into a prominent, actionable
+  // card (copy code / open page). endPacOperation clears both, whatever the outcome.
+  beginPacOperation(context, "Signing in to Power Platform CLI");
   context.channel.show();
-  const result = await vscode.window.withProgress(
-    {
-      location: vscode.ProgressLocation.Notification,
-      title: "Signing in to pac (device code)…",
-    },
-    async () => {
-      let promptedDeviceCode = false;
-      const onChunk = (chunk: string) => {
-        if (promptedDeviceCode) {
-          return;
-        }
-        const device = parseDeviceCode(chunk);
-        if (!device) {
-          return;
-        }
-        promptedDeviceCode = true;
-        // Also write the code prominently to the channel in case the toast is missed.
-        context.channel.appendLine("");
-        context.channel.appendLine(`>>> To finish signing in to pac, open ${device.url} and enter the code ${device.code}`);
-        void vscode.window.showInformationMessage(`To finish signing in, open ${device.url} and enter code ${device.code}`, "Open sign-in page").then((choice) => {
-          if (choice === "Open sign-in page") {
-            void vscode.env.openExternal(vscode.Uri.parse(device.url));
+  try {
+    const result = await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: "Signing in to pac (device code)…",
+      },
+      async () => {
+        let promptedDeviceCode = false;
+        const onChunk = (chunk: string) => {
+          if (promptedDeviceCode) {
+            return;
           }
-        });
-      };
-      return runPacStreaming(context, pacAuthCreateInteractiveArgs(AUTH_PROFILE_NAME, environmentUrl, { deviceCode: true }), workspacePath, onChunk);
-    },
-  );
+          const device = parseDeviceCode(chunk);
+          if (!device) {
+            return;
+          }
+          promptedDeviceCode = true;
+          // The persistent, hard-to-miss affordance: the panel card. Toast + channel stay as fallback.
+          setDeviceCodeSignIn(context, { url: device.url, code: device.code });
+          context.channel.appendLine("");
+          context.channel.appendLine(`>>> To finish signing in to pac, open ${device.url} and enter the code ${device.code}`);
+          void vscode.window.showInformationMessage(`To finish signing in, open ${device.url} and enter code ${device.code}`, "Open sign-in page").then((choice) => {
+            if (choice === "Open sign-in page") {
+              void vscode.env.openExternal(vscode.Uri.parse(device.url));
+            }
+          });
+        };
+        return runPacStreaming(context, pacAuthCreateInteractiveArgs(AUTH_PROFILE_NAME, environmentUrl, { deviceCode: true }), workspacePath, onChunk);
+      },
+    );
 
-  if (pacSucceeded(result)) {
-    context.channel.appendLine(`Created the '${AUTH_PROFILE_NAME}' pac profile for ${environmentUrl}.`);
-    return true;
-  }
+    if (pacSucceeded(result)) {
+      context.channel.appendLine(`Created the '${AUTH_PROFILE_NAME}' pac profile for ${environmentUrl}.`);
+      return true;
+    }
 
-  // Browser fallback: pac opens the system browser for an interactive sign-in.
-  context.channel.appendLine("Device-code sign-in didn't complete — falling back to a browser sign-in.");
-  const created = await runPacLogged(context, pacAuthCreateInteractiveArgs(AUTH_PROFILE_NAME, environmentUrl, { deviceCode: false }), workspacePath);
-  if (!created) {
-    vscode.window.showErrorMessage("Could not sign in to pac. See the Dataverse PowerTools output for details.");
+    // Browser fallback: pac opens the system browser for an interactive sign-in.
+    context.channel.appendLine("Device-code sign-in didn't complete — falling back to a browser sign-in.");
+    const created = await runPacLogged(context, pacAuthCreateInteractiveArgs(AUTH_PROFILE_NAME, environmentUrl, { deviceCode: false }), workspacePath);
+    if (!created) {
+      vscode.window.showErrorMessage("Could not sign in to pac. See the Dataverse PowerTools output for details.");
+    }
+    return created;
+  } finally {
+    endPacOperation(context);
   }
-  return created;
 }
 
 /**

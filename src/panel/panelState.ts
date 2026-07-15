@@ -9,6 +9,7 @@ import { getSystemRequirementsStatus } from "../general/systemRequirements";
 import { getRecentOperations } from "./operationTracker";
 import { getScannedRegistrations } from "./registrationsScanner";
 import { getTraceLogCache, getActiveProfilesCache } from "./panelDataCache";
+import { getPacOperation, getDeviceCodeSignIn } from "./pacActivityState";
 import { isDebugSessionActive } from "../webresources/debug/debugWebresources";
 import { ComponentSettings } from "../components/discovery";
 import { clock, buildProjectCard } from "./panelCards";
@@ -101,5 +102,9 @@ export function computePanelState(context: DataversePowerToolsContext): PanelSta
     rootIsEmpty: loaded ? !settings.type : undefined,
     // More than one discovered component → the panel minimises cards by default (#156).
     multiComponent: (context.components?.length ?? 0) > 1,
+    // In-flight pac operation / pending device-code sign-in — a persistent, obvious panel
+    // affordance while a pac command (sign-in, generate, build, deploy) runs.
+    pacOperation: getPacOperation(),
+    deviceCodeSignIn: getDeviceCodeSignIn(),
   };
 }
