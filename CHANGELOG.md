@@ -2,6 +2,12 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.9 (pre-release)
+
+Custom API (#142) — **typed TypeScript caller** (issue #5). The same definition that generates the C# handler and deploys the metadata now also generates a **typed client for web-resource / PCF callers**, so a form script calling your API gets IntelliSense and compile-time safety instead of hand-rolling the `Xrm.WebApi` request shape.
+
+- **Generate Custom API TS clients** (plugin card / palette) emits, for each `*.customapi.json`, a `clients/<Class>.client.ts` with a typed `Request`/`Response` interface and an `async` wrapper that builds the correct `Xrm.WebApi.online.execute` `getMetadata()` shape (parameter Edm types, `structuralProperty`, `operationType` 0/1 for action/function). Copy it into your web-resource or PCF project and call the API with full types. End-to-end typing now spans handler ⇄ metadata ⇄ caller. 15 unit tests cover the type maps and generated shape.
+
 ## 0.14.8 (pre-release)
 
 New: **Language Model Tools** — drive the extension from Copilot agent mode (#140). In-editor only; no MCP server, no port, no token, no files written.

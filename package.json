@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.14.8",
+  "version": "0.14.9",
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -667,6 +667,11 @@
       {
         "command": "dataverse-powertools.generateCustomApiHandlers",
         "title": "Dataverse PowerTools: Generate Custom API handlers",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+      },
+      {
+        "command": "dataverse-powertools.generateCustomApiClients",
+        "title": "Dataverse PowerTools: Generate Custom API TS clients",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
       },
       {

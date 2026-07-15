@@ -12,6 +12,7 @@ import { activeComponentRoot } from "../components/componentDiscovery";
 import { CUSTOM_API_FILE_SUFFIX, CustomApiDefinition, newCustomApiDefinition } from "./definition";
 import { validateCustomApiDefinition } from "./validate";
 import { generateCustomApiHandler, customApiHandlerFileName } from "./generateHandler";
+import { generateTypedClient, customApiClientFileName } from "./generateTypedClient";
 
 /** All `*.customapi.json` files directly under a component root. */
 export function findCustomApiDefinitionFiles(root: string): string[] {
@@ -112,5 +113,58 @@ export async function generateCustomApiHandlers(context: DataversePowerToolsCont
     vscode.window.showWarningMessage(`Custom API: generated ${generated}, ${failed} failed validation. See the Dataverse PowerTools output.`);
   } else {
     vscode.window.showInformationMessage(`Custom API: generated ${generated} typed handler(s) into CustomApi/.`);
+  }
+}
+
+/** Validate every `*.customapi.json` and generate a typed TypeScript client
+ * (for web-resource / PCF callers) into a `clients/` folder. */
+export async function generateCustomApiClients(context: DataversePowerToolsContext): Promise<void> {
+  const root = activeComponentRoot(context);
+  if (!root) {
+    vscode.window.showErrorMessage("Open or select a plugin component first.");
+    return;
+  }
+
+  const files = findCustomApiDefinitionFiles(root);
+  if (files.length === 0) {
+    vscode.window.showInformationMessage(`No ${CUSTOM_API_FILE_SUFFIX} definitions found. Run "New Custom API definition" first.`);
+    return;
+  }
+
+  const outDir = path.join(root, "clients");
+  let generated = 0;
+  let failed = 0;
+
+  for (const file of files) {
+    const name = path.basename(file);
+    let definition: CustomApiDefinition;
+    try {
+      definition = JSON.parse(fs.readFileSync(file, "utf8")) as CustomApiDefinition;
+    } catch (error) {
+      context.channel.appendLine(`✗ ${name}: not valid JSON — ${(error as Error).message}`);
+      failed++;
+      continue;
+    }
+
+    const errors = validateCustomApiDefinition(definition);
+    if (errors.length > 0) {
+      context.channel.appendLine(`✗ ${name}: ${errors.length} validation error(s):`);
+      errors.forEach((e) => context.channel.appendLine(`    - ${e}`));
+      failed++;
+      continue;
+    }
+
+    fs.mkdirSync(outDir, { recursive: true });
+    const outPath = path.join(outDir, customApiClientFileName(definition));
+    fs.writeFileSync(outPath, generateTypedClient(definition), "utf8");
+    context.channel.appendLine(`✓ ${name} → clients/${path.basename(outPath)} (copy into your web-resource / PCF project)`);
+    generated++;
+  }
+
+  if (failed > 0) {
+    context.channel.show(true);
+    vscode.window.showWarningMessage(`Custom API clients: generated ${generated}, ${failed} failed validation. See the Dataverse PowerTools output.`);
+  } else {
+    vscode.window.showInformationMessage(`Custom API: generated ${generated} typed TS client(s) into clients/.`);
   }
 }
