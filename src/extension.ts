@@ -12,6 +12,7 @@ import { registerDecorationCodeLens } from "./plugins/decorationsCodeLens";
 import { registerLmTools } from "./lmtools/registerLmTools";
 import { registerServerLogicLint } from "./portals/lintServerLogicCommand";
 import { registerServerLogicBuild } from "./portals/buildServerLogicCommand";
+import { registerPortalFrontendBuild } from "./portals/buildPortalFrontendCommand";
 import { registerMenuPanel } from "./panel/menuPanel";
 import { refreshPanelData } from "./panel/panelDataCache";
 import { registerSystemRequirementCommands } from "./general/systemRequirements";
@@ -36,6 +37,7 @@ export async function activate(vscodeContext: vscode.ExtensionContext) {
   // Power Pages Server Logic lint + build (#150) — active-editor commands, registered ONCE.
   registerServerLogicLint(context);
   registerServerLogicBuild(context);
+  registerPortalFrontendBuild(context);
   // Class-decoration / filtering-attribute / per-step-profiling CodeLens on plugin .cs files. Registered
   // ONCE here (its commands + provider are global) — never per plugin component, or a
   // second plugin component's initialise throws "command … already exists" (#47).
