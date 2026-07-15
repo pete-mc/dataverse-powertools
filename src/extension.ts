@@ -9,6 +9,7 @@ import { componentsToInitialise } from "./components/discovery";
 import { clearStoredCredentials } from "./general/connectionStringManager";
 import { checkConfigRevision } from "./general/configRefresh";
 import { registerDecorationCodeLens } from "./plugins/decorationsCodeLens";
+import { registerLmTools } from "./lmtools/registerLmTools";
 import { registerMenuPanel } from "./panel/menuPanel";
 import { refreshPanelData } from "./panel/panelDataCache";
 import { registerSystemRequirementCommands } from "./general/systemRequirements";
@@ -28,6 +29,8 @@ export async function activate(vscodeContext: vscode.ExtensionContext) {
   // Every project type's commands register ONCE here; handlers resolve which
   // component an invocation targets (#47) — no per-type registration anymore.
   registerAllComponentCommands(context);
+  // Language Model Tools for Copilot agent mode (#140) — registered ONCE, globally.
+  registerLmTools(context);
   // Class-decoration / filtering-attribute / per-step-profiling CodeLens on plugin .cs files. Registered
   // ONCE here (its commands + provider are global) — never per plugin component, or a
   // second plugin component's initialise throws "command … already exists" (#47).

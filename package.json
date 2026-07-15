@@ -9,9 +9,9 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.14.7",
+  "version": "0.14.8",
   "engines": {
-    "vscode": "^1.93.0"
+    "vscode": "^1.95.0"
   },
   "categories": [
     "Other"
@@ -31,6 +31,89 @@
       {
         "language": "typescriptreact",
         "path": "./snippets/dvpt-pcf.code-snippets"
+      }
+    ],
+    "languageModelTools": [
+      {
+        "name": "dvpt_connectionStatus",
+        "displayName": "Dataverse connection status",
+        "modelDescription": "Get the current Dataverse PowerTools connection for this workspace: organization URL, auth type (service principal or interactive/OAuth), and whether a token has been acquired. Never returns secrets. Call this before other Dataverse tools to check readiness.",
+        "toolReferenceName": "dvptConnectionStatus",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(plug)",
+        "tags": [
+          "dataverse",
+          "powertools"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        }
+      },
+      {
+        "name": "dvpt_listComponents",
+        "displayName": "List Dataverse components",
+        "modelDescription": "List the Dataverse PowerTools components discovered in this workspace (plugins, web resources, PCF controls, Azure Functions, solutions), with their type, name, and folder.",
+        "toolReferenceName": "dvptListComponents",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(list-tree)",
+        "tags": [
+          "dataverse",
+          "powertools"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        }
+      },
+      {
+        "name": "dvpt_systemRequirements",
+        "displayName": "Dataverse PowerTools requirements",
+        "modelDescription": "Report whether the Dataverse PowerTools system requirements (dotnet, node, pac) are installed on this machine.",
+        "toolReferenceName": "dvptSystemRequirements",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(checklist)",
+        "tags": [
+          "dataverse",
+          "powertools"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        }
+      },
+      {
+        "name": "dvpt_deploy",
+        "displayName": "Build & deploy to Dataverse",
+        "modelDescription": "Build and deploy the active Dataverse PowerTools component (plugin package / web resources) to the connected environment. Mutating: requires the 'readwrite' Copilot access mode and asks for confirmation before running.",
+        "toolReferenceName": "dvptDeploy",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(cloud-upload)",
+        "tags": [
+          "dataverse",
+          "powertools",
+          "deploy"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        }
+      },
+      {
+        "name": "dvpt_generateEarlybound",
+        "displayName": "Generate early-bound classes",
+        "modelDescription": "Generate early-bound C# entity classes for the active plugin component from the connected Dataverse environment. Mutating (writes files): requires the 'readwrite' Copilot access mode and asks for confirmation before running.",
+        "toolReferenceName": "dvptGenerateEarlybound",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(symbol-class)",
+        "tags": [
+          "dataverse",
+          "powertools"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        }
       }
     ],
     "menus": {
@@ -672,6 +755,19 @@
     "configuration": {
       "title": "Dataverse PowerTools",
       "properties": {
+        "dataverse-powertools.copilot.accessMode": {
+          "type": "string",
+          "enum": [
+            "readonly",
+            "readwrite"
+          ],
+          "enumDescriptions": [
+            "Copilot may use read/inspect tools only (connection status, components, requirements).",
+            "Copilot may also use mutating tools (deploy, generate early-bound) — each with a per-call confirmation."
+          ],
+          "default": "readonly",
+          "markdownDescription": "Controls which Dataverse PowerTools [Language Model Tools](https://code.visualstudio.com/api/extension-guides/tools) Copilot agent mode may use. `readonly` (default) exposes only safe read tools; `readwrite` also enables mutating tools, each of which still asks for confirmation before running."
+        },
         "dataverse-powertools.debugBrowser": {
           "type": "string",
           "enum": [
@@ -730,7 +826,7 @@
     "@types/jest": "^30.0.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^20.17.0",
-    "@types/vscode": "^1.93.0",
+    "@types/vscode": "^1.125.0",
     "@typescript-eslint/eslint-plugin": "^8.63.0",
     "@typescript-eslint/parser": "^8.63.0",
     "@vitest/coverage-v8": "^4.1.10",
