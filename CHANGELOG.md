@@ -2,6 +2,14 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.18 (pre-release)
+
+Power Pages / Portals (#150) — **typed Server Logic client** (issue #4), end-to-end typing for portal JS that calls Server Logic.
+
+- **New Power Pages Server Logic definition** seeds a `*.serverlogic.json` (name, HTTP method, request/response field types). **Generate Power Pages Server Logic client** emits `<name>.client.ts` — a typed `Request`/`Response` interface plus an `async` wrapper that calls `/_api/serverlogics/<name>` via `shell.safeAjax` (CSRF handled), with the request body omitted for GET/DELETE. Portal JS hitting Server Logic gets IntelliSense and compile-time safety instead of untyped string-bashing. Pure codegen, 6 unit tests.
+
+> Design note: v1 derives the client from a small `*.serverlogic.json` definition (my call while the maintainer is away) rather than inferring types from the backend handler TS — the definition can be shared with the handler for both-ends typing, and inferring-from-handler can layer on later. **Pre-release:** not yet exercised against a live site.
+
 ## 0.14.17 (pre-release)
 
 Power Pages / Portals (#150) — **front-end TypeScript build** (issue #1), the browser-side counterpart to the 0.14.16 Server Logic build.
