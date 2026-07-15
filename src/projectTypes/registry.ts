@@ -245,7 +245,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
     contextKey: "isPortal",
     configRevision: 0,
     refreshableFiles: [],
-    commandIds: [`${prefix}connectPortal`, `${prefix}downloadPortal`, `${prefix}uploadPortal`],
+    commandIds: [`${prefix}connectPortal`, `${prefix}downloadPortal`, `${prefix}uploadPortal`, `${prefix}buildPortal`],
     menu() {
       return {
         primary: { command: `${prefix}downloadPortal`, label: "Download from {environment}" },
@@ -253,7 +253,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
           { command: `${prefix}uploadPortal`, label: "Upload" },
           { command: `${prefix}connectPortal`, label: "Select site" },
         ],
-        overflow: [],
+        overflow: [{ command: `${prefix}buildPortal`, label: "Build TypeScript (front-end + Server Logic)" }],
       };
     },
   },
