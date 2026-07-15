@@ -2,6 +2,14 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.21 (pre-release)
+
+Power Pages / Portals (#150) — **typed portal Web API client** (issue #4, second half). Completes the end-to-end typing story: portal JS hitting Dataverse tables gets IntelliSense instead of untyped string-bashing.
+
+- **New portal Web API definition** seeds a `*.portalapi.json` (entity set + typed fields). **Generate portal Web API client** emits `<entitySet>.webapi.ts` — a typed record interface plus `create`/`retrieve`/`retrieveMultiple`/`update`/`delete` helpers over the documented portal Web API (`webapi.safeAjax` — the CSRF wrapper — against `/_api/<entitySet>`, with `create` returning the new record id from the `entityid` header). Pure codegen, 6 unit tests.
+
+> The `webapi.safeAjax` pattern + verbs/URLs are taken verbatim from the [official portal Web API docs](https://learn.microsoft.com/power-pages/configure/write-update-delete-operations) — I earlier deferred this thinking the CSRF mechanism was undocumented; it isn't. With the Server Logic client (0.14.18), **both** typed-caller halves of #150 #4 now exist. Pre-release: not yet exercised against a live site.
+
 ## 0.14.20 (pre-release)
 
 Azure Functions (#145) — **Send test context** (issue #7), the local inner loop for webhook functions.
