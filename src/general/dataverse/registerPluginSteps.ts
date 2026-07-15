@@ -4,19 +4,9 @@ import { addDataverseSolutionComponent } from "./addDataverseSolutionComponent";
 import { DataverseContext, Options } from "./dataverseContext";
 import { dataverseApiUrl, logDataverseHttpError } from "./webApi";
 import { escapeODataString } from "./odata";
+import { PluginStepRegistration, ExistingStepSnapshot, buildStepPayload, stepNeedsUpdate } from "./stepPayloads";
 
-export interface PluginStepRegistration {
-  className: string;
-  fullTypeName: string;
-  messageName: string;
-  entityLogicalName?: string;
-  stage: number;
-  mode: number;
-  filteringAttributes?: string;
-  stepName: string;
-  executionOrder: number;
-  stepId?: string;
-}
+export type { PluginStepRegistration } from "./stepPayloads";
 
 async function ensureDataverseContext(context: DataversePowerToolsContext): Promise<boolean> {
   if (!context.dataverse) {
@@ -192,16 +182,6 @@ async function doesStepExistById(context: DataversePowerToolsContext, stepId: st
   return false;
 }
 
-interface ExistingStepSnapshot {
-  sdkmessageprocessingstepid?: string;
-  name?: string;
-  rank?: number;
-  stage?: number;
-  mode?: number;
-  filteringattributes?: string;
-  sdkMessageFilterId?: string;
-}
-
 async function getExistingStepSnapshot(context: DataversePowerToolsContext, stepId: string): Promise<ExistingStepSnapshot | undefined> {
   const data = await getJson(context, `sdkmessageprocessingsteps(${stepId})?$select=sdkmessageprocessingstepid,name,rank,stage,mode,filteringattributes,_sdkmessagefilterid_value`);
 
@@ -218,69 +198,6 @@ async function getExistingStepSnapshot(context: DataversePowerToolsContext, step
     filteringattributes: data.filteringattributes,
     sdkMessageFilterId: data._sdkmessagefilterid_value,
   };
-}
-
-function normalizeFilteringAttributes(value: string | undefined): string {
-  const normalized = (value || "")
-    .split(",")
-    .map((attribute) => attribute.trim().toLowerCase())
-    .filter((attribute) => attribute.length > 0)
-    .sort((a, b) => a.localeCompare(b));
-
-  return normalized.join(",");
-}
-
-function stepNeedsUpdate(existingStep: ExistingStepSnapshot, step: PluginStepRegistration, sdkMessageFilterId?: string): boolean {
-  const existingFilter = normalizeFilteringAttributes(existingStep.filteringattributes);
-  const requestedFilter = normalizeFilteringAttributes(step.filteringAttributes);
-  const existingMessageFilterId = existingStep.sdkMessageFilterId || undefined;
-  const requestedMessageFilterId = sdkMessageFilterId || undefined;
-
-  if ((existingStep.name || "") !== step.stepName) {
-    return true;
-  }
-
-  if ((existingStep.rank ?? 0) !== step.executionOrder) {
-    return true;
-  }
-
-  if ((existingStep.stage ?? 0) !== step.stage) {
-    return true;
-  }
-
-  if ((existingStep.mode ?? 0) !== step.mode) {
-    return true;
-  }
-
-  if (existingFilter !== requestedFilter) {
-    return true;
-  }
-
-  if ((existingMessageFilterId || "") !== (requestedMessageFilterId || "")) {
-    return true;
-  }
-
-  return false;
-}
-
-function buildStepPayload(step: PluginStepRegistration, pluginTypeId: string, sdkMessageId: string, sdkMessageFilterId?: string): any {
-  const payload: any = {
-    name: step.stepName,
-    rank: step.executionOrder,
-    stage: step.stage,
-    mode: step.mode,
-    supporteddeployment: 0,
-    filteringattributes: step.filteringAttributes || "",
-  };
-
-  payload["plugintypeid@odata.bind"] = `/plugintypes(${pluginTypeId})`;
-  payload["sdkmessageid@odata.bind"] = `/sdkmessages(${sdkMessageId})`;
-
-  if (sdkMessageFilterId) {
-    payload["sdkmessagefilterid@odata.bind"] = `/sdkmessagefilters(${sdkMessageFilterId})`;
-  }
-
-  return payload;
 }
 
 export interface RegisterPluginStepsResult {

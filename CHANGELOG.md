@@ -2,6 +2,14 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.4 (pre-release)
+
+Testing epic (#143), Move 3 — extract trapped pure logic into `vscode`-free modules and unit-test it, so the network/registration payload shapes and the panel/test-scaffold logic are guarded in CI instead of only by the manual e2e. No behaviour change; 62 new unit tests (478 → 540).
+
+- **Plugin-step & workflow-activity registration payloads** — extracted into `src/general/dataverse/stepPayloads.ts`: the `@odata.bind` step body (`buildStepPayload`), the "does the live step differ" diff (`stepNeedsUpdate` / `normalizeFilteringAttributes`), and the sparse workflow-activity PATCH builder (`getWorkflowPatchPayload`). These build the exact bodies Dataverse receives during Deploy — now covered by 22 tests.
+- **Panel project-card view-model** — `src/panel/panelCards.ts`: the settings→card field mapping (name fallback chain, `.csproj` detail, trigger passthrough) and the time formatter, split from the fs/vscode reads in `panelState.ts`.
+- **Plugin unit-test scaffolding logic** — `src/plugins/unitTestingLogic.ts`: target-framework compatibility resolution (`net462`→`net472`, netstandard→`net8.0`), C# language-version parsing, class-name sanitising, and the per-framework boilerplate.
+
 ## 0.14.3 (pre-release)
 
 Completes the OAuth `pac` fix from 0.14.1 (#128, #129) — the reason it "worked but did nothing".
