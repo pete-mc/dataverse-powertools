@@ -10,6 +10,7 @@ import { clearStoredCredentials } from "./general/connectionStringManager";
 import { checkConfigRevision } from "./general/configRefresh";
 import { registerDecorationCodeLens } from "./plugins/decorationsCodeLens";
 import { registerLmTools } from "./lmtools/registerLmTools";
+import { registerServerLogicLint } from "./portals/lintServerLogicCommand";
 import { registerMenuPanel } from "./panel/menuPanel";
 import { refreshPanelData } from "./panel/panelDataCache";
 import { registerSystemRequirementCommands } from "./general/systemRequirements";
@@ -31,6 +32,8 @@ export async function activate(vscodeContext: vscode.ExtensionContext) {
   registerAllComponentCommands(context);
   // Language Model Tools for Copilot agent mode (#140) — registered ONCE, globally.
   registerLmTools(context);
+  // Power Pages Server Logic lint (#150) — active-editor command + diagnostics, registered ONCE.
+  registerServerLogicLint(context);
   // Class-decoration / filtering-attribute / per-step-profiling CodeLens on plugin .cs files. Registered
   // ONCE here (its commands + provider are global) — never per plugin component, or a
   // second plugin component's initialise throws "command … already exists" (#47).
