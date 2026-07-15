@@ -150,6 +150,21 @@ describe("project cards", () => {
   });
 });
 
+describe("plug-in trace-log tag (#137)", () => {
+  it("hides the tag until the level is known", () => {
+    expect(card(state({ traceLog: undefined }), "environment").traceLog).toBeUndefined();
+  });
+
+  it("colours + labels the tag by level and wires the picker command", () => {
+    const tag = card(state({ traceLog: 2 }), "environment").traceLog!;
+    expect(tag.label).toBe("Trace: All");
+    expect(tag.colour).toBe("red");
+    expect(tag.action.command).toBe("dataverse-powertools.setTraceLogLevel");
+    expect(card(state({ traceLog: 0 }), "environment").traceLog!.colour).toBe("green");
+    expect(card(state({ traceLog: 1 }), "environment").traceLog!.colour).toBe("orange");
+  });
+});
+
 describe("plugin debugging block (#63)", () => {
   const pluginState = (over: Partial<ProjectCardState> = {}) => state({ projects: [project({ type: "plugin", ...over })] });
 
@@ -174,6 +189,18 @@ describe("plugin debugging block (#63)", () => {
   it("reports the downloaded-profile count from the local scan", () => {
     expect(card(pluginState({ downloadedProfiles: 0 }), "project").debugging!.downloadedProfiles).toBe(0);
     expect(card(pluginState({ downloadedProfiles: 3 }), "project").debugging!.downloadedProfiles).toBe(3);
+  });
+
+  it("carries the org-wide active-profiles list onto the plugin card (#139)", () => {
+    const rows = [{ label: "Acme.Plugin", detail: "Update · account", index: 0 }];
+    const withProfiles = state({ projects: [project({ type: "plugin" })], activeProfiles: rows });
+    expect(card(withProfiles, "project").debugging!.activeProfiles).toEqual(rows);
+    expect(card(pluginState(), "project").debugging!.activeProfiles).toEqual([]);
+  });
+
+  it("adds the profiling how-to to the plugin card overflow (#139)", () => {
+    const overflow = card(pluginState(), "project").overflow.map((a) => a.command);
+    expect(overflow).toContain("dataverse-powertools.guidePluginProfiling");
   });
 
   it("keeps the profiler commands out of the card overflow (they live in the block)", () => {

@@ -7,6 +7,7 @@ import { createServicePrincipalString, updateConnectionString, switchEnvironment
 import { openEnvironment, openAdminCenter, openMakerPortal } from "./openPortals";
 import { createNewProject } from "./generateTemplates";
 import { restoreDependencies } from "./restoreDependencies";
+import { setTraceLogLevel } from "./setTraceLogLevel";
 import { DataverseContext } from "./dataverse/dataverseContext";
 import { scanSystemRequirements } from "./systemRequirements";
 
@@ -32,6 +33,7 @@ export async function generalInitialise(context: DataversePowerToolsContext) {
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.updateConnectionString", () => updateConnectionString(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.switchEnvironment", () => switchEnvironment(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.refreshConnection", () => refreshConnection(context)));
+    context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.setTraceLogLevel", () => setTraceLogLevel(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.clearPacCredentials", () => clearPacCredentials(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.openEnvironment", () => openEnvironment(context)));
     context.vscode.subscriptions.push(vscode.commands.registerCommand("dataverse-powertools.openAdminCenter", () => openAdminCenter(context)));

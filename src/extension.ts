@@ -8,9 +8,9 @@ import { componentScopedContext } from "./components/componentDiscovery";
 import { componentsToInitialise } from "./components/discovery";
 import { clearStoredCredentials } from "./general/connectionStringManager";
 import { checkConfigRevision } from "./general/configRefresh";
-import { registerProfilerCodeLens } from "./plugins/profilerCodeLens";
 import { registerDecorationCodeLens } from "./plugins/decorationsCodeLens";
 import { registerMenuPanel } from "./panel/menuPanel";
+import { refreshPanelData } from "./panel/panelDataCache";
 import { registerSystemRequirementCommands } from "./general/systemRequirements";
 import { initInteractiveTokenCache } from "./general/dataverse/tokenAcquisition";
 
@@ -28,9 +28,7 @@ export async function activate(vscodeContext: vscode.ExtensionContext) {
   // Every project type's commands register ONCE here; handlers resolve which
   // component an invocation targets (#47) — no per-type registration anymore.
   registerAllComponentCommands(context);
-  // Profiler toggle CodeLens on [CrmPluginRegistration] classes (#112).
-  registerProfilerCodeLens(context);
-  // Class-decoration / filtering-attribute CodeLens on plugin .cs files. Registered
+  // Class-decoration / filtering-attribute / per-step-profiling CodeLens on plugin .cs files. Registered
   // ONCE here (its commands + provider are global) — never per plugin component, or a
   // second plugin component's initialise throws "command … already exists" (#47).
   registerDecorationCodeLens(context);
@@ -80,4 +78,8 @@ export async function initialise(context: DataversePowerToolsContext) {
     }
   }
   context.refreshPanel?.();
+  // Fetch the Dataverse-derived panel data (trace-log level #137, active profiles #139) from the
+  // silently-established connection and cache it, then re-render. Fire-and-forget — the panel
+  // renders immediately and updates when the data lands.
+  void refreshPanelData(context);
 }

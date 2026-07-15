@@ -1,6 +1,10 @@
 import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
 import { addClassDecoration, updateFilteringAttributes } from "./decorations";
+import { parseRegistrationArgs } from "./registrationAttribute";
+import { findMatchingStep } from "../general/dataverse/pluginProfiles";
+import { getActiveProfilesCache } from "../panel/panelDataCache";
+import { findEnclosingClassType, toggleStepProfiling } from "./profilerToggle";
 
 function inheritsSupportedBase(inheritanceClause: string): boolean {
   return /\bPluginBase\b/.test(inheritanceClause) || /\bWorkflowBase\b/.test(inheritanceClause) || /\bCodeActivity\b/.test(inheritanceClause);
@@ -72,6 +76,24 @@ class DecorationCodeLensProvider implements vscode.CodeLensProvider {
             arguments: [document.uri, start.line],
           }),
         );
+        // Per-step profiling toggle (#139): on/off from the CACHED active-profiles list (the
+        // provider runs on every render — never query Dataverse here). Placing it per-attribute
+        // gives one toggle per step even when a class registers several.
+        const parsed = parseRegistrationArgs(argsText);
+        if (parsed) {
+          const isOn = !!findMatchingStep(getActiveProfilesCache(), {
+            message: parsed.message,
+            primaryEntity: parsed.primaryEntity,
+            typeName: findEnclosingClassType(fullText, start.line),
+          });
+          codeLenses.push(
+            new vscode.CodeLens(new vscode.Range(start.line, 0, start.line, 0), {
+              title: isOn ? "$(record) Profile: On" : "$(debug-alt) Profile: Off",
+              command: "dataverse-powertools.toggleStepProfilingAtLine",
+              arguments: [document.uri, start.line],
+            }),
+          );
+        }
       }
 
       match = decorationRegex.exec(fullText);
@@ -93,6 +115,14 @@ export function registerDecorationCodeLens(context: DataversePowerToolsContext):
     vscode.commands.registerCommand("dataverse-powertools.updateFilteringAttributesAtLine", async (uri: vscode.Uri, line: number) => {
       await focusDecorationTokenInEditor(uri, line);
       await updateFilteringAttributes(context, line);
+    }),
+  );
+
+  // Per-step profiling toggle command (#139). Registered ONCE here (global), like the other
+  // per-line decoration commands — never in a per-component initialise* (would collide).
+  context.vscode.subscriptions.push(
+    vscode.commands.registerCommand("dataverse-powertools.toggleStepProfilingAtLine", async (uri: vscode.Uri, line: number) => {
+      await toggleStepProfiling(context, uri, line);
     }),
   );
 

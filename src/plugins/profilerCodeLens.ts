@@ -1,15 +1,9 @@
-import * as vscode from "vscode";
-import DataversePowerToolsContext from "../context";
-import { componentForPath } from "../components/discovery";
-import { runForComponent } from "../components/componentDiscovery";
-import { ProjectTypes } from "../projectTypes/registry";
-import { guidePluginProfiling } from "./profilerGuide";
-
-// CodeLens on [CrmPluginRegistration]-decorated plugin classes (#112): a single
-// "Profile & debug…" entry that guides capture (via the Plugin Registration
-// Tool) → Download → Replay-as-unit-test. Capturing itself isn't automated (the
-// profiler must be installed via PRT to be pipeline-executable); the value we
-// add is debugging the captured profile in VS Code.
+// Pure detection of [CrmPluginRegistration]-decorated plugin classes in C# source.
+//
+// The class-level "Profile & debug…" CodeLens was removed in #139 — profiling is now a per-STEP
+// toggle CodeLens (decorationsCodeLens.ts) plus the plugin card's Active-profiles block, and the
+// how-to guide moved to the plugin card's overflow menu (guidePluginProfiling). This module keeps
+// only the pure class finder, which the toggle uses to resolve an attribute's enclosing type.
 
 export interface PluginClassSite {
   /** Fully-qualified type name (namespace.Class). */
@@ -42,33 +36,4 @@ export function findPluginClasses(source: string): PluginClassSite[] {
     }
   }
   return sites;
-}
-
-class ProfilerCodeLensProvider implements vscode.CodeLensProvider {
-  constructor(private readonly context: DataversePowerToolsContext) {}
-
-  provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
-    const component = componentForPath(this.context.components ?? [], document.uri.fsPath);
-    if (component?.settings.type !== ProjectTypes.plugin) {
-      return [];
-    }
-    return findPluginClasses(document.getText()).map(
-      (site) =>
-        new vscode.CodeLens(new vscode.Range(site.line, 0, site.line, 0), {
-          title: "$(debug-alt) Profile & debug…",
-          command: "dataverse-powertools.codelensProfileGuide",
-          arguments: [document.uri],
-        }),
-    );
-  }
-}
-
-/** Register the provider + the lens command ONCE at activation. */
-export function registerProfilerCodeLens(context: DataversePowerToolsContext): void {
-  context.vscode.subscriptions.push(
-    vscode.languages.registerCodeLensProvider({ language: "csharp", scheme: "file" }, new ProfilerCodeLensProvider(context)),
-    vscode.commands.registerCommand("dataverse-powertools.codelensProfileGuide", (uri: vscode.Uri) =>
-      runForComponent(context, ProjectTypes.plugin, uri, (scoped) => guidePluginProfiling(scoped)),
-    ),
-  );
 }

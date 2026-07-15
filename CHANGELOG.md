@@ -2,6 +2,14 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.2 (pre-release)
+
+Completes the **Plugins — Profiling, trace & build** milestone (#135, #137, #139).
+
+- **Profiling now finds your registered steps (#135).** *Profile a step* was reporting "No registered plugin steps to profile" for steps that were registered and firing. Root cause: the step→type query used the polymorphic `eventhandler` lookup, which doesn't resolve a plugin type for a normal step, so every step was filtered out. It now reads the step's type via the dedicated `plugintypeid` navigation (per the Dataverse docs) and excludes webhook/service-endpoint steps server-side — so your plugin steps show up.
+- **Plug-in trace log status tag in the panel (#137).** A coloured pill next to the connected org shows the org-wide trace-log level — 🟢 *Trace: Off*, 🟠 *Trace: Errors*, 🔴 *Trace: All*. Click it to change the level (Off / Exception only / All) without leaving the editor; switching to *All* asks for confirmation (it has a storage/perf cost). Works under both auth types.
+- **Per-step profiling toggle + Active profiles list (#139).** A **Profile: Off / On** CodeLens now sits on each `[CrmPluginRegistration(…)]` step attribute (next to *Update Filtering Attributes*) — one click enables/disables server-side profiling for *that* step, so "one class, many steps" just works. The plugin card gains an **Active profiles** block (like Form Registrations) listing every currently-profiled step with a trash-can to stop it, so it's always obvious when profiling is on. The old class-level "Profile & debug…" guide moved to the plugin card's overflow menu ("How to profile & debug…"). Enable/disable/stop use the bundled net48 tool on Windows; other platforms fall back to the guide / Web-API delete.
+
 ## 0.14.1 (pre-release)
 
 Interactive (OAuth) auth becomes first-class for `pac` commands — fixes a whole class of "works under service principal, broken under OAuth" bugs (#128, #129, #159).

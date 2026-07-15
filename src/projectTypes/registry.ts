@@ -137,6 +137,9 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
                 { command: `${prefix}addClassDecoration`, label: "Add class decoration" },
               ]),
           { command: `${prefix}buildDeployWorkflow`, label: "Build & deploy workflow" },
+          // The profiling how-to lives here now (#139) — per-step Profile toggles + the card's
+          // Active-profiles block replaced the class-level guide CodeLens.
+          { command: `${prefix}guidePluginProfiling`, label: "How to profile & debug…" },
         ],
       };
     },

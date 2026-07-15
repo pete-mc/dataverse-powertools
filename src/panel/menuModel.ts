@@ -8,6 +8,7 @@
 // in a per-card ⋯ overflow; requirements collapse to a footer line once green.
 import { MenuAction, ProjectMenuState, getProjectTypeDescriptor } from "../projectTypes/registry";
 import { normalizeFsPath, applyLayout, Layout } from "../components/discovery";
+import { traceLogLabel, TraceLogLevel } from "../general/dataverse/traceLogSetting";
 
 export interface RequirementRow {
   id: "dotnet" | "node" | "pac";
@@ -48,6 +49,16 @@ export interface RegistrationsBlock {
   note?: string;
 }
 
+/** One currently-profiled step in the plugin card's Active-profiles block (#139). */
+export interface ActiveProfileRow {
+  /** Primary label — the step's type (e.g. Acme.UpdatePlugin). */
+  label: string;
+  /** Secondary line — "message · entity". */
+  detail: string;
+  /** Index into the host-side active-profiles cache; the trash-can sends it to stop that step. */
+  index: number;
+}
+
 /** The profiler/debugging block embedded in a plugin project card (#63). Local
  * data only (a scan of profiles/), so the panel stays network-free. Capture is
  * Windows-only (a net48 tool); download + replay-from-file work everywhere. */
@@ -63,6 +74,9 @@ export interface DebuggingBlock {
   download: MenuAction;
   /** Generate + debug a replay test from a downloaded/dropped profile (file picker). */
   replay: MenuAction;
+  /** Currently server-side-profiled steps, org-wide (#139) — the always-visible "one is on"
+   * list, each row's trash-can stops it. Empty when nothing is profiled. */
+  activeProfiles: ActiveProfileRow[];
 }
 
 /** Registrations shown before collapsing into a "+N more" note (big repos can have hundreds). */
@@ -83,6 +97,9 @@ export type Card =
       label?: string;
       connected: boolean;
       switchAction: MenuAction;
+      /** Plug-in trace-log tag (#137): label + colour + the click action that opens the picker.
+       * Undefined until the level has been read from the org (on connect / refresh). */
+      traceLog?: { label: string; colour: string; action: MenuAction };
       overflow: MenuAction[];
     }
   | {
@@ -156,6 +173,12 @@ export interface PanelState {
   environmentLabel?: string;
   /** Live Dataverse connection established (token acquired). */
   connected: boolean;
+  /** Org-wide plug-in trace-log level (#137), cached from the last connect/refresh. Undefined
+   * until read (or when not connected) — the org-header tag is hidden then. */
+  traceLog?: TraceLogLevel;
+  /** Currently server-side-profiled steps (#139), org-wide, cached from the last connect/refresh.
+   * Pre-indexed into the host cache so the trash-can can stop a specific one. */
+  activeProfiles?: ActiveProfileRow[];
   /** A web-resource debug session (webpack watch + browser) is running. */
   debugSessionActive: boolean;
   /** Scanned RegisterEvent decorations, pre-formatted for display. */
@@ -258,6 +281,11 @@ function environmentCard(state: PanelState): Card {
     label: state.environmentLabel,
     connected: state.connected,
     switchAction: { command: "dataverse-powertools.switchEnvironment", label: "Switch" },
+    // Plug-in trace-log tag (#137): shown once the level is known; click opens the picker.
+    traceLog:
+      state.traceLog !== undefined
+        ? { ...traceLogLabel(state.traceLog), action: { command: "dataverse-powertools.setTraceLogLevel", label: "Set plugin trace log level" } }
+        : undefined,
     // Restore Dependencies lives on the PROJECT card — it restores the
     // project's packages, not the connection (manual-testing feedback).
     overflow: [
@@ -283,15 +311,17 @@ function registrationsFor(state: PanelState, project: ProjectCardState): Registr
   };
 }
 
-/** The profiler/debugging block for one plugin card. Status comes from a local
- * scan of profiles/, so no network is needed to render. */
-function debuggingFor(project: ProjectCardState): DebuggingBlock {
+/** The profiler/debugging block for one plugin card. The downloaded count comes from a local
+ * scan of profiles/; the active-profiles list comes from the cached org query (#139) — neither
+ * hits the network at render time. Active profiles are org-wide, so every plugin card shows them. */
+function debuggingFor(project: ProjectCardState, state: PanelState): DebuggingBlock {
   return {
     downloadedProfiles: project.downloadedProfiles ?? 0,
     capture: forComponent({ command: "dataverse-powertools.capturePluginRun", label: "Profile next run" }, project),
     captureSupported: project.captureSupported ?? false,
     download: forComponent({ command: "dataverse-powertools.downloadPluginProfiles", label: "Download a run" }, project),
     replay: forComponent({ command: "dataverse-powertools.generatePluginReplayTest", label: "Replay & debug" }, project),
+    activeProfiles: state.activeProfiles ?? [],
   };
 }
 
@@ -387,8 +417,8 @@ export function buildMenuModel(state: PanelState): MenuModel {
       status: statusFromActivity(state.activity, project),
       // Each web-resource card carries its OWN registrations (multiple components each).
       registrations: isWebresource ? registrationsFor(state, project) : undefined,
-      // Plugin cards carry the profiler/debugging workflow (#63).
-      debugging: descriptor.id === "plugin" ? debuggingFor(project) : undefined,
+      // Plugin cards carry the profiler/debugging workflow (#63) + active-profiles list (#139).
+      debugging: descriptor.id === "plugin" ? debuggingFor(project, state) : undefined,
     };
   };
 

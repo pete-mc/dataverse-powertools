@@ -8,6 +8,7 @@ import { parseAuthType, DataverseAuthType } from "../general/dataverse/authTypes
 import { getSystemRequirementsStatus } from "../general/systemRequirements";
 import { getRecentOperations } from "./operationTracker";
 import { getScannedRegistrations } from "./registrationsScanner";
+import { getTraceLogCache, getActiveProfilesCache } from "./panelDataCache";
 import { isDebugSessionActive } from "../webresources/debug/debugWebresources";
 import { ComponentSettings } from "../components/discovery";
 
@@ -90,6 +91,14 @@ export function computePanelState(context: DataversePowerToolsContext): PanelSta
     authType: loaded && parseAuthType(parseConnectionString(context.connectionString).authType) === DataverseAuthType.oauth ? "oauth" : "clientsecret",
     environmentLabel: settings.environmentLabel,
     connected: !!context.dataverse?.isValid,
+    // Dataverse-derived values read from the cache refreshed on connect/refresh (#137/#139) —
+    // never fetched here (this function is called on every render and must stay network-free).
+    traceLog: getTraceLogCache(),
+    activeProfiles: getActiveProfilesCache().map((profile, index) => ({
+      label: profile.typeName || "Profiled step",
+      detail: [profile.message, profile.primaryEntity].filter(Boolean).join(" · "),
+      index,
+    })),
     debugSessionActive: isDebugSessionActive(),
     // Rows come from the per-component decoration scan of webresources_src (the
     // source of truth), not settings. index → openScannedRegistration go-to-file.

@@ -150,6 +150,134 @@ export function parseProfilableSteps(body: any, assemblyName?: string): Profilab
     .map(({ assemblyName: _assemblyName, ...step }) => step);
 }
 
+// --- Active (server-side-enabled) plug-in profiles (#139) ---
+//
+// When a step is profiled, the Plugin Profiler registers a CLONE of the step whose name
+// carries a "(Profiled)" marker (the same marker parseProfilableSteps drops so the clone
+// isn't offered for profiling again). That clone's OWN sdkmessageprocessingstepid is the
+// `profiler-step` the net48 tool's `disable` takes, so an active profile row = a profiled
+// clone. Read-only; works under both auth types.
+
+const PROFILED_MARKER = /\s*\(Profiled\)\s*$/;
+
+export interface ActiveProfileStep {
+  /** The profiler clone's step id — the `--profiler-step` disable/delete targets. */
+  profilerStepId: string;
+  /** Cleaned type/label parsed from the clone's name (the "(Profiled)" suffix stripped). */
+  typeName: string;
+  message?: string;
+  primaryEntity?: string;
+  /** 0 = synchronous, 1 = asynchronous. */
+  mode?: number;
+}
+
+/** Currently-profiled steps: the profiler's "(Profiled)" clones. `contains` narrows server-side;
+ * parseActiveProfiles re-checks the marker so a permissive server filter can't leak non-clones. */
+export function activeProfilesQuery(): string {
+  const expand = "$expand=sdkmessageid($select=name),sdkmessagefilterid($select=primaryobjecttypecode)";
+  return `sdkmessageprocessingsteps?$select=sdkmessageprocessingstepid,name,mode,statecode&${expand}&$filter=statecode eq 0 and contains(name,'(Profiled)')&$top=200`;
+}
+
+/** Human label from a profiled clone's name: strip the "(Profiled)" suffix and, when the
+ * name is the "Type: Message of entity" convention, keep the type part before the colon. Pure. */
+export function profiledStepTypeLabel(name: string): string {
+  const cleaned = (name ?? "").replace(PROFILED_MARKER, "").trim();
+  const colon = cleaned.indexOf(":");
+  return (colon > 0 ? cleaned.slice(0, colon) : cleaned).trim();
+}
+
+/** Shape the sdkmessageprocessingsteps response into active-profile rows (pure, unit-tested).
+ * Keeps only rows still carrying the "(Profiled)" marker. */
+export function parseActiveProfiles(body: any): ActiveProfileStep[] {
+  const rows: any[] = body?.value ?? [];
+  return rows
+    .filter((row) => PROFILED_MARKER.test((row.name as string) ?? ""))
+    .map((row) => ({
+      profilerStepId: row.sdkmessageprocessingstepid as string,
+      typeName: profiledStepTypeLabel((row.name as string) ?? ""),
+      message: row.sdkmessageid?.name as string | undefined,
+      primaryEntity: row.sdkmessagefilterid?.primaryobjecttypecode as string | undefined,
+      mode: row.mode as number | undefined,
+    }));
+}
+
+/** A step-attribute's identity, parsed from the source registration, used to match it to a
+ * deployed server step (profilable original) or an active profiler clone (#139). */
+export interface RegistrationKey {
+  message?: string;
+  primaryEntity?: string;
+  /** Full type name (namespace.Class) or bare class name — matched leniently. */
+  typeName?: string;
+}
+
+function norm(value: string | undefined): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function messageEntityMatch(step: { message?: string; primaryEntity?: string }, key: RegistrationKey): boolean {
+  if (key.message && norm(step.message) !== norm(key.message)) {
+    return false;
+  }
+  // An empty entity on either side matches (some messages have no primary entity).
+  if (key.primaryEntity && step.primaryEntity && norm(step.primaryEntity) !== norm(key.primaryEntity)) {
+    return false;
+  }
+  return true;
+}
+
+function typeMatch(stepType: string | undefined, keyType: string | undefined): boolean {
+  if (!stepType || !keyType) {
+    return false;
+  }
+  const a = norm(stepType);
+  const b = norm(keyType);
+  return a === b || a.endsWith(b) || b.endsWith(a) || a.includes(b) || b.includes(a);
+}
+
+/** Match a registration to a step by message + entity, disambiguating by type when several
+ * share the same message/entity (pure, unit-tested). Undefined when nothing matches. */
+export function findMatchingStep<T extends { message?: string; primaryEntity?: string; typeName?: string }>(steps: T[], key: RegistrationKey): T | undefined {
+  const candidates = steps.filter((step) => messageEntityMatch(step, key));
+  if (candidates.length <= 1) {
+    return candidates[0];
+  }
+  const typed = candidates.filter((step) => typeMatch(step.typeName, key.typeName));
+  return typed[0] ?? candidates[0];
+}
+
+/** Active profiler clones in the org, newest-agnostic. Undefined on failure/not connected. */
+export async function getActiveProfiles(context: DataversePowerToolsContext): Promise<ActiveProfileStep[] | undefined> {
+  const body = await getJson(context, "List active plugin profiles", activeProfilesQuery());
+  return body ? parseActiveProfiles(body) : undefined;
+}
+
+/** Delete a profiler clone step via the Web API — the non-Windows fallback for "Stop"
+ * (the net48 disable tool is Windows-only). Returns true on success. */
+export async function deleteProfilerStep(context: DataversePowerToolsContext, profilerStepId: string): Promise<boolean> {
+  if (!GUID.test(profilerStepId)) {
+    return false;
+  }
+  const dataverse = context.dataverse;
+  if (!dataverse || !canCallDataverseApi({ organizationUrl: dataverse.organizationUrl, isValid: dataverse.isValid })) {
+    return false;
+  }
+  try {
+    const url = dataverseApiUrl(dataverse.organizationUrl, `sdkmessageprocessingsteps(${profilerStepId})`);
+    const response = await fetch(url, {
+      method: "DELETE",
+      headers: { Authorization: "Bearer " + (await dataverse.getAuthorizationToken()), "Content-Type": "application/json" },
+    });
+    if (!response.ok) {
+      await logDataverseHttpError(context.channel, "delete the profiler step", response);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    logDataverseError(context.channel, "delete the profiler step", error);
+    return false;
+  }
+}
+
 async function getJson(context: DataversePowerToolsContext, operation: string, resourcePath: string): Promise<any | undefined> {
   const dataverse = context.dataverse;
   if (!dataverse || !canCallDataverseApi({ organizationUrl: dataverse.organizationUrl, isValid: dataverse.isValid })) {

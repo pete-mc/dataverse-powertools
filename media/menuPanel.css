@@ -103,6 +103,35 @@ h3.inline {
   background: transparent;
 }
 
+/* Plug-in trace-log tag (#137): a clickable pill coloured by level. */
+.tracepill {
+  flex: none;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 1px 7px;
+  border-radius: 9px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: var(--vscode-descriptionForeground);
+}
+
+.tracepill.trace-green {
+  color: var(--vscode-charts-green, var(--vscode-testing-iconPassed));
+}
+
+.tracepill.trace-orange {
+  color: var(--vscode-charts-orange, var(--vscode-editorWarning-foreground));
+}
+
+.tracepill.trace-red {
+  color: var(--vscode-charts-red, var(--vscode-errorForeground));
+}
+
+.tracepill:hover {
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.15));
+}
+
 .dot {
   flex: none;
   width: 8px;

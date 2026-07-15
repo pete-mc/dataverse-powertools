@@ -26,6 +26,21 @@ export function stepPickLabel(step: ProfilableStep): { label: string; descriptio
 /** Install the Plugin Profiler managed solution (from the PRT NuGet) via ImportSolution
  * when it's missing — so capture is one-click instead of "go install it in PRT". Shown
  * with progress; returns true when the profiler is present afterwards. */
+/** Ensure the Plugin Profiler managed solution is installed (checking, then one-click importing
+ * when missing) so enable/disable can run. Returns true when the profiler is present afterwards;
+ * false (with an error surfaced) when the org couldn't be reached or the install failed. */
+export async function ensureProfilerInstalled(context: DataversePowerToolsContext): Promise<boolean> {
+  const installed = await isProfilerInstalled(context);
+  if (installed === undefined) {
+    vscode.window.showErrorMessage("Could not reach Dataverse to check for the Plugin Profiler — see the output.");
+    return false;
+  }
+  if (!installed) {
+    return installProfilerSolution(context);
+  }
+  return true;
+}
+
 async function installProfilerSolution(context: DataversePowerToolsContext): Promise<boolean> {
   const base64 = await getProfilerSolutionBase64(context);
   if (!base64) {
@@ -63,16 +78,8 @@ export async function capturePluginRun(context: DataversePowerToolsContext): Pro
     return;
   }
 
-  const installed = await isProfilerInstalled(context);
-  if (installed === undefined) {
-    vscode.window.showErrorMessage("Could not reach Dataverse to check for the Plugin Profiler — see the output.");
+  if (!(await ensureProfilerInstalled(context))) {
     return;
-  }
-  if (!installed) {
-    const ok = await installProfilerSolution(context);
-    if (!ok) {
-      return;
-    }
   }
 
   // Prefer this project's own assembly; fall back to any custom step if none match
