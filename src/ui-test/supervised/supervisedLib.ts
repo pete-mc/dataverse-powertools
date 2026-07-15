@@ -143,7 +143,13 @@ export async function clickPanelButton(label: string, opts: { timeoutMs?: number
   while (Date.now() < deadline) {
     try {
       const clicked = await withPanel(async (panel) => {
-        const button = await findButtonEl(panel, label, opts.contains ?? false);
+        let button = await findButtonEl(panel, label, opts.contains ?? false);
+        if (!button) {
+          // The button may be on a COLLAPSED component card (#156) — a panel re-render can
+          // re-collapse it at any time, so expand within this same frame and re-find.
+          await expandCaretsInFrame(panel);
+          button = await findButtonEl(panel, label, opts.contains ?? false);
+        }
         if (!button) {
           return false;
         }
@@ -165,37 +171,31 @@ export async function clickPanelButton(label: string, opts: { timeoutMs?: number
   throw new Error(`clickPanelButton timed out for "${label}" after ${timeoutMs}ms (${lastError})`);
 }
 
-/** Expand a collapsed component card so its action buttons are in the DOM. Multi-component
- * cards open minimised (#156), which hides "Generate Earlybound"/"Local Build"/etc. The caret
- * button carries aria-label "Expand <name>" when collapsed, "Collapse <name>" when open. */
+/** Click every "Expand" caret in the CURRENTLY-FOCUSED panel frame. The caret is a tiny button
+ * (coordinate clicks miss it), so fire its handler via JS. Multi-component cards open minimised
+ * (#156), hiding "Generate Earlybound"/"Local Build"/etc.; clickPanelButton calls this on a miss,
+ * so a re-render that re-collapses a card can't defeat a click. */
+async function expandCaretsInFrame(panel: WebviewView): Promise<void> {
+  const carets = await panel.findWebElements(By.css("button.caret"));
+  for (const caret of carets) {
+    try {
+      const label = (await caret.getAttribute("aria-label")) ?? "";
+      if (label.startsWith("Expand")) {
+        await VSBrowser.instance.driver.executeScript("arguments[0].click();", caret);
+        await sleep(500);
+      }
+    } catch {
+      /* stale — skip */
+    }
+  }
+}
+
+/** Expand collapsed component cards (best-effort, narrated). clickPanelButton also self-expands,
+ * so this is mostly for an explicit, visible step. */
 export async function expandComponentCards(): Promise<void> {
   await narrate("Expand component card(s) so their action buttons are visible");
-  // The caret is a tiny button; a coordinate click can miss it, so fire its handler directly
-  // via JS. Re-open the frame each attempt and verify no "Expand" carets remain.
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const remaining = await withPanel(async (panel) => {
-      const carets = await panel.findWebElements(By.css("button.caret"));
-      let expandable = 0;
-      for (const caret of carets) {
-        try {
-          const label = (await caret.getAttribute("aria-label")) ?? "";
-          if (label.startsWith("Expand")) {
-            expandable++;
-            await highlight(caret);
-            await VSBrowser.instance.driver.executeScript("arguments[0].click();", caret);
-            await sleep(700);
-          }
-        } catch {
-          /* stale — re-query next attempt */
-        }
-      }
-      return expandable;
-    });
-    if (remaining === 0) {
-      return;
-    }
-    await sleep(600);
-  }
+  await withPanel((panel) => expandCaretsInFrame(panel));
+  await sleep(600);
 }
 
 /** True when the panel shows a live Dataverse connection (the green dot). */
