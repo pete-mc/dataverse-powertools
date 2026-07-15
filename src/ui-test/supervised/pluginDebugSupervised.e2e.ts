@@ -3,7 +3,18 @@ import * as fs from "fs";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
 import { freshWorkspace, answerText, answerFlexible, pickByLabel, resetAllCredentials, runCommand, dismissOverlays, sleep } from "../e2e/lib";
-import { narrate, clickPanelButton, openPanelFrame, waitForConnected, isConnected, pauseForHuman, waitForFileExists, connectionSummary, actionBanner, expandComponentCards } from "./supervisedLib";
+import {
+  narrate,
+  clickPanelButton,
+  openPanelFrame,
+  waitForConnected,
+  isConnected,
+  pauseForHuman,
+  waitForFileExists,
+  connectionSummary,
+  actionBanner,
+  expandComponentCards,
+} from "./supervisedLib";
 
 // REUSE mode (npm run test:supervised:reuse) skips the sign-in prompts and reuses the OAuth +
 // pac profile captured on a prior fresh run, so fix iterations run unattended.

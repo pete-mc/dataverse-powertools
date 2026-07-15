@@ -170,22 +170,32 @@ export async function clickPanelButton(label: string, opts: { timeoutMs?: number
  * button carries aria-label "Expand <name>" when collapsed, "Collapse <name>" when open. */
 export async function expandComponentCards(): Promise<void> {
   await narrate("Expand component card(s) so their action buttons are visible");
-  await withPanel(async (panel) => {
-    const carets = await panel.findWebElements(By.css("button.caret"));
-    for (const caret of carets) {
-      try {
-        const label = (await caret.getAttribute("aria-label")) ?? "";
-        if (label.startsWith("Expand")) {
-          await highlight(caret);
-          await caret.click();
-          await sleep(600);
+  // The caret is a tiny button; a coordinate click can miss it, so fire its handler directly
+  // via JS. Re-open the frame each attempt and verify no "Expand" carets remain.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const remaining = await withPanel(async (panel) => {
+      const carets = await panel.findWebElements(By.css("button.caret"));
+      let expandable = 0;
+      for (const caret of carets) {
+        try {
+          const label = (await caret.getAttribute("aria-label")) ?? "";
+          if (label.startsWith("Expand")) {
+            expandable++;
+            await highlight(caret);
+            await VSBrowser.instance.driver.executeScript("arguments[0].click();", caret);
+            await sleep(700);
+          }
+        } catch {
+          /* stale — re-query next attempt */
         }
-      } catch {
-        /* stale / already expanded */
       }
+      return expandable;
+    });
+    if (remaining === 0) {
+      return;
     }
-  });
-  await sleep(800);
+    await sleep(600);
+  }
 }
 
 /** True when the panel shows a live Dataverse connection (the green dot). */
