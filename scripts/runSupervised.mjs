@@ -45,8 +45,18 @@ function envValue(key) {
   }
   return undefined;
 }
-const supervisedEnv = process.env.DVPT_SUPERVISED_ENV || envValue("DVPT_SUPERVISED_ENV") || "";
-const supervisedSolution = process.env.DVPT_SUPERVISED_SOLUTION || envValue("DVPT_SUPERVISED_SOLUTION") || "";
+// Environment defaults to the shared test org (DVPT_TEST_URL); solution defaults to the dedicated
+// "DVPT Supervised" solution, which ensureSupervisedSolution.mjs creates idempotently.
+const supervisedEnv = process.env.DVPT_SUPERVISED_ENV || envValue("DVPT_SUPERVISED_ENV") || envValue("DVPT_TEST_URL") || "";
+let supervisedSolution = process.env.DVPT_SUPERVISED_SOLUTION || envValue("DVPT_SUPERVISED_SOLUTION") || "";
+if (!supervisedSolution) {
+  console.log("[supervised] ensuring the dedicated 'DVPT Supervised' solution exists…");
+  const ensured = spawnSync("node", [path.join("scripts", "ensureSupervisedSolution.mjs")], { cwd: root, encoding: "utf8" });
+  if (ensured.stderr) {
+    process.stderr.write(ensured.stderr);
+  }
+  supervisedSolution = ensured.status === 0 ? (ensured.stdout || "").trim().split(/\r?\n/).pop() : "";
+}
 
 if (reuse) {
   if (!fs.existsSync(msalCache)) {
