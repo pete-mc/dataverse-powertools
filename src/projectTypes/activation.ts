@@ -58,6 +58,7 @@ import { buildAzureFunction } from "../azurefunction/buildAzureFunction";
 import { registerWebhookStep } from "../azurefunction/registerWebhookStep";
 import { generateAzureFunctionEarlyBound } from "../azurefunction/generateAzureFunctionEarlyBound";
 import { deployAzureFunctionGuide } from "../azurefunction/deployAzureFunctionGuide";
+import { publishAzureFunctionToAzure, startAzureFunctionHost } from "../azurefunction/funcCommands";
 import { promptAndScaffoldTrigger } from "../azurefunction/scaffoldTrigger";
 
 type CommandImpl = (context: DataversePowerToolsContext, resourceUri?: vscode.Uri) => unknown;
@@ -318,6 +319,8 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
       "dataverse-powertools.registerWebhookStep": tracked("Register webhook & step", registerWebhookStep),
       "dataverse-powertools.generateAzureFunctionEarlyBound": tracked("Generate early bound", generateAzureFunctionEarlyBound),
       "dataverse-powertools.deployAzureFunctionGuide": (context) => deployAzureFunctionGuide(context),
+      "dataverse-powertools.publishAzureFunction": (context) => publishAzureFunctionToAzure(context),
+      "dataverse-powertools.startAzureFunctionHost": (context) => startAzureFunctionHost(context),
     },
     // A function component isn't necessarily a Dataverse webhook (#145) — ask how it's
     // triggered and scaffold only that sample handler. The template ships the shared

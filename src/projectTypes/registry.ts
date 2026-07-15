@@ -293,7 +293,14 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
     // v1 core (#145): scaffold + typed RemoteExecutionContext + register webhook/step +
     // ServiceClient callback + early-bound. Azure publish and local `func start` /
     // send-test-context are explicit fast-follows (#145 items 6 and 7).
-    commandIds: [`${prefix}registerWebhookStep`, `${prefix}buildAzureFunction`, `${prefix}generateAzureFunctionEarlyBound`, `${prefix}deployAzureFunctionGuide`],
+    commandIds: [
+      `${prefix}registerWebhookStep`,
+      `${prefix}buildAzureFunction`,
+      `${prefix}generateAzureFunctionEarlyBound`,
+      `${prefix}deployAzureFunctionGuide`,
+      `${prefix}publishAzureFunction`,
+      `${prefix}startAzureFunctionHost`,
+    ],
     menu(state) {
       // A function component need not be a Dataverse webhook (#145) — it may be a plain HTTP
       // API, a timer, or a Service Bus consumer. Only the HTTP-webhook trigger leads with
@@ -306,7 +313,11 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
         // The Azure publish itself is done with the Azure Functions extension / func CLI (guide only).
         primary: webhook ? register : build,
         secondary: [...(webhook ? [build] : [register]), { command: `${prefix}generateAzureFunctionEarlyBound`, label: "Generate Earlybound" }],
-        overflow: [{ command: `${prefix}deployAzureFunctionGuide`, label: "Deploy to Azure…" }],
+        overflow: [
+          { command: `${prefix}startAzureFunctionHost`, label: "Run locally (func start)" },
+          { command: `${prefix}publishAzureFunction`, label: "Publish to Azure (func)" },
+          { command: `${prefix}deployAzureFunctionGuide`, label: "Deploy to Azure…" },
+        ],
       };
     },
   },
