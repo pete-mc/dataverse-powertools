@@ -130,8 +130,8 @@ async function existingMembers(context: DataversePowerToolsContext, entitySet: s
   return rows.map((r) => ({ id: r[idField], uniquename: r.uniquename }));
 }
 
-/** Deploy one definition. Returns true on success. */
-async function deployOne(context: DataversePowerToolsContext, def: CustomApiDefinition, solutionUniqueName?: string): Promise<boolean> {
+/** Deploy one definition. Returns true on success. Exported for orchestration tests. */
+export async function deployOne(context: DataversePowerToolsContext, def: CustomApiDefinition, solutionUniqueName?: string): Promise<boolean> {
   const pluginTypeId = await resolvePluginTypeId(context, def.pluginTypeName);
   if (!pluginTypeId) {
     context.channel.appendLine(`✗ ${def.uniqueName}: plugin type '${def.pluginTypeName}' not found in the environment — deploy & register the plugin first.`);
