@@ -2,6 +2,14 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.24 (pre-release)
+
+PCF (#141) — **Run PCF test harness (hot reload)**, the standalone-harness half of the debug/hot-reload story (#5).
+
+- **Run PCF test harness (hot reload)** (PCF card / palette) launches `npm start watch` — the pcf-scripts test-harness dev server with its **built-in hot reload** — in a terminal. Edit your control's TS and the harness rebuilds and reloads instantly. This is the easy inner loop for isolated UI work (not a live model-driven form).
+
+> The **live-form** hot reload (redirecting a *deployed* control's bundle into a real form via CDP + the #64 service-worker bypass) is the separate, harder half — it needs a live control on a running app to verify, so it stays for a supervised session. The standalone harness (this) is the no-CDP path and works today.
+
 ## 0.14.23 (pre-release)
 
 PCF (#141) / testing (#150 #6) — the **service-layer template now ships with a Jest test**. **Add PCF service-layer structure** additionally writes `services/<Entity>Service.spec.ts` — a Jest unit test that exercises the service with a mocked `ComponentFramework.WebApi`, demonstrating that the domain layer is testable in isolation (no PCF host, no live Dataverse). This is the "service-layer templates have Jest tests" piece of the test story; the extension's existing Jest TestController (`parseJestJson`) then surfaces it once `npx jest` is wired in the control. +1 test.
