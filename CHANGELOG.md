@@ -2,6 +2,13 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.3 (pre-release)
+
+Completes the OAuth `pac` fix from 0.14.1 (#128, #129) — the reason it "worked but did nothing".
+
+- **`pac` failures are now detected from output, not the exit code.** `pac` (2.8.1) returns **exit code 0 even when a command fails** — no auth profile, a bad profile name, an expired token. The extension trusted that exit code, so under OAuth it would log *"Reusing the pac profile"* for a profile that didn't exist and then *"Plugin early bound generation complete"* having generated **zero files** — a silent false success. Early-bound generation, and any other `pac`-backed command, now inspect `pac`'s actual output (`pac auth list` for profile existence, plus an `Error:` banner check) and only report success when work was really done; on a genuine failure they surface the error and open the output channel instead of pretending it worked.
+- **Found by a new supervised UI test.** A human-assisted, on-demand suite (`npm run test:supervised`, *not* in CI) drives the real panel buttons through the OAuth `pac` path end-to-end — blank multi-component project → OAuth sign-in → add Plugins → Generate Early-bound — and is what surfaced the false-success above. It captures the sign-in once and reuses it for unattended fix iterations. This is the first slice; build → deploy → profile → debug → trace follow.
+
 ## 0.14.2 (pre-release)
 
 Completes the **Plugins — Profiling, trace & build** milestone (#135, #137, #139).
