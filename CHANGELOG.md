@@ -2,6 +2,16 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.10 (pre-release)
+
+Custom API (#142) — **Run Custom API from the editor** (issue #4). Completes the Custom API feature set: define → generate handler → deploy → **invoke**, plus the typed caller.
+
+- **Run Custom API…** (plugin card / palette) picks a `*.customapi.json`, prompts for each request parameter (validating JSON for complex types), calls the API with the extension's token, and prints the response to the output channel — the Postman round-trip replaced by an inner loop that's correct-by-construction (the request comes from the same definition that was deployed). Handles Actions (POST body) and Functions (parameter-aliased GET URL); values are coerced to the right JSON types. Works under both auth types. Request shaping is pure + unit-tested (11 tests).
+
+> v1 supports **Global (unbound)** Custom APIs; bound APIs point you to the generated TS client. **Pre-release:** the HTTP invoke, like the metadata deploy, hasn't been exercised against a live org yet — verify before relying.
+
+With this, **#142 (Custom API) is feature-complete** across definition-as-code (#1), typed handler (#2), deploy + reconcile (#3), invoke (#4), typed caller (#5), and validation (#6).
+
 ## 0.14.9 (pre-release)
 
 Custom API (#142) — **typed TypeScript caller** (issue #5). The same definition that generates the C# handler and deploys the metadata now also generates a **typed client for web-resource / PCF callers**, so a form script calling your API gets IntelliSense and compile-time safety instead of hand-rolling the `Xrm.WebApi` request shape.

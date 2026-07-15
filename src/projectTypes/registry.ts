@@ -109,6 +109,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
       `${prefix}generateCustomApiHandlers`,
       `${prefix}generateCustomApiClients`,
       `${prefix}deployCustomApis`,
+      `${prefix}invokeCustomApi`,
     ],
     menu(state) {
       const legacy = (state.templateVersion ?? 0) < 3;
@@ -143,6 +144,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
                 { command: `${prefix}generateCustomApiHandlers`, label: "Generate Custom API handlers" },
                 { command: `${prefix}generateCustomApiClients`, label: "Generate Custom API TS clients" },
                 { command: `${prefix}deployCustomApis`, label: "Deploy Custom APIs" },
+                { command: `${prefix}invokeCustomApi`, label: "Run Custom API…" },
               ]),
           { command: `${prefix}buildDeployWorkflow`, label: "Build & deploy workflow" },
           // The profiling how-to lives here now (#139) — per-step Profile toggles + the card's

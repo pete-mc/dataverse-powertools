@@ -17,6 +17,7 @@ import { addClassDecoration, updateFilteringAttributes } from "../plugins/decora
 import { viewPluginTraceLogs } from "../plugins/traceLogs";
 import { newCustomApi, generateCustomApiHandlers, generateCustomApiClients } from "../customapi/customApiCommands";
 import { deployCustomApis } from "../customapi/deployCustomApi";
+import { invokeCustomApi } from "../customapi/invokeCustomApi";
 import { downloadPluginProfiles } from "../plugins/downloadProfiles";
 import { capturePluginRun } from "../plugins/profilerCapture";
 import { generatePluginReplayTest } from "../plugins/replayTest";
@@ -190,6 +191,7 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
       "dataverse-powertools.generateCustomApiHandlers": (context) => generateCustomApiHandlers(context),
       "dataverse-powertools.generateCustomApiClients": (context) => generateCustomApiClients(context),
       "dataverse-powertools.deployCustomApis": (context) => deployCustomApis(context),
+      "dataverse-powertools.invokeCustomApi": (context) => invokeCustomApi(context),
     },
     async onProjectScaffolded(context) {
       if (isPluginV3(context)) {
