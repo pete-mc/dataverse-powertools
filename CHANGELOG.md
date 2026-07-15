@@ -2,6 +2,14 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.16 (pre-release)
+
+Power Pages / Portals (#150) — **Server Logic build**, the enabling feature (issue #2). Server Logic has no module system at runtime, so sharing code across logics is impossible OOTB; this bundles it for you.
+
+- **Build Power Pages Server Logic (bundle)** (palette, any TS editor) runs esbuild to bundle the active TypeScript file — **inlining its shared imports** — into one self-contained ES2023 script, strips the module syntax esbuild emits so the output is a classic script (top-level `get()`/`post()`, no `import`/`export`), lints the result against the [blocked-pattern list](https://learn.microsoft.com/power-pages/configure/author-server-logic#limitations), and writes `<name>.serverlogic.js` — ready for `pac powerpages upload`. Pairs with the 0.14.11 lint. Pure logic (esbuild args + the module-syntax stripper) is unit-tested (7 tests).
+
+> **Pre-release:** requires esbuild in your project and hasn't been round-tripped through a live Power Pages site yet. This is the build core of the larger Portals component (#150) — front-end bundle, shared-library wiring, typed clients, and hot-reload are still to come.
+
 ## 0.14.15 (pre-release)
 
 Testing epic (#143, Move 2) — **verify the workflow-activity registration orchestration** against a mocked Web API, matching 0.14.14 for plugin steps. `registerWorkflowActivities.spec.ts` asserts unchanged (no PATCH) / update (metadata differs) / skip (plugin type not in the assembly). +3 tests (655 total). The whole plugin Build & Deploy registration path — steps *and* workflow activities — is now covered in CI instead of only by the live e2e.
