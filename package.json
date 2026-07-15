@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.14.16",
+  "version": "0.14.17",
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -693,6 +693,11 @@
         "command": "dataverse-powertools.buildServerLogic",
         "title": "Dataverse PowerTools: Build Power Pages Server Logic (bundle)",
         "enablement": "editorLangId == typescript"
+      },
+      {
+        "command": "dataverse-powertools.buildPortalFrontend",
+        "title": "Dataverse PowerTools: Build Power Pages front-end web file (bundle)",
+        "enablement": "editorLangId == typescript || editorLangId == typescriptreact"
       },
       {
         "command": "dataverse-powertools.uploadPortal",

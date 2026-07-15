@@ -2,6 +2,14 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.17 (pre-release)
+
+Power Pages / Portals (#150) — **front-end TypeScript build** (issue #1), the browser-side counterpart to the 0.14.16 Server Logic build.
+
+- **Build Power Pages front-end web file (bundle)** (palette, any TS/TSX editor) runs esbuild to bundle the active front-end TypeScript — npm deps + shared code inlined, tree-shaken, minified, source-mapped — into a single browser **web file** (`<name>.js`) that OOTB `pac powerpages upload` serves. The build OOTB has no story for; upload stays OOTB. Pure esbuild arg building is unit-tested.
+
+> **Pre-release:** requires esbuild in your project; the site upload/serve round-trip isn't verified here. Together with the Server Logic build (0.14.16), the two halves of the Portals "real TypeScript build" (#150) now exist as commands; the full component model (frontend/backend/shared discovery, shared-library wiring across both, typed clients, hot-reload) is the remaining slice.
+
 ## 0.14.16 (pre-release)
 
 Power Pages / Portals (#150) — **Server Logic build**, the enabling feature (issue #2). Server Logic has no module system at runtime, so sharing code across logics is impossible OOTB; this bundles it for you.
