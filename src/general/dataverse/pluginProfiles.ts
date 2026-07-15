@@ -57,9 +57,14 @@ export interface ProfilableStep {
  * assembly. Joins step -> plugintype -> pluginassembly and drops the profiler's own
  * "(Profiled)" clones. Read-only. Undefined on failure. */
 export async function getProfilableSteps(context: DataversePowerToolsContext, assemblyName?: string): Promise<ProfilableStep[] | undefined> {
-  const expand =
-    "$expand=sdkmessageid($select=name),sdkmessagefilterid($select=primaryobjecttypecode),eventhandler_plugintype($select=typename;$expand=pluginassemblyid($select=name))";
-  const resource = `sdkmessageprocessingsteps?$select=name,mode,statecode&${expand}&$filter=statecode eq 0&$top=200`;
+  // #135: expand the DEDICATED `plugintypeid` lookup — NOT the polymorphic `eventhandler`
+  // (which targets plugintype OR serviceendpoint and doesn't populate `typename` for a
+  // normally-registered plugin step, so every row was dropped). The Microsoft docs query a
+  // step's plugin type via `plugintypeid($select=...)` and a webhook's via
+  // `eventhandler_serviceendpoint`. `_plugintypeid_value ne null` keeps plugin steps and
+  // excludes webhook/service-endpoint steps server-side.
+  const expand = "$expand=sdkmessageid($select=name),sdkmessagefilterid($select=primaryobjecttypecode),plugintypeid($select=typename;$expand=pluginassemblyid($select=name))";
+  const resource = `sdkmessageprocessingsteps?$select=name,mode,statecode&${expand}&$filter=statecode eq 0 and _plugintypeid_value ne null&$top=200`;
   const body = await getJson(context, "List profilable plugin steps", resource);
   if (!body) {
     return undefined;
@@ -99,7 +104,7 @@ export function profilableStepsDiagnostics(body: any, assemblyName?: string): Pr
   const rows: any[] = body?.value ?? [];
   const diag: ProfilableStepsDiagnostics = { total: rows.length, kept: 0, droppedNoType: 0, droppedSystem: 0, droppedProfiled: 0, droppedByAssembly: 0 };
   for (const row of rows) {
-    const type = row.eventhandler_plugintype;
+    const type = row.plugintypeid;
     const typeName = (type?.typename as string) ?? "";
     const name = (row.name as string) ?? "";
     const stepAssembly = (type?.pluginassemblyid?.name as string) ?? "";
@@ -120,16 +125,16 @@ export function profilableStepsDiagnostics(body: any, assemblyName?: string): Pr
 
 /**
  * Shape + filter the sdkmessageprocessingsteps response into profilable steps (pure,
- * unit-tested). Drops steps whose plugintype expand didn't resolve a typeName, system
- * (Microsoft.*) steps, and the profiler's own "(Profiled)" clones; optionally scopes to
- * one assembly. NB: an active, registered step whose `eventhandler_plugintype` expand
- * comes back empty is dropped here (typeName ""), the suspected #135 failure mode.
+ * unit-tested). Reads the step's plugin type from the dedicated `plugintypeid` expand
+ * (#135 — the polymorphic `eventhandler_plugintype` didn't populate `typename` for normal
+ * plugin steps). Drops rows without a resolved typeName, system (Microsoft.*) steps, and
+ * the profiler's own "(Profiled)" clones; optionally scopes to one assembly.
  */
 export function parseProfilableSteps(body: any, assemblyName?: string): ProfilableStep[] {
   const rows: any[] = body?.value ?? [];
   return rows
     .map((row) => {
-      const type = row.eventhandler_plugintype;
+      const type = row.plugintypeid;
       return {
         stepId: row.sdkmessageprocessingstepid as string,
         name: (row.name as string) ?? "",
