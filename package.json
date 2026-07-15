@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.14.1",
+  "version": "0.14.2",
   "engines": {
     "vscode": "^1.93.0"
   },
@@ -320,6 +320,11 @@
       {
         "command": "dataverse-powertools.refreshConnection",
         "title": "Dataverse PowerTools: Refresh Dataverse Connection",
+        "enablement": "dataverse-powertools.showLoaded"
+      },
+      {
+        "command": "dataverse-powertools.setTraceLogLevel",
+        "title": "Dataverse PowerTools: Set Plugin Trace Log Level",
         "enablement": "dataverse-powertools.showLoaded"
       },
       {

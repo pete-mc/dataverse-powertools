@@ -6,6 +6,8 @@ import { computePanelState } from "./panelState";
 import { projectTypeRegistry } from "../projectTypes/registry";
 import { onDebugSessionChanged } from "../webresources/debug/debugWebresources";
 import { openScannedRegistration } from "./registrationsScanner";
+import { refreshPanelData } from "./panelDataCache";
+import { stopActiveProfileByIndex } from "../plugins/profilerToggle";
 
 // Commands the webview may ask the host to run. The webview is our own code
 // behind a strict CSP, but treat its messages as untrusted anyway.
@@ -17,6 +19,7 @@ const GENERAL_PANEL_COMMANDS = [
   "dataverse-powertools.refreshConnection",
   "dataverse-powertools.updateConnectionString",
   "dataverse-powertools.switchEnvironment",
+  "dataverse-powertools.setTraceLogLevel",
   "dataverse-powertools.openEnvironment",
   "dataverse-powertools.openAdminCenter",
   "dataverse-powertools.openMakerPortal",
@@ -80,6 +83,17 @@ export class MenuPanelViewProvider implements vscode.WebviewViewProvider {
         if (typeof message.index === "number") {
           await openScannedRegistration(message.index);
         }
+        break;
+      case "stopProfile":
+        // Trash-can on an Active-profiles row (#139): the webview sends only an index into the
+        // host-side active-profiles cache; the handler resolves the profiler step to stop.
+        if (typeof message.index === "number") {
+          await stopActiveProfileByIndex(this.context, message.index);
+        }
+        break;
+      case "refreshProfiles":
+        // Refresh affordance on the Active-profiles block (#139): re-fetch + re-render.
+        await refreshPanelData(this.context);
         break;
       case "execute":
         if (typeof message.command === "string" && allowedCommands.has(message.command)) {

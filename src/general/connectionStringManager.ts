@@ -8,6 +8,7 @@ import { getSolutions } from "./dataverse/getSolutions";
 import { DataverseAuthType, parseAuthType } from "./dataverse/authTypes";
 import { buildAuthConnectionString, getOrganizationUrl, normalizeOrganizationUrl, parseConnectionString } from "./connectionString";
 import { discoverEnvironments, discoverEnvironmentsWithSecret } from "./dataverse/globalDiscovery";
+import { refreshPanelData, clearPanelDataCache } from "../panel/panelDataCache";
 
 export async function updateConnectionString(context: DataversePowerToolsContext) {
   let connectionString = await createServicePrincipalString(context, true);
@@ -98,6 +99,10 @@ export async function switchEnvironment(context: DataversePowerToolsContext): Pr
   // Re-render the panel so the environment + solution reflect the switch
   // immediately — previously stale until a reload (#102).
   context.refreshPanel?.();
+  // The old org's trace-log level + active profiles no longer apply — drop them, then
+  // re-fetch for the new environment (#137/#139).
+  clearPanelDataCache();
+  void refreshPanelData(context);
   window.showInformationMessage(`Switched to ${pick.label}`);
 }
 
@@ -149,6 +154,8 @@ export async function refreshConnection(context: DataversePowerToolsContext): Pr
   const connected = await context.dataverse.initialize(true);
   if (connected) {
     context.setStatusBar(getOrganizationUrl(context.connectionString));
+    // Refresh the cached Dataverse-derived panel data now the connection is live (#137/#139).
+    void refreshPanelData(context);
     window.showInformationMessage("Reconnected to Dataverse.");
   } else {
     window.showErrorMessage("Could not reconnect to Dataverse. See the output for details.");

@@ -161,6 +161,18 @@
     if (card.label) {
       row.appendChild(el("span", "badge env", card.label.toUpperCase()));
     }
+    // Plug-in trace-log tag (#137): coloured pill, click opens the level picker.
+    if (card.traceLog) {
+      var pill = el("button", "tracepill trace-" + card.traceLog.colour, card.traceLog.label);
+      pill.type = "button";
+      pill.setAttribute("aria-label", card.traceLog.label + " — click to change");
+      pill.title = "Plug-in trace logging — click to change";
+      pill.addEventListener("click", function () {
+        closeOverflow();
+        execute(card.traceLog.action);
+      });
+      row.appendChild(pill);
+    }
     row.appendChild(el("span", "grow"));
     row.appendChild(button(card.switchAction, "iconbtn text"));
     const anchor = el("span", "menu-anchor");
@@ -514,6 +526,48 @@
       note = "Download a captured run, or drop a profile file in profiles/ and Replay to debug it as a test.";
     }
     c.appendChild(el("div", "small", note));
+    c.appendChild(activeProfilesBlock(block.activeProfiles || []));
+    return c;
+  }
+
+  // Active profiles (#139): the always-visible list of server-side-profiled steps. Mirrors the
+  // Form Registrations block — a header with a refresh affordance and a row + trash per step.
+  function activeProfilesBlock(rows) {
+    const c = el("div", "registrations");
+    const head = el("div", "head");
+    head.appendChild(el("h3", "inline", "Active profiles"));
+    head.appendChild(el("span", "grow"));
+    const refresh = el("button", "iconbtn text", "⟳");
+    refresh.type = "button";
+    refresh.title = "Refresh active profiles";
+    refresh.setAttribute("aria-label", "Refresh active profiles");
+    refresh.addEventListener("click", function () {
+      closeOverflow();
+      vscode.postMessage({ type: "refreshProfiles" });
+    });
+    head.appendChild(refresh);
+    c.appendChild(head);
+    if (rows.length === 0) {
+      c.appendChild(el("p", "status", "No steps are being profiled."));
+    } else {
+      const list = el("ul", "feed");
+      for (const row of rows) {
+        const li = el("li");
+        li.appendChild(el("span", "grow-text", row.label));
+        li.appendChild(el("span", "t", row.detail));
+        const stop = el("button", "iconbtn", "🗑");
+        stop.type = "button";
+        stop.title = "Stop profiling";
+        stop.setAttribute("aria-label", "Stop profiling " + row.label);
+        stop.addEventListener("click", function () {
+          closeOverflow();
+          vscode.postMessage({ type: "stopProfile", index: row.index });
+        });
+        li.appendChild(stop);
+        list.appendChild(li);
+      }
+      c.appendChild(list);
+    }
     return c;
   }
 
