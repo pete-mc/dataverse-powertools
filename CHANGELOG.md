@@ -2,6 +2,14 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.19 (pre-release)
+
+Power Pages / Portals (#150) — **portal-wide build** (issues #1 + #2 together), on the portal card.
+
+- **Build Power Pages portal (front-end + Server Logic)** walks the portal for TypeScript sources and builds each by convention: files under a `frontend/` folder → browser web-file bundles, files under `backend/` → Server Logic single-script bundles (+ blocked-pattern lint on each). `shared/` code is inlined into both by esbuild — never built on its own; `.d.ts`/spec/test files are skipped. One click builds the whole portal's TypeScript. The classify-and-plan logic is pure + unit-tested (5 tests).
+
+> **Pre-release:** convention-based (`frontend/`, `backend/`, `shared/`); requires esbuild in the project; the site upload/serve round-trip isn't verified here. This composes the 0.14.16–0.14.18 building blocks into the portal-card action; the full component-model discovery + hot-reload are the remaining #150 slices (need a live pac-downloaded site to confirm structure).
+
 ## 0.14.18 (pre-release)
 
 Power Pages / Portals (#150) — **typed Server Logic client** (issue #4), end-to-end typing for portal JS that calls Server Logic.

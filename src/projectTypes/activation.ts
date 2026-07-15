@@ -48,6 +48,7 @@ import { extractSolution } from "../solution/extractSolution";
 import { packSolution } from "../solution/packSolution";
 import { deploySolution } from "../solution/deploySolution";
 import { connectPortal } from "../portals/connectPortal";
+import { buildPortal } from "../portals/buildPortalCommand";
 import { initialisePcf } from "../pcf/initialisePcf";
 import { buildPcf } from "../pcf/buildPcf";
 import { pushPcf } from "../pcf/pushPcf";
@@ -301,6 +302,7 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
       "dataverse-powertools.connectPortal": tracked("Connect portal", (context) => connectPortal(context, "connect")),
       "dataverse-powertools.downloadPortal": tracked("Download portal", (context) => connectPortal(context, "download")),
       "dataverse-powertools.uploadPortal": tracked("Upload portal", (context) => connectPortal(context, "upload")),
+      "dataverse-powertools.buildPortal": (context) => buildPortal(context),
     },
   },
   [ProjectTypes.pcf]: {
