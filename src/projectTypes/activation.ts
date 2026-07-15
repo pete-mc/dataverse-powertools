@@ -55,6 +55,7 @@ import { pushPcf } from "../pcf/pushPcf";
 import { deployPcf } from "../pcf/deployPcf";
 import { refreshPcfTypes } from "../pcf/refreshPcfTypes";
 import { addPcfServiceLayer } from "../pcf/addServiceLayer";
+import { runPcfHarness } from "../pcf/runHarness";
 import { initialiseAzureFunction } from "../azurefunction/initialiseAzureFunction";
 import { buildAzureFunction } from "../azurefunction/buildAzureFunction";
 import { registerWebhookStep } from "../azurefunction/registerWebhookStep";
@@ -315,6 +316,7 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
       "dataverse-powertools.deployPcf": tracked("Add to solution", deployPcf),
       "dataverse-powertools.refreshPcfTypes": (context) => refreshPcfTypes(context),
       "dataverse-powertools.addPcfServiceLayer": (context) => addPcfServiceLayer(context),
+      "dataverse-powertools.runPcfHarness": (context) => runPcfHarness(context),
     },
   },
   [ProjectTypes.azurefunction]: {
