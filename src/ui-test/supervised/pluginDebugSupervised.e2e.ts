@@ -30,8 +30,43 @@ describe("SUPERVISED: plugin lifecycle (UI-only, human-assisted)", function () {
   // own generous per-step timeouts so it still fails cleanly if truly stuck).
   this.timeout(0);
 
-  const projectName = "SupervisedPlugin";
+  const componentFolder = "plugin"; // subfolder the Plugins component lives in
+  const projectName = "SupervisedPlugin"; // pac plugin project name
   let workspace: string;
+
+  /** All .csproj files anywhere under a directory (the v3 layout nests them). */
+  function findCsproj(dir: string): string[] {
+    const out: string[] = [];
+    const walk = (d: string) => {
+      let entries: fs.Dirent[] = [];
+      try {
+        entries = fs.readdirSync(d, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const e of entries) {
+        const full = path.join(d, e.name);
+        if (e.isDirectory() && e.name !== "obj" && e.name !== "bin" && e.name !== "node_modules") {
+          walk(full);
+        } else if (e.isFile() && e.name.toLowerCase().endsWith(".csproj")) {
+          out.push(full);
+        }
+      }
+    };
+    walk(dir);
+    return out;
+  }
+
+  async function pollUntil(cond: () => boolean, timeoutMs: number): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (cond()) {
+        return true;
+      }
+      await sleep(2000);
+    }
+    return false;
+  }
 
   before(async function () {
     workspace = freshWorkspace("supervised-plugin");
@@ -99,8 +134,10 @@ describe("SUPERVISED: plugin lifecycle (UI-only, human-assisted)", function () {
   it("3) adds a Plugins component from the panel", async () => {
     await clickPanelButton("Add Component", { timeoutMs: 30000, contains: true }); // label is "＋ Add Component…"
     await narrate("Wizard: add a Plugins component");
-    await pickByLabel("Plugins");
-    await answerText(projectName);
+    // Add Component has THREE prompts: component type → subfolder → plugin project name.
+    await pickByLabel("Plugins"); // 1) component type
+    await answerText(componentFolder); // 2) subfolder (defaults to "plugin")
+    await answerText(projectName); // 3) plugin project name (defaults to "Plugin")
     // pac plugin init + restore run here (local — no auth). Can take a few minutes.
     await narrate("Waiting for pac plugin init + restore (this is local, no sign-in)");
     // The wizard offers to set up unit testing, then to create a class — answer as a user would.
@@ -110,7 +147,12 @@ describe("SUPERVISED: plugin lifecycle (UI-only, human-assisted)", function () {
     await sleep(4000);
     await dismissOverlays();
 
-    expect(await waitForFileExists(path.join(workspace, projectName, `${projectName}.csproj`), 300000), `${projectName}/${projectName}.csproj`).to.equal(true);
+    // The v3 layout nests the csproj under the component subfolder; assert one exists anywhere
+    // beneath it rather than guessing the exact path.
+    const componentRoot = path.join(workspace, componentFolder);
+    const found = await pollUntil(() => findCsproj(componentRoot).length > 0, 300000);
+    expect(found, `a .csproj scaffolded under ${componentFolder}/`).to.equal(true);
+    console.log(`  Scaffolded: ${findCsproj(componentRoot).join(", ")}`);
   });
 
   it("4) generates early-bound classes from the panel — the OAuth pac path (#128/#129, 0.14.1)", async () => {
