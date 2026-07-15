@@ -2,6 +2,10 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.14 (pre-release)
+
+Testing epic (#143, Move 2) — **verify the plugin-step registration orchestration against a mocked Web API**. Plugin *Build & Deploy* registers SDK message-processing steps over the Web API; that path was only exercised by the live e2e. New `registerPluginSteps.spec.ts` drives it through the `node-fetch` mock + `fakeDataverseContext` harness and asserts the four outcomes — **create** a new step, leave an identical step **unchanged** (no PATCH), **update** a step whose config differs, and **skip** a step whose plugin type isn't in the assembly. +4 tests (652 total). Continues moving the deploy-path coverage down from the fragile e2e into CI.
+
 ## 0.14.13 (pre-release)
 
 Testing epic (#143, Move 2) — **verify the Custom API deploy orchestration against a mocked Dataverse Web API**, in CI, no live org.
