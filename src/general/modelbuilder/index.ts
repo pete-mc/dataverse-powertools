@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import DataversePowerToolsContext from "../../context";
 import { runPac } from "./commandRunner";
-import { ensurePacAuthForCurrentConnection, isPacAuthError, reestablishPacAuthForCurrentConnection } from "../pacAuth";
+import { ensurePacAuthForCurrentConnection, isPacAuthError, pacOutputHasError, reestablishPacAuthForCurrentConnection } from "../pacAuth";
 import {
   applyDefaults,
   ensurePluginModelBuilderSettingsLoaded,
@@ -20,19 +20,30 @@ import { activeComponentRoot } from "../../components/componentDiscovery";
  * { error, stdout, stderr } on failure, so we inspect that payload. Non-auth
  * failures re-throw unchanged for the caller's existing error handling. */
 async function runPacWithAuthRetry(context: DataversePowerToolsContext, args: string[], workspacePath: string): Promise<{ stdout: string; stderr: string }> {
-  try {
-    return await runPac(args, workspacePath);
-  } catch (error: any) {
-    const combined = `${error?.stdout ?? ""}\n${error?.stderr ?? ""}\n${error?.error?.message ?? error?.message ?? ""}`;
-    if (!isPacAuthError(combined)) {
-      throw error;
+  // pac usually exits 0 EVEN WHEN IT FAILS (e.g. "Error: No profiles were found" with code 0),
+  // so runPac won't throw — detect failure from the OUTPUT. Normalise a genuine throw into the
+  // same shape so both are handled the same way.
+  const run = async (): Promise<{ stdout: string; stderr: string }> => {
+    try {
+      return await runPac(args, workspacePath);
+    } catch (error: any) {
+      return { stdout: error?.stdout ?? "", stderr: `Error: ${error?.error?.message ?? error?.message ?? "pac command failed"}\n${error?.stderr ?? ""}` };
     }
+  };
+  let result = await run();
+  let combined = `${result.stdout}\n${result.stderr}`;
+  if (pacOutputHasError(combined) && isPacAuthError(combined)) {
     context.channel.appendLine("[pac] Authentication error — re-establishing the pac profile and retrying once.");
-    if (!(await reestablishPacAuthForCurrentConnection(context, workspacePath))) {
-      throw error;
+    if (await reestablishPacAuthForCurrentConnection(context, workspacePath)) {
+      result = await run();
+      combined = `${result.stdout}\n${result.stderr}`;
     }
-    return runPac(args, workspacePath);
   }
+  // Still failing → THROW so the caller reports the error instead of a false "generation complete".
+  if (pacOutputHasError(combined)) {
+    throw new Error(`pac reported an error: ${(result.stderr || result.stdout).replace(/\s+/g, " ").trim().slice(0, 300)}`);
+  }
+  return result;
 }
 
 async function createSettingsTemplateFile(context: DataversePowerToolsContext, namespace: string, serviceContextName: string, outputDirectory: string): Promise<void> {
