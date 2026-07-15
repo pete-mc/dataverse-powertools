@@ -268,7 +268,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
     // Foundational slice (#141): scaffold + build + push + deploy (hand-to-solution) +
     // refresh-types. Debug/hot-reload, service-layer template and Jest Test Explorer are
     // explicit fast-follows.
-    commandIds: [`${prefix}buildPcf`, `${prefix}pushPcf`, `${prefix}deployPcf`, `${prefix}refreshPcfTypes`],
+    commandIds: [`${prefix}buildPcf`, `${prefix}pushPcf`, `${prefix}deployPcf`, `${prefix}refreshPcfTypes`, `${prefix}addPcfServiceLayer`],
     menu() {
       return {
         // Push (pac pcf push) is the one-click dev inner loop.
@@ -278,7 +278,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
           { command: `${prefix}refreshPcfTypes`, label: "Refresh Types" },
           { command: `${prefix}deployPcf`, label: "Add to Solution" },
         ],
-        overflow: [],
+        overflow: [{ command: `${prefix}addPcfServiceLayer`, label: "Add service-layer structure" }],
       };
     },
   },
