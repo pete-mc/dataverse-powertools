@@ -46,17 +46,18 @@ function envValue(key) {
   return undefined;
 }
 const supervisedEnv = process.env.DVPT_SUPERVISED_ENV || envValue("DVPT_SUPERVISED_ENV") || "";
+const supervisedSolution = process.env.DVPT_SUPERVISED_SOLUTION || envValue("DVPT_SUPERVISED_SOLUTION") || "";
 
 if (reuse) {
   if (!fs.existsSync(msalCache)) {
     console.error("[supervised] reuse mode but no captured sign-in found — run `npm run test:supervised` (fresh) once first.");
     process.exit(2);
   }
-  if (!supervisedEnv) {
-    console.error("[supervised] reuse mode needs DVPT_SUPERVISED_ENV (your environment name/url) in sandbox/.env so it can pick it without you.");
+  if (!supervisedEnv || !supervisedSolution) {
+    console.error("[supervised] reuse mode needs DVPT_SUPERVISED_ENV (env name/url) and DVPT_SUPERVISED_SOLUTION (solution display name) in sandbox/.env so it can drive the wizard without you.");
     process.exit(2);
   }
-  console.log("[supervised] REUSE mode — unattended, reusing the captured OAuth + pac sign-in.");
+  console.log(`[supervised] REUSE mode — unattended. env="${supervisedEnv}" solution="${supervisedSolution}".`);
 } else {
   fs.rmSync(msalCache, { force: true });
   console.log("[supervised] FRESH mode — you'll sign in (OAuth in the browser, then the pac device code) when I prompt you.");
@@ -69,6 +70,7 @@ const env = {
   DVPT_TEST_LOG_FILE: logFile,
   DVPT_SUPERVISED_REUSE: reuse ? "1" : "",
   DVPT_SUPERVISED_ENV: supervisedEnv,
+  DVPT_SUPERVISED_SOLUTION: supervisedSolution,
 };
 
 const extestArgs = ["extest", "setup-and-run", ...globs, "--code_settings", "test/ui-settings.json", "--extensions_dir", "sandbox/ext-dir-clean", "--mocha_config", ".mocharc-supervised.json"];

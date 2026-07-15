@@ -8,7 +8,8 @@ import { narrate, clickPanelButton, openPanelFrame, waitForConnected, isConnecte
 // REUSE mode (npm run test:supervised:reuse) skips the sign-in prompts and reuses the OAuth +
 // pac profile captured on a prior fresh run, so fix iterations run unattended.
 const reuse = process.env.DVPT_SUPERVISED_REUSE === "1";
-const supervisedEnv = process.env.DVPT_SUPERVISED_ENV || "";
+const supervisedEnv = process.env.DVPT_SUPERVISED_ENV || ""; // environment name or org url to pick
+const supervisedSolution = process.env.DVPT_SUPERVISED_SOLUTION || ""; // solution display name to pick
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SUPERVISED plugin lifecycle → profiling/debug/trace.
@@ -73,24 +74,25 @@ describe("SUPERVISED: plugin lifecycle (UI-only, human-assisted)", function () {
     await narrate("Wizard: choose interactive (OAuth) auth");
     await pickByLabel("OAuth");
 
-    // Global Discovery runs now → in FRESH mode this opens the browser (you sign in); in REUSE
-    // mode it's silent from the captured cache. Then the environment quick pick appears.
-    if (reuse) {
-      // Unattended: silent sign-in, then auto-pick the configured environment.
-      await answerFlexible(supervisedEnv, 180000);
-    } else {
-      actionBanner("Sign in with OAuth in the browser that just opened — use the NEW account/profile you want. I'll wait.");
-      if (supervisedEnv) {
-        // After your sign-in, the environment quick pick appears — I pick the configured one.
-        await answerFlexible(supervisedEnv, 10 * 60 * 1000);
-      } else {
-        // No env configured — you also pick your environment in the quick pick.
-        actionBanner("...and pick your environment in the VS Code quick pick. (Set DVPT_SUPERVISED_ENV in sandbox/.env to have me pick it next time.)");
-      }
+    // The connection wizard (createServicePrincipalString) now runs its OAuth path:
+    //   sign in → pick ENVIRONMENT → pick SOLUTION (prefix inferred) → project created.
+    // FRESH mode: the sign-in opens the browser (you). REUSE mode: it's silent from the
+    // captured cache. Either way we auto-answer the environment + solution picks from config,
+    // so your only manual step is the browser sign-in itself.
+    if (!reuse) {
+      actionBanner("Sign in with OAuth in the browser that just opened — use the NEW account/profile you want. I'll drive the rest.");
     }
-    await waitForConnected();
+    await narrate(`Wizard: pick environment "${supervisedEnv}"`);
+    await answerFlexible(supervisedEnv, reuse ? 180000 : 10 * 60 * 1000);
+    await narrate(`Wizard: pick solution "${supervisedSolution}"`);
+    // Next is the SOLUTION quick pick (prefix is then inferred from the chosen solution, so the
+    // wizard finishes). If the solution list didn't load it falls back to a "schema name" input —
+    // answerFlexible handles both, but a fallback here is itself a finding worth flagging.
+    await answerFlexible(supervisedSolution, 120000);
 
-    expect(await waitForFileExists(path.join(workspace, "dataverse-powertools.json"), 60000), "dataverse-powertools.json created").to.equal(true);
+    // Wizard done → settings written → panel refreshes to connected.
+    expect(await waitForFileExists(path.join(workspace, "dataverse-powertools.json"), 120000), "dataverse-powertools.json created (wizard completed)").to.equal(true);
+    await waitForConnected("Waiting for the panel to show the live connection.");
     console.log(`  Connected to: ${await connectionSummary()}`);
   });
 
