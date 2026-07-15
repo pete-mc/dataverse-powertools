@@ -692,7 +692,9 @@
     "test:e2e": "node scripts/runE2E.mjs",
     "test": "npm run test:unit && npm run test:integration",
     "deploy": "vsce publish",
-    "seed-interactive-cache": "node scripts/preAcquireInteractiveCache.mjs"
+    "seed-interactive-cache": "node scripts/preAcquireInteractiveCache.mjs",
+    "pretest:supervised": "npm run compile-tests && npm run compile",
+    "test:supervised": "node scripts/runSupervised.mjs"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",
