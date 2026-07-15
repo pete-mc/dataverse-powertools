@@ -138,19 +138,13 @@ describe("SUPERVISED: plugin lifecycle (UI-only, human-assisted)", function () {
     await pickByLabel("Plugins"); // 1) component type
     await answerText(componentFolder); // 2) subfolder (defaults to "plugin")
     await answerText(projectName); // 3) plugin project name (defaults to "Plugin")
-    // pac plugin init + restore run here (local — no auth). Can take a few minutes.
-    await narrate("Waiting for pac plugin init + restore (this is local, no sign-in)");
-    // The wizard offers to set up unit testing, then to create a class — answer as a user would.
-    await pickByLabel("No", 600000).catch(() => undefined); // "set up unit testing?"
-    await pickByLabel("Yes", 300000).catch(() => undefined); // "create a plugin class?"
-    await answerText("SupervisedAccountPlugin").catch(() => undefined);
-    await sleep(4000);
-    await dismissOverlays();
-
-    // The v3 layout nests the csproj under the component subfolder; assert one exists anywhere
-    // beneath it rather than guessing the exact path.
+    // pac plugin init + restore run here (local — no auth). Gate on the scaffold appearing; add
+    // Component does NOT prompt for unit-testing/create-class (that's the new-project flow), so
+    // don't wait for phantom prompts. The v3 layout nests the csproj under the subfolder.
+    await narrate("Waiting for pac plugin init + restore (local, no sign-in)");
     const componentRoot = path.join(workspace, componentFolder);
     const found = await pollUntil(() => findCsproj(componentRoot).length > 0, 300000);
+    await dismissOverlays(); // clear any non-blocking "component added" notification
     expect(found, `a .csproj scaffolded under ${componentFolder}/`).to.equal(true);
     console.log(`  Scaffolded: ${findCsproj(componentRoot).join(", ")}`);
   });
