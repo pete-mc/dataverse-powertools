@@ -694,7 +694,8 @@
     "deploy": "vsce publish",
     "seed-interactive-cache": "node scripts/preAcquireInteractiveCache.mjs",
     "pretest:supervised": "npm run compile-tests && npm run compile",
-    "test:supervised": "node scripts/runSupervised.mjs"
+    "test:supervised": "node scripts/runSupervised.mjs",
+    "test:supervised:reuse": "node scripts/runSupervised.mjs --reuse"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",

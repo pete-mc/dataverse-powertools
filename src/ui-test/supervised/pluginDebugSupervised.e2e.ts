@@ -2,8 +2,13 @@ import * as path from "path";
 import * as fs from "fs";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
-import { freshWorkspace, answerText, pickByLabel, resetAllCredentials, runCommand, dismissOverlays, sleep } from "../e2e/lib";
+import { freshWorkspace, answerText, answerFlexible, pickByLabel, resetAllCredentials, runCommand, dismissOverlays, sleep } from "../e2e/lib";
 import { narrate, clickPanelButton, openPanelFrame, waitForConnected, isConnected, pauseForHuman, waitForFileExists, connectionSummary, actionBanner } from "./supervisedLib";
+
+// REUSE mode (npm run test:supervised:reuse) skips the sign-in prompts and reuses the OAuth +
+// pac profile captured on a prior fresh run, so fix iterations run unattended.
+const reuse = process.env.DVPT_SUPERVISED_REUSE === "1";
+const supervisedEnv = process.env.DVPT_SUPERVISED_ENV || "";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SUPERVISED plugin lifecycle → profiling/debug/trace.
@@ -36,7 +41,12 @@ describe("SUPERVISED: plugin lifecycle (UI-only, human-assisted)", function () {
     await dismissOverlays();
   });
 
-  it("1) starts from a cleared auth + pac state", async () => {
+  it("1) starts from a cleared auth + pac state (fresh mode only)", async function () {
+    if (reuse) {
+      console.log("  REUSE mode — keeping the captured OAuth + pac sign-in; skipping the clear.");
+      this.skip();
+      return;
+    }
     await narrate("Clear stored credentials and any pac profile (fresh start)");
     // Setup prep (not a process under test): clear the extension's stored secrets +
     // token cache, and the extension-owned pac profile, so the sign-in is genuinely new.
@@ -63,10 +73,21 @@ describe("SUPERVISED: plugin lifecycle (UI-only, human-assisted)", function () {
     await narrate("Wizard: choose interactive (OAuth) auth");
     await pickByLabel("OAuth");
 
-    // The OAuth sign-in happens now (Global Discovery). Hand off to you.
-    actionBanner(
-      "Sign in with OAuth in the browser that just opened — use the NEW account/profile you want. Then pick your environment in the VS Code quick pick. I'll continue once the panel shows connected.",
-    );
+    // Global Discovery runs now → in FRESH mode this opens the browser (you sign in); in REUSE
+    // mode it's silent from the captured cache. Then the environment quick pick appears.
+    if (reuse) {
+      // Unattended: silent sign-in, then auto-pick the configured environment.
+      await answerFlexible(supervisedEnv, 180000);
+    } else {
+      actionBanner("Sign in with OAuth in the browser that just opened — use the NEW account/profile you want. I'll wait.");
+      if (supervisedEnv) {
+        // After your sign-in, the environment quick pick appears — I pick the configured one.
+        await answerFlexible(supervisedEnv, 10 * 60 * 1000);
+      } else {
+        // No env configured — you also pick your environment in the quick pick.
+        actionBanner("...and pick your environment in the VS Code quick pick. (Set DVPT_SUPERVISED_ENV in sandbox/.env to have me pick it next time.)");
+      }
+    }
     await waitForConnected();
 
     expect(await waitForFileExists(path.join(workspace, "dataverse-powertools.json"), 60000), "dataverse-powertools.json created").to.equal(true);

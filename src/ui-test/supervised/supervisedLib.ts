@@ -205,6 +205,12 @@ export async function connectionSummary(): Promise<string> {
 export async function pauseForHuman(message: string, until: () => Promise<boolean>, opts: { timeoutMs?: number; pollMs?: number } = {}): Promise<void> {
   const timeoutMs = opts.timeoutMs ?? 10 * 60 * 1000; // 10 min — generous for a sign-in
   const pollMs = opts.pollMs ?? 4000;
+  // Reuse mode / already-authenticated: if the condition is ALREADY met, don't nag for a
+  // human — just continue. This is what makes an unattended reuse run quiet.
+  if (await until().catch(() => false)) {
+    console.log(`  ✓ "${message}" — already satisfied, continuing.`);
+    return;
+  }
   actionBanner(message);
   await screenshot("awaiting-human");
   const deadline = Date.now() + timeoutMs;
