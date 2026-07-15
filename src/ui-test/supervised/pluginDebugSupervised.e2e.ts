@@ -161,6 +161,19 @@ describe("SUPERVISED: plugin lifecycle (UI-only, human-assisted)", function () {
   });
 
   it("4) generates early-bound classes from the panel — the OAuth pac path (#128/#129, 0.14.1)", async () => {
+    // Seed modelbuilder.json so Generate Earlybound skips the config gauntlet (namespace →
+    // service context → output → 8+ emit/filter/log prompts) and goes STRAIGHT to the pac path
+    // we care about. NB: on an UNCONFIGURED plugin, Generate Earlybound shows a passive
+    // "Configure now?" notification and silently no-ops if it's dismissed — a UX trap worth an
+    // issue; here we sidestep it. Config lands in the component root (workspace/plugin).
+    const componentRoot = path.join(workspace, componentFolder);
+    await narrate("Seed modelbuilder.json (config is setup, not the process under test)");
+    fs.writeFileSync(
+      path.join(componentRoot, "modelbuilder.json"),
+      JSON.stringify({ namespace: "Dataverse.Plugins", serviceContextName: "XrmSvc", outputDirectory: "generated" }, null, 2),
+      "utf8",
+    );
+
     // Multi-component cards open collapsed (#156) — expand so the plugin card's actions show.
     await expandComponentCards();
     // THIS is the step that exercises pac under OAuth: it establishes/reuses the
@@ -171,7 +184,7 @@ describe("SUPERVISED: plugin lifecycle (UI-only, human-assisted)", function () {
 
     // First pac use under OAuth → device-code sign-in. The extension shows the code in a
     // notification + the output channel. Complete it; the test resumes when generated files appear.
-    const generatedDir = path.join(workspace, "generated");
+    const generatedDir = path.join(componentRoot, "generated");
     await pauseForHuman(
       "If prompted, complete the pac DEVICE-CODE sign-in (the code is in the notification / Dataverse PowerTools output). I'll continue when early-bound files appear under generated/.",
       async () => {
