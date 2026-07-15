@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.14.19",
+  "version": "0.14.20",
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -786,6 +786,11 @@
       {
         "command": "dataverse-powertools.startAzureFunctionHost",
         "title": "Dataverse PowerTools: Run Azure Function locally (func start)",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isAzureFunction"
+      },
+      {
+        "command": "dataverse-powertools.sendTestContext",
+        "title": "Dataverse PowerTools: Send test RemoteExecutionContext to local function",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isAzureFunction"
       },
       {
