@@ -107,6 +107,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
       `${prefix}guidePluginProfiling`,
       `${prefix}newCustomApi`,
       `${prefix}generateCustomApiHandlers`,
+      `${prefix}generateCustomApiClients`,
       `${prefix}deployCustomApis`,
     ],
     menu(state) {
@@ -140,6 +141,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
                 { command: `${prefix}addClassDecoration`, label: "Add class decoration" },
                 { command: `${prefix}newCustomApi`, label: "New Custom API definition" },
                 { command: `${prefix}generateCustomApiHandlers`, label: "Generate Custom API handlers" },
+                { command: `${prefix}generateCustomApiClients`, label: "Generate Custom API TS clients" },
                 { command: `${prefix}deployCustomApis`, label: "Deploy Custom APIs" },
               ]),
           { command: `${prefix}buildDeployWorkflow`, label: "Build & deploy workflow" },
