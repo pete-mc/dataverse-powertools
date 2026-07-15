@@ -107,6 +107,36 @@ describe("menuPanel.js (webview DOM, #143)", () => {
     expect(posted).toEqual([{ type: "execute", command: "dvpt.setTraceLogLevel", args: [] }]);
   });
 
+  it("renders the device-code sign-in card and posts copy/open intents (no values in the message)", () => {
+    const { posted } = loadPanel();
+    postModel({
+      cards: [
+        {
+          kind: "signin",
+          id: "signin",
+          title: "Signing in to Power Platform CLI",
+          hint: "Open the sign-in page and enter this code to continue:",
+          url: "https://microsoft.com/devicelogin",
+          code: "ABCD-EFGH",
+        },
+      ],
+      footer,
+    });
+    const signin = document.querySelector(".card.signin") as HTMLElement;
+    expect(signin).toBeTruthy();
+    expect(signin.querySelector(".devicecode")?.textContent).toBe("ABCD-EFGH");
+    expect(signin.textContent).toContain("https://microsoft.com/devicelogin");
+
+    posted.length = 0;
+    (signin.querySelector(".signin-actions button.primary") as HTMLButtonElement).click();
+    expect(posted).toEqual([{ type: "copyDeviceCode" }]);
+
+    posted.length = 0;
+    const buttons = signin.querySelectorAll(".signin-actions button");
+    (buttons[buttons.length - 1] as HTMLButtonElement).click();
+    expect(posted).toEqual([{ type: "openSignInPage" }]);
+  });
+
   it("renders a requirements card and posts openExternal for a missing tool's Download link", () => {
     const { posted } = loadPanel();
     postModel({

@@ -2,6 +2,15 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.27 (pre-release)
+
+Panel UX — **in-panel pac sign-in affordance.** When a pac command (e.g. Generate Earlybound under OAuth on a machine with no pac profile) triggers a device-code sign-in, the Dataverse PowerTools panel now shows it directly instead of relying on a toast that auto-dismisses and an output channel that isn't open by default.
+
+- While a pac operation runs, a **busy banner** ("Signing in to Power Platform CLI…") appears at the top of the panel.
+- Once pac prints the device code, that becomes a **prominent, persistent sign-in card** showing the code in large mono type plus **Copy code** and **Open sign-in page** buttons. It's the first card in the panel — impossible to miss — and clears automatically when the sign-in completes or fails.
+- Security: the buttons only signal intent; the host copies the code / opens the URL from its own trusted state, never from the webview message, so the panel can't be coaxed into copying or opening arbitrary values.
+- The existing toast + output-channel messages stay as a fallback. New pure state module (`pacActivityState`) + `signin` card, unit-tested (pure model) and jsdom-tested (rendered DOM + posted intents). +12 tests (722).
+
 ## 0.14.26 (pre-release)
 
 PCF (#141) — **ControlManifest parser + de-duplicated control-dir lookup.**

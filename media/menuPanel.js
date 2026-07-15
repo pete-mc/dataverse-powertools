@@ -100,6 +100,37 @@
     return c;
   }
 
+  // Pending pac device-code sign-in (#UX): a prominent, persistent card with the code
+  // and a link. The buttons only SIGNAL intent — the host copies/open the code+url from
+  // its own trusted state, so the webview never handles the actual values as commands.
+  function renderSignin(card) {
+    const c = el("section", "card signin");
+    c.appendChild(el("h3", null, card.title));
+    if (card.hint) {
+      c.appendChild(el("p", "status", card.hint));
+    }
+    const code = el("div", "devicecode");
+    code.textContent = card.code;
+    code.setAttribute("aria-label", "Sign-in code " + card.code);
+    c.appendChild(code);
+    c.appendChild(el("div", "small", card.url));
+    const row = el("div", "signin-actions");
+    const copy = el("button", "action primary", "Copy code");
+    copy.type = "button";
+    copy.addEventListener("click", function () {
+      vscode.postMessage({ type: "copyDeviceCode" });
+    });
+    const open = el("button", "action", "Open sign-in page");
+    open.type = "button";
+    open.addEventListener("click", function () {
+      vscode.postMessage({ type: "openSignInPage" });
+    });
+    row.appendChild(copy);
+    row.appendChild(open);
+    c.appendChild(row);
+    return c;
+  }
+
   function renderActions(card) {
     const c = el("section", "card slim");
     card.actions.forEach(function (action) {
@@ -604,6 +635,7 @@
   // renderers — never a prototype member (js/unvalidated-dynamic-method-call).
   const renderers = new Map([
     ["notice", renderNotice],
+    ["signin", renderSignin],
     ["actions", renderActions],
     ["getStarted", renderGetStarted],
     ["requirements", renderRequirements],

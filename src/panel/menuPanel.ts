@@ -8,6 +8,7 @@ import { onDebugSessionChanged } from "../webresources/debug/debugWebresources";
 import { openScannedRegistration } from "./registrationsScanner";
 import { refreshPanelData } from "./panelDataCache";
 import { stopActiveProfileByIndex } from "../plugins/profilerToggle";
+import { getDeviceCodeSignIn } from "./pacActivityState";
 
 // Commands the webview may ask the host to run. The webview is our own code
 // behind a strict CSP, but treat its messages as untrusted anyway.
@@ -110,6 +111,23 @@ export class MenuPanelViewProvider implements vscode.WebviewViewProvider {
           await vscode.env.openExternal(vscode.Uri.parse(message.url));
         }
         break;
+      case "copyDeviceCode": {
+        // The webview only signals intent; the code comes from trusted host state, never the message.
+        const signin = getDeviceCodeSignIn();
+        if (signin) {
+          await vscode.env.clipboard.writeText(signin.code);
+          vscode.window.showInformationMessage(`Copied sign-in code ${signin.code} to the clipboard.`);
+        }
+        break;
+      }
+      case "openSignInPage": {
+        // Same: open the URL from host state, so the webview can't ask us to open an arbitrary page.
+        const signin = getDeviceCodeSignIn();
+        if (signin) {
+          await vscode.env.openExternal(vscode.Uri.parse(signin.url));
+        }
+        break;
+      }
       case "updateLayout":
         // Re-arranged in the webview (#118): persist the sanitised layout on the root settings.
         await this.saveLayout(sanitizeLayout(message.layout));

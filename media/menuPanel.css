@@ -26,6 +26,29 @@ body {
   border-style: dashed;
 }
 
+/* Pending pac device-code sign-in: an accented, impossible-to-miss card. */
+.card.signin {
+  border-color: var(--vscode-focusBorder, #007fd4);
+  border-width: 1px;
+  background-color: var(--vscode-inputValidation-infoBackground, var(--vscode-editorWidget-background, transparent));
+}
+
+.card.signin .devicecode {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 1.6em;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  user-select: all;
+  margin: 6px 0 2px;
+  color: var(--vscode-foreground);
+}
+
+.card.signin .signin-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
 .card.slim button.action {
   margin: 0;
 }
