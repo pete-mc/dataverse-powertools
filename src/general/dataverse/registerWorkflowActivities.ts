@@ -4,36 +4,22 @@ import { addDataverseSolutionComponent } from "./addDataverseSolutionComponent";
 import { DataverseContext, Options } from "./dataverseContext";
 import { dataverseApiUrl, logDataverseHttpError } from "./webApi";
 import { escapeODataString } from "./odata";
+import {
+  WorkflowActivityRegistration,
+  ExistingWorkflowSnapshot,
+  ResolvedWorkflowPluginType,
+  normalizeForCompare,
+  toResolvedWorkflowPluginType,
+  getWorkflowPatchPayload,
+} from "./stepPayloads";
 
-export interface WorkflowActivityRegistration {
-  className: string;
-  fullTypeName: string;
-  workflowName: string;
-  workflowDescription?: string;
-  workflowGroup?: string;
-}
+export type { WorkflowActivityRegistration } from "./stepPayloads";
 
 export interface RegisterWorkflowActivitiesResult {
   created: number;
   updated: number;
   unchanged: number;
   skipped: number;
-}
-
-interface ExistingWorkflowSnapshot {
-  name?: string;
-  friendlyname?: string;
-  description?: string;
-  workflowactivitygroupname?: string;
-}
-
-interface ResolvedWorkflowPluginType {
-  plugintypeid: string;
-  snapshot: ExistingWorkflowSnapshot;
-}
-
-function normalizeString(value: string | undefined): string {
-  return (value || "").trim();
 }
 
 async function ensureDataverseContext(context: DataversePowerToolsContext): Promise<boolean> {
@@ -140,27 +126,6 @@ async function resolveWorkflowPluginType(context: DataversePowerToolsContext, as
   };
 }
 
-function normalizeForCompare(value: string | undefined): string {
-  return (value || "").trim().toLowerCase();
-}
-
-function toResolvedWorkflowPluginType(record: any): ResolvedWorkflowPluginType | undefined {
-  const pluginTypeId = record?.plugintypeid as string | undefined;
-  if (!pluginTypeId) {
-    return undefined;
-  }
-
-  return {
-    plugintypeid: pluginTypeId,
-    snapshot: {
-      name: record?.name,
-      friendlyname: record?.friendlyname,
-      description: record?.description,
-      workflowactivitygroupname: record?.workflowactivitygroupname,
-    },
-  };
-}
-
 async function resolveWorkflowPluginTypeFromAssembly(
   context: DataversePowerToolsContext,
   assemblyId: string,
@@ -198,32 +163,6 @@ async function resolveWorkflowPluginTypeFromAssembly(
   }
 
   return undefined;
-}
-
-function getWorkflowPatchPayload(existing: ExistingWorkflowSnapshot, workflow: WorkflowActivityRegistration): any {
-  const payload: any = {};
-
-  const requestedName = normalizeString(workflow.workflowName) || workflow.className;
-  const requestedDescription = normalizeString(workflow.workflowDescription);
-  const requestedGroup = normalizeString(workflow.workflowGroup);
-
-  if (normalizeString(existing.name) !== requestedName) {
-    payload.name = requestedName;
-  }
-
-  if (normalizeString(existing.friendlyname) !== requestedName) {
-    payload.friendlyname = requestedName;
-  }
-
-  if (normalizeString(existing.description) !== requestedDescription) {
-    payload.description = requestedDescription;
-  }
-
-  if (normalizeString(existing.workflowactivitygroupname) !== requestedGroup) {
-    payload.workflowactivitygroupname = requestedGroup;
-  }
-
-  return payload;
 }
 
 export async function registerWorkflowActivities(

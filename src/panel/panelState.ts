@@ -11,13 +11,7 @@ import { getScannedRegistrations } from "./registrationsScanner";
 import { getTraceLogCache, getActiveProfilesCache } from "./panelDataCache";
 import { isDebugSessionActive } from "../webresources/debug/debugWebresources";
 import { ComponentSettings } from "../components/discovery";
-
-function clock(timestamp: number | undefined): string {
-  if (timestamp === undefined) {
-    return "";
-  }
-  return new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
+import { clock, buildProjectCard } from "./panelCards";
 
 function activityItems(): ActivityItem[] {
   return getRecentOperations().map((op) => ({
@@ -38,24 +32,15 @@ function countDownloadedProfiles(root: string): number {
   }
 }
 
+/** Gather the fs/OS facts for a card, then delegate the field mapping to the
+ * pure builder in panelCards.ts. */
 function projectCard(settings: ComponentSettings, root: string, relativeRoot: string, isRoot: boolean): ProjectCardState {
   const isPlugin = settings.type === "plugin";
-  return {
-    type: settings.type ?? "",
-    name: (settings.solutionName as string) || (settings.pluginProjectName as string) || relativeRoot || "",
-    relativeRoot,
-    root,
-    isRoot,
-    detail: settings.pluginProjectName ? `${settings.pluginProjectName}.csproj` : undefined,
-    templateVersion: settings.templateversion,
-    hasPluginUnitTesting: !!settings.pluginUnitTestingEnabled,
+  return buildProjectCard(settings, root, relativeRoot, isRoot, {
     hasSpkl: fs.existsSync(path.join(root, "spkl.json")),
-    webresourceOutput: settings.webresourceOutput as "bundle" | "perFile" | undefined,
-    // #145: the card's primary action follows the trigger (webhook leads with Register, others with Build).
-    azureFunctionTrigger: settings.azureFunctionTrigger as string | undefined,
     downloadedProfiles: isPlugin ? countDownloadedProfiles(root) : undefined,
     captureSupported: isPlugin ? process.platform === "win32" : undefined,
-  };
+  });
 }
 
 /** Snapshot the extension state the actions panel renders. Read-only and cheap:

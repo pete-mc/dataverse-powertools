@@ -5,8 +5,15 @@ import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
 import { findPrimaryPluginCsproj } from "./projectPaths";
 import { activeComponentRoot } from "../components/componentDiscovery";
-
-type UnitTestFramework = "mstest" | "xunit" | "nunit";
+import {
+  UnitTestFramework,
+  normalizePathForSettings,
+  getTemplateForFramework,
+  sanitizeClassName,
+  getTestBoilerplate,
+  resolveCompatibleTestTargetFramework,
+  tryParseCSharpLanguageVersion,
+} from "./unitTestingLogic";
 
 const dataverseUnitTestPackage = "DataverseUnitTest";
 
@@ -54,10 +61,6 @@ async function runDotnet(context: DataversePowerToolsContext, args: string[], cw
   }
 }
 
-function normalizePathForSettings(relativePath: string): string {
-  return relativePath.replace(/\\/g, "/");
-}
-
 export async function resolveTestProjectPath(context: DataversePowerToolsContext, workspacePath: string): Promise<string | undefined> {
   const configuredPath = context.projectSettings.pluginUnitTestingProject;
   if (configuredPath) {
@@ -98,104 +101,6 @@ async function promptFramework(context: DataversePowerToolsContext): Promise<Uni
   return picked?.target;
 }
 
-function getTemplateForFramework(framework: UnitTestFramework): string {
-  if (framework === "mstest") {
-    return "mstest";
-  }
-  if (framework === "nunit") {
-    return "nunit";
-  }
-  return "xunit";
-}
-
-function sanitizeClassName(input: string): string {
-  const trimmed = input.trim();
-  if (!trimmed) {
-    return "";
-  }
-
-  const cleaned = trimmed.replace(/[^a-zA-Z0-9_]/g, "");
-  if (!cleaned) {
-    return "";
-  }
-
-  if (/^[0-9]/.test(cleaned)) {
-    return `Test${cleaned}`;
-  }
-
-  return cleaned;
-}
-
-function getTestBoilerplate(framework: UnitTestFramework, namespaceName: string, className: string): string {
-  if (framework === "mstest") {
-    return `using Microsoft.VisualStudio.TestTools.UnitTesting;
-
-namespace ${namespaceName};
-
-[TestClass]
-public class ${className}
-{
-    [TestMethod]
-  public void TODO_Add_DataverseUnitTest_For_Plugin_Execution()
-    {
-    // TODO: Replace placeholders with your plugin class and DataverseUnitTest setup.
-    // TODO: Arrange a DataverseUnitTest context/service provider with target/pre-image data.
-    // TODO: Execute the plugin under test and assert expected output/state changes.
-    var messageName = "Update";
-    var tableLogicalName = "account";
-
-    Assert.IsFalse(string.IsNullOrWhiteSpace(messageName));
-    Assert.IsFalse(string.IsNullOrWhiteSpace(tableLogicalName));
-    }
-}
-`;
-  }
-
-  if (framework === "nunit") {
-    return `using NUnit.Framework;
-
-namespace ${namespaceName};
-
-public class ${className}
-{
-    [Test]
-  public void TODO_Add_DataverseUnitTest_For_Plugin_Execution()
-    {
-    // TODO: Replace placeholders with your plugin class and DataverseUnitTest setup.
-    // TODO: Arrange a DataverseUnitTest context/service provider with target/pre-image data.
-    // TODO: Execute the plugin under test and assert expected output/state changes.
-    var messageName = "Update";
-    var tableLogicalName = "account";
-
-    Assert.That(string.IsNullOrWhiteSpace(messageName), Is.False);
-    Assert.That(string.IsNullOrWhiteSpace(tableLogicalName), Is.False);
-    }
-}
-`;
-  }
-
-  return `using Xunit;
-
-namespace ${namespaceName};
-
-public class ${className}
-{
-    [Fact]
-  public void TODO_Add_DataverseUnitTest_For_Plugin_Execution()
-    {
-    // TODO: Replace placeholders with your plugin class and DataverseUnitTest setup.
-    // TODO: Arrange a DataverseUnitTest context/service provider with target/pre-image data.
-    // TODO: Execute the plugin under test and assert expected output/state changes.
-    var messageName = "Update";
-    var tableLogicalName = "account";
-
-    Assert.False(string.IsNullOrWhiteSpace(messageName));
-    Assert.False(string.IsNullOrWhiteSpace(tableLogicalName));
-    }
-}
-`;
-}
-
 async function addOrUpdateBoilerplate(
   context: DataversePowerToolsContext,
   framework: UnitTestFramework,
@@ -212,56 +117,6 @@ async function addOrUpdateBoilerplate(
   const content = getTestBoilerplate(framework, namespaceName, className);
   await vscode.workspace.fs.writeFile(vscode.Uri.file(testFilePath), Buffer.from(content, "utf8"));
   context.channel.appendLine(`Created unit test boilerplate: ${className}.cs`);
-}
-
-function tryParseDotNetFrameworkVersion(targetFramework: string): number | undefined {
-  const match = targetFramework
-    .trim()
-    .toLowerCase()
-    .match(/^net(\d{2,3})$/);
-  if (!match) {
-    return undefined;
-  }
-
-  const numeric = match[1];
-  if (numeric.length === 2) {
-    return Number.parseInt(numeric, 10) * 10;
-  }
-
-  return Number.parseInt(numeric, 10);
-}
-
-function isRunnableModernDotNetTargetFramework(targetFramework: string): boolean {
-  return /^net\d+\.\d+$/.test(targetFramework.trim().toLowerCase());
-}
-
-function resolveCompatibleTestTargetFramework(pluginTargetFramework: string): string {
-  const normalizedTargetFramework = pluginTargetFramework.trim().toLowerCase();
-  const parsedFrameworkVersion = tryParseDotNetFrameworkVersion(normalizedTargetFramework);
-  if (parsedFrameworkVersion !== undefined) {
-    return parsedFrameworkVersion < 472 ? "net472" : normalizedTargetFramework;
-  }
-
-  if (isRunnableModernDotNetTargetFramework(normalizedTargetFramework)) {
-    return normalizedTargetFramework;
-  }
-
-  if (normalizedTargetFramework.startsWith("netstandard")) {
-    return "net8.0";
-  }
-  return pluginTargetFramework;
-}
-
-function tryParseCSharpLanguageVersion(value: string): number | undefined {
-  const normalized = value.trim().toLowerCase();
-  const numericMatch = normalized.match(/^(\d+)(\.\d+)?$/);
-  if (!numericMatch) {
-    return undefined;
-  }
-
-  const major = Number.parseInt(numericMatch[1], 10);
-  const minor = numericMatch[2] ? Number.parseInt(numericMatch[2].replace(".", ""), 10) : 0;
-  return major * 10 + minor;
 }
 
 async function ensureTestProjectLanguageCompatibility(context: DataversePowerToolsContext, testCsprojPath: string): Promise<void> {
