@@ -2,6 +2,10 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.25 (pre-release)
+
+Testing (#143) — **the webview panel's browser JS is now under test.** `media/menuPanel.js` (the script that turns the host-side card model into DOM and posts clicks back) previously had zero coverage anywhere — only the host-side view-model was tested. A new jsdom suite loads the *shipping script unchanged* and asserts the rendered DOM + the messages it posts: `ready` on load, one card section per model card, action-button → `execute`, the #137 trace-log pill → its execute action, requirements Download → `openExternal`, the new-group drop zone appearing at two arrangeable cards, stale-DOM clearing, and non-model messages ignored. No change to the browser code, so no regression risk to the live panel. +8 tests (702).
+
 ## 0.14.24 (pre-release)
 
 PCF (#141) — **Run PCF test harness (hot reload)**, the standalone-harness half of the debug/hot-reload story (#5).
