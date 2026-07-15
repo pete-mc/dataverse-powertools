@@ -2,6 +2,15 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.22 (pre-release)
+
+PCF (#141) — the **service-layer template** (option 3, the opinionated structure), as a scaffold you can add to any control.
+
+- **Add PCF service-layer structure** (PCF card / palette) writes the batteries-included separation into your control: a pure-TS `Service` (Dataverse/`WebApi`, unit-testable), a `use…` hook (state binding), a presentational Fluent `List`, and a `Container` that wires them — plus an **`index.ts.example`** showing exactly how to delegate `updateView` to the container (matching the documented `ComponentFramework.ReactControl` contract). Prompts for an example entity name; skips any file that already exists.
+- **Additive by design:** it writes `index.ts.example` (not `index.ts`), so it never overwrites your generated entry point and can't break the build — you copy the `updateView` + imports across. This is the template counterpart to the 0.14.5 snippets. File contents are pure + unit-tested (6 tests).
+
+> **Pre-release:** the generated files follow the documented React-control contract and the proven snippet patterns, but the control hasn't been `pac pcf init` + built end-to-end in this environment — build it once to confirm before relying.
+
 ## 0.14.21 (pre-release)
 
 Power Pages / Portals (#150) — **typed portal Web API client** (issue #4, second half). Completes the end-to-end typing story: portal JS hitting Dataverse tables gets IntelliSense instead of untyped string-bashing.

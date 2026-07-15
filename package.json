@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.14.21",
+  "version": "0.14.22",
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -765,6 +765,11 @@
       {
         "command": "dataverse-powertools.refreshPcfTypes",
         "title": "Dataverse PowerTools: Refresh PCF Types",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPcf"
+      },
+      {
+        "command": "dataverse-powertools.addPcfServiceLayer",
+        "title": "Dataverse PowerTools: Add PCF service-layer structure",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPcf"
       },
       {
