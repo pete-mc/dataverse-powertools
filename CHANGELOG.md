@@ -2,6 +2,17 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.8 (pre-release)
+
+New: **Language Model Tools** — drive the extension from Copilot agent mode (#140). In-editor only; no MCP server, no port, no token, no files written.
+
+- **Five `#`-referenceable tools** appear in Copilot's tool picker the moment the extension activates:
+  - **Read (always on):** `dvpt_connectionStatus` (org + auth type + connected — never secrets), `dvpt_listComponents` (discovered plugins / web resources / PCF / functions), `dvpt_systemRequirements` (dotnet / node / pac).
+  - **Mutating (gated + confirmed):** `dvpt_deploy` (build & deploy) and `dvpt_generateEarlybound`. These are **off by default** — set `dataverse-powertools.copilot.accessMode` to `readwrite` to enable them — and each shows a native "run against `<org>`?" confirmation before it executes.
+- Tools are thin wrappers over the same command paths the UI uses (so a future MCP surface can reuse the handler logic), registered once globally (never per-component), and every mutating tool gates on the live connection under both auth types.
+
+> **Requires VS Code 1.95+** (the Language Model Tools API) — the extension's minimum engine moves from 1.93 to 1.95. Pure logic (tool list, access-mode gate, secret-free formatters) is unit-tested; registration is covered by an integration test.
+
 ## 0.14.7 (pre-release)
 
 Custom API (#142) — **metadata deploy** (issue #3), the second half of the v1 core. A definition now round-trips: edit → generate handler → **deploy the message to Dataverse**.
