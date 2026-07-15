@@ -165,6 +165,29 @@ export async function clickPanelButton(label: string, opts: { timeoutMs?: number
   throw new Error(`clickPanelButton timed out for "${label}" after ${timeoutMs}ms (${lastError})`);
 }
 
+/** Expand a collapsed component card so its action buttons are in the DOM. Multi-component
+ * cards open minimised (#156), which hides "Generate Earlybound"/"Local Build"/etc. The caret
+ * button carries aria-label "Expand <name>" when collapsed, "Collapse <name>" when open. */
+export async function expandComponentCards(): Promise<void> {
+  await narrate("Expand component card(s) so their action buttons are visible");
+  await withPanel(async (panel) => {
+    const carets = await panel.findWebElements(By.css("button.caret"));
+    for (const caret of carets) {
+      try {
+        const label = (await caret.getAttribute("aria-label")) ?? "";
+        if (label.startsWith("Expand")) {
+          await highlight(caret);
+          await caret.click();
+          await sleep(600);
+        }
+      } catch {
+        /* stale / already expanded */
+      }
+    }
+  });
+  await sleep(800);
+}
+
 /** True when the panel shows a live Dataverse connection (the green dot). */
 export async function isConnected(): Promise<boolean> {
   try {

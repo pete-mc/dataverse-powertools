@@ -3,7 +3,7 @@ import * as fs from "fs";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
 import { freshWorkspace, answerText, answerFlexible, pickByLabel, resetAllCredentials, runCommand, dismissOverlays, sleep } from "../e2e/lib";
-import { narrate, clickPanelButton, openPanelFrame, waitForConnected, isConnected, pauseForHuman, waitForFileExists, connectionSummary, actionBanner } from "./supervisedLib";
+import { narrate, clickPanelButton, openPanelFrame, waitForConnected, isConnected, pauseForHuman, waitForFileExists, connectionSummary, actionBanner, expandComponentCards } from "./supervisedLib";
 
 // REUSE mode (npm run test:supervised:reuse) skips the sign-in prompts and reuses the OAuth +
 // pac profile captured on a prior fresh run, so fix iterations run unattended.
@@ -150,6 +150,8 @@ describe("SUPERVISED: plugin lifecycle (UI-only, human-assisted)", function () {
   });
 
   it("4) generates early-bound classes from the panel — the OAuth pac path (#128/#129, 0.14.1)", async () => {
+    // Multi-component cards open collapsed (#156) — expand so the plugin card's actions show.
+    await expandComponentCards();
     // THIS is the step that exercises pac under OAuth: it establishes/reuses the
     // extension-owned `dataverse-powertools` pac profile via device code, then runs
     // `pac modelbuilder`. If it can't find/create the profile, this is where the old
