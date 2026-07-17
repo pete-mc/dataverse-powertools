@@ -2,6 +2,10 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.35 (pre-release)
+
+Docs (#136/#138) — **plug-in debugging demo GIF + screenshots.** A slideshow GIF (the Debugging block → the generated **Replay & debug** unit test → a rendered **trace log**) now leads the README's new "Debug plug-ins in VS Code" section and the wiki's Debugging Plugins page, with the individual function screenshots placed at their sections. Captured from the real UI against the demo (contoso) connection via the screenshots generator (new capture cases + a pure-JS GIF assembler, `scripts/assembleGif.mjs`). No change to the shipped extension code.
+
 ## 0.14.34 (pre-release)
 
 PCF (#141) — **fix: run the build/watch at the PCF project root, not the manifest folder** (found by live verification). `pac pcf init` puts `ControlManifest.Input.xml` in a `<Constructor>/` subfolder while `package.json` / `.pcfproj` / `out/` sit at the project root, so both the new live-form debug (0.14.33) *and* the standalone harness (0.14.24) were pointing at the wrong directory — the harness's `npm start watch` would fail ("no package.json") and the live-form debug looked for `bundle.js` under the manifest dir. New `findPcfProjectRoot` helper resolves the real root; the build/watch and the local `out/controls/<Constructor>/bundle.js` now use it. **Verified end-to-end on a live org:** a deployed control's real bundle URL (`cc_<Namespace>.<Constructor>/bundle.js`) is matched and the local build is served into the browser. +3 tests (750).
