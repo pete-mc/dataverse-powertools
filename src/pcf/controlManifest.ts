@@ -112,6 +112,35 @@ export function findControlDir(root: string): string | undefined {
   return undefined;
 }
 
+/**
+ * Find the PCF PROJECT ROOT under `root` — the directory holding the `.pcfproj` (and the
+ * `package.json` with the pcf-scripts build + the `out/` build output). This is DISTINCT from
+ * the control (manifest) directory: `pac pcf init` puts `ControlManifest.Input.xml` in a
+ * `<Constructor>/` subfolder while `package.json`/`.pcfproj`/`out/` sit at the project root. So
+ * the build/watch must run here, and the bundle lands at `<root>/out/controls/<Constructor>/…`.
+ * Returns undefined if no `.pcfproj` is found.
+ */
+export function findPcfProjectRoot(root: string): string | undefined {
+  let entries: fs.Dirent[] = [];
+  try {
+    entries = fs.readdirSync(root, { withFileTypes: true });
+  } catch {
+    return undefined;
+  }
+  if (entries.some((e) => e.isFile() && e.name.toLowerCase().endsWith(".pcfproj"))) {
+    return root;
+  }
+  for (const e of entries) {
+    if (e.isDirectory() && !IGNORED_DIRS.has(e.name) && !e.name.startsWith(".")) {
+      const found = findPcfProjectRoot(path.join(root, e.name));
+      if (found) {
+        return found;
+      }
+    }
+  }
+  return undefined;
+}
+
 /** Read + parse the manifest under a control directory, if present (impure convenience). */
 export function readControlManifest(controlDir: string): ControlManifest | undefined {
   try {

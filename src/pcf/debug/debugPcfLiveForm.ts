@@ -9,7 +9,7 @@ import { resolveBrowser, BrowserPreference } from "../../webresources/debug/brow
 import { buildBrowserArgs } from "../../webresources/debug/browserArgs";
 import { findFreePort, killProcessTree, connectCdpWithRetry } from "../../webresources/debug/cdpProcess";
 import { activeComponentRoot } from "../../components/componentDiscovery";
-import { findControlDir, readControlManifest } from "../controlManifest";
+import { findControlDir, findPcfProjectRoot, readControlManifest } from "../controlManifest";
 import { isPcfBundleUrl, pcfBundleCdpPattern, pcfBundleContentType, pcfLocalBundlePath } from "./pcfBundleUrl";
 
 // "Debug PCF (live form)": run a locally-built PCF control INSIDE the real model-driven app —
@@ -72,6 +72,9 @@ export async function debugPcfLiveForm(context: DataversePowerToolsContext): Pro
     vscode.window.showErrorMessage("Couldn't read the control's ControlManifest.Input.xml (namespace/constructor).");
     return;
   }
+  // The build/watch runs at the PCF PROJECT root (package.json + .pcfproj + out/), which is
+  // a level ABOVE the manifest dir — `pac pcf init` nests the manifest in a <Constructor>/ folder.
+  const projectRoot = findPcfProjectRoot(componentRoot) ?? componentRoot;
 
   // Need a live connection to know the org URL to open (the control must be deployed there).
   if (!context.dataverse || !context.dataverse.isValid) {
@@ -87,7 +90,7 @@ export async function debugPcfLiveForm(context: DataversePowerToolsContext): Pro
     return;
   }
 
-  const bundlePath = pcfLocalBundlePath(controlDir, manifest.constructor);
+  const bundlePath = pcfLocalBundlePath(projectRoot, manifest.constructor);
   const bundleDir = path.dirname(bundlePath);
 
   const settings = vscode.workspace.getConfiguration("dataverse-powertools");
@@ -133,7 +136,8 @@ export async function debugPcfLiveForm(context: DataversePowerToolsContext): Pro
 
   await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: "Starting PCF live-form debug session…" }, async () => {
     // 1. pcf-scripts build --watch → out/controls/<Constructor>/bundle.js on every save.
-    watchProc = cp.spawn(PCF_WATCH_LAUNCHER, PCF_WATCH_ARGS, { cwd: controlDir, shell: process.platform === "win32" });
+    //    Runs at the project root (where package.json / pcf-scripts live), NOT the manifest dir.
+    watchProc = cp.spawn(PCF_WATCH_LAUNCHER, PCF_WATCH_ARGS, { cwd: projectRoot, shell: process.platform === "win32" });
     watchProc.stdout?.on("data", (d) => context.channel.appendLine(`[pcf build] ${String(d).trimEnd()}`));
     watchProc.stderr?.on("data", (d) => context.channel.appendLine(`[pcf build] ${String(d).trimEnd()}`));
 

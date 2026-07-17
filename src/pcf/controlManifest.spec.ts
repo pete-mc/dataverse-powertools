@@ -1,5 +1,8 @@
-import { describe, it, expect } from "vitest";
-import { parseControlManifest } from "./controlManifest";
+import { describe, it, expect, afterEach } from "vitest";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+import { parseControlManifest, findPcfProjectRoot, findControlDir } from "./controlManifest";
 
 const fieldManifest = `<?xml version="1.0" encoding="utf-8" ?>
 <manifest>
@@ -71,5 +74,50 @@ describe("parseControlManifest", () => {
     expect(m?.constructor).toBe("C");
     expect(m?.version).toBeUndefined();
     expect(m?.displayNameKey).toBeUndefined();
+  });
+});
+
+// findPcfProjectRoot / findControlDir against the real `pac pcf init` layout: the manifest lives in
+// a <Constructor>/ subfolder while package.json/.pcfproj/out/ sit at the project root (the split that
+// caused a real bundle-path bug — verified live). Uses a throwaway tmp tree.
+describe("findPcfProjectRoot vs findControlDir (#141 project-root split)", () => {
+  const roots: string[] = [];
+  afterEach(() => {
+    for (const r of roots.splice(0)) {
+      try {
+        fs.rmSync(r, { recursive: true, force: true });
+      } catch {
+        /* best-effort */
+      }
+    }
+  });
+
+  function scaffold(): string {
+    const base = fs.mkdtempSync(path.join(os.tmpdir(), "dvpt-pcf-"));
+    roots.push(base);
+    fs.writeFileSync(path.join(base, "package.json"), "{}");
+    fs.writeFileSync(path.join(base, "MyControl.pcfproj"), "<Project/>");
+    const controlDir = path.join(base, "HotReloadProbe");
+    fs.mkdirSync(controlDir);
+    fs.writeFileSync(path.join(controlDir, "ControlManifest.Input.xml"), "<manifest><control namespace='N' constructor='C'/></manifest>");
+    return base;
+  }
+
+  it("finds the .pcfproj project root (not the nested manifest dir)", () => {
+    const base = scaffold();
+    expect(findPcfProjectRoot(base)).toBe(base);
+  });
+
+  it("findControlDir returns the nested manifest dir, which is NOT the project root", () => {
+    const base = scaffold();
+    const controlDir = findControlDir(base);
+    expect(controlDir).toBe(path.join(base, "HotReloadProbe"));
+    expect(controlDir).not.toBe(findPcfProjectRoot(base)); // the split the fix depends on
+  });
+
+  it("returns undefined when there is no .pcfproj", () => {
+    const base = fs.mkdtempSync(path.join(os.tmpdir(), "dvpt-nopcf-"));
+    roots.push(base);
+    expect(findPcfProjectRoot(base)).toBeUndefined();
   });
 });

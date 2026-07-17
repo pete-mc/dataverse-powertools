@@ -7,7 +7,7 @@
 import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
 import { activeComponentRoot } from "../components/componentDiscovery";
-import { findControlDir } from "./controlManifest";
+import { findPcfProjectRoot } from "./controlManifest";
 
 /** The pcf-scripts test-harness watch command (built-in hot reload). */
 export function pcfHarnessCommand(): string {
@@ -20,9 +20,12 @@ export function runPcfHarness(context: DataversePowerToolsContext): void {
     vscode.window.showErrorMessage("Open or select a PCF component first.");
     return;
   }
-  const controlDir = findControlDir(root) ?? root;
+  // `npm start watch` needs the project's package.json (pcf-scripts), which lives at the PCF
+  // project root — a level above the manifest dir (pac pcf init nests the manifest in a
+  // <Constructor>/ subfolder). Running in the manifest dir would fail "no package.json".
+  const projectRoot = findPcfProjectRoot(root) ?? root;
   context.channel.appendLine("Starting the PCF test harness with hot reload (npm start watch) — see the terminal. Stop it with Ctrl+C.");
-  const terminal = vscode.window.createTerminal({ name: "PCF harness (watch)", cwd: controlDir });
+  const terminal = vscode.window.createTerminal({ name: "PCF harness (watch)", cwd: projectRoot });
   terminal.show(true);
   terminal.sendText(pcfHarnessCommand());
 }
