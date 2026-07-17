@@ -336,12 +336,43 @@ describe("Blank root + two components of each type (e2e)", function () {
     await waitForAddComplete(9); // root + two of every type
   });
 
+  it("adds a PCF component into a subfolder (pac pcf init + template/framework quick-pick)", async () => {
+    await startAddComponent("PCF Control");
+    await answerText("pcf"); // subfolder
+    // The 0.14.29 scaffold quick-picks: control template, then rendering framework.
+    await pickByLabel("Field");
+    await pickByLabel("Standard (no framework)");
+    expect(await waitForFile(path.join(workspace, "pcf", "dataverse-powertools.json"), 300000), "pcf settings").to.equal(true);
+    // pac pcf init writes the .pcfproj at the component root (the manifest goes in a
+    // <Constructor>/ subfolder) — the .pcfproj uniquely proves the scaffold ran.
+    expect(await waitForMatch(path.join(workspace, "pcf"), (file) => file.endsWith(".pcfproj"), 300000), "a .pcfproj scaffolded by pac pcf init").to.equal(true);
+    const settings = readSettings("pcf");
+    expect(settings.type).to.equal("pcf");
+    expect(settings.connectionString).to.equal(undefined);
+    await waitForAddComplete(10); // root + 2 webresources + 2 plugins + 2 solutions + 2 portals + pcf
+  });
+
+  it("adds a SECOND PCF component into a distinct subfolder", async () => {
+    await startAddComponent("PCF Control");
+    await answerText("pcf2"); // second PCF component alongside the first
+    await pickByLabel("Field");
+    await pickByLabel("Standard (no framework)");
+    expect(await waitForFile(path.join(workspace, "pcf2", "dataverse-powertools.json"), 300000), "pcf2 settings").to.equal(true);
+    expect(await waitForMatch(path.join(workspace, "pcf2"), (file) => file.endsWith(".pcfproj"), 300000), "pcf2 .pcfproj scaffolded").to.equal(true);
+    const settings = readSettings("pcf2");
+    expect(settings.type).to.equal("pcf");
+    expect(settings.connectionString).to.equal(undefined);
+    await waitForAddComplete(11); // root + two of every type
+    // Two same-type PCF components must not collide (register-once commands, scoped ids) — #47/#141.
+    await assertCommandDidNotError("second PCF add");
+  });
+
   it("root stays a typeless connection-only file after all additions", async () => {
     const settings = readSettings(".");
     expect(settings.type).to.equal(undefined);
     expect(settings.connectionString).to.be.a("string").and.not.equal("");
-    // Eight components discovered off the root: two of every type, each type-scoped, none owning a connection.
-    for (const rel of ["webresources", "webresources2", "plugin", "plugin2", "solution", "solution2", "portal", "portal2"]) {
+    // Ten components discovered off the root: two of every type, each type-scoped, none owning a connection.
+    for (const rel of ["webresources", "webresources2", "plugin", "plugin2", "solution", "solution2", "portal", "portal2", "pcf", "pcf2"]) {
       expect(readSettings(rel).connectionString, `${rel} inherits (owns no connection)`).to.equal(undefined);
     }
   });
