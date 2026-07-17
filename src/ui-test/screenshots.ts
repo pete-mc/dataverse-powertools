@@ -97,6 +97,14 @@ async function openProject(kind: string): Promise<void> {
   await sleep(2500);
 }
 
+/** Open a file (relative to the fixtures root) in the editor and settle. */
+async function openFileInEditor(relPath: string): Promise<void> {
+  await VSBrowser.instance.openResources(path.join(fixtures, relPath));
+  await sleep(2500);
+  await dismissOverlays();
+  await sleep(1500);
+}
+
 /** Switch into the actions panel webview (verified via its #root marker). */
 async function openPanelFrame(): Promise<WebviewView> {
   for (let attempt = 0; attempt < 10; attempt++) {
@@ -179,6 +187,37 @@ describe("Dataverse PowerTools screenshots", function () {
   it("captures the plugin project menu", async () => {
     await openProject("plugin");
     await snapSidebar("plugin-menu");
+  });
+
+  it("captures the plugin card Debugging block (cropped)", async () => {
+    await openProject("plugin");
+    await snapSidebar("debug-plugin-panel");
+  });
+
+  it("captures the Profile & Debug CodeLens on a [CrmPluginRegistration] class (#136)", async () => {
+    await openProject("plugin");
+    await openFileInEditor(path.join("plugin", "Contoso.Plugins", "AccountPostCreate.cs"));
+    await snap("debug-codelens");
+  });
+
+  it("captures the generated Replay & debug unit test (#136/#138)", async () => {
+    await openProject("plugin");
+    await openFileInEditor(path.join("plugin", "Contoso.Plugins.Tests", "Replay_AccountPostCreate_20260717_161200.cs"));
+    await snap("debug-replay-test");
+  });
+
+  it("captures a rendered plugin trace-log document (#136/#138)", async () => {
+    await openProject("plugin");
+    await openFileInEditor(path.join("plugin", "sample-trace-log.md"));
+    // Open the Markdown preview to the side — the form the View Plugin Trace Logs command shows.
+    try {
+      await new Workbench().executeCommand("Markdown: Open Preview");
+      await sleep(2500);
+    } catch {
+      /* preview unavailable — the source view still illustrates the doc */
+    }
+    await dismissOverlays();
+    await snap("debug-trace-log");
   });
 
   it("captures the webresource project menu", async () => {

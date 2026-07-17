@@ -55,6 +55,14 @@ all built and deployed from the same place.
 
 <br clear="all" />
 
+## Debug plug-ins in VS Code
+
+Profile a plug-in's real server-side execution, replay it as a unit test you **F5-debug**
+with the exact captured context (no live org), and read plug-in trace logs rendered
+right in the editor — all from the plugin card's **Debugging** block.
+
+![Plugin debugging: the Debugging block, the generated replay test, and a rendered trace log](media/demos/plugin-debugging.gif)
+
 ## Get started in minutes
 
 1. Install the prerequisites: **.NET SDK**, **Node.js**, and the **Power Platform CLI**.
