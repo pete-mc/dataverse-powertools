@@ -2,6 +2,10 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.30 (pre-release)
+
+Testing (#143 Move 2) — **mock the Dataverse Web API.** A reusable in-memory Web API mock (`test/dataverseFetchMock.ts`) lets the extension's Dataverse clients run in CI with no live org — it models the org row (trace-level GET/PATCH) + WhoAmI over configurable state and records every request. The first spec exercises the trace-log read/write client against it and, crucially, asserts it behaves **identically under service-principal and interactive (OAuth) connections** — the recurring bug class (#128/#129/#135) was gating Dataverse calls on `tenantId`, which OAuth doesn't carry. No new dependency (a plain `fetch` shim, restored per test). +6 tests (732).
+
 ## 0.14.29 (pre-release)
 
 PCF (#141) — **choose the control template + framework when scaffolding.** Adding a PCF component previously always ran `pac pcf init --template field --framework none`. It now asks two quick-picks up front — **template** (Field vs Dataset) and **framework** (Standard vs React) — and scaffolds accordingly. Dismissing either pick falls back to the previous field/none default, so nothing breaks. The choice values come from fixed enums (no free-text reaches the command line). Pure choice lists + argv builder unit-tested. +4 tests (726).
