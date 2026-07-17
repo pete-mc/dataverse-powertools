@@ -2,6 +2,10 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.34 (pre-release)
+
+PCF (#141) — **fix: run the build/watch at the PCF project root, not the manifest folder** (found by live verification). `pac pcf init` puts `ControlManifest.Input.xml` in a `<Constructor>/` subfolder while `package.json` / `.pcfproj` / `out/` sit at the project root, so both the new live-form debug (0.14.33) *and* the standalone harness (0.14.24) were pointing at the wrong directory — the harness's `npm start watch` would fail ("no package.json") and the live-form debug looked for `bundle.js` under the manifest dir. New `findPcfProjectRoot` helper resolves the real root; the build/watch and the local `out/controls/<Constructor>/bundle.js` now use it. **Verified end-to-end on a live org:** a deployed control's real bundle URL (`cc_<Namespace>.<Constructor>/bundle.js`) is matched and the local build is served into the browser. +3 tests (750).
+
 ## 0.14.33 (pre-release)
 
 PCF (#141 #5) — **Debug a control on a live form (hot reload).** New **Debug on live form (hot)** command runs a locally-built PCF control *inside the real model-driven app*: it launches Edge/Chrome under the DevTools Protocol, bypasses the app's service worker (#64), and intercepts the **deployed** control's `bundle.js` request — fulfilling it from your local pcf-scripts build (`out/controls/<Constructor>/bundle.js`), which a `build --watch` rebuilds on save (the page reloads). Nothing is written to the server; it's the CDP analogue of the official Fiddler/Requestly AutoResponder debug flow. This is the live-form half of the hot-reload story (the standalone harness, 0.14.24, is the other half). The control must be deployed (`pac pcf push`) and added to a form first. The bundle-URL matcher is grounded in the documented control-bundle scheme and unit-tested; the shared CDP/browser plumbing is factored out of the web-resource debugger (`cdpProcess.ts`) and reused. +10 tests (747).
