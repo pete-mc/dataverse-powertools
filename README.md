@@ -43,6 +43,18 @@ one activity bar. Cross-platform, powered by the Power Platform CLI and .NET SDK
 | Create classes & workflows, register steps with CodeLens, generate early-bound types, build with `dotnet`, deploy as a plugin package, read plugin trace logs in-editor, profile a plug-in's next run and replay it as a unit test you F5-debug in VS Code, unit test with DataverseUnitTest. | Write TypeScript, bundle with webpack (or emit one file per web resource), deploy with automatic form-event registration, debug your local bundle live in the real app with hot reload, generate strongly-typed `Xrm` typings, unit test with Jest + xrm-mock. | Export, unpack, pack and import solutions with `pac` — ready for source control and CI/CD. Power Pages sites round-trip with download/upload too. |
 | **[Learn more →](https://github.com/pete-mc/dataverse-powertools/wiki/Plugins)** | **[Learn more →](https://github.com/pete-mc/dataverse-powertools/wiki/Webresources)** | **[Learn more →](https://github.com/pete-mc/dataverse-powertools/wiki/Solutions)** |
 
+## Or start empty — mix components in one repo
+
+<img src="media/blank-menu.png" width="230" align="right" />
+
+Initialise an **Empty** project (just a connection) and add plugin, web-resource
+and solution components side by side with **＋ Add Component** — each lands in its
+own subfolder, inherits the workspace connection, and gets its own card in the panel.
+It's the natural layout for a real solution repo: one connection, many components,
+all built and deployed from the same place.
+
+<br clear="all" />
+
 ## Get started in minutes
 
 1. Install the prerequisites: **.NET SDK**, **Node.js**, and the **Power Platform CLI**.
