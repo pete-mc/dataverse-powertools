@@ -2,6 +2,10 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.29 (pre-release)
+
+PCF (#141) — **choose the control template + framework when scaffolding.** Adding a PCF component previously always ran `pac pcf init --template field --framework none`. It now asks two quick-picks up front — **template** (Field vs Dataset) and **framework** (Standard vs React) — and scaffolds accordingly. Dismissing either pick falls back to the previous field/none default, so nothing breaks. The choice values come from fixed enums (no free-text reaches the command line). Pure choice lists + argv builder unit-tested. +4 tests (726).
+
 ## 0.14.28 (pre-release)
 
 Test harness — **pin the VS Code version for the ExTester UI / e2e / supervised runs.** ExTester defaulted to downloading the "latest" stable VS Code, and a fresh release (1.129.0) shipped an archive layout the installed `vscode-extension-tester@8.23.0` couldn't parse (`Cannot find module …/resources/app/out/cli.js`), breaking harness *setup* before any test ran. All three launchers now pin a known-good version via a single shared constant (`scripts/vscodeTestVersion.mjs`, `--code_version`), overridable per-run with `DVPT_TEST_CODE_VERSION`. No change to the shipped extension.
