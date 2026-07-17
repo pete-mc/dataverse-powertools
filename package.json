@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.14.32",
+  "version": "0.14.33",
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -775,6 +775,16 @@
       {
         "command": "dataverse-powertools.runPcfHarness",
         "title": "Dataverse PowerTools: Run PCF test harness (hot reload)",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPcf"
+      },
+      {
+        "command": "dataverse-powertools.debugPcfLiveForm",
+        "title": "Dataverse PowerTools: Debug PCF control on a live form (serve local build into the app)",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPcf"
+      },
+      {
+        "command": "dataverse-powertools.stopPcfLiveDebug",
+        "title": "Dataverse PowerTools: Stop PCF live-form debug",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPcf"
       },
       {

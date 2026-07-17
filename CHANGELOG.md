@@ -2,6 +2,10 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.33 (pre-release)
+
+PCF (#141 #5) — **Debug a control on a live form (hot reload).** New **Debug on live form (hot)** command runs a locally-built PCF control *inside the real model-driven app*: it launches Edge/Chrome under the DevTools Protocol, bypasses the app's service worker (#64), and intercepts the **deployed** control's `bundle.js` request — fulfilling it from your local pcf-scripts build (`out/controls/<Constructor>/bundle.js`), which a `build --watch` rebuilds on save (the page reloads). Nothing is written to the server; it's the CDP analogue of the official Fiddler/Requestly AutoResponder debug flow. This is the live-form half of the hot-reload story (the standalone harness, 0.14.24, is the other half). The control must be deployed (`pac pcf push`) and added to a form first. The bundle-URL matcher is grounded in the documented control-bundle scheme and unit-tested; the shared CDP/browser plumbing is factored out of the web-resource debugger (`cdpProcess.ts`) and reused. +10 tests (747).
+
 ## 0.14.32 (pre-release)
 
 Docs (#127) — **Empty/multi-component project screenshot added to the Marketplace listing.** The README now shows the *Empty* project panel (an "Or start empty — mix components in one repo" callout) alongside the three project-type images; the wiki gets the same clean cropped image and a cropped Get-Started shot. Adds a `blank` case + fixture to the screenshots generator (`src/ui-test/screenshots.ts`). No code change to the shipped extension.
