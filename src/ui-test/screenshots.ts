@@ -138,6 +138,11 @@ describe("Dataverse PowerTools screenshots", function () {
     await snapSidebar("get-started");
   });
 
+  it("captures the blank (Empty — components in subfolders) project menu", async () => {
+    await openProject("blank");
+    await snapSidebar("blank-menu");
+  });
+
   it("captures the Getting Started walkthrough", async () => {
     // Click the panel's own Open Walkthrough button — exercises the real flow.
     const webview = await openPanelFrame();

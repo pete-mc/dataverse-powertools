@@ -2,6 +2,10 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.32 (pre-release)
+
+Docs (#127) — **Empty/multi-component project screenshot added to the Marketplace listing.** The README now shows the *Empty* project panel (an "Or start empty — mix components in one repo" callout) alongside the three project-type images; the wiki gets the same clean cropped image and a cropped Get-Started shot. Adds a `blank` case + fixture to the screenshots generator (`src/ui-test/screenshots.ts`). No code change to the shipped extension.
+
 ## 0.14.31 (pre-release)
 
 Testing (#143) — **extend the Dataverse Web API mock to the plugin trace-log viewer.** Building on 0.14.30, the mock now serves `plugintracelogs` and a new spec drives `getPluginTraceLogs` against it (rows, empty-org, `$orderby`/`$top`/Bearer, and identical behaviour under service-principal vs OAuth). Closes another of the epic's "specific flow gaps" with deterministic, no-live-org coverage. +5 tests (737).
