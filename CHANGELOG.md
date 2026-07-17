@@ -2,6 +2,10 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.28 (pre-release)
+
+Test harness — **pin the VS Code version for the ExTester UI / e2e / supervised runs.** ExTester defaulted to downloading the "latest" stable VS Code, and a fresh release (1.129.0) shipped an archive layout the installed `vscode-extension-tester@8.23.0` couldn't parse (`Cannot find module …/resources/app/out/cli.js`), breaking harness *setup* before any test ran. All three launchers now pin a known-good version via a single shared constant (`scripts/vscodeTestVersion.mjs`, `--code_version`), overridable per-run with `DVPT_TEST_CODE_VERSION`. No change to the shipped extension.
+
 ## 0.14.27 (pre-release)
 
 Panel UX — **in-panel pac sign-in affordance.** When a pac command (e.g. Generate Earlybound under OAuth on a machine with no pac profile) triggers a device-code sign-in, the Dataverse PowerTools panel now shows it directly instead of relying on a toast that auto-dismisses and an output channel that isn't open by default.

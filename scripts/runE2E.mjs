@@ -11,6 +11,7 @@ import { createRequire } from "module";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { codeVersionArgs } from "./vscodeTestVersion.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -35,7 +36,7 @@ if (seed.status !== 0) {
   console.warn("[e2e] interactive cache not seeded — interactive-auth suites will self-skip (service-principal suites still run).");
 }
 
-const extestArgs = ["extest", "setup-and-run", ...globs, "--code_settings", "test/ui-settings.json", "--extensions_dir", "sandbox/ext-dir-clean", "--mocha_config", ".mocharc-e2e.json"];
+const extestArgs = ["extest", "setup-and-run", ...globs, ...codeVersionArgs(), "--code_settings", "test/ui-settings.json", "--extensions_dir", "sandbox/ext-dir-clean", "--mocha_config", ".mocharc-e2e.json"];
 console.log(`[e2e] launching: npx ${extestArgs.join(" ")}`);
 const run = spawnSync("npx", extestArgs, { cwd: root, env, stdio: "inherit", shell: process.platform === "win32" });
 
