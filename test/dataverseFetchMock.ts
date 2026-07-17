@@ -17,6 +17,8 @@ export interface DataverseMockState {
   /** WhoAmI response fields. */
   userId: string;
   businessUnitId: string;
+  /** Rows returned by GET plugintracelogs (the trace-log viewer, #63/#137). */
+  pluginTraceLogs: Array<Record<string, unknown>>;
 }
 
 export interface RecordedRequest {
@@ -38,6 +40,7 @@ export const DEFAULT_MOCK_STATE: DataverseMockState = {
   pluginTraceLogSetting: 0,
   userId: "aaaaaaaa-1111-2222-3333-444444444444",
   businessUnitId: "bbbbbbbb-5555-6666-7777-888888888888",
+  pluginTraceLogs: [],
 };
 
 function json(body: unknown, status = 200): Response {
@@ -86,6 +89,10 @@ export function installDataverseFetchMock(initial: Partial<DataverseMockState> =
         state.pluginTraceLogSetting = patch.plugintracelogsetting;
       }
       return new Response(null, { status: 204 });
+    }
+    // GET plugintracelogs?$select=…&$orderby=…&$top=… → the trace-log rows.
+    if (method === "GET" && resource.startsWith("plugintracelogs?")) {
+      return json({ value: state.pluginTraceLogs });
     }
     // GET WhoAmI → identity (auth-agnostic; the token is what authorises).
     if (method === "GET" && resource.startsWith("WhoAmI")) {

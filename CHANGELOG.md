@@ -2,6 +2,10 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.31 (pre-release)
+
+Testing (#143) — **extend the Dataverse Web API mock to the plugin trace-log viewer.** Building on 0.14.30, the mock now serves `plugintracelogs` and a new spec drives `getPluginTraceLogs` against it (rows, empty-org, `$orderby`/`$top`/Bearer, and identical behaviour under service-principal vs OAuth). Closes another of the epic's "specific flow gaps" with deterministic, no-live-org coverage. +5 tests (737).
+
 ## 0.14.30 (pre-release)
 
 Testing (#143 Move 2) — **mock the Dataverse Web API.** A reusable in-memory Web API mock (`test/dataverseFetchMock.ts`) lets the extension's Dataverse clients run in CI with no live org — it models the org row (trace-level GET/PATCH) + WhoAmI over configurable state and records every request. The first spec exercises the trace-log read/write client against it and, crucially, asserts it behaves **identically under service-principal and interactive (OAuth) connections** — the recurring bug class (#128/#129/#135) was gating Dataverse calls on `tenantId`, which OAuth doesn't carry. No new dependency (a plain `fetch` shim, restored per test). +6 tests (732).
