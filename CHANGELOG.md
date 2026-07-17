@@ -2,6 +2,10 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.36 (pre-release)
+
+Tests (#141) — **PCF added to the two-of-each multi-component e2e.** The blank-root suite now adds **two PCF components** (with the 0.14.29 template/framework quick-pick) alongside two of every other type, asserting each scaffolds, is type-scoped with no inherited connection, and the second doesn't collide with the first. Verified on the VM — both PCF components scaffold and discovery reports them correctly. (PCF registers no per-component TestController, so it's structurally immune to the duplicate-controller class the suite guards; this locks that in.) No change to the shipped extension.
+
 ## 0.14.35 (pre-release)
 
 Docs (#136/#138) — **plug-in debugging demo GIF + screenshots.** A slideshow GIF (the Debugging block → the generated **Replay & debug** unit test → a rendered **trace log**) now leads the README's new "Debug plug-ins in VS Code" section and the wiki's Debugging Plugins page, with the individual function screenshots placed at their sections. Captured from the real UI against the demo (contoso) connection via the screenshots generator (new capture cases + a pure-JS GIF assembler, `scripts/assembleGif.mjs`). No change to the shipped extension code.
