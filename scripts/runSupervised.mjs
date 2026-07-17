@@ -18,6 +18,7 @@ import { spawnSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { codeVersionArgs } from "./vscodeTestVersion.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const reuse = process.argv.includes("--reuse") || process.env.DVPT_SUPERVISED_REUSE === "1";
@@ -83,6 +84,6 @@ const env = {
   DVPT_SUPERVISED_SOLUTION: supervisedSolution,
 };
 
-const extestArgs = ["extest", "setup-and-run", ...globs, "--code_settings", "test/ui-settings.json", "--extensions_dir", "sandbox/ext-dir-clean", "--mocha_config", ".mocharc-supervised.json"];
+const extestArgs = ["extest", "setup-and-run", ...globs, ...codeVersionArgs(), "--code_settings", "test/ui-settings.json", "--extensions_dir", "sandbox/ext-dir-clean", "--mocha_config", ".mocharc-supervised.json"];
 const run = spawnSync("npx", extestArgs, { cwd: root, env, stdio: "inherit", shell: process.platform === "win32" });
 process.exit(run.status ?? 1);

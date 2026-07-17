@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.14.27",
+  "version": "0.14.28",
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -881,7 +881,7 @@
     "test:live": "vitest run --config vitest.live.config.ts",
     "test:integration": "npm run compile-tests && vscode-test",
     "pretest:ui": "npm run compile-tests && npm run compile",
-    "test:ui": "extest setup-and-run \"out/ui-test/**/*.test.js\" --code_settings test/ui-settings.json --extensions_dir test-resources/extensions --mocha_config .mocharc-ui.json",
+    "test:ui": "extest setup-and-run \"out/ui-test/**/*.test.js\" --code_version 1.128.1 --code_settings test/ui-settings.json --extensions_dir test-resources/extensions --mocha_config .mocharc-ui.json",
     "pretest:e2e": "npm run compile-tests && npm run compile",
     "test:e2e": "node scripts/runE2E.mjs",
     "test": "npm run test:unit && npm run test:integration",
