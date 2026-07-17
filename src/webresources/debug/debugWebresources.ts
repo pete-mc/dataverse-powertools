@@ -2,7 +2,6 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
-import * as net from "net";
 import * as cp from "child_process";
 import CDP = require("chrome-remote-interface");
 import DataversePowerToolsContext from "../../context";
@@ -11,6 +10,7 @@ import { buildBrowserArgs } from "./browserArgs";
 import { isWebresourceBundleUrl, bundleCdpPattern, bundleContentType } from "./webresourceUrlMatch";
 import { buildAttachDebugConfig } from "./debugConfig";
 import { activeComponentRoot } from "../../components/componentDiscovery";
+import { findFreePort, killProcessTree, connectCdpWithRetry } from "./cdpProcess";
 
 // "Debug Web Resources": run the local webpack bundle *inside the real model-driven app*.
 // A dedicated Edge/Chrome instance is launched under the DevTools Protocol; the browser's
@@ -36,59 +36,6 @@ export const WEBPACK_WATCH_LAUNCHER = "npx";
 // changed the watch output mid-session and broke the comprehensive e2e's
 // serve-local step; existing projects switch by editing webpack.dev.js.
 export const WEBPACK_WATCH_ARGS = ["webpack", "--config", "webpack.dev.js", "--watch"];
-
-function findFreePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = net.createServer();
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      const port = typeof address === "object" && address ? address.port : 0;
-      server.close(() => (port ? resolve(port) : reject(new Error("Could not allocate a debugging port."))));
-    });
-  });
-}
-
-/**
- * Kill a child process *and its descendants*. On Windows a shell-spawned process (webpack runs via a
- * `.cmd` shim, so `shell: true`) makes `child.kill()` terminate only the `cmd.exe` wrapper, orphaning
- * the real `node webpack --watch` — which then keeps rebuilding and holding memory forever. `taskkill
- * /T` walks the whole tree. Elsewhere the process isn't shell-wrapped, so a plain kill suffices.
- */
-function killProcessTree(child: cp.ChildProcess | undefined): void {
-  if (!child || child.pid === undefined) {
-    return;
-  }
-  if (process.platform === "win32") {
-    try {
-      cp.execFileSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
-      return;
-    } catch {
-      /* fall through to a best-effort direct kill */
-    }
-  }
-  try {
-    child.kill();
-  } catch {
-    /* already gone */
-  }
-}
-
-async function connectCdpWithRetry(port: number, timeoutMs: number): Promise<CDP.Client> {
-  const deadline = Date.now() + timeoutMs;
-  let lastError: unknown;
-  for (;;) {
-    try {
-      return await CDP({ port });
-    } catch (error) {
-      lastError = error;
-      if (Date.now() > deadline) {
-        throw lastError instanceof Error ? lastError : new Error("Could not connect to the browser's debugging endpoint.");
-      }
-      await new Promise((r) => setTimeout(r, 400));
-    }
-  }
-}
 
 export async function debugWebResources(context: DataversePowerToolsContext): Promise<void> {
   // Re-running restarts cleanly: stop the previous session (browser, webpack

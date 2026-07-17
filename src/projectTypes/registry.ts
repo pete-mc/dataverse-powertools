@@ -268,7 +268,16 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
     // Foundational slice (#141): scaffold + build + push + deploy (hand-to-solution) +
     // refresh-types. Debug/hot-reload, service-layer template and Jest Test Explorer are
     // explicit fast-follows.
-    commandIds: [`${prefix}buildPcf`, `${prefix}pushPcf`, `${prefix}deployPcf`, `${prefix}refreshPcfTypes`, `${prefix}addPcfServiceLayer`, `${prefix}runPcfHarness`],
+    commandIds: [
+      `${prefix}buildPcf`,
+      `${prefix}pushPcf`,
+      `${prefix}deployPcf`,
+      `${prefix}refreshPcfTypes`,
+      `${prefix}addPcfServiceLayer`,
+      `${prefix}runPcfHarness`,
+      `${prefix}debugPcfLiveForm`,
+      `${prefix}stopPcfLiveDebug`,
+    ],
     menu() {
       return {
         // Push (pac pcf push) is the one-click dev inner loop.
@@ -276,10 +285,14 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
         secondary: [
           { command: `${prefix}buildPcf`, label: "Local Build" },
           { command: `${prefix}runPcfHarness`, label: "Run harness (hot reload)" },
+          { command: `${prefix}debugPcfLiveForm`, label: "Debug on live form (hot)" },
           { command: `${prefix}refreshPcfTypes`, label: "Refresh Types" },
           { command: `${prefix}deployPcf`, label: "Add to Solution" },
         ],
-        overflow: [{ command: `${prefix}addPcfServiceLayer`, label: "Add service-layer structure" }],
+        overflow: [
+          { command: `${prefix}addPcfServiceLayer`, label: "Add service-layer structure" },
+          { command: `${prefix}stopPcfLiveDebug`, label: "Stop live-form debug" },
+        ],
       };
     },
   },
