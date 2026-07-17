@@ -5,6 +5,7 @@ import DataversePowerToolsContext, { PowertoolsTemplate, ProjectTypes } from "..
 import { getTemplateFolderForType } from "../projectTypes/registry";
 import { pacInvocation } from "./pac";
 import { activeComponentRoot } from "../components/componentDiscovery";
+import { promptPcfInitArgs } from "../pcf/pcfInitPrompt";
 
 // Lines from restore tooling (npm mostly) that are noise to a user watching the output channel:
 // funding solicitations, audit summaries, deprecation notices. Stripped so the log shows only what
@@ -31,6 +32,13 @@ export function filterRestoreNoise(text: string): string {
 
 function isPacPluginInit(argv: string[]): boolean {
   return argv[0]?.toLowerCase() === "pac" && argv[1]?.toLowerCase() === "plugin" && argv[2]?.toLowerCase() === "init";
+}
+
+/** The template's `pac pcf init …` scaffold command (#141) — matched so the user's
+ * chosen template/framework can replace the hardcoded field/none flags. */
+export function isPacPcfInit(command: string): boolean {
+  const argv = command.split(/\s+/).filter((t) => t.length > 0);
+  return argv[0]?.toLowerCase() === "pac" && argv[1]?.toLowerCase() === "pcf" && argv[2]?.toLowerCase() === "init";
 }
 
 function hasOutputDirectoryFlag(argv: string[]): boolean {
@@ -128,8 +136,12 @@ export async function restoreDependencies(context: DataversePowerToolsContext, i
       if (vscode.workspace.workspaceFolders !== undefined && context.template !== undefined && context.template.restoreCommands) {
         const workspacePath = activeComponentRoot(context) ?? vscode.workspace.workspaceFolders[0].uri.fsPath;
         const restoreCommands = initialising ? context.template?.initCommands || [] : context.template?.restoreCommands || [];
+        // PCF scaffold (#141): ask once, up front, for the control template + framework so the
+        // pac pcf init below uses the user's choice instead of the hardcoded field/none. The
+        // returned argv is fixed-enum tokens only (safe to run as-is, bypassing the string gate).
+        const pcfInitArgv = initialising && context.projectSettings.type === ProjectTypes.pcf ? await promptPcfInitArgs() : undefined;
         for (const c of restoreCommands) {
-          const resolvedCommand = resolveInitCommand(c.command, workspacePath, context, initialising);
+          const resolvedCommand = pcfInitArgv && isPacPcfInit(c.command) ? pcfInitArgv : resolveInitCommand(c.command, workspacePath, context, initialising);
           const displayCommand = Array.isArray(resolvedCommand) ? resolvedCommand.join(" ") : resolvedCommand;
           await vscode.window.withProgress(
             {
