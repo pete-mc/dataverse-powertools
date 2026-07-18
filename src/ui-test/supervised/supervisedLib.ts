@@ -198,6 +198,54 @@ export async function expandComponentCards(): Promise<void> {
   await sleep(600);
 }
 
+/** Open a component card's ⋯ overflow menu and click the item with the given label — the real
+ * flow a user does for the rarer actions (New class, Add form registration, …). Tries each
+ * card's ⋯ (skipping the environment card) until the menu shows the item. Fires clicks via JS
+ * (the ⋯ and its popup rows are tiny + can be intercepted by a coordinate click). */
+export async function clickOverflowItem(itemLabel: string, opts: { timeoutMs?: number } = {}): Promise<void> {
+  const timeoutMs = opts.timeoutMs ?? 30000;
+  await narrate(`Overflow menu → "${itemLabel}"`);
+  const driver = VSBrowser.instance.driver;
+  const deadline = Date.now() + timeoutMs;
+  let lastError = "";
+  while (Date.now() < deadline) {
+    try {
+      const clicked = await withPanel(async (panel) => {
+        await expandCaretsInFrame(panel);
+        const overflows = await panel.findWebElements(By.css("button.iconbtn[aria-haspopup='menu']"));
+        for (const overflow of overflows) {
+          const owner = (await overflow.getAttribute("aria-label").catch(() => "")) ?? "";
+          if (/environment/i.test(owner)) {
+            continue; // the env-card ⋯ (Open environment / Admin Center / …), not a component action
+          }
+          await driver.executeScript("arguments[0].click();", overflow);
+          await sleep(500);
+          const items = await panel.findWebElements(By.css(".overflow-menu button.menu-item"));
+          for (const item of items) {
+            if ((await item.getText().catch(() => "")).trim() === itemLabel) {
+              await driver.executeScript("arguments[0].click();", item);
+              return true;
+            }
+          }
+          await driver.executeScript("arguments[0].click();", overflow); // close this menu, try the next ⋯
+          await sleep(300);
+        }
+        return false;
+      });
+      if (clicked) {
+        await sleep(1500);
+        return;
+      }
+      lastError = `overflow item "${itemLabel}" not found in any card menu`;
+    } catch (error) {
+      lastError = `${error}`;
+    }
+    await sleep(1500);
+  }
+  await screenshot(`FAILED-overflow-${itemLabel}`);
+  throw new Error(`clickOverflowItem timed out for "${itemLabel}" after ${timeoutMs}ms (${lastError})`);
+}
+
 /** True when the panel shows a live Dataverse connection (the green dot). */
 export async function isConnected(): Promise<boolean> {
   try {
