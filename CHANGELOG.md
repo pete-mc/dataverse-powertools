@@ -2,6 +2,11 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.38 (pre-release)
+
+- **Button-driven acceptance e2e** for the four deployable component types (Plugin, Web Resource, Solution, PCF): each drives the real main workflow — start project, write code, build, register, publish — through the **panel buttons + overflow menu** (no command palette) and verifies the outcome in Dataverse (plugin package / web resource + content / PCF control bundle / solution import). On-demand + self-skipping without creds, like the other live suites. Added a `clickOverflowItem` driver to the supervised lib. Run on the VM: **13/14 steps pass** across all four types; the one automated miss was the Solution deploy assertion's timeout being too short (the import itself logged `Solution Imported successfully` — now fixed).
+- **Declare `pngjs` + `gifenc` as devDependencies** — the 0.14.35 GIF assembler (`scripts/assembleGif.mjs`) required them but they were never added to `package.json` (which also broke `npm list`). No change to the shipped extension.
+
 ## 0.14.37 (pre-release)
 
 Security patch.
