@@ -2,6 +2,11 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.40 (pre-release)
+
+- **Fix: the plug-in profiler couldn't find your step in a busy org.** "Profile next run" / capture lists profilable steps via `sdkmessageprocessingsteps`, but the query fetched the first **200** active steps and filtered client-side. An org with 200+ system (`Microsoft.*`) steps filled that whole page, so a freshly-registered *user* step never appeared and capture dead-ended at "No registered plugin steps to profile." It now filters **server-side by plugin assembly** (`plugintypeid/pluginassemblyid/name eq …`) when the project's assembly is known, so your step is found regardless of how many system steps exist. Pure query builder (`buildProfilableStepsResource`) with unit tests; verified live against an org with 200+ active steps.
+- **New: plug-in profiler capture → replay → execute e2e** (`src/ui-test/e2e/pluginProfilerReplay.e2e.ts`, Windows-only, live). Drives the panel's **Debugging** block end to end: scaffold a Plugins project + xUnit test project, write a plug-in registered on **Create of territory**, **Build & deploy** it, and assert the step is discoverable as **profilable** live (the fix above). The modal-driven tail (Profile next run → live Web-API trigger → **Continue** → download → **Replay & debug** → `dotnet test` the generated replay to green) is gated behind `DVPT_E2E_PROFILER_CAPTURE=1` — the reliable portion runs by default; the tail drives a VS Code modal that the shared 8GB e2e VM can't hold a Selenium session through. No change to the shipped extension beyond the profiler fix.
+
 ## 0.14.39 (pre-release)
 
 Tests — **PCF live-form debug e2e** (`test/live/pcfLiveFormDebug.spec.ts`). A live spec that proves the "Debug on live form (hot)" interception serves the LOCAL build for a deployed control's bundle URL: it arms the extension's real CDP interception (service-worker bypass + `Fetch` + `isPcfBundleUrl`) and confirms a headless browser navigating the documented deployed-bundle URL receives our marker-stamped local bundle. Self-skips without creds/a browser. This completes the automated debug coverage alongside the existing Web-Resource hot-reload e2e (`webresourceComprehensive` step 8). No shipped-code change.

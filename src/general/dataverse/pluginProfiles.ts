@@ -53,10 +53,17 @@ export interface ProfilableStep {
   mode?: number;
 }
 
-/** Steps that can be profiled (Start Profiling), optionally scoped to one plugin
- * assembly. Joins step -> plugintype -> pluginassembly and drops the profiler's own
- * "(Profiled)" clones. Read-only. Undefined on failure. */
-export async function getProfilableSteps(context: DataversePowerToolsContext, assemblyName?: string): Promise<ProfilableStep[] | undefined> {
+/**
+ * Build the sdkmessageprocessingsteps query for profilable steps (pure, unit-tested).
+ *
+ * When an `assemblyName` is known we filter SERVER-SIDE to that plugin assembly
+ * (`plugintypeid/pluginassemblyid/name eq '…'`). Without it, the query returned the first 200
+ * active steps and filtered client-side — but a busy org has hundreds of system (Microsoft.*)
+ * steps that fill the whole `$top=200` page, so a freshly-registered user step never appeared and
+ * capture dead-ended with "No registered plugin steps to profile". The assembly filter returns
+ * only the user's own steps regardless of how many system steps exist.
+ */
+export function buildProfilableStepsResource(assemblyName?: string): string {
   // #135: expand the DEDICATED `plugintypeid` lookup — NOT the polymorphic `eventhandler`
   // (which targets plugintype OR serviceendpoint and doesn't populate `typename` for a
   // normally-registered plugin step, so every row was dropped). The Microsoft docs query a
@@ -64,7 +71,18 @@ export async function getProfilableSteps(context: DataversePowerToolsContext, as
   // `eventhandler_serviceendpoint`. `_plugintypeid_value ne null` keeps plugin steps and
   // excludes webhook/service-endpoint steps server-side.
   const expand = "$expand=sdkmessageid($select=name),sdkmessagefilterid($select=primaryobjecttypecode),plugintypeid($select=typename;$expand=pluginassemblyid($select=name))";
-  const resource = `sdkmessageprocessingsteps?$select=name,mode,statecode&${expand}&$filter=statecode eq 0 and _plugintypeid_value ne null&$top=200`;
+  const filters = ["statecode eq 0", "_plugintypeid_value ne null"];
+  if (assemblyName) {
+    filters.push(`plugintypeid/pluginassemblyid/name eq '${assemblyName.replace(/'/g, "''")}'`);
+  }
+  return `sdkmessageprocessingsteps?$select=name,mode,statecode&${expand}&$filter=${filters.join(" and ")}&$top=200`;
+}
+
+/** Steps that can be profiled (Start Profiling), optionally scoped to one plugin
+ * assembly. Joins step -> plugintype -> pluginassembly and drops the profiler's own
+ * "(Profiled)" clones. Read-only. Undefined on failure. */
+export async function getProfilableSteps(context: DataversePowerToolsContext, assemblyName?: string): Promise<ProfilableStep[] | undefined> {
+  const resource = buildProfilableStepsResource(assemblyName);
   const body = await getJson(context, "List profilable plugin steps", resource);
   if (!body) {
     return undefined;
