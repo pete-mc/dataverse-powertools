@@ -10,6 +10,7 @@ import {
   pacOutputHasError,
   pacSucceeded,
   listHasNamedProfile,
+  hasShellMetacharacters,
 } from "./pacAuth";
 
 describe("pacAuthCreateInteractiveArgs", () => {
@@ -130,5 +131,19 @@ describe("listHasNamedProfile — parse `pac auth list` (it exits 0 even with no
       "Index Active Kind      Name                 Friendly Name        Url\n[1]   *      UNIVERSAL      dataverse-powertools dataverse-powertools https://org.crm.dynamics.com";
     expect(listHasNamedProfile(list, "dataverse-powertools")).toBe(true);
     expect(listHasNamedProfile(list, "some-other-profile")).toBe(false);
+  });
+});
+
+describe("hasShellMetacharacters — client-secret guard for the cmd.exe pac fallback (CodeQL #47)", () => {
+  it("accepts real Azure client-secret shapes (base64url alphabet, never rejected)", () => {
+    for (const secret of ["abc123XYZ~_.-", "Q~aBcD3fGhIjKlMnOpQrStUvWxYz0123456789.-_", "8Q~kLmNoP.qRsTuVwXyZ_-0123", "Zm9vYmFyMTIz+/=", "s3cr3t.value~with-dashes_and.dots"]) {
+      expect(hasShellMetacharacters(secret), secret).toBe(false);
+    }
+  });
+
+  it("rejects cmd.exe metacharacters that could break out of the fallback command line", () => {
+    for (const bad of ["secret&whoami", "secret|calc", "secret>out.txt", "secret<in", "a^b", 'a"b', "50%off", "back`tick", "line1\nline2", "line1\rline2"]) {
+      expect(hasShellMetacharacters(bad), bad).toBe(true);
+    }
   });
 });

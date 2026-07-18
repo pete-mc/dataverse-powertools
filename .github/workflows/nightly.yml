@@ -24,6 +24,11 @@ on:
     - cron: "0 3 * * *" # 03:00 UTC daily
   workflow_dispatch: {}
 
+# Least privilege: this workflow only reads the repo to run tests — no writes to
+# contents, issues, PRs, packages, etc. (CodeQL actions/missing-workflow-permissions).
+permissions:
+  contents: read
+
 concurrency:
   group: nightly-live
   cancel-in-progress: true

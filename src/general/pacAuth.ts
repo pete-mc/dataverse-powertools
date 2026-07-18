@@ -94,6 +94,17 @@ const GUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 const TENANT_PATTERN = /^[0-9a-z.-]{1,100}$/i; // GUID or AAD domain
 const ENVIRONMENT_URL_PATTERN = /^https:\/\/[0-9a-z][0-9a-z.-]*(:\d+)?\/?$/i;
 
+// Defense-in-depth for the client secret. pac runs via the resolved pac executable with NO shell
+// (args aren't interpreted); the ONLY path that could interpret a value is the rare `cmd.exe /c pac …`
+// fallback used when pac.exe can't be resolved. The client id / tenant / URL are already shape-validated,
+// so the secret is the one arg that isn't — this rejects the cmd.exe metacharacters that enable command
+// chaining / redirection / env-var expansion. Real Azure client secrets never contain these, so a valid
+// credential is never rejected. (CodeQL js/shell-command-injection-from-environment.)
+const SHELL_METACHARACTERS = /[&|<>^"%`\r\n]/;
+export function hasShellMetacharacters(value: string): boolean {
+  return SHELL_METACHARACTERS.test(value);
+}
+
 export async function ensurePacAuth(context: DataversePowerToolsContext, workspacePath: string): Promise<boolean> {
   const parts = parseConnectionString(context.connectionString);
   const environmentUrl = normalizeOrganizationUrl(parts.url);
@@ -112,6 +123,14 @@ export async function ensurePacAuth(context: DataversePowerToolsContext, workspa
   if (!GUID_PATTERN.test(parts.clientId) || !TENANT_PATTERN.test(tenantId) || !ENVIRONMENT_URL_PATTERN.test(environmentUrl)) {
     context.channel.appendLine("Cannot authenticate with pac: client id, tenant, or environment URL has an unexpected format. Update the connection string and retry.");
     vscode.window.showErrorMessage("Dataverse connection settings look malformed; cannot authenticate with pac.");
+    return false;
+  }
+
+  // The secret is the one pac arg not shape-validated above — reject shell metacharacters so it can
+  // never break out of the cmd.exe fallback command line (real Azure secrets never contain these).
+  if (hasShellMetacharacters(parts.clientSecret)) {
+    context.channel.appendLine("Cannot authenticate with pac: the client secret contains characters that aren't allowed (regenerate the secret and update the connection string).");
+    vscode.window.showErrorMessage("The client secret contains unexpected characters; cannot authenticate with pac.");
     return false;
   }
 
