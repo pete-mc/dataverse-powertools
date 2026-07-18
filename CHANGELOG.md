@@ -2,6 +2,14 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.37 (pre-release)
+
+Security patch.
+
+- **adm-zip 0.5.18 → 0.6.0** — fixes **CVE-2026-39244** (a crafted archive declaring a huge uncompressed size could force an unbounded `Buffer.alloc` and OOM the process). adm-zip is used to pack the plugin deploy package and read the profiler solution `.cab`. Our usage is unaffected by the release's behavior changes (we don't use `extractEntryTo`).
+- **Hardened the pac client-secret path (defense-in-depth).** pac already runs via the resolved executable with no shell; the only path that could interpret a value is the rare `cmd.exe /c pac …` fallback (when `pac.exe` isn't resolvable). The client id / tenant / URL were already shape-validated — the secret now is too: it's rejected if it contains cmd.exe metacharacters (`& | < > ^ " % \`` / newlines) that could break out of that fallback command line. Real Azure client secrets never contain these, so valid credentials are never rejected.
+- **Least-privilege permissions on the nightly workflow** (`contents: read`).
+
 ## 0.14.36 (pre-release)
 
 Tests (#141) — **PCF added to the two-of-each multi-component e2e.** The blank-root suite now adds **two PCF components** (with the 0.14.29 template/framework quick-pick) alongside two of every other type, asserting each scaffolds, is type-scoped with no inherited connection, and the second doesn't collide with the first. Verified on the VM — both PCF components scaffold and discovery reports them correctly. (PCF registers no per-component TestController, so it's structurally immune to the duplicate-controller class the suite guards; this locks that in.) No change to the shipped extension.
