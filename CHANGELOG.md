@@ -2,6 +2,10 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.39 (pre-release)
+
+Tests — **PCF live-form debug e2e** (`test/live/pcfLiveFormDebug.spec.ts`). A live spec that proves the "Debug on live form (hot)" interception serves the LOCAL build for a deployed control's bundle URL: it arms the extension's real CDP interception (service-worker bypass + `Fetch` + `isPcfBundleUrl`) and confirms a headless browser navigating the documented deployed-bundle URL receives our marker-stamped local bundle. Self-skips without creds/a browser. This completes the automated debug coverage alongside the existing Web-Resource hot-reload e2e (`webresourceComprehensive` step 8). No shipped-code change.
+
 ## 0.14.38 (pre-release)
 
 - **Button-driven acceptance e2e** for the four deployable component types (Plugin, Web Resource, Solution, PCF): each drives the real main workflow — start project, write code, build, register, publish — through the **panel buttons + overflow menu** (no command palette) and verifies the outcome in Dataverse (plugin package / web resource + content / PCF control bundle / solution import). On-demand + self-skipping without creds, like the other live suites. Added a `clickOverflowItem` driver to the supervised lib. Run on the VM: **13/14 steps pass** across all four types; the one automated miss was the Solution deploy assertion's timeout being too short (the import itself logged `Solution Imported successfully` — now fixed).
