@@ -132,6 +132,15 @@ The suite is `*.e2e.ts` (not the CI `*.test.js` glob), so it stays out of CI.
   → open the live app in a browser and confirm the DEPLOYED code runs → **Debug Web Resources**
   locally + edit source and confirm hot reload. Steps 7–8 drive a real browser (CDP) and need
   the interactive user; they self-skip without it.
+- `pluginProfilerReplay` (Windows-only) — the plug-in **Debugging** loop: scaffold a Plugins
+  project + xUnit test project, write a plug-in registered on **Create of territory**, Build &
+  deploy it, and assert the step is discoverable as **profilable** live (guards the
+  `getProfilableSteps` server-side assembly filter — a busy org has 200+ system steps). The
+  modal-driven tail (Profile next run → live Web-API trigger → **Continue** → download →
+  **Replay & debug** → `dotnet test` the generated replay to green) is gated behind
+  **`DVPT_E2E_PROFILER_CAPTURE=1`**: it drives a VS Code modal dialog that the shared 8GB VM can't
+  hold a Selenium session through, so the reliable portion runs by default and the tail is opt-in
+  (run it on a roomier box).
 
 **VM hygiene (the box is ~8GB).** ExTester + the net8 typings fetch + webpack + a browser is
 near the memory ceiling, and orphans accumulate across runs. If a run starts cascading

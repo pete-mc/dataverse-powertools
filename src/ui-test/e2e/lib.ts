@@ -6,7 +6,7 @@
 import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
-import { VSBrowser, Workbench, InputBox, BottomBarPanel, Key } from "vscode-extension-tester";
+import { VSBrowser, Workbench, InputBox, BottomBarPanel, Key, ModalDialog } from "vscode-extension-tester";
 
 export const repoRoot = path.resolve(__dirname, "..", "..", "..");
 
@@ -177,6 +177,75 @@ export async function pickFirst(timeoutMs = 30000): Promise<void> {
   const input = await waitForInput(timeoutMs);
   await waitForPicks(input, Math.min(timeoutMs, 30000));
   await input.selectQuickPick(0);
+  await sleep(2500);
+}
+
+/**
+ * Wait for a VS Code MODAL message dialog to appear (a `showInformationMessage(..., { modal: true })`),
+ * WITHOUT dismissing it. Needed when work must happen while the modal is up — the profiler capture
+ * shows its "trigger it now" modal only AFTER profiling is actually enabled, so a test must wait for
+ * the modal before firing the trigger (a fixed sleep races the one-time profiler install/enable).
+ * Returns the dialog's message text on success.
+ */
+export async function waitForModal(timeoutMs = 60000): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  let lastErr: unknown;
+  for (;;) {
+    try {
+      const dialog = new ModalDialog();
+      const message = await dialog.getMessage(); // throws until the modal exists
+      return message ?? "";
+    } catch (err) {
+      lastErr = err;
+      if (Date.now() > deadline) {
+        throw lastErr;
+      }
+      await sleep(1000);
+    }
+  }
+}
+
+/**
+ * Push a button on a VS Code MODAL message dialog (a `showInformationMessage(..., { modal: true })`).
+ * The profiler capture's "trigger it now, then Continue" prompt is modal, so it can't be handled by
+ * the quick-pick/notification helpers. Polls for the dialog to appear before pressing the button.
+ */
+export async function pushModalButton(label: string, timeoutMs = 60000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let lastErr: unknown;
+  for (;;) {
+    try {
+      const dialog = new ModalDialog();
+      await dialog.pushButton(label);
+      await sleep(1500);
+      return;
+    } catch (err) {
+      lastErr = err;
+      if (Date.now() > deadline) {
+        throw lastErr;
+      }
+      await sleep(1000);
+    }
+  }
+}
+
+/**
+ * Select one item (by label substring) in a canPickMany quick-pick and confirm. The profiler
+ * download picker (`Download which captured profiles?`) is multi-select, so a plain
+ * selectQuickPick only TOGGLES the checkbox — the selection must then be confirmed with Enter.
+ */
+export async function pickManyByLabel(label: string, timeoutMs = 30000): Promise<void> {
+  const input = await waitForInput(timeoutMs);
+  await waitForPicks(input, Math.min(timeoutMs, 30000));
+  // Filter to the target row, toggle its checkbox, then confirm the whole multi-select.
+  await input.setText(label);
+  await sleep(1200);
+  const picks = await input.getQuickPicks();
+  if (picks.length > 0) {
+    await picks[0].select(); // toggles the checkbox in canPickMany mode
+    await sleep(500);
+  }
+  await input.confirm(); // Enter accepts the checked items
   await sleep(2500);
 }
 
@@ -611,6 +680,18 @@ export class E2EClient {
 
   async deleteTerritory(id: string): Promise<void> {
     await this.request("DELETE", `territories(${id})`);
+  }
+
+  /** Count active, plugin (non-system) steps for an assembly, using the SAME server-side assembly
+   * filter the extension's getProfilableSteps now applies. Proves a freshly-deployed step is
+   * discoverable as profilable even in a busy org (the $top=200 system-step flood fix). */
+  async profilableStepCount(assemblyName: string): Promise<number> {
+    const filter = `statecode eq 0 and _plugintypeid_value ne null and plugintypeid/pluginassemblyid/name eq '${assemblyName.replace(/'/g, "''")}'`;
+    const res = await this.request("GET", `sdkmessageprocessingsteps?$select=name&$filter=${filter}&$top=50`);
+    if (!res.ok) {
+      return 0;
+    }
+    return ((await res.json()) as { value?: unknown[] }).value?.length ?? 0;
   }
 
   /** Whether a persisted plug-in profile exists for the given type name. */

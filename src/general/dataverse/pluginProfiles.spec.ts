@@ -7,11 +7,33 @@ import {
   parseActiveProfiles,
   profiledStepTypeLabel,
   findMatchingStep,
+  buildProfilableStepsResource,
 } from "./pluginProfiles";
 
 describe("plugin profile queries", () => {
   it("detects the profiler by its solution unique name", () => {
     expect(profilerInstalledQuery()).toBe("solutions?$select=solutionid,version&$filter=uniquename eq 'PluginProfiler'");
+  });
+
+  describe("buildProfilableStepsResource", () => {
+    it("keeps the base plugin-step filter (active, real plugin type) and a $top", () => {
+      const q = buildProfilableStepsResource();
+      expect(q).toContain("sdkmessageprocessingsteps?$select=name,mode,statecode");
+      expect(q).toContain("statecode eq 0");
+      expect(q).toContain("_plugintypeid_value ne null");
+      expect(q).toContain("$expand=sdkmessageid");
+      expect(q).toContain("$top=200");
+      expect(q).not.toContain("pluginassemblyid/name eq");
+    });
+
+    it("filters SERVER-SIDE by assembly so a busy org's 200 system steps can't hide the user's step", () => {
+      const q = buildProfilableStepsResource("MyPlugins");
+      expect(q).toContain("plugintypeid/pluginassemblyid/name eq 'MyPlugins'");
+    });
+
+    it("escapes single quotes in the assembly name", () => {
+      expect(buildProfilableStepsResource("O'Brien")).toContain("plugintypeid/pluginassemblyid/name eq 'O''Brien'");
+    });
   });
 
   it("lists profiles newest first without the heavy report column", () => {
