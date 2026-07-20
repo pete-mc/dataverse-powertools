@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractProfileTypeName, extractTypeFromProfileFileName, replayTestSource, csprojWithProfilerRefs, replayClassName } from "./replayTest";
+import { extractProfileTypeName, extractTypeFromProfileFileName, replayTestSource, replayHarnessSource, ensureReplayCsproj, replayClassName } from "./replayTest";
 
 describe("extractProfileTypeName", () => {
   it("reads TypeName from a DataContract report, with or without a namespace prefix", () => {
@@ -28,19 +28,20 @@ describe("replayTestSource", () => {
     namespaceName: "MyPlugin_Tests",
     className: "Replay_AccountPlugin_20260712",
     pluginTypeName: "Contoso.AccountPlugin",
-    pluginAssemblyFileName: "MyPlugin.dll",
     profileFileName: "Contoso.AccountPlugin_20260712-010203.profile.xml",
   };
 
-  it("emits an mstest replay that calls ProfilerExecutionUtility.Replay", () => {
+  it("emits an mstest replay that invokes the plugin in-process via the DvptReplay harness", () => {
     const source = replayTestSource({ ...options, framework: "mstest" });
     expect(source).toContain("[TestClass]");
     expect(source).toContain("[TestMethod]");
-    expect(source).toContain('new PluginOperationConfiguration(assemblyPath, "Contoso.AccountPlugin", profilePath, null)');
-    expect(source).toContain("ProfilerExecutionUtility.Replay(");
-    expect(source).toContain("PluginPermissions.NonIsolated");
-    expect(source).toContain('FindProfile("Contoso.AccountPlugin_20260712-010203.profile.xml")');
-    expect(source).toContain("Assert.IsNull(");
+    expect(source).toContain("using DvptReplay;");
+    expect(source).toContain('ProfileReplay.LoadContext(ProfileReplay.FindProfile("Contoso.AccountPlugin_20260712-010203.profile.xml"))');
+    expect(source).toContain("var plugin = new Contoso.AccountPlugin(null, null);");
+    expect(source).toContain("plugin.Execute(ProfileReplay.CreateServiceProvider(context));");
+    // No PRT / AppDomain approach anymore.
+    expect(source).not.toContain("ProfilerExecutionUtility");
+    expect(source).not.toContain("PluginOperationConfiguration");
   });
 
   it("emits xunit and nunit variants with the right attributes", () => {
@@ -48,36 +49,41 @@ describe("replayTestSource", () => {
     expect(xunit).toContain("[Fact]");
     expect(xunit).toContain("using Xunit;");
     expect(xunit).not.toContain("[TestClass]");
-    expect(xunit).toContain("Assert.Null(");
     const nunit = replayTestSource({ ...options, framework: "nunit" });
     expect(nunit).toContain("[TestFixture]");
     expect(nunit).toContain("[Test]");
   });
 });
 
-describe("csprojWithProfilerRefs", () => {
-  const csproj = `<Project Sdk="Microsoft.NET.Sdk">\n  <PropertyGroup>\n    <TargetFramework>net462</TargetFramework>\n  </PropertyGroup>\n</Project>`;
-  const assemblies = ["PluginProfiler.Library.dll", "PluginProfiler.Plugins.dll"];
+describe("replayHarnessSource", () => {
+  const harness = replayHarnessSource();
+  it("is a self-contained, Xrm.Sdk-only harness (no PluginProfiler assemblies)", () => {
+    expect(harness).toContain("namespace DvptReplay");
+    expect(harness).toContain("class CapturedPluginContext : IPluginExecutionContext");
+    expect(harness).toContain("public static IPluginExecutionContext LoadContext(string profilePath)");
+    expect(harness).toContain("DeflateStream"); // base64 → raw-DEFLATE decode
+    expect(harness).toContain("DataContractSerializer(typeof(object), new[] { typeof(CapturedPluginContext) })");
+    expect(harness).toContain("using Microsoft.Xrm.Sdk;");
+    expect(harness).not.toContain("PluginProfiler");
+  });
+  it("RequestId is nullable to satisfy IExecutionContext", () => {
+    expect(harness).toContain("public Guid? RequestId { get; set; }");
+  });
+});
 
-  it("adds hint-path references before </Project>", () => {
-    const patched = csprojWithProfilerRefs(csproj, assemblies, "..\\profiler-libs");
-    expect(patched).toContain('<Reference Include="PluginProfiler.Library">');
-    expect(patched).toContain("<HintPath>..\\profiler-libs\\PluginProfiler.Library.dll</HintPath>");
-    expect(patched).toContain('<Reference Include="PluginProfiler.Plugins">');
+describe("ensureReplayCsproj", () => {
+  const csproj = `<Project Sdk="Microsoft.NET.Sdk">\n  <PropertyGroup>\n    <TargetFramework>net472</TargetFramework>\n  </PropertyGroup>\n</Project>`;
+
+  it("adds a Microsoft.Xrm.Sdk (CoreAssemblies) reference + binding redirects", () => {
+    const patched = ensureReplayCsproj(csproj);
+    expect(patched).toContain('<PackageReference Include="Microsoft.CrmSdk.CoreAssemblies"');
+    expect(patched).toContain("<AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>");
     expect(patched.trim().endsWith("</Project>")).toBe(true);
   });
 
-  it("copies the profiler DLLs (Private=true) but references Microsoft.Xrm.Sdk compile-only (Private=false)", () => {
-    const patched = csprojWithProfilerRefs(csproj, [...assemblies, "Microsoft.Xrm.Sdk.dll"], "..\\profiler-libs");
-    // Profiler libs are copy-local; Xrm.Sdk is compile-only (the test host gets it transitively, so
-    // copying the profiler's copy too would raise version-conflict warnings).
-    expect(patched).toMatch(/<Reference Include="PluginProfiler\.Library">[\s\S]*?<Private>true<\/Private>/);
-    expect(patched).toMatch(/<Reference Include="Microsoft\.Xrm\.Sdk">[\s\S]*?<Private>false<\/Private>/);
-  });
-
   it("is idempotent", () => {
-    const once = csprojWithProfilerRefs(csproj, assemblies, "..\\profiler-libs");
-    expect(csprojWithProfilerRefs(once, assemblies, "..\\profiler-libs")).toBe(once);
+    const once = ensureReplayCsproj(csproj);
+    expect(ensureReplayCsproj(once)).toBe(once);
   });
 });
 

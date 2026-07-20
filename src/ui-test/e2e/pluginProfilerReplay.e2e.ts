@@ -28,11 +28,12 @@ import { initProject, step, showLog } from "./acceptanceLib";
 //                       Start-Profiles the step;
 //   trigger           → a throwaway territory create (Web API) fires the async step;
 //   Continue          → downloads the captured profile into profiles/;
-//   Replay & debug    → generates Replay_<Type>_<stamp>.cs;
-//   dotnet build      → the generated replay test COMPILES (the profiler + Microsoft.Xrm.Sdk refs are
-//                       wired). This end-to-end proves profiling now works for the extension's PACKAGE
-//                       plugins (#208). RUNNING the replay green needs the profiler replay runtime's
-//                       full dependency closure in the test host — a tracked follow-up.
+//   Replay & debug    → generates Replay_<Type>_<stamp>.cs + the in-process DvptReplay harness;
+//   dotnet test       → the generated replay RUNS GREEN (#210): the in-process harness deserializes the
+//                       captured .profile into an IPluginExecutionContext and re-executes the real
+//                       plugin against it — no child AppDomain, so it actually runs in the test host.
+//                       This end-to-end proves profiling now works for the extension's PACKAGE plugins
+//                       (#208) AND that a captured run replays back through the plugin (#210).
 // The click window is gated on the extension's log FILE (waitForLogFile), not Selenium polling, so
 // the session survives on the 8GB VM. Self-skips off Windows and without live creds. See TESTING.md.
 const COMPONENT = "Plugin";
@@ -285,25 +286,29 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
     });
   });
 
-  it("compiles the generated replay test — dotnet build the test project (Xrm.Sdk reference wired)", async () => {
-    await step(COMPONENT, "Compile replay test (dotnet build the test project)", async () => {
+  it("RUNS the generated replay test GREEN — dotnet test re-executes the captured plugin in-process (#210)", async () => {
+    await step(COMPONENT, "Run replay test (dotnet test — replay executes green)", async () => {
       const replay = await waitForMatchDeep(workspace, (n) => /^Replay_.*\.cs$/.test(n), 30000);
       const testCsproj = await waitForMatchDeep(workspace, (n) => n === `${projectName}.Tests.csproj`, 30000);
       if (!replay || !testCsproj) {
         throw new Error("replay test or test project missing");
       }
-      // Build (not run) the test project: this exercises the generation's csproj wiring — including the
-      // Microsoft.Xrm.Sdk compile reference the profiler Replay signature needs (CS0012 otherwise).
-      // RUNNING the replay green needs the profiler replay runtime's full dependency closure in the
-      // test output (Xrm.Sdk / Crm.Sdk.Proxy / PluginProfiler.* at the versions the engine binds to),
-      // which is tracked separately (#208 follow-up) — capture → download → replay-generation, the
-      // proof that profiling now works for package plugins, is what this suite asserts end to end.
-      const res = spawnSync("dotnet", ["build", testCsproj, "--nologo", "-v", "minimal"], { cwd: workspace, encoding: "utf8", timeout: 600000, shell: false });
+      // The in-process harness (#210) deserializes the captured .profile into an IPluginExecutionContext
+      // (base64 → raw-DEFLATE → Report XML → DataContract PluginExecutionContext) and invokes the real
+      // plugin's Execute against a stub service provider — NO child AppDomain, so it actually RUNS in the
+      // `dotnet test` host. This asserts the replay passes: the captured Create-of-territory context is
+      // fed back through the plugin and it traces without throwing.
+      const res = spawnSync("dotnet", ["test", testCsproj, "--nologo", "-v", "minimal", "--filter", "FullyQualifiedName~Replay_"], {
+        cwd: workspace,
+        encoding: "utf8",
+        timeout: 600000,
+        shell: false,
+      });
       const out = `${res.stdout ?? ""}\n${res.stderr ?? ""}`;
-      if (res.status !== 0 || /error CS\d+/.test(out)) {
-        throw new Error(`replay test did not compile:\n${out.slice(-2000)}`);
+      if (res.status !== 0 || /error CS\d+/.test(out) || /Failed:\s*[1-9]/.test(out) || !/Passed!/.test(out)) {
+        throw new Error(`replay test did not run green:\n${out.slice(-2500)}`);
       }
-      return `${path.basename(replay, ".cs")} compiled (test project builds with the profiler + Xrm.Sdk references)`;
+      return `${path.basename(replay, ".cs")} ran green (captured context replayed through the plugin in-process)`;
     });
   });
 
