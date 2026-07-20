@@ -1,11 +1,68 @@
 import * as vscode from "vscode";
+import * as fs from "fs";
+import * as path from "path";
 import DataversePowerToolsContext from "../context";
 import { activeComponentRoot } from "../components/componentDiscovery";
-import { isProfilerInstalled, importSolution, getProfilableSteps, isAssemblyPackageDeployed, ProfilableStep } from "../general/dataverse/pluginProfiles";
+import {
+  isProfilerInstalled,
+  importSolution,
+  getProfilableSteps,
+  getPluginAssemblyProfilingInfo,
+  setPluginAssemblyContent,
+  ProfilableStep,
+} from "../general/dataverse/pluginProfiles";
 import { getOrganizationUrl } from "../general/connectionString";
 import { isCaptureSupported, buildEnableArgs, buildDisableArgs, runProfilerTool } from "./profilerCaptureTool";
 import { ensureCaptureToolRuntime, getProfilerSolutionBase64 } from "./profilerAssets";
 import { downloadPluginProfiles } from "./downloadProfiles";
+
+/** True if `fullPathLower` is a plausible LOCAL build-output copy of `<assemblyName>.dll` — a file of
+ *  that name under a `bin/…/net4x/` path. Pure — the deployed package's content isn't retrievable
+ *  from Dataverse ($select=content returns empty), so the extension sources the assembly to populate
+ *  from the local build it just deployed. Unit-tested. */
+export function isLocalPluginDllPath(fullPathLower: string, assemblyName: string): boolean {
+  const wanted = `${assemblyName.toLowerCase()}.dll`;
+  return fullPathLower.endsWith(`/${wanted}`) || fullPathLower.endsWith(`\\${wanted}`) ? /[\\/]bin[\\/]/.test(fullPathLower) && /[\\/]net4\d/.test(fullPathLower) : false;
+}
+
+/** Find the base64 of the locally-built `<assemblyName>.dll` under `root` (newest, preferring a
+ *  non-test bin path). Undefined if there's no local build (the user must Build & deploy first). */
+export function findLocalPluginAssemblyDll(root: string, assemblyName: string): string | undefined {
+  const matches: { full: string; mtime: number; isTest: boolean }[] = [];
+  const walk = (dir: string) => {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name !== "obj" && entry.name !== "node_modules") {
+          walk(full);
+        }
+      } else if (isLocalPluginDllPath(full.replace(/\\/g, "/").toLowerCase(), assemblyName)) {
+        try {
+          matches.push({ full, mtime: fs.statSync(full).mtimeMs, isTest: /\.tests[\\/]/i.test(full) });
+        } catch {
+          /* raced */
+        }
+      }
+    }
+  };
+  walk(root);
+  if (matches.length === 0) {
+    return undefined;
+  }
+  const nonTest = matches.filter((m) => !m.isTest);
+  const chosen = (nonTest.length > 0 ? nonTest : matches).sort((a, b) => b.mtime - a.mtime)[0];
+  try {
+    return fs.readFileSync(chosen.full).toString("base64");
+  } catch {
+    return undefined;
+  }
+}
 
 // "Profile the next run" (#63 capture, Windows-only): Start Profiling a registered
 // step via the bundled net48 tool, ask the user to trigger the plugin, then fetch the
@@ -110,37 +167,51 @@ export async function capturePluginRun(context: DataversePowerToolsContext): Pro
     return;
   }
 
-  // The Plugin Profiler snapshots the target assembly by reading its base64 `content`, which is NULL
-  // for assemblies deployed as a plugin PACKAGE (`pac`/NuGet) — the DLL lives in the package, not
-  // inline. Enabling anyway makes the profiler throw "Unexpected Exception in the Plug-in Profiler"
-  // on every trigger AND leaves a broken profiler step firing on the entity. Detect it up front and
-  // explain, instead of enabling a capture that can't work. Undefined (query failed) → don't block.
-  if ((await isAssemblyPackageDeployed(context, step.assemblyName)) === true) {
-    vscode.window.showWarningMessage(
-      `Can't profile "${step.typeName}" — it's deployed as a plugin package, and the Plugin Profiler can only capture classic (non-package) plugin assemblies. Debug it with trace logs (Set Trace Log Level) instead, or deploy a classic assembly to profile.`,
-    );
-    context.channel.appendLine(
-      `[Profiler] Skipped: assembly "${step.assemblyName}" is package-deployed — the Plugin Profiler can't load package assemblies (it reads pluginassembly.content, which is null for packages).`,
-    );
-    return;
-  }
-
-  const runtimeDir = await ensureCaptureToolRuntime(context);
-  if (!runtimeDir) {
-    return;
-  }
+  // Prepare a PACKAGE-deployed assembly for profiling. The Plugin Profiler snapshots the target
+  // assembly by reading its base64 `pluginassembly.content`, which is NULL for `pac`/NuGet plugin
+  // packages (the DLL lives in the pluginpackage) — so profiling would throw "Unexpected Exception in
+  // the Plug-in Profiler" and leave a broken step firing. But `content` IS writable: populate it from
+  // the LOCAL build the extension just deployed (the deployed package's own content isn't retrievable
+  // from Dataverse), enable, then clear it in the finally. This makes capture work for the extension's
+  // package plugins (#208).
   const organizationUrl = getOrganizationUrl(context.connectionString);
-
-  const enabled = await runProfilerTool(context, buildEnableArgs(organizationUrl, step.stepId, DEFAULT_MAX_PROFILED_EXECUTIONS), runtimeDir);
-  if (!enabled.ok || !enabled.profilerStepId) {
-    vscode.window.showErrorMessage(`Could not start profiling: ${enabled.error ?? "unknown error"}`);
-    context.channel.show();
-    return;
+  let restoreAssemblyId: string | undefined;
+  const asmInfo = await getPluginAssemblyProfilingInfo(context, step.assemblyName);
+  if (asmInfo?.packageId && !asmInfo.hasContent) {
+    const dllBase64 = findLocalPluginAssemblyDll(componentRoot, step.assemblyName);
+    if (!dllBase64) {
+      vscode.window.showErrorMessage(
+        `Can't profile "${step.typeName}" — couldn't find the locally-built ${step.assemblyName}.dll to prepare the package assembly. Build & deploy the plugin, then retry.`,
+      );
+      context.channel.appendLine(`[Profiler] Could not find a local ${step.assemblyName}.dll (bin/**/net4x) to populate the package assembly's content.`);
+      return;
+    }
+    if (!(await setPluginAssemblyContent(context, asmInfo.assemblyId, dllBase64))) {
+      vscode.window.showErrorMessage(`Can't profile "${step.typeName}" — couldn't prepare the package assembly for profiling (setting content failed). See the output.`);
+      context.channel.show();
+      return;
+    }
+    restoreAssemblyId = asmInfo.assemblyId;
+    context.channel.appendLine(`[Profiler] Prepared package assembly "${step.assemblyName}" for profiling (temporarily populated content from the deployed package).`);
   }
-  const profilerStepId = enabled.profilerStepId;
-  context.channel.appendLine(`[Profiler] Started profiling ${step.typeName} (${step.message ?? "?"} ${step.primaryEntity ?? ""}).`);
 
+  // One try/finally from here so we ALWAYS stop profiling and restore the package assembly's content,
+  // no matter where the capture bails.
+  let profilerStepId: string | undefined;
   try {
+    const runtimeDir = await ensureCaptureToolRuntime(context);
+    if (!runtimeDir) {
+      return;
+    }
+    const enabled = await runProfilerTool(context, buildEnableArgs(organizationUrl, step.stepId, DEFAULT_MAX_PROFILED_EXECUTIONS), runtimeDir);
+    if (!enabled.ok || !enabled.profilerStepId) {
+      vscode.window.showErrorMessage(`Could not start profiling: ${enabled.error ?? "unknown error"}`);
+      context.channel.show();
+      return;
+    }
+    profilerStepId = enabled.profilerStepId;
+    context.channel.appendLine(`[Profiler] Started profiling ${step.typeName} (${step.message ?? "?"} ${step.primaryEntity ?? ""}).`);
+
     const go = await vscode.window.showInformationMessage(
       `Profiling started for ${step.typeName}. Now trigger it — ${step.message ?? "run"} ${step.primaryEntity ? "a " + step.primaryEntity + " record" : "the operation"} in your app — then click Continue to fetch the captured run.`,
       { modal: true },
@@ -150,7 +221,18 @@ export async function capturePluginRun(context: DataversePowerToolsContext): Pro
       await downloadPluginProfiles(context);
     }
   } finally {
-    const disabled = await runProfilerTool(context, buildDisableArgs(organizationUrl, profilerStepId), runtimeDir);
-    context.channel.appendLine(disabled.ok ? "[Profiler] Stopped profiling." : `[Profiler] Stop profiling failed: ${disabled.error ?? "unknown"}`);
+    if (profilerStepId) {
+      const runtimeDir = await ensureCaptureToolRuntime(context);
+      const disabled = runtimeDir ? await runProfilerTool(context, buildDisableArgs(organizationUrl, profilerStepId), runtimeDir) : { ok: false, error: "runtime unavailable" };
+      context.channel.appendLine(disabled.ok ? "[Profiler] Stopped profiling." : `[Profiler] Stop profiling failed: ${disabled.error ?? "unknown"}`);
+    }
+    if (restoreAssemblyId) {
+      const restored = await setPluginAssemblyContent(context, restoreAssemblyId, "");
+      context.channel.appendLine(
+        restored
+          ? "[Profiler] Cleared the temporary package-assembly content."
+          : "[Profiler] Could not clear the temporary assembly content — it self-heals on the next Build & deploy.",
+      );
+    }
   }
 }

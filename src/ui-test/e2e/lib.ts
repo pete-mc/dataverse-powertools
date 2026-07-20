@@ -265,14 +265,28 @@ export async function pushModalButton(label: string, opts: { attempts?: number }
 export async function pickManyByLabel(label: string, timeoutMs = 30000): Promise<void> {
   const input = await waitForInput(timeoutMs);
   await waitForPicks(input, Math.min(timeoutMs, 30000));
-  // Filter to the target row, toggle its checkbox, then confirm the whole multi-select.
+  // Filter to the target row(s), then CHECK them. A per-item `.select()` can go stale between
+  // getQuickPicks() and the click (the list re-renders as it filters), so prefer toggleAllQuickPicks
+  // (checks every filtered row) with a keyboard Space fallback (toggles the focused row) — robust for
+  // the single filtered profile the download picker shows.
   await input.setText(label);
-  await sleep(1200);
-  const picks = await input.getQuickPicks();
-  if (picks.length > 0) {
-    await picks[0].select(); // toggles the checkbox in canPickMany mode
-    await sleep(500);
+  await sleep(1500);
+  await waitForPicks(input, 15000);
+  let checked = false;
+  try {
+    await input.toggleAllQuickPicks(true);
+    checked = true;
+  } catch {
+    /* older/edge InputBox — fall through to keyboard */
   }
+  if (!checked) {
+    try {
+      await input.getDriver().actions().sendKeys(Key.SPACE).perform();
+    } catch {
+      /* best-effort */
+    }
+  }
+  await sleep(700);
   await input.confirm(); // Enter accepts the checked items
   await sleep(2500);
 }

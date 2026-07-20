@@ -105,7 +105,11 @@ export function csprojWithProfilerRefs(csprojXml: string, assemblyNames: readonl
   const references = assemblyNames
     .map((file) => {
       const name = file.replace(/\.dll$/i, "");
-      return `    <Reference Include="${name}">\n      <HintPath>${relativeLibDir}\\${file}</HintPath>\n      <Private>true</Private>\n    </Reference>`;
+      // Microsoft.Xrm.Sdk is a COMPILE-time reference only (Private=false): the test host already
+      // gets it transitively (from the plugin project / DataverseUnitTest), so copying the profiler's
+      // copy too would raise "conflicts between different versions". The profiler DLLs are copy-local.
+      const copyLocal = !/^microsoft\.xrm\.sdk$/i.test(name);
+      return `    <Reference Include="${name}">\n      <HintPath>${relativeLibDir}\\${file}</HintPath>\n      <Private>${copyLocal}</Private>\n    </Reference>`;
     })
     .join("\n");
   const itemGroup = `  <ItemGroup>\n    <!-- Plugin Profiler replay assemblies (Dataverse PowerTools, #63) -->\n${references}\n  </ItemGroup>\n`;

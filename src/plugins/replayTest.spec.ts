@@ -67,6 +67,14 @@ describe("csprojWithProfilerRefs", () => {
     expect(patched.trim().endsWith("</Project>")).toBe(true);
   });
 
+  it("copies the profiler DLLs (Private=true) but references Microsoft.Xrm.Sdk compile-only (Private=false)", () => {
+    const patched = csprojWithProfilerRefs(csproj, [...assemblies, "Microsoft.Xrm.Sdk.dll"], "..\\profiler-libs");
+    // Profiler libs are copy-local; Xrm.Sdk is compile-only (the test host gets it transitively, so
+    // copying the profiler's copy too would raise version-conflict warnings).
+    expect(patched).toMatch(/<Reference Include="PluginProfiler\.Library">[\s\S]*?<Private>true<\/Private>/);
+    expect(patched).toMatch(/<Reference Include="Microsoft\.Xrm\.Sdk">[\s\S]*?<Private>false<\/Private>/);
+  });
+
   it("is idempotent", () => {
     const once = csprojWithProfilerRefs(csproj, assemblies, "..\\profiler-libs");
     expect(csprojWithProfilerRefs(once, assemblies, "..\\profiler-libs")).toBe(once);

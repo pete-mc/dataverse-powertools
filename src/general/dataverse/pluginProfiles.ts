@@ -47,8 +47,8 @@ export interface ProfilableStep {
   stepId: string;
   name: string;
   typeName: string;
-  /** The plugin ASSEMBLY the step's type belongs to — needed to check whether it was deployed as a
-   *  package (the Plugin Profiler can't load package-deployed assemblies; see isAssemblyPackageDeployed). */
+  /** The plugin ASSEMBLY the step's type belongs to — used to prepare a package-deployed assembly
+   *  for profiling (populate its `content`; see getPluginAssemblyProfilingInfo). */
   assemblyName: string;
   message?: string;
   primaryEntity?: string;
@@ -56,29 +56,62 @@ export interface ProfilableStep {
   mode?: number;
 }
 
-/** Query a plugin assembly's package linkage by name. A NuGet/plugin-PACKAGE-deployed assembly has a
- *  non-null `_packageid_value` and a NULL `content` — and the Plugin Profiler snapshots the assembly
- *  by reading `content` (base64), so it fails on package assemblies with `Convert.FromBase64String(null)`
- *  ("Unexpected Exception in the Plug-in Profiler"). Pure; unit-tested. */
-export function assemblyPackageQuery(assemblyName: string): string {
-  return `pluginassemblies?$select=name,_packageid_value&$filter=name eq '${assemblyName.replace(/'/g, "''")}'&$top=1`;
+export interface AssemblyProfilingInfo {
+  assemblyId: string;
+  /** Set when the assembly was deployed as a plugin PACKAGE (`pac`/NuGet). */
+  packageId?: string;
+  /** Whether `pluginassembly.content` is already populated (a classic deploy, or already prepared). */
+  hasContent: boolean;
 }
 
-/** Whether the named plugin assembly was deployed as a package (so the Plugin Profiler can't profile
- *  its steps). Undefined on query failure (caller should not block on an unknown). */
-export async function isAssemblyPackageDeployed(context: DataversePowerToolsContext, assemblyName: string): Promise<boolean | undefined> {
+/** Resolve a plugin assembly by name for profiling prep — its id, package linkage, and whether its
+ *  `content` is populated. The Plugin Profiler snapshots the assembly by reading base64 `content`,
+ *  which is NULL for PACKAGE-deployed assemblies (the DLL lives in the pluginpackage) → it fails with
+ *  `Convert.FromBase64String(null)` ("Unexpected Exception in the Plug-in Profiler"). `content` IS
+ *  writable, so capture populates it from the deployed package first (getPluginPackageContentBase64
+ *  + setPluginAssemblyContent), then clears it after. Pure query builder is unit-tested. */
+export function pluginAssemblyProfilingQuery(assemblyName: string): string {
+  return `pluginassemblies?$select=pluginassemblyid,content,_packageid_value&$filter=name eq '${assemblyName.replace(/'/g, "''")}'&$top=1`;
+}
+
+export async function getPluginAssemblyProfilingInfo(context: DataversePowerToolsContext, assemblyName: string): Promise<AssemblyProfilingInfo | undefined> {
   if (!assemblyName) {
     return undefined;
   }
-  const body = await getJson(context, "Check plugin assembly package linkage", assemblyPackageQuery(assemblyName));
-  if (!body) {
+  const body = await getJson(context, "Resolve plugin assembly for profiling", pluginAssemblyProfilingQuery(assemblyName));
+  const row = body?.value?.[0];
+  if (!row?.pluginassemblyid) {
     return undefined;
   }
-  const row = body.value?.[0];
-  if (!row) {
-    return undefined;
+  return { assemblyId: row.pluginassemblyid, packageId: (row._packageid_value as string) || undefined, hasContent: typeof row.content === "string" && row.content.length > 0 };
+}
+
+/** Set (or clear, with "") a plugin assembly's `content`. Used to temporarily populate a package
+ *  assembly's content so the Plugin Profiler can load it, then clear it afterwards. Returns success. */
+export async function setPluginAssemblyContent(context: DataversePowerToolsContext, assemblyId: string, contentBase64: string): Promise<boolean> {
+  if (!GUID.test(assemblyId)) {
+    return false;
   }
-  return !!row._packageid_value;
+  const dataverse = context.dataverse;
+  if (!dataverse || !canCallDataverseApi({ organizationUrl: dataverse.organizationUrl, isValid: dataverse.isValid })) {
+    return false;
+  }
+  try {
+    const url = dataverseApiUrl(dataverse.organizationUrl, `pluginassemblies(${assemblyId})`);
+    const response = await fetch(url, {
+      method: "PATCH",
+      headers: { Authorization: "Bearer " + (await dataverse.getAuthorizationToken()), "Content-Type": "application/json" },
+      body: JSON.stringify({ content: contentBase64 }),
+    });
+    if (!response.ok) {
+      await logDataverseHttpError(context.channel, "set the plugin assembly content", response);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    logDataverseError(context.channel, "set the plugin assembly content", error);
+    return false;
+  }
 }
 
 /**

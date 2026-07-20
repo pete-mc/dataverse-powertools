@@ -60,7 +60,9 @@ describe("parseProfilableSteps", () => {
     expect(parseProfilableSteps(undefined)).toEqual([]);
     // message/primaryEntity are optional — a step with no filter/message still shapes.
     const minimal = { sdkmessageprocessingstepid: "m", name: "n", plugintypeid: { typename: "A.B", pluginassemblyid: { name: "Asm" } } };
-    expect(parseProfilableSteps({ value: [minimal] })).toEqual([{ stepId: "m", name: "n", typeName: "A.B", assemblyName: "Asm", message: undefined, primaryEntity: undefined, mode: undefined }]);
+    expect(parseProfilableSteps({ value: [minimal] })).toEqual([
+      { stepId: "m", name: "n", typeName: "A.B", assemblyName: "Asm", message: undefined, primaryEntity: undefined, mode: undefined },
+    ]);
   });
 });
 

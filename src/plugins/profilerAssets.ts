@@ -14,8 +14,11 @@ const PRT_NUPKG_URL = `https://www.nuget.org/api/v2/package/Microsoft.CrmSdk.Xrm
 /** Folder (under the component root) the replay test references the DLLs from. */
 export const PROFILER_LIB_DIR = "profiler-libs";
 
-/** The net462 copies at the nupkg's tools/ root — same TFM as the plugin test host. */
-export const PROFILER_ASSEMBLIES = ["PluginProfiler.Library.dll", "PluginProfiler.Plugins.dll"] as const;
+/** The net462 copies at the nupkg's tools/ root — same TFM as the plugin test host. `Microsoft.Xrm.Sdk`
+ *  is included because the profiler Replay API's signature exposes `ITracingService` (from Xrm.Sdk), so
+ *  the generated replay test needs a COMPILE-time reference to it — the plugin project's own Xrm.Sdk
+ *  reference is PrivateAssets and doesn't flow to the test project (CS0012 otherwise). */
+export const PROFILER_ASSEMBLIES = ["PluginProfiler.Library.dll", "PluginProfiler.Plugins.dll", "Microsoft.Xrm.Sdk.dll"] as const;
 
 /** Download (once, cached in globalStorage) and copy the profiler assemblies into
  * <componentRoot>/profiler-libs. Returns the lib dir, or undefined on failure. */
