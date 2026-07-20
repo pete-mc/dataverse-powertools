@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.14.40",
+  "version": "0.14.41",
   "engines": {
     "vscode": "^1.95.0"
   },
