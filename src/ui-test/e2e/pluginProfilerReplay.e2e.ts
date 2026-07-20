@@ -1,31 +1,24 @@
 import * as path from "path";
 import * as fs from "fs";
-import { spawnSync } from "child_process";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
-import { loadE2EEnv, freshWorkspace, answerText, pickByLabel, waitForFile, dismissOverlays, sleep, waitForModal, pushModalButton, pickManyByLabel, E2EClient } from "./lib";
+import { loadE2EEnv, freshWorkspace, answerText, pickByLabel, waitForFile, dismissOverlays, sleep, waitForLogFile, logFileSize, E2EClient } from "./lib";
 import { clickPanelButton, expandComponentCards } from "../supervised/supervisedLib";
 import { initProject, step, showLog } from "./acceptanceLib";
 
-// DEBUGGING e2e (button-driven, live Dataverse, WINDOWS-ONLY): the real plugin "capture → replay →
-// execute" loop through the panel's Debugging block. Deploys a plugin registered on Create-of-
-// territory, clicks "Profile next run" to Start Profiling the step, TRIGGERS it via the Web API (a
-// throwaway territory create) at the modal "Continue" prompt, downloads the captured profile, then
-// "Replay & debug" generates a replay unit test — which is finally BUILT + RUN with `dotnet test`
-// and asserted green. That green run is the debugging payoff: the captured production context is
-// re-executed against the plugin locally. Capture is a net48 tool, so the whole suite self-skips off
-// Windows (and without live creds). Mirrors the manual proof behind #63 / task #77.
+// DEBUGGING e2e (button-driven, live Dataverse, WINDOWS-ONLY) for the plugin Debugging block. It
+// deploys a plugin registered on Create-of-territory, proves the getProfilableSteps $top=200 fix
+// finds the step in a busy org, and asserts the profiler-capture GUARD: because the extension
+// deploys plugins as PACKAGES and the Plugin Profiler can only snapshot classic (non-package)
+// assemblies (it reads `pluginassembly.content`, which is NULL for packages → the server-side
+// profiler throws "Unexpected Exception in the Plug-in Profiler" and leaves a broken step firing),
+// "Profile next run" must REFUSE with a clear message rather than enable a doomed capture. That
+// refusal — not a captured→replayed profile — is the honest, green end state on the current
+// (package) deploy + profiler. Self-skips off Windows and without live creds. See TESTING.md and the
+// profiler-capture memory; the deeper "make profiling work for package plugins" question is a
+// separate follow-up (tracked on GitHub).
 const COMPONENT = "Plugin";
 const isWindows = process.platform === "win32";
-// The capture TAIL (Profile next run modal → live trigger → download → replay → dotnet-test-to-green)
-// drives a VS Code MODAL dialog through ExTester. On the shared 8GB e2e VM this is unreliable: the
-// sustained Selenium poll for the modal loses the driver session ("invalid session id") — the
-// extension host stays healthy, but the harness connection drops. The reliable portion (scaffold →
-// write → build & deploy → the step is discoverable as PROFILABLE) runs by default and covers the
-// getProfilableSteps $top=200 fix end-to-end; set DVPT_E2E_PROFILER_CAPTURE=1 (on a roomier VM) to
-// also run the modal-driven tail. See TESTING.md / the profiler-capture memory.
-const runCaptureTail = process.env.DVPT_E2E_PROFILER_CAPTURE === "1";
-const tailIt = runCaptureTail ? it : it.skip;
 
 /** First file anywhere under dir (recursive, skips obj) whose name matches, polled until found. */
 async function waitForMatchDeep(dir: string, predicate: (name: string) => boolean, timeoutMs: number): Promise<string | undefined> {
@@ -63,16 +56,21 @@ async function waitForMatchDeep(dir: string, predicate: (name: string) => boolea
   }
 }
 
-/** A plugin registered on Create-of-territory (Post, Sync, Sandbox) that traces the target — a
- *  Web-API-creatable table so the trigger is deterministic, and small enough to replay green. The
- *  namespace/class must match the scaffolded file so `Build & deploy` discovers the [CrmPluginRegistration]. */
+/** A plugin registered on Create-of-territory (Post, ASYNC, Sandbox) that traces the target — a
+ *  Web-API-creatable table so the trigger is deterministic, and small enough to replay green. ASYNC
+ *  matters: the Plugin Profiler in persist-to-entity mode saves the profile and then throws to skip
+ *  the original plugin; on a SYNCHRONOUS step that throw is inside the create's transaction, so it
+ *  rolls the persisted profile back (0 profiles) AND fails the create ("Unexpected Exception in the
+ *  Plug-in Profiler", 400). An ASYNC step runs in its own transaction — the create returns 204 and
+ *  the profile commits. The namespace/class must match the scaffolded file so `Build & deploy`
+ *  discovers the [CrmPluginRegistration]. */
 function territoryPluginSource(namespaceName: string, className: string): string {
   return `using Microsoft.Xrm.Sdk;
 using System;
 
 namespace ${namespaceName}
 {
-    [CrmPluginRegistration(MessageNameEnum.Create, "territory", StageEnum.PostOperation, ExecutionModeEnum.Synchronous, "", "Create territory (DVPT profiler e2e)", 1, IsolationModeEnum.Sandbox)]
+    [CrmPluginRegistration(MessageNameEnum.Create, "territory", StageEnum.PostOperation, ExecutionModeEnum.Asynchronous, "", "Create territory (DVPT profiler e2e)", 1, IsolationModeEnum.Sandbox)]
     public class ${className} : PluginBase
     {
         public ${className}(string unsecureConfiguration, string secureConfiguration)
@@ -108,7 +106,6 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
   const packageName = "ProfilerE2E";
   const className = "ProfilerProbe";
   let typeName = `${projectName}.${className}`; // refined from the scaffolded file's real namespace
-  let triggeredTerritoryId: string | undefined;
 
   function pkgUnique(): string {
     const settings = JSON.parse(fs.readFileSync(path.join(workspace, "dataverse-powertools.json"), "utf8"));
@@ -156,7 +153,7 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
       const ns = /namespace\s+([A-Za-z0-9_.]+)/.exec(scaffolded)?.[1] ?? projectName;
       typeName = `${ns}.${className}`;
       fs.writeFileSync(cs, territoryPluginSource(ns, className), "utf8");
-      return `wrote ${projectName}/${className}.cs — [CrmPluginRegistration(Create, territory, Post, Sync)] type ${typeName}`;
+      return `wrote ${projectName}/${className}.cs — [CrmPluginRegistration(Create, territory, Post, Async)] type ${typeName}`;
     });
   });
 
@@ -206,94 +203,46 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
     });
   });
 
-  tailIt("captures a real run — Profile next run → trigger via Web API → Continue → download", async () => {
-    await step(COMPONENT, "Capture a production run (Profile next run + live trigger)", async () => {
-      // Reclaim RAM before capture. The just-finished `Build & deploy` ran dotnet build + pack,
-      // which leaves MSBuild/VBCSCompiler build-server processes resident. On the 8GB VM, the net48
-      // profiler tool spawning on top of them can OOM-crash the VS Code host mid-capture (Selenium
-      // then reports "invalid session id"). Shutting the build servers down frees ~1GB first.
-      try {
-        spawnSync("dotnet", ["build-server", "shutdown"], { encoding: "utf8", timeout: 60000, shell: false });
-      } catch {
-        /* best-effort */
-      }
-      await sleep(4000);
+  it("Profile next run REFUSES a package-deployed step with a clear message (not a cryptic profiler crash)", async () => {
+    await step(COMPONENT, "Profiler refuses package-deployed plugin (clear message)", async () => {
+      // The extension deploys plugins as PACKAGES; the Plugin Profiler snapshots the assembly from
+      // `pluginassembly.content`, which is NULL for package assemblies — so enabling profiling makes
+      // the server-side profiler throw "Unexpected Exception in the Plug-in Profiler" on every trigger
+      // AND leaves a broken profiler step firing on the entity (the async job's inner error is
+      // `Convert.FromBase64String(null)` in `PluginLoaderUtility.RefreshAssembly`). The extension now
+      // detects this up front and explains instead of enabling a doomed capture. Assert that via the
+      // extension's OWN log line (mirrored to a FILE — no WebDriver polling across the click, which is
+      // what lost the Selenium session on the 8GB VM before).
       await expandComponentCards();
+      const logBaseline = logFileSize();
       await clickPanelButton("Profile next run", { timeoutMs: 30000 });
-      // The capture shows its modal ONLY AFTER profiling is enabled (and after a possible one-time,
-      // slow managed-solution install). Wait for the modal FIRST — its presence proves the step is
-      // now profiling — THEN fire the trigger, so we can never create the territory before the
-      // profiler is armed (a fixed sleep would race the install/enable). The profiler solution is
-      // already installed in the test env, so enabling is quick — a shorter wait fails fast (with a
-      // clear error) if the step never became profilable instead of idling until the session dies.
-      await waitForModal(240000);
-      triggeredTerritoryId = await client.createTerritory();
-      if (!triggeredTerritoryId) {
-        throw new Error("could not create a territory to trigger the plugin");
+      const tail = await waitForLogFile(/\[Profiler\] Skipped: assembly .* is package-deployed/, { timeoutMs: 120000, sinceByte: logBaseline });
+      // And it must NOT have enabled profiling (no "Started profiling", no leftover profiler step).
+      if (/\[Profiler\] Started profiling/.test(tail)) {
+        throw new Error("profiler enabled on a package-deployed step — the package guard did not fire");
       }
-      await sleep(10000); // sync PostOperation step fires + profiler persists the mbs_pluginprofile
-      await pushModalButton("Continue", 60000);
-      // downloadPluginProfiles shows a canPickMany picker of the env's captured profiles — pick ours.
-      await pickManyByLabel(className, 60000);
-      const profilesDir = path.join(workspace, projectName, "profiles");
-      const gotProfile = await waitForMatchDeep(profilesDir, (n) => n.includes(".profile"), 120000);
-      // Best-effort org-side assertion the capture actually persisted.
-      const captured = await client.hasPluginProfileForType(typeName).catch(() => false);
-      if (!gotProfile) {
-        throw new Error(`no .profile downloaded into ${path.relative(workspace, profilesDir)} (org captured=${captured})`);
+      const left = await client.cleanupProfilerSteps("territory").catch(() => 0);
+      if (left > 0) {
+        throw new Error(`the package guard did not fire — ${left} profiler step(s) were created on territory`);
       }
-      return `captured + downloaded ${path.basename(gotProfile)} (org profile for ${typeName}=${captured})`;
-    });
-  });
-
-  tailIt("generates a replay test — Replay & debug", async () => {
-    await step(COMPONENT, "Generate replay test (Replay & debug)", async () => {
-      await expandComponentCards();
-      await clickPanelButton("Replay & debug", { timeoutMs: 30000 });
-      const replay = await waitForMatchDeep(workspace, (n) => /^Replay_.*\.cs$/.test(n), 120000);
-      if (!replay) {
-        throw new Error("no Replay_*.cs generated in the test project");
-      }
-      return `generated ${path.relative(workspace, replay)}`;
-    });
-  });
-
-  tailIt("executes the replay — dotnet test the generated test to GREEN (production context re-run)", async () => {
-    await step(COMPONENT, "Execute replay (dotnet test the generated test)", async () => {
-      const replay = await waitForMatchDeep(workspace, (n) => /^Replay_.*\.cs$/.test(n), 30000);
-      const testCsproj = await waitForMatchDeep(workspace, (n) => n === `${projectName}.Tests.csproj`, 30000);
-      if (!replay || !testCsproj) {
-        throw new Error("replay test or test project missing");
-      }
-      const replayClass = path.basename(replay, ".cs");
-      const res = spawnSync("dotnet", ["test", testCsproj, "--filter", `FullyQualifiedName~${replayClass}`, "--nologo", "-v", "minimal"], {
-        cwd: workspace,
-        encoding: "utf8",
-        timeout: 900000,
-        shell: false,
-      });
-      const out = `${res.stdout ?? ""}\n${res.stderr ?? ""}`;
-      if (res.status !== 0) {
-        throw new Error(`dotnet test failed (exit ${res.status}) for ${replayClass}:\n${out.slice(-2000)}`);
-      }
-      const passed = /Passed!\s*-\s*Failed:\s*0/.test(out) || /\bPassed!\b/.test(out);
-      if (!passed) {
-        throw new Error(`replay test did not report a pass:\n${out.slice(-2000)}`);
-      }
-      return `${replayClass} executed GREEN — captured territory-create context replayed locally`;
+      return `profiler correctly refused the package-deployed step for ${typeName} (no enable, no broken profiler step)`;
     });
   });
 
   after(async function () {
+    // Remove the profiler's clone step FIRST — if the capture didn't reach "Stop Profiling", a
+    // "(Profiler)" step keeps firing on Create-of-territory and every territory create in the shared
+    // org then 400s. This must run regardless of how the tail failed.
     try {
-      await client.deletePluginPackage(pkgUnique());
+      const removed = await client.cleanupProfilerSteps("territory");
+      if (removed > 0) {
+        console.log(`[cleanup] removed ${removed} leftover profiler step(s) on territory`);
+      }
     } catch {
       /* best-effort */
     }
     try {
-      if (triggeredTerritoryId) {
-        await client.deleteTerritory(triggeredTerritoryId);
-      }
+      await client.deletePluginPackage(pkgUnique());
     } catch {
       /* best-effort */
     }

@@ -132,15 +132,18 @@ The suite is `*.e2e.ts` (not the CI `*.test.js` glob), so it stays out of CI.
   → open the live app in a browser and confirm the DEPLOYED code runs → **Debug Web Resources**
   locally + edit source and confirm hot reload. Steps 7–8 drive a real browser (CDP) and need
   the interactive user; they self-skip without it.
-- `pluginProfilerReplay` (Windows-only) — the plug-in **Debugging** loop: scaffold a Plugins
+- `pluginProfilerReplay` (Windows-only) — the plug-in **Debugging** block: scaffold a Plugins
   project + xUnit test project, write a plug-in registered on **Create of territory**, Build &
-  deploy it, and assert the step is discoverable as **profilable** live (guards the
-  `getProfilableSteps` server-side assembly filter — a busy org has 200+ system steps). The
-  modal-driven tail (Profile next run → live Web-API trigger → **Continue** → download →
-  **Replay & debug** → `dotnet test` the generated replay to green) is gated behind
-  **`DVPT_E2E_PROFILER_CAPTURE=1`**: it drives a VS Code modal dialog that the shared 8GB VM can't
-  hold a Selenium session through, so the reliable portion runs by default and the tail is opt-in
-  (run it on a roomier box).
+  deploy it, assert the step is discoverable as **profilable** live (guards the `getProfilableSteps`
+  server-side assembly filter — a busy org has 200+ system steps), and assert the **package-deploy
+  guard**: because the extension deploys plugins as packages and the Plugin Profiler can only
+  snapshot classic (non-package) assemblies (it reads `pluginassembly.content`, null for packages →
+  the server-side profiler throws "Unexpected Exception in the Plug-in Profiler" and leaves a broken
+  step firing), **Profile next run must REFUSE with a clear message** rather than enable a doomed
+  capture. That refusal is the honest green end state on the current deploy+profiler; making capture
+  actually work for package plugins (classic-assembly deploy for debugging, or populating the
+  assembly content) is a tracked follow-up. Uses log-FILE gating (`waitForLogFile`) so the click
+  doesn't need Selenium polling that lost the session on the 8GB VM.
 
 **VM hygiene (the box is ~8GB).** ExTester + the net8 typings fetch + webpack + a browser is
 near the memory ceiling, and orphans accumulate across runs. If a run starts cascading
