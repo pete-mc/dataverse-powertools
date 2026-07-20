@@ -2,6 +2,10 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.47 (pre-release)
+
+- **Tests (#143 Move 2) — webhook + solution-component Dataverse paths now covered.** Added `serviceEndpoints.spec.ts` (9 tests — the #145 webhook `serviceendpoint` + its `sdkmessageprocessingstep`: create-vs-update upsert, and the message-not-found / filter-not-found short-circuits) and `addDataverseSolutionComponent.spec.ts` (6 tests — `AddSolutionComponent`, including the **"already in this solution" idempotency** branch where a non-OK response is still success, and the resolve-type-by-object-id composition). Both drive the mocked `node-fetch` seam, no live org. Unit tests 790 → 805, no shipped-code change.
+
 ## 0.14.46 (pre-release)
 
 - **Tests (#143 Move 2) — the plugin-deploy Dataverse path now has unit coverage.** The `pluginpackage` and classic `pluginassembly` create/update handlers (`getDataversePluginPackage.ts`, `getDataversePluginAssembly.ts`) were untested. Added `getDataversePluginPackage.spec.ts` and `getDataversePluginAssembly.spec.ts` (16 tests) driving them against the mocked `node-fetch` seam (no live org): the **create-vs-update upsert branching**, the create-returns-204 **`OData-EntityId` header id-parse**, OData single-quote escaping, the **strong-name (`0x8004416c`) guidance** an unsigned `--skip-signing` assembly triggers, and the package→assembly materialisation poll. No shipped-code change. Unit tests 774 → 790.
