@@ -2,6 +2,10 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.46 (pre-release)
+
+- **Tests (#143 Move 2) — the plugin-deploy Dataverse path now has unit coverage.** The `pluginpackage` and classic `pluginassembly` create/update handlers (`getDataversePluginPackage.ts`, `getDataversePluginAssembly.ts`) were untested. Added `getDataversePluginPackage.spec.ts` and `getDataversePluginAssembly.spec.ts` (16 tests) driving them against the mocked `node-fetch` seam (no live org): the **create-vs-update upsert branching**, the create-returns-204 **`OData-EntityId` header id-parse**, OData single-quote escaping, the **strong-name (`0x8004416c`) guidance** an unsigned `--skip-signing` assembly triggers, and the package→assembly materialisation poll. No shipped-code change. Unit tests 774 → 790.
+
 ## 0.14.45 (pre-release)
 
 - **Tests (#143 Move 2) — the Plugin Profiler's whole Web API path now runs in CI against the mocked Dataverse API, with no live org.** This was the single largest untested `fetch` surface in the Dataverse layer: only the profiler's pure query builders/parsers were unit-tested, while the async calls that actually issue requests (`getPluginAssemblyProfilingInfo`, `setPluginAssemblyContent`, `getProfilableSteps`, `deleteProfilerStep`, `isProfilerInstalled`, `getPluginProfiles`, `getPluginProfileContent`) had no coverage. Extended the in-memory Web API mock (`test/dataverseFetchMock.ts`) to model `pluginassemblies` (filter-by-name + content PATCH), `sdkmessageprocessingsteps` (profilable-step list + clone DELETE), `solutions`, `mbs_pluginprofiles` (list + report-by-id) and `ImportSolution`, and added `pluginProfiles.mock.spec.ts` (11 tests) that drives the capture-prep → discover → cleanup flow end to end. It asserts the request is **shaped** correctly (the #135/#140 server-side assembly filter; keyed PATCH/DELETE; the 0.14.43 package-content prep), that behaviour is **identical under service-principal and interactive (OAuth) auth** — the recurring `tenantId`-gating bug class (#128/#129/#135) — and that an invalid connection short-circuits before any network call. No shipped-code change.
