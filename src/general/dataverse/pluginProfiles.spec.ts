@@ -8,7 +8,7 @@ import {
   profiledStepTypeLabel,
   findMatchingStep,
   buildProfilableStepsResource,
-  assemblyPackageQuery,
+  pluginAssemblyProfilingQuery,
 } from "./pluginProfiles";
 
 describe("plugin profile queries", () => {
@@ -37,16 +37,16 @@ describe("plugin profile queries", () => {
     });
   });
 
-  describe("assemblyPackageQuery (profiler package-deploy guard)", () => {
-    it("selects the package lookup so the guard can detect package-deployed assemblies", () => {
-      const q = assemblyPackageQuery("MyPlugins");
-      expect(q).toContain("pluginassemblies?$select=name,_packageid_value");
+  describe("pluginAssemblyProfilingQuery (package-assembly profiling prep)", () => {
+    it("selects id, content, and the package lookup so capture can populate a package assembly's content", () => {
+      const q = pluginAssemblyProfilingQuery("MyPlugins");
+      expect(q).toContain("pluginassemblies?$select=pluginassemblyid,content,_packageid_value");
       expect(q).toContain("$filter=name eq 'MyPlugins'");
       expect(q).toContain("$top=1");
     });
 
     it("escapes single quotes in the assembly name", () => {
-      expect(assemblyPackageQuery("O'Brien")).toContain("name eq 'O''Brien'");
+      expect(pluginAssemblyProfilingQuery("O'Brien")).toContain("name eq 'O''Brien'");
     });
   });
 
