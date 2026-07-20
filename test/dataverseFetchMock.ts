@@ -10,6 +10,16 @@
 
 export type TraceLevel = 0 | 1 | 2;
 
+/** A plugin assembly row as the profiler-prep path reads/writes it. `content` is base64 or null —
+ *  null for a PACKAGE-deployed assembly, which capture temporarily populates (0.14.43). */
+export interface MockPluginAssembly {
+  pluginassemblyid: string;
+  name: string;
+  content: string | null;
+  /** The `_packageid_value` lookup — set when the assembly was deployed as a package. */
+  packageId?: string | null;
+}
+
 export interface DataverseMockState {
   /** The single `organization` row id + its plug-in trace level. */
   organizationId: string;
@@ -19,6 +29,16 @@ export interface DataverseMockState {
   businessUnitId: string;
   /** Rows returned by GET plugintracelogs (the trace-log viewer, #63/#137). */
   pluginTraceLogs: Array<Record<string, unknown>>;
+  /** Plugin assemblies for the profiler-prep path (getPluginAssemblyProfilingInfo / setPluginAssemblyContent). */
+  pluginAssemblies: MockPluginAssembly[];
+  /** Rows returned by GET sdkmessageprocessingsteps (profilable-steps + profiler-clone delete, #135/#139). */
+  sdkMessageProcessingSteps: Array<Record<string, unknown>>;
+  /** Rows returned by GET solutions (isProfilerInstalled). */
+  solutions: Array<Record<string, unknown>>;
+  /** Rows returned by GET mbs_pluginprofiles (captured profiles list + one report by id). */
+  pluginProfiles: Array<Record<string, unknown>>;
+  /** How many times ImportSolution was POSTed (the profiler-solution install path). */
+  importSolutionCalls: number;
 }
 
 export interface RecordedRequest {
@@ -41,7 +61,25 @@ export const DEFAULT_MOCK_STATE: DataverseMockState = {
   userId: "aaaaaaaa-1111-2222-3333-444444444444",
   businessUnitId: "bbbbbbbb-5555-6666-7777-888888888888",
   pluginTraceLogs: [],
+  pluginAssemblies: [],
+  sdkMessageProcessingSteps: [],
+  solutions: [],
+  pluginProfiles: [],
+  importSolutionCalls: 0,
 };
+
+/** The GUID inside a keyed resource segment, e.g. `pluginassemblies(<id>)` → `<id>`. */
+function keyOf(resource: string): string {
+  const open = resource.indexOf("(");
+  const close = resource.indexOf(")");
+  return open >= 0 && close > open ? resource.slice(open + 1, close) : "";
+}
+
+/** Extract a `name eq '…'` (OData, doubled single-quotes) filter value from a resource, if present. */
+function nameFilterOf(resource: string): string | undefined {
+  const match = /name eq '((?:[^']|'')*)'/.exec(decodeURIComponent(resource));
+  return match ? match[1].replace(/''/g, "'") : undefined;
+}
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -98,6 +136,56 @@ export function installDataverseFetchMock(initial: Partial<DataverseMockState> =
     if (method === "GET" && resource.startsWith("WhoAmI")) {
       return json({ UserId: state.userId, BusinessUnitId: state.businessUnitId, OrganizationId: state.organizationId });
     }
+
+    // --- Plugin Profiler surface (#63/#135/#139, 0.14.43) ---
+
+    // GET solutions?…uniquename eq 'PluginProfiler' → whether the profiler solution is installed.
+    if (method === "GET" && resource.startsWith("solutions?")) {
+      return json({ value: state.solutions });
+    }
+    // GET pluginassemblies?…&$filter=name eq '<name>'&$top=1 → resolve one assembly for profiling prep.
+    if (method === "GET" && resource.startsWith("pluginassemblies?")) {
+      const name = nameFilterOf(resource);
+      const rows = (name ? state.pluginAssemblies.filter((a) => a.name === name) : state.pluginAssemblies).slice(0, 1);
+      return json({ value: rows.map((a) => ({ pluginassemblyid: a.pluginassemblyid, content: a.content, _packageid_value: a.packageId ?? null })) });
+    }
+    // PATCH pluginassemblies(<id>) → populate/clear content (0.14.43 package-assembly prep).
+    if (method === "PATCH" && resource.startsWith("pluginassemblies(")) {
+      const assembly = state.pluginAssemblies.find((a) => a.pluginassemblyid === keyOf(resource));
+      if (!assembly) {
+        return json({ error: { message: "no such pluginassembly" } }, 404);
+      }
+      const patch = body as { content?: string } | undefined;
+      if (patch && typeof patch.content === "string") {
+        assembly.content = patch.content.length > 0 ? patch.content : null;
+      }
+      return new Response(null, { status: 204 });
+    }
+    // DELETE sdkmessageprocessingsteps(<id>) → remove a profiler clone step (org-safety cleanup). Idempotent.
+    if (method === "DELETE" && resource.startsWith("sdkmessageprocessingsteps(")) {
+      const id = keyOf(resource);
+      state.sdkMessageProcessingSteps = state.sdkMessageProcessingSteps.filter((s) => s.sdkmessageprocessingstepid !== id);
+      return new Response(null, { status: 204 });
+    }
+    // GET sdkmessageprocessingsteps?… → profilable steps + active (Profiled) clones.
+    if (method === "GET" && resource.startsWith("sdkmessageprocessingsteps?")) {
+      return json({ value: state.sdkMessageProcessingSteps });
+    }
+    // GET mbs_pluginprofiles(<id>)?$select=mbs_profile → one captured profile's report.
+    if (method === "GET" && resource.startsWith("mbs_pluginprofiles(")) {
+      const row = state.pluginProfiles.find((p) => p.mbs_pluginprofileid === keyOf(resource));
+      return row ? json({ mbs_profile: row.mbs_profile }) : json({ error: { message: "no such profile" } }, 404);
+    }
+    // GET mbs_pluginprofiles?… → captured profiles, newest first (list).
+    if (method === "GET" && resource.startsWith("mbs_pluginprofiles?")) {
+      return json({ value: state.pluginProfiles });
+    }
+    // POST ImportSolution → install the profiler managed solution (synchronous, 204).
+    if (method === "POST" && resource.startsWith("ImportSolution")) {
+      state.importSolutionCalls++;
+      return new Response(null, { status: 204 });
+    }
+
     return json({ error: { message: `unmodelled ${method} ${resource}` } }, 404);
   }) as typeof fetch;
 
