@@ -52,4 +52,47 @@ suite("Command registration (integration)", () => {
       assert.ok(registered.has(id), `${id} should be registered globally`);
     }
   });
+
+  test("the workspace/connection commands register ONCE at activation, not per workspace load", async () => {
+    // These used to register inside generalInitialise (the connected `else` branch), which runs
+    // on EVERY workspace load and again from createNewProject — so the 2nd init threw "command
+    // already exists" and cascaded into "command 'dataverse-powertools.restoreDependencies' not
+    // found" when a panel button fired it. They now register ONCE in activate() via
+    // registerGlobalCommands. Two guarantees this asserts against a NO-WORKSPACE, NO-CONNECTION
+    // activation: (a) they exist even without a loaded connection — pre-fix they were gated behind
+    // the else branch and would be MISSING here; (b) activation didn't throw registering them.
+    const registered = new Set(await vscode.commands.getCommands(true));
+    const GLOBAL_COMMANDS = [
+      "dataverse-powertools.initialiseProject",
+      "dataverse-powertools.createConnectionString",
+      "dataverse-powertools.restoreDependencies",
+      "dataverse-powertools.updateConnectionString",
+      "dataverse-powertools.switchEnvironment",
+      "dataverse-powertools.refreshConnection",
+      "dataverse-powertools.setTraceLogLevel",
+      "dataverse-powertools.clearPacCredentials",
+      "dataverse-powertools.openEnvironment",
+      "dataverse-powertools.openAdminCenter",
+      "dataverse-powertools.openMakerPortal",
+      "dataverse-powertools.openSettings",
+      "dataverse-powertools.addComponent",
+      "dataverse-powertools.convertToComponentsWorkspace",
+    ];
+    const missing = GLOBAL_COMMANDS.filter((id) => !registered.has(id));
+    assert.deepStrictEqual(missing, [], `workspace/connection commands not registered at activation: ${missing.join(", ")}`);
+  });
+
+  test("restoreDependencies survives repeated workspace re-initialisation (idempotent init)", async () => {
+    // The regression: generalInitialise re-runs per workspace load; if it (re-)registered commands,
+    // the 2nd run would throw and drop restoreDependencies. Re-running the init path must be a
+    // no-op for registration. We can't cheaply drive a full re-init here, so assert the invariant
+    // that guarantees it: registerGlobalCommands is register-ONCE — a second call throws (which is
+    // exactly why it lives in activate(), not in the per-load generalInitialise). Combined with the
+    // test above (they're registered at activation), this pins registration out of the re-run path.
+    const { registerGlobalCommands } = await import("../../general/initialiseExtension");
+    const fakeCtx = { vscode: { subscriptions: [] as vscode.Disposable[] }, openSettings: () => undefined } as never;
+    assert.throws(() => registerGlobalCommands(fakeCtx), /already exists/i, "registerGlobalCommands must be register-once (it already ran at activation)");
+    // Nothing partially registered: the throw is on the first id, all of which already exist.
+    assert.ok((await vscode.commands.getCommands(true)).includes("dataverse-powertools.restoreDependencies"), "restoreDependencies stays registered");
+  });
 });

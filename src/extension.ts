@@ -34,6 +34,11 @@ export async function activate(vscodeContext: vscode.ExtensionContext) {
   // Every project type's commands register ONCE here; handlers resolve which
   // component an invocation targets (#47) — no per-type registration anymore.
   registerAllComponentCommands(context);
+  // Workspace-level / connection commands (restore deps, connection string, switch env, open
+  // portals, add component, …) also register ONCE here — NOT per workspace load inside
+  // generalInitialise (which re-runs on every load and from createNewProject, and would throw
+  // "command already exists" on the second init). Handlers resolve off the context singleton.
+  cs.registerGlobalCommands(context);
   // Language Model Tools for Copilot agent mode (#140) — registered ONCE, globally.
   registerLmTools(context);
   // Power Pages Server Logic lint + build (#150) — active-editor commands, registered ONCE.
