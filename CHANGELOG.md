@@ -2,6 +2,10 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.48 (pre-release)
+
+- **Tests (#143 Move 2) — the webresource + form deploy paths now have unit coverage, completing handler coverage of the Dataverse layer.** These two flows are proven ~6× in the slow e2e tier but had **zero** unit coverage. Added `DataverseWebresource.spec.ts` (11 tests — `mapWebresourceType`, `load` (id lookup + OData escaping + throw-on-error + connection gate), the id-driven **create-vs-update** upsert, and `addToSolution` including the **"already in solution" idempotency** + the id-unresolved skip) and `DataverseForm.spec.ts` (5 tests — `getFormData`/`saveForm` round-trip through the formxml parse/build, the #90 "a failed load/save must surface, not look like success" returns, and the OAuth connection gate). Both drive the mocked `node-fetch` seam, no live org. Unit tests 805 → 821, no shipped-code change. Every HTTP-calling module in `src/general/dataverse/` now has a spec.
+
 ## 0.14.47 (pre-release)
 
 - **Tests (#143 Move 2) — webhook + solution-component Dataverse paths now covered.** Added `serviceEndpoints.spec.ts` (9 tests — the #145 webhook `serviceendpoint` + its `sdkmessageprocessingstep`: create-vs-update upsert, and the message-not-found / filter-not-found short-circuits) and `addDataverseSolutionComponent.spec.ts` (6 tests — `AddSolutionComponent`, including the **"already in this solution" idempotency** branch where a non-OK response is still success, and the resolve-type-by-object-id composition). Both drive the mocked `node-fetch` seam, no live org. Unit tests 790 → 805, no shipped-code change.
