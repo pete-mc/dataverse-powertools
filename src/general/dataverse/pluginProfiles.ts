@@ -47,10 +47,38 @@ export interface ProfilableStep {
   stepId: string;
   name: string;
   typeName: string;
+  /** The plugin ASSEMBLY the step's type belongs to — needed to check whether it was deployed as a
+   *  package (the Plugin Profiler can't load package-deployed assemblies; see isAssemblyPackageDeployed). */
+  assemblyName: string;
   message?: string;
   primaryEntity?: string;
   /** 0 = synchronous, 1 = asynchronous. */
   mode?: number;
+}
+
+/** Query a plugin assembly's package linkage by name. A NuGet/plugin-PACKAGE-deployed assembly has a
+ *  non-null `_packageid_value` and a NULL `content` — and the Plugin Profiler snapshots the assembly
+ *  by reading `content` (base64), so it fails on package assemblies with `Convert.FromBase64String(null)`
+ *  ("Unexpected Exception in the Plug-in Profiler"). Pure; unit-tested. */
+export function assemblyPackageQuery(assemblyName: string): string {
+  return `pluginassemblies?$select=name,_packageid_value&$filter=name eq '${assemblyName.replace(/'/g, "''")}'&$top=1`;
+}
+
+/** Whether the named plugin assembly was deployed as a package (so the Plugin Profiler can't profile
+ *  its steps). Undefined on query failure (caller should not block on an unknown). */
+export async function isAssemblyPackageDeployed(context: DataversePowerToolsContext, assemblyName: string): Promise<boolean | undefined> {
+  if (!assemblyName) {
+    return undefined;
+  }
+  const body = await getJson(context, "Check plugin assembly package linkage", assemblyPackageQuery(assemblyName));
+  if (!body) {
+    return undefined;
+  }
+  const row = body.value?.[0];
+  if (!row) {
+    return undefined;
+  }
+  return !!row._packageid_value;
 }
 
 /**
@@ -164,8 +192,7 @@ export function parseProfilableSteps(body: any, assemblyName?: string): Profilab
       };
     })
     .filter((step) => step.typeName && !step.typeName.startsWith("Microsoft.") && !/\(Profiled\)/.test(step.name))
-    .filter((step) => !assemblyName || step.assemblyName === assemblyName)
-    .map(({ assemblyName: _assemblyName, ...step }) => step);
+    .filter((step) => !assemblyName || step.assemblyName === assemblyName);
 }
 
 // --- Active (server-side-enabled) plug-in profiles (#139) ---

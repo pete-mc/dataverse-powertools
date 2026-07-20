@@ -180,52 +180,80 @@ export async function pickFirst(timeoutMs = 30000): Promise<void> {
   await sleep(2500);
 }
 
-/**
- * Wait for a VS Code MODAL message dialog to appear (a `showInformationMessage(..., { modal: true })`),
- * WITHOUT dismissing it. Needed when work must happen while the modal is up — the profiler capture
- * shows its "trigger it now" modal only AFTER profiling is actually enabled, so a test must wait for
- * the modal before firing the trigger (a fixed sleep races the one-time profiler install/enable).
- * Returns the dialog's message text on success.
- */
-export async function waitForModal(timeoutMs = 60000): Promise<string> {
-  const deadline = Date.now() + timeoutMs;
-  let lastErr: unknown;
-  for (;;) {
-    try {
-      const dialog = new ModalDialog();
-      const message = await dialog.getMessage(); // throws until the modal exists
-      return message ?? "";
-    } catch (err) {
-      lastErr = err;
-      if (Date.now() > deadline) {
-        throw lastErr;
-      }
-      await sleep(1000);
-    }
+/** Current byte length of the mirrored extension-output log file (a stable baseline to search
+ *  AFTER, so `waitForLogFile` never matches a stale line from an earlier step). 0 if unset/missing. */
+export function logFileSize(): number {
+  const p = process.env.DVPT_TEST_LOG_FILE;
+  try {
+    return p && fs.existsSync(p) ? fs.statSync(p).size : 0;
+  } catch {
+    return 0;
   }
 }
 
 /**
- * Push a button on a VS Code MODAL message dialog (a `showInformationMessage(..., { modal: true })`).
- * The profiler capture's "trigger it now, then Continue" prompt is modal, so it can't be handled by
- * the quick-pick/notification helpers. Polls for the dialog to appear before pressing the button.
+ * Wait for the extension's own log line to appear in the mirrored output FILE (`DVPT_TEST_LOG_FILE`,
+ * written via appendFileSync in context.ts). This is a pure FILESYSTEM poll — no Selenium — so it's
+ * safe to run for long stretches where driving the WebDriver would be risky. The profiler capture is
+ * exactly that case: after "Profile next run" the extension enables profiling (net48 tool) then shows
+ * a blocking modal; polling the WebDriver across that window loses the session on the 8GB VM
+ * ("invalid session id"), whereas gating on the log line "[Profiler] Started profiling" doesn't touch
+ * the driver at all. Search only bytes appended after `sinceByte`. Returns the matched tail.
  */
-export async function pushModalButton(label: string, timeoutMs = 60000): Promise<void> {
+export async function waitForLogFile(needle: string | RegExp, opts: { timeoutMs?: number; sinceByte?: number } = {}): Promise<string> {
+  const p = process.env.DVPT_TEST_LOG_FILE;
+  if (!p) {
+    throw new Error("DVPT_TEST_LOG_FILE is not set — cannot gate on the extension log file (run via scripts/runE2E.mjs).");
+  }
+  const timeoutMs = opts.timeoutMs ?? 120000;
+  const since = opts.sinceByte ?? 0;
+  const matches = (t: string) => (typeof needle === "string" ? t.includes(needle) : needle.test(t));
   const deadline = Date.now() + timeoutMs;
-  let lastErr: unknown;
+  let tail = "";
   for (;;) {
     try {
-      const dialog = new ModalDialog();
-      await dialog.pushButton(label);
+      tail = fs.existsSync(p) ? fs.readFileSync(p, "utf8").slice(since) : "";
+    } catch {
+      /* the extension is mid-append; retry */
+    }
+    if (tail && matches(tail)) {
+      return tail;
+    }
+    if (Date.now() > deadline) {
+      throw new Error(
+        `timed out after ${Math.round(timeoutMs / 1000)}s waiting for ${needle} in the extension log file.\n--- tail ---\n${tail.split(/\r?\n/).slice(-15).join("\n")}`,
+      );
+    }
+    await sleep(2000);
+  }
+}
+
+/**
+ * Dismiss a VS Code MODAL message dialog (`showInformationMessage(..., { modal: true }, label)`) by
+ * pressing its `label` button. Bounded retries via ExTester's ModalDialog, then a keyboard-ENTER
+ * fallback — the modal's primary (custom) button is the default, so Enter activates it even when
+ * ExTester's ModalDialog selector doesn't match the running VS Code build. Call this only once the
+ * modal is known to be up (e.g. after `waitForLogFile` confirms it) so the retries stay short.
+ */
+export async function pushModalButton(label: string, opts: { attempts?: number } = {}): Promise<void> {
+  const attempts = opts.attempts ?? 3;
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      await new ModalDialog().pushButton(label);
       await sleep(1500);
       return;
     } catch (err) {
       lastErr = err;
-      if (Date.now() > deadline) {
-        throw lastErr;
-      }
-      await sleep(1000);
+      await sleep(1500);
     }
+  }
+  // Fallback: activate the modal's default button with Enter (no element lookup).
+  try {
+    await new Workbench().getDriver().actions().sendKeys(Key.ENTER).perform();
+    await sleep(1500);
+  } catch {
+    throw lastErr;
   }
 }
 
@@ -692,6 +720,35 @@ export class E2EClient {
       return 0;
     }
     return ((await res.json()) as { value?: unknown[] }).value?.length ?? 0;
+  }
+
+  /**
+   * Delete any Plugin Profiler steps left on an entity's messages by an interrupted capture — the
+   * profiler's own clone step (plugin type `PluginProfiler.Plugins.ProfilerPlugin`, name "… (Profiler)")
+   * plus the disabled original ("… (Profiled)"). If a capture doesn't reach "Stop Profiling", that
+   * clone keeps firing on the entity and every create/update on it then 400s with "Unexpected
+   * Exception in the Plug-in Profiler" (its target assembly may already be gone). Cleanup calls this
+   * so a failed run never leaves the shared org broken. Returns the number of steps deleted.
+   */
+  async cleanupProfilerSteps(entityLogicalName: string): Promise<number> {
+    const filter = `sdkmessagefilterid/primaryobjecttypecode eq '${entityLogicalName.replace(/'/g, "''")}'`;
+    const res = await this.request("GET", `sdkmessageprocessingsteps?$select=name,sdkmessageprocessingstepid&$expand=plugintypeid($select=typename)&$filter=${filter}`);
+    if (!res.ok) {
+      return 0;
+    }
+    const rows: any[] = ((await res.json()) as any).value ?? [];
+    let deleted = 0;
+    for (const s of rows) {
+      const typeName = (s.plugintypeid?.typename as string) ?? "";
+      const name = (s.name as string) ?? "";
+      if (/ProfilerPlugin/.test(typeName) || /\((Profiler|Profiled)\)\s*$/.test(name)) {
+        const del = await this.request("DELETE", `sdkmessageprocessingsteps(${s.sdkmessageprocessingstepid})`);
+        if (del.ok || del.status === 204) {
+          deleted++;
+        }
+      }
+    }
+    return deleted;
   }
 
   /** Whether a persisted plug-in profile exists for the given type name. */

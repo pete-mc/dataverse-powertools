@@ -17,9 +17,17 @@ const validRow = {
 };
 
 describe("parseProfilableSteps", () => {
-  it("shapes a registered step from the expand, enriched with message + entity", () => {
+  it("shapes a registered step from the expand, enriched with message + entity + assembly", () => {
     expect(parseProfilableSteps({ value: [validRow] })).toEqual([
-      { stepId: "step-1", name: "My.Plugins.AccountCreate: Create of account", typeName: "My.Plugins.AccountCreate", message: "Create", primaryEntity: "account", mode: 0 },
+      {
+        stepId: "step-1",
+        name: "My.Plugins.AccountCreate: Create of account",
+        typeName: "My.Plugins.AccountCreate",
+        assemblyName: "MyPlugins",
+        message: "Create",
+        primaryEntity: "account",
+        mode: 0,
+      },
     ]);
   });
 
@@ -52,7 +60,7 @@ describe("parseProfilableSteps", () => {
     expect(parseProfilableSteps(undefined)).toEqual([]);
     // message/primaryEntity are optional — a step with no filter/message still shapes.
     const minimal = { sdkmessageprocessingstepid: "m", name: "n", plugintypeid: { typename: "A.B", pluginassemblyid: { name: "Asm" } } };
-    expect(parseProfilableSteps({ value: [minimal] })).toEqual([{ stepId: "m", name: "n", typeName: "A.B", message: undefined, primaryEntity: undefined, mode: undefined }]);
+    expect(parseProfilableSteps({ value: [minimal] })).toEqual([{ stepId: "m", name: "n", typeName: "A.B", assemblyName: "Asm", message: undefined, primaryEntity: undefined, mode: undefined }]);
   });
 });
 

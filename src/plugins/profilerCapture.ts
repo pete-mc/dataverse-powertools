@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
 import { activeComponentRoot } from "../components/componentDiscovery";
-import { isProfilerInstalled, importSolution, getProfilableSteps, ProfilableStep } from "../general/dataverse/pluginProfiles";
+import { isProfilerInstalled, importSolution, getProfilableSteps, isAssemblyPackageDeployed, ProfilableStep } from "../general/dataverse/pluginProfiles";
 import { getOrganizationUrl } from "../general/connectionString";
 import { isCaptureSupported, buildEnableArgs, buildDisableArgs, runProfilerTool } from "./profilerCaptureTool";
 import { ensureCaptureToolRuntime, getProfilerSolutionBase64 } from "./profilerAssets";
@@ -107,6 +107,21 @@ export async function capturePluginRun(context: DataversePowerToolsContext): Pro
     step = pick?.target;
   }
   if (!step) {
+    return;
+  }
+
+  // The Plugin Profiler snapshots the target assembly by reading its base64 `content`, which is NULL
+  // for assemblies deployed as a plugin PACKAGE (`pac`/NuGet) — the DLL lives in the package, not
+  // inline. Enabling anyway makes the profiler throw "Unexpected Exception in the Plug-in Profiler"
+  // on every trigger AND leaves a broken profiler step firing on the entity. Detect it up front and
+  // explain, instead of enabling a capture that can't work. Undefined (query failed) → don't block.
+  if ((await isAssemblyPackageDeployed(context, step.assemblyName)) === true) {
+    vscode.window.showWarningMessage(
+      `Can't profile "${step.typeName}" — it's deployed as a plugin package, and the Plugin Profiler can only capture classic (non-package) plugin assemblies. Debug it with trace logs (Set Trace Log Level) instead, or deploy a classic assembly to profile.`,
+    );
+    context.channel.appendLine(
+      `[Profiler] Skipped: assembly "${step.assemblyName}" is package-deployed — the Plugin Profiler can't load package assemblies (it reads pluginassembly.content, which is null for packages).`,
+    );
     return;
   }
 

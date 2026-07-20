@@ -8,6 +8,7 @@ import {
   profiledStepTypeLabel,
   findMatchingStep,
   buildProfilableStepsResource,
+  assemblyPackageQuery,
 } from "./pluginProfiles";
 
 describe("plugin profile queries", () => {
@@ -33,6 +34,19 @@ describe("plugin profile queries", () => {
 
     it("escapes single quotes in the assembly name", () => {
       expect(buildProfilableStepsResource("O'Brien")).toContain("plugintypeid/pluginassemblyid/name eq 'O''Brien'");
+    });
+  });
+
+  describe("assemblyPackageQuery (profiler package-deploy guard)", () => {
+    it("selects the package lookup so the guard can detect package-deployed assemblies", () => {
+      const q = assemblyPackageQuery("MyPlugins");
+      expect(q).toContain("pluginassemblies?$select=name,_packageid_value");
+      expect(q).toContain("$filter=name eq 'MyPlugins'");
+      expect(q).toContain("$top=1");
+    });
+
+    it("escapes single quotes in the assembly name", () => {
+      expect(assemblyPackageQuery("O'Brien")).toContain("name eq 'O''Brien'");
     });
   });
 
