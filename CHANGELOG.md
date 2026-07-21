@@ -2,6 +2,10 @@
 
 All notable changes to the "dataverse-powertools" extension will be documented in this file.
 
+## 0.14.49 (pre-release)
+
+- **Docs (#138) — rebuilt the plug-in debugging demo GIF now that the in-process replay actually runs (0.14.44 / [#210](https://github.com/pete-mc/dataverse-powertools/issues/210)).** The previous GIF showed a **fictional** replay API (`ProfileReader.Load` / `PluginReplay<T>` / `harness.Succeeded`) that never shipped. The new slideshow shows the **real** generated test (`ProfileReplay.LoadContext(...)` → `new AccountPostCreate(null, null).Execute(...)`), the replay **running green in the VS Code terminal** (`dotnet test` → `Passed! Failed: 0, Passed: 1`, in-process, no live org), and a rendered trace log — captured against the fabricated contoso demo connection. The screenshot fixture's replay test project is now genuinely runnable (the captured Create-of-account context, with its `Target` entity, deserialized locally and fed back through the plugin), and the generator (`src/ui-test/screenshots.ts`) gained the harness + auto-run-green capture cases (a folder-open task, so no unreliable keyboard automation). README + wiki alt text updated to match. No shipped-code change.
+
 ## 0.14.48 (pre-release)
 
 - **Tests (#143 Move 2) — the webresource + form deploy paths now have unit coverage, completing handler coverage of the Dataverse layer.** These two flows are proven ~6× in the slow e2e tier but had **zero** unit coverage. Added `DataverseWebresource.spec.ts` (11 tests — `mapWebresourceType`, `load` (id lookup + OData escaping + throw-on-error + connection gate), the id-driven **create-vs-update** upsert, and `addToSolution` including the **"already in solution" idempotency** + the id-unresolved skip) and `DataverseForm.spec.ts` (5 tests — `getFormData`/`saveForm` round-trip through the formxml parse/build, the #90 "a failed load/save must surface, not look like success" returns, and the OAuth connection gate). Both drive the mocked `node-fetch` seam, no live org. Unit tests 805 → 821, no shipped-code change. Every HTTP-calling module in `src/general/dataverse/` now has a spec.
