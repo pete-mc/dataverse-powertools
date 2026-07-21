@@ -1,6 +1,6 @@
 import * as path from "path";
 import * as fs from "fs";
-import { VSBrowser, ActivityBar, Workbench, InputBox, WebviewView, By } from "vscode-extension-tester";
+import { VSBrowser, ActivityBar, Workbench, InputBox, WebviewView, BottomBarPanel, By } from "vscode-extension-tester";
 
 // Local asset generator (NOT part of the CI ui-test glob — filename is `.ts`, not
 // `.test.ts`). Captures screenshots of the real extension UI for the README + wiki.
@@ -204,6 +204,40 @@ describe("Dataverse PowerTools screenshots", function () {
     await openProject("plugin");
     await openFileInEditor(path.join("plugin", "Contoso.Plugins.Tests", "Replay_AccountPostCreate_20260717_161200.cs"));
     await snap("debug-replay-test");
+  });
+
+  it("captures the shared in-process replay harness DvptProfileReplay.cs (#138)", async () => {
+    await openProject("plugin");
+    await openFileInEditor(path.join("plugin", "Contoso.Plugins.Tests", "DvptProfileReplay.cs"));
+    await snap("debug-replay-harness");
+  });
+
+  it("captures the replay test PASSING green in the terminal — in-process, no live org (#138/#210)", async () => {
+    // The plugingreen fixture's .vscode/tasks.json auto-runs `dotnet test` on folder open (no typing —
+    // keyboard automation is unreliable off the VM), so the terminal fills with the real run + Passed!.
+    await openProject("plugingreen");
+    // Show the generated test above the auto-run terminal so the frame reads code → green result.
+    await openFileInEditor(path.join("plugingreen", "Contoso.Plugins.Tests", "Replay_AccountPostCreate_20260717_161200.cs"));
+    let terminal: import("vscode-extension-tester").TerminalView | undefined;
+    try {
+      terminal = await new BottomBarPanel().openTerminalView();
+      for (let i = 0; i < 120; i++) {
+        let text = "";
+        try {
+          text = await terminal.getText();
+        } catch {
+          /* terminal text not ready */
+        }
+        if (/Passed!/.test(text)) {
+          break;
+        }
+        await sleep(1000);
+      }
+    } catch {
+      /* terminal view unavailable — snapshot whatever state we reached */
+    }
+    await sleep(1000);
+    await snap("debug-replay-green");
   });
 
   it("captures a rendered plugin trace-log document (#136/#138)", async () => {
