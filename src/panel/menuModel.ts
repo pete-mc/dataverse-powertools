@@ -9,6 +9,7 @@
 import { MenuAction, ProjectMenuState, getProjectTypeDescriptor } from "../projectTypes/registry";
 import { normalizeFsPath, applyLayout, Layout } from "../components/discovery";
 import { traceLogLabel, TraceLogLevel } from "../general/dataverse/traceLogSetting";
+import { isPreviewProjectType, previewFeatureForProjectType, visibleActions } from "../general/previewFeatures";
 
 export interface RequirementRow {
   id: "dotnet" | "node" | "pac";
@@ -131,13 +132,16 @@ export type Card =
 
 export interface MenuModel {
   cards: Card[];
-  /** More than one component — cards default to minimised; the webview reconstructs the
-   * per-card collapse OVERRIDES (collapsedCards) as `collapsed !== multiComponent` (#156). */
-  multiComponent: boolean;
+  /** The workspace-wide card-collapse DEFAULT (enough components to collapse — see
+   * `collapseCardsFrom`); the webview reconstructs the per-card collapse OVERRIDES
+   * (collapsedCards) as `collapsed !== collapseByDefault` (#156). */
+  collapseByDefault: boolean;
   footer: {
     /** All requirements green — render the collapsed "✓ requirements" line. */
     requirementsOk: boolean;
     log: MenuAction;
+    /** Preview-features checkbox next to Show Log — reflects (and toggles) the setting. */
+    preview: { enabled: boolean; label: string };
     /** Help & feedback links (Docs, Report an issue) — #120. */
     help: readonly { label: string; url: string }[];
   };
@@ -199,8 +203,12 @@ export interface PanelState {
   layout?: Layout;
   /** The root is connection-only (Empty) — Add Component is offered only then (#118). */
   rootIsEmpty?: boolean;
-  /** More than one discovered component — cards default to minimised (#156). */
-  multiComponent?: boolean;
+  /** Enough components that cards start minimised (#156) — `collapseCardsFrom` decides
+   * how many that is (default 3, so 1–2 components stay expanded). */
+  collapseByDefault?: boolean;
+  /** Preview features opted in (`dataverse-powertools.previewFeatures`). While false, preview
+   * project types, cards, blocks and buttons are hidden from the panel. */
+  previewFeatures?: boolean;
   /** A long pac command is in flight (e.g. "Signing in to Power Platform CLI") — shows a
    * persistent busy banner at the top of the panel. Cleared when the command finishes. */
   pacOperation?: { label: string };
@@ -359,7 +367,12 @@ function forComponent(action: MenuAction, project: ProjectCardState): MenuAction
  * card is on screen — never both at once. */
 function footerFor(state: PanelState, cards: Card[]): MenuModel["footer"] {
   const cardShown = cards.some((c) => c.kind === "requirements");
-  return { requirementsOk: allRequirementsOk(state) && !cardShown, log: { command: "dataverse-powertools.showLog", label: "Show Log" }, help: HELP_LINKS };
+  return {
+    requirementsOk: allRequirementsOk(state) && !cardShown,
+    log: { command: "dataverse-powertools.showLog", label: "Show Log" },
+    preview: { enabled: !!state.previewFeatures, label: "Preview features" },
+    help: HELP_LINKS,
+  };
 }
 
 /** In-flight pac state, rendered at the very TOP of the panel so a pending sign-in
@@ -388,7 +401,7 @@ function bannerCards(state: PanelState): Card[] {
 /** Assemble the final model, prepending any in-flight pac banner to the branch's cards. */
 function model(state: PanelState, cards: Card[]): MenuModel {
   const withBanner = [...bannerCards(state), ...cards];
-  return { cards: withBanner, multiComponent: !!state.multiComponent, footer: footerFor(state, withBanner) };
+  return { cards: withBanner, collapseByDefault: !!state.collapseByDefault, footer: footerFor(state, withBanner) };
 }
 
 export function buildMenuModel(state: PanelState): MenuModel {
@@ -417,11 +430,25 @@ export function buildMenuModel(state: PanelState): MenuModel {
   const environment = environmentName(state.organizationUrl);
   let hasWebresourceCard = false;
 
+  // Preview gating: whole project types can be behind the flag, so filter them out of the
+  // card list first and tell the user their component is hidden rather than silently
+  // dropping it (they'd otherwise think the workspace lost a component).
+  const previewOn = !!state.previewFeatures;
+  const projects = previewOn ? state.projects : state.projects.filter((project) => !isPreviewProjectType(project.type));
+  const hiddenProjects = state.projects.length - projects.length;
+
   if (state.projects.length === 0) {
     cards.push({
       kind: "notice",
       id: "noComponents",
       text: "No components yet — use ＋ Add Component below to scaffold a plugin, web-resource or solution component into a subfolder.",
+    });
+  } else if (hiddenProjects > 0) {
+    const features = [...new Set(state.projects.map((project) => previewFeatureForProjectType(project.type)?.label).filter(Boolean))].join(", ");
+    cards.push({
+      kind: "notice",
+      id: "previewHidden",
+      text: `${hiddenProjects} component${hiddenProjects === 1 ? "" : "s"} hidden — ${features} ${hiddenProjects === 1 ? "is a preview feature" : "are preview features"}. Tick “Preview features” below to show ${hiddenProjects === 1 ? "it" : "them"}.`,
     });
   }
 
@@ -446,27 +473,32 @@ export function buildMenuModel(state: PanelState): MenuModel {
       typeLabel: descriptor.displayName.toUpperCase(),
       detail: project.isRoot ? project.detail : [project.relativeRoot, project.detail].filter(Boolean).join(" · "),
       dndId: project.isRoot ? "" : project.relativeRoot,
-      // Minimised by default in a multi-component workspace; collapsedCards holds the
-      // user's overrides so a manual expand/collapse persists (#156). Root card never collapses.
-      collapsed: !project.isRoot && state.multiComponent !== (state.layout?.collapsedCards ?? []).includes(project.relativeRoot),
+      // Minimised by default once the workspace has enough components (collapseCardsFrom);
+      // collapsedCards holds the user's overrides so a manual expand/collapse persists (#156).
+      // Root card never collapses.
+      collapsed: !project.isRoot && state.collapseByDefault !== (state.layout?.collapsedCards ?? []).includes(project.relativeRoot),
       primary: forComponent({ ...menu.primary, label: menu.primary.label.replace("{environment}", environment) }, project),
-      secondary: menu.secondary.map((action) => forComponent(action, project)),
-      overflow: [...menu.overflow, { command: "dataverse-powertools.restoreDependencies", label: "Restore dependencies" }].map((action) => forComponent(action, project)),
+      // Preview actions (e.g. the Custom API items) drop out of the rows while the flag is off.
+      secondary: visibleActions(menu.secondary, previewOn).map((action) => forComponent(action, project)),
+      overflow: visibleActions([...menu.overflow, { command: "dataverse-powertools.restoreDependencies", label: "Restore dependencies" }], previewOn).map((action) =>
+        forComponent(action, project),
+      ),
       status: statusFromActivity(state.activity, project),
       // Each web-resource card carries its OWN registrations (multiple components each).
       registrations: isWebresource ? registrationsFor(state, project) : undefined,
-      // Plugin cards carry the profiler/debugging workflow (#63) + active-profiles list (#139).
-      debugging: descriptor.id === "plugin" ? debuggingFor(project, state) : undefined,
+      // Plugin cards carry the profiler/debugging workflow (#63) + active-profiles list (#139) —
+      // the whole block is a preview feature.
+      debugging: descriptor.id === "plugin" && previewOn ? debuggingFor(project, state) : undefined,
     };
   };
 
   // Root/typed-root cards stay pinned above the arranged sub-components (#118). Sub
   // components are ordered + grouped per the saved layout.
-  for (const project of state.projects.filter((p) => p.isRoot)) {
+  for (const project of projects.filter((p) => p.isRoot)) {
     cards.push(buildProjectCard(project));
   }
   for (const row of applyLayout(
-    state.projects.filter((p) => !p.isRoot),
+    projects.filter((p) => !p.isRoot),
     state.layout,
   )) {
     if (row.kind === "component") {

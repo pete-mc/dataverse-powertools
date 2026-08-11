@@ -9,6 +9,8 @@ import { restoreDependencies } from "../general/restoreDependencies";
 import { discoverWorkspaceComponents, componentScopedContext } from "./componentDiscovery";
 import { DiscoveredComponent, normalizeFsPath, componentForPath } from "./discovery";
 import { planNestedMigrationMoves, splitSettingsForNestedMigration } from "./nestedMigration";
+import { visibleProjectTypes } from "../general/previewFeatures";
+import { previewFeaturesEnabled } from "../general/extensionConfig";
 
 // "Add Component" (#47): scaffold a second (third, …) project type into a
 // subfolder of the current workspace. The subfolder gets its own
@@ -109,7 +111,8 @@ export async function addComponent(context: DataversePowerToolsContext): Promise
   }
 
   const typePick = await vscode.window.showQuickPick(
-    projectTypeRegistry.map((d) => ({ label: d.displayName, target: d })),
+    // Preview-only types (e.g. Azure Functions) are offered only with the flag on.
+    visibleProjectTypes(projectTypeRegistry, previewFeaturesEnabled()).map((d) => ({ label: d.displayName, target: d })),
     { placeHolder: "Which component type?" },
   );
   if (!typePick) {

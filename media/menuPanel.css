@@ -496,6 +496,22 @@ a.download:hover {
   white-space: nowrap;
 }
 
+/* Preview-features opt-in checkbox, sitting beside Show Log. */
+.panel-footer .preview-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--vscode-descriptionForeground);
+}
+
+.panel-footer .preview-toggle input {
+  margin: 0;
+  accent-color: var(--vscode-checkbox-selectBackground, var(--vscode-focusBorder));
+  cursor: pointer;
+}
+
 /* Project drag-and-drop layout (#118) */
 .card.draggable {
   cursor: grab;

@@ -140,6 +140,20 @@ Context key used for UI visibility:
 
 Initialization modules are responsible for setting context keys via `vscode.commands.executeCommand("setContext", ...)`.
 
+## Extension settings (`contributes.configuration`)
+
+User-level VS Code settings, distinct from the per-workspace `dataverse-powertools.json`. They
+are read through `src/general/extensionConfig.ts` — no string-literal setting ids elsewhere:
+
+- `dataverse-powertools.previewFeatures` (default `false`) — show features that have not
+  finished manual testing. The gated list lives in `src/general/previewFeatures.ts` (pure) and
+  is enforced against `package.json` by `previewFeatures.spec.ts`. Toggleable from the panel
+  footer checkbox.
+- `dataverse-powertools.collapseCardsFrom` (default `3`) — component count at which panel cards
+  start collapsed; per-card expand/collapse overrides still win and persist in `layout.collapsedCards`.
+- `dataverse-powertools.copilot.accessMode`, `dataverse-powertools.debugBrowser`,
+  `dataverse-powertools.debugBrowserPath`.
+
 ## Practical guidance for coding agents
 
 When making changes:

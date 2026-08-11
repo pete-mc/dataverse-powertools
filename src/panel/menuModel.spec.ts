@@ -210,11 +210,12 @@ describe("plug-in trace-log tag (#137)", () => {
 });
 
 describe("plugin debugging block (#63)", () => {
-  const pluginState = (over: Partial<ProjectCardState> = {}) => state({ projects: [project({ type: "plugin", ...over })] });
+  // Plug-in debugging is a preview feature — the block only exists with the flag on.
+  const pluginState = (over: Partial<ProjectCardState> = {}) => state({ projects: [project({ type: "plugin", ...over })], previewFeatures: true });
 
   it("embeds a Debugging block on plugin cards only", () => {
     expect(card(pluginState(), "project").debugging).toBeDefined();
-    expect(card(state({ projects: [project({ type: "webresources", detail: undefined })] }), "project").debugging).toBeUndefined();
+    expect(card(state({ projects: [project({ type: "webresources", detail: undefined })], previewFeatures: true }), "project").debugging).toBeUndefined();
   });
 
   it("offers Capture + Download + Replay, targeting the component", () => {
@@ -237,7 +238,7 @@ describe("plugin debugging block (#63)", () => {
 
   it("carries the org-wide active-profiles list onto the plugin card (#139)", () => {
     const rows = [{ label: "Acme.Plugin", detail: "Update · account", index: 0 }];
-    const withProfiles = state({ projects: [project({ type: "plugin" })], activeProfiles: rows });
+    const withProfiles = state({ projects: [project({ type: "plugin" })], activeProfiles: rows, previewFeatures: true });
     expect(card(withProfiles, "project").debugging!.activeProfiles).toEqual(rows);
     expect(card(pluginState(), "project").debugging!.activeProfiles).toEqual([]);
   });
@@ -252,6 +253,49 @@ describe("plugin debugging block (#63)", () => {
     expect(overflow).not.toContain("dataverse-powertools.capturePluginRun");
     expect(overflow).not.toContain("dataverse-powertools.downloadPluginProfiles");
     expect(overflow).not.toContain("dataverse-powertools.generatePluginReplayTest");
+  });
+});
+
+describe("preview-feature gating", () => {
+  const pluginCard = (previewFeatures: boolean) => card(state({ projects: [project({ type: "plugin" })], previewFeatures }), "project");
+
+  it("hides the plugin Debugging block until preview features are on", () => {
+    expect(pluginCard(false).debugging).toBeUndefined();
+    expect(pluginCard(true).debugging).toBeDefined();
+  });
+
+  it("hides the Custom API actions from the plugin overflow until preview features are on", () => {
+    const customApi = /customApi|CustomApi/;
+    expect(pluginCard(false).overflow.filter((a) => customApi.test(a.command))).toEqual([]);
+    expect(pluginCard(true).overflow.filter((a) => customApi.test(a.command)).length).toBeGreaterThan(0);
+    // Non-preview overflow items are untouched.
+    expect(pluginCard(false).overflow.map((a) => a.command)).toContain("dataverse-powertools.createPluginClass");
+  });
+
+  it("hides Azure Function cards and says why, without touching the other components", () => {
+    const projects = [
+      project({ type: "plugin", relativeRoot: "plugins", root: "c:/repo/plugins", isRoot: false }),
+      project({ type: "azurefunction", relativeRoot: "fn", root: "c:/repo/fn", isRoot: false }),
+    ];
+    const off = buildMenuModel(state({ projects, rootIsEmpty: true, previewFeatures: false }));
+    expect(off.cards.filter((c) => c.kind === "project").map((c) => c.id)).toEqual(["project:plugin:plugins"]);
+    const notice = off.cards.find((c) => c.kind === "notice" && c.id === "previewHidden") as { text: string };
+    expect(notice.text).toContain("Azure Functions");
+
+    const on = buildMenuModel(state({ projects, rootIsEmpty: true, previewFeatures: true }));
+    expect(on.cards.filter((c) => c.kind === "project").map((c) => c.id)).toEqual(["project:plugin:plugins", "project:azurefunction:fn"]);
+    expect(on.cards.find((c) => c.id === "previewHidden")).toBeUndefined();
+  });
+
+  it("keeps the empty-workspace notice for a workspace with no components at all", () => {
+    const cards = buildMenuModel(state({ projects: [], rootIsEmpty: true })).cards;
+    expect(cards.some((c) => c.id === "noComponents")).toBe(true);
+    expect(cards.some((c) => c.id === "previewHidden")).toBe(false);
+  });
+
+  it("reports the flag to the footer so the checkbox mirrors the setting", () => {
+    expect(buildMenuModel(state({ previewFeatures: true })).footer.preview).toEqual({ enabled: true, label: "Preview features" });
+    expect(buildMenuModel(state()).footer.preview.enabled).toBe(false);
   });
 });
 
@@ -376,7 +420,8 @@ describe("registry menu self-parity", () => {
 
   it("every type renders a project card with a primary action", () => {
     for (const d of projectTypeRegistry) {
-      const p = card(state({ projects: [project({ type: d.id, templateVersion: d.defaultTemplateVersion, detail: undefined })] }), "project");
+      // previewFeatures on so preview-only types (Azure Functions) are included.
+      const p = card(state({ projects: [project({ type: d.id, templateVersion: d.defaultTemplateVersion, detail: undefined })], previewFeatures: true }), "project");
       expect(p.id).toBe(`project:${d.id}`);
       expect(p.primary.command.length).toBeGreaterThan(0);
       expect(p.typeLabel).toBe(d.displayName.toUpperCase());
@@ -455,33 +500,33 @@ describe("card minimise default (#156)", () => {
     });
   const projectCards = (s: PanelState) => buildMenuModel(s).cards.filter((c) => c.kind === "project") as Extract<Card, { kind: "project" }>[];
 
-  it("multi-component workspace defaults all component cards to collapsed", () => {
-    const collapsed = projectCards(webState({ multiComponent: true })).map((c) => c.collapsed);
+  it("a workspace at the collapse threshold defaults all component cards to collapsed", () => {
+    const collapsed = projectCards(webState({ collapseByDefault: true })).map((c) => c.collapsed);
     expect(collapsed).toEqual([true, true]);
   });
 
-  it("single-component workspace shows cards expanded", () => {
-    const collapsed = projectCards(webState({ multiComponent: false })).map((c) => c.collapsed);
+  it("a workspace below the threshold shows cards expanded", () => {
+    const collapsed = projectCards(webState({ collapseByDefault: false })).map((c) => c.collapsed);
     expect(collapsed).toEqual([false, false]);
   });
 
-  it("collapsedCards overrides the default per card (multi → expand one; single → collapse one)", () => {
-    // Multi default collapsed; overriding web1 expands just it.
-    let cards = projectCards(webState({ multiComponent: true, layout: { collapsedCards: ["web1"] } }));
+  it("collapsedCards overrides the default per card (collapsed → expand one; expanded → collapse one)", () => {
+    // Default collapsed; overriding web1 expands just it.
+    let cards = projectCards(webState({ collapseByDefault: true, layout: { collapsedCards: ["web1"] } }));
     expect(cards.map((c) => [c.dndId, c.collapsed])).toEqual([
       ["web1", false],
       ["plugin1", true],
     ]);
-    // Single default expanded; overriding web1 collapses just it.
-    cards = projectCards(webState({ multiComponent: false, layout: { collapsedCards: ["web1"] } }));
+    // Default expanded; overriding web1 collapses just it.
+    cards = projectCards(webState({ collapseByDefault: false, layout: { collapsedCards: ["web1"] } }));
     expect(cards.map((c) => [c.dndId, c.collapsed])).toEqual([
       ["web1", true],
       ["plugin1", false],
     ]);
   });
 
-  it("exposes multiComponent on the model for the webview override maths", () => {
-    expect(buildMenuModel(webState({ multiComponent: true })).multiComponent).toBe(true);
-    expect(buildMenuModel(webState({ multiComponent: false })).multiComponent).toBe(false);
+  it("exposes collapseByDefault on the model for the webview override maths", () => {
+    expect(buildMenuModel(webState({ collapseByDefault: true })).collapseByDefault).toBe(true);
+    expect(buildMenuModel(webState({ collapseByDefault: false })).collapseByDefault).toBe(false);
   });
 });

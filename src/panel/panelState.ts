@@ -13,6 +13,8 @@ import { getPacOperation, getDeviceCodeSignIn } from "./pacActivityState";
 import { isDebugSessionActive } from "../webresources/debug/debugWebresources";
 import { ComponentSettings } from "../components/discovery";
 import { clock, buildProjectCard } from "./panelCards";
+import { collapseCardsByDefault, previewFeaturesEnabled } from "../general/extensionConfig";
+import { isPreviewProjectType } from "../general/previewFeatures";
 
 function activityItems(): ActivityItem[] {
   return getRecentOperations().map((op) => ({
@@ -69,6 +71,11 @@ export function computePanelState(context: DataversePowerToolsContext): PanelSta
     projects.push(projectCard(settings as ComponentSettings, workspaceRoot, "", true));
   }
 
+  // Count the components the user actually SEES: a connection-only root is in
+  // context.components but renders no card, and preview types are hidden while the flag is off.
+  const previewFeatures = previewFeaturesEnabled();
+  const visibleProjectCount = projects.filter((project) => previewFeatures || !isPreviewProjectType(project.type)).length;
+
   return {
     detecting: !context.folderStateReady,
     loaded,
@@ -100,8 +107,11 @@ export function computePanelState(context: DataversePowerToolsContext): PanelSta
     // whether the root is connection-only (Empty) vs a typed single-project root.
     layout: (settings.layout as PanelState["layout"]) ?? undefined,
     rootIsEmpty: loaded ? !settings.type : undefined,
-    // More than one discovered component → the panel minimises cards by default (#156).
-    multiComponent: (context.components?.length ?? 0) > 1,
+    // Enough components → the panel minimises cards by default (#156). The threshold is the
+    // `collapseCardsFrom` setting (default 3: one or two components stay expanded).
+    collapseByDefault: collapseCardsByDefault(visibleProjectCount),
+    // Preview features opt-in — gates preview project types, cards, blocks and buttons.
+    previewFeatures,
     // In-flight pac operation / pending device-code sign-in — a persistent, obvious panel
     // affordance while a pac command (sign-in, generate, build, deploy) runs.
     pacOperation: getPacOperation(),

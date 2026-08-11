@@ -29,8 +29,8 @@ one activity bar. Cross-platform, powered by the Power Platform CLI and .NET SDK
   plugins.
 - 🐞 **Real debugging** — hot-reload your local web-resource bundle inside the live
   model-driven app with breakpoints, and **profile a plug-in's next run in one click**
-  (Windows) then replay it as a unit test you F5-debug in VS Code with the exact
-  server-side context.
+  (Windows, *preview*) then replay it as a unit test you F5-debug in VS Code with the
+  exact server-side context.
 - 💪 **Strongly typed** — generate `Xrm` typings and early-bound classes from your
   environment.
 - 🖥️ **Cross-platform** — Windows, macOS, and Linux, on `pac` and `dotnet`.
@@ -55,13 +55,26 @@ all built and deployed from the same place.
 
 <br clear="all" />
 
-## Debug plug-ins in VS Code
+## Debug plug-ins in VS Code — *preview*
 
 Profile a plug-in's real server-side execution, replay it as a unit test you **F5-debug**
 with the exact captured context (no live org), and read plug-in trace logs rendered
 right in the editor — all from the plugin card's **Debugging** block.
 
 ![Plugin debugging: the generated replay test, the replay running green in-process (no live org), and a rendered trace log](media/demos/plugin-debugging.gif)
+
+## Preview features
+
+Some features ship switched off while they finish manual testing. Tick **Preview features**
+at the bottom of the Dataverse PowerTools panel (or set `dataverse-powertools.previewFeatures`)
+to show them:
+
+- **Azure Functions** — scaffold a Dataverse-aware function, register the webhook and step.
+- **Plug-in debugging** — Profile next run, Download a run, Replay & debug, and the per-step
+  `Profile` CodeLens.
+- **Custom APIs** — define, generate handlers and typed clients, deploy, and invoke.
+
+Everything else is on by default.
 
 ## Get started in minutes
 

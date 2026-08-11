@@ -5,6 +5,7 @@ import { parseRegistrationArgs } from "./registrationAttribute";
 import { findMatchingStep } from "../general/dataverse/pluginProfiles";
 import { getActiveProfilesCache } from "../panel/panelDataCache";
 import { findEnclosingClassType, toggleStepProfiling } from "./profilerToggle";
+import { previewFeaturesEnabled } from "../general/extensionConfig";
 
 function inheritsSupportedBase(inheritanceClause: string): boolean {
   return /\bPluginBase\b/.test(inheritanceClause) || /\bWorkflowBase\b/.test(inheritanceClause) || /\bCodeActivity\b/.test(inheritanceClause);
@@ -78,8 +79,9 @@ class DecorationCodeLensProvider implements vscode.CodeLensProvider {
         );
         // Per-step profiling toggle (#139): on/off from the CACHED active-profiles list (the
         // provider runs on every render — never query Dataverse here). Placing it per-attribute
-        // gives one toggle per step even when a class registers several.
-        const parsed = parseRegistrationArgs(argsText);
+        // gives one toggle per step even when a class registers several. Plug-in debugging is a
+        // preview feature, so the lens only appears with the flag on.
+        const parsed = previewFeaturesEnabled() ? parseRegistrationArgs(argsText) : undefined;
         if (parsed) {
           const isOn = !!findMatchingStep(getActiveProfilesCache(), {
             message: parsed.message,

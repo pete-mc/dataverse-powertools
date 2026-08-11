@@ -9,6 +9,8 @@ import { openScannedRegistration } from "./registrationsScanner";
 import { refreshPanelData } from "./panelDataCache";
 import { stopActiveProfileByIndex } from "../plugins/profilerToggle";
 import { getDeviceCodeSignIn } from "./pacActivityState";
+import { affectsPanelConfiguration, previewFeaturesEnabled, setPreviewFeaturesEnabled } from "../general/extensionConfig";
+import { isPreviewCommand } from "../general/previewFeatures";
 
 // Commands the webview may ask the host to run. The webview is our own code
 // behind a strict CSP, but treat its messages as untrusted anyway.
@@ -96,7 +98,18 @@ export class MenuPanelViewProvider implements vscode.WebviewViewProvider {
         // Refresh affordance on the Active-profiles block (#139): re-fetch + re-render.
         await refreshPanelData(this.context);
         break;
+      case "togglePreviewFeatures":
+        // Footer checkbox: flip the user setting. The configuration listener re-renders,
+        // so the panel picks up the change from the Settings UI too.
+        await setPreviewFeaturesEnabled(!previewFeaturesEnabled());
+        break;
       case "execute":
+        // A preview command can only run while the flag is on — the buttons are hidden then,
+        // but the webview is untrusted input, so the gate lives here as well.
+        if (typeof message.command === "string" && isPreviewCommand(message.command) && !previewFeaturesEnabled()) {
+          this.context.channel.appendLine(`[Panel] Ignored preview command while preview features are off: ${message.command}`);
+          break;
+        }
         if (typeof message.command === "string" && allowedCommands.has(message.command)) {
           this.context.channel.appendLine(`[Panel] ${message.command}`);
           try {
@@ -183,5 +196,14 @@ export function registerMenuPanel(context: DataversePowerToolsContext): MenuPane
   context.vscode.subscriptions.push(vscode.window.registerWebviewViewProvider(MenuPanelViewProvider.viewType, provider));
   context.refreshPanel = () => provider.refresh();
   onDebugSessionChanged(() => provider.refresh());
+  // Preview features / card-collapse threshold change what the panel renders — re-render
+  // whether the change came from the footer checkbox or the Settings UI.
+  context.vscode.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (affectsPanelConfiguration(event)) {
+        provider.refresh();
+      }
+    }),
+  );
   return provider;
 }
