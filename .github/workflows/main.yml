@@ -76,7 +76,7 @@ jobs:
           pat: ${{ secrets.VSCE_PAT }}
           registryUrl: https://marketplace.visualstudio.com
           # Channel switch. `false` ships a STABLE release to everyone; `true` ships to the
-          # pre-release channel only. 0.15.0 is the first stable since 0.7.0 — flip this back
-          # to `true` for the pre-release builds that follow it (each one still needs a
+          # pre-release channel only. 1.0.0 (GA) is the first stable since 0.7.0 — flip this
+          # back to `true` for the pre-release builds that follow it (each one still needs a
           # version higher than the last published one, stable or pre-release).
           preRelease: false

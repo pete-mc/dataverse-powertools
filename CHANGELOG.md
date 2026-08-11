@@ -5,9 +5,9 @@ All notable changes to the "dataverse-powertools" extension will be documented i
 Pre-release builds get a per-version entry in [CHANGELOG-prerelease.md](CHANGELOG-prerelease.md);
 those entries are rolled up into one section here when a full release ships.
 
-## 0.15.0
+## 1.0.0
 
-The first stable release since 0.7.0, folding in 68 pre-release builds (0.7.1 → 0.14.50).
+The 1.0.0 GA — the first stable release since 0.7.0, folding in 68 pre-release builds (0.7.1 → 0.14.50).
 
 **Highlights**
 
