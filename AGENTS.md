@@ -103,6 +103,27 @@ Key behavior:
 
 Guideline: keep raw Dataverse HTTP calls in `src/general/dataverse/` helper classes instead of feature command files.
 
+## FetchXML query tools (`src/query`, #238)
+
+Finds FetchXML **inside the user's own C#/TypeScript string literals** — there is no query file
+type — then offers a CodeLens (Run / Edit in generator / issues), diagnostics with quick fixes, a
+generator webview, and a results grid.
+
+- Almost all of it is **pure and unit-tested**: `fetchXml.ts` (parse ⇄ serialize, faithful enough
+  to write back into source), `literals/` (per-language string + `+`-chain tokenizers), `holes.ts`
+  (interpolation ⇄ `@token` mapping), `consumers.ts`, `diagnostics.ts`, `parameters.ts`,
+  `edits.ts`, `generatorState.ts`, `results.ts`, `metadata/cache.ts`.
+- The model is **uniform** (`{ tag, attrs, children }`, nothing hoisted into typed fields) so an
+  attribute the generator doesn't know about still round-trips instead of vanishing from the user's file.
+- The generator webview is a **renderer only**: it posts edit INTENTS, the host applies them with
+  `edits.ts` and posts fresh state back, so generator behaviour is testable without a browser.
+- Write-back (`writeBack.ts`) re-reads the literal it is about to emit and **refuses** the write
+  unless it decodes back identically; a no-op save never touches the file.
+- Metadata is lazy and **session-scoped only** (`metadataService.ts`, keyed by organization URL) —
+  deliberately not persisted, because users change metadata while using this.
+- Commands + providers register ONCE in `extension.ts` (`registerQueryCommands`), never per
+  component. Gated by the `fetchXmlQueries` preview feature.
+
 ## Webresources flow (current)
 
 Main command path:

@@ -18,11 +18,13 @@ export default defineConfig({
       // Global unit coverage is low by design: most of src is tangled with the vscode API
       // and is covered by the integration + ExTester UI suites, not unit tests. Ratchet
       // these up as vscode-free logic is extracted and unit-tested (see #80).
+      // Regression guard, kept a couple of points below the actual so it isn't brittle. Ratchet UP
+      // as pure modules are extracted (#238 added src/query, which is ~all pure) — never down.
       thresholds: {
-        statements: 10,
-        branches: 11,
-        functions: 15,
-        lines: 10,
+        statements: 30,
+        branches: 34,
+        functions: 37,
+        lines: 30,
       },
     },
   },

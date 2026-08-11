@@ -5,6 +5,57 @@ All notable changes to the "dataverse-powertools" extension will be documented i
 Pre-release builds get a per-version entry in [CHANGELOG-prerelease.md](CHANGELOG-prerelease.md);
 those entries are rolled up into one section here when a full release ships.
 
+## 1.0.1
+
+FetchXML query tools (preview): find the FetchXML in your code, edit it in a generator, run it against the environment.
+
+**FetchXML query tools ([#238](https://github.com/pete-mc/dataverse-powertools/issues/238)) —
+behind the `previewFeatures` flag, sign-off in [#239](https://github.com/pete-mc/dataverse-powertools/issues/239).**
+
+Find the FetchXML you already have in your code, edit it in a generator, and run it against the
+connected environment — without leaving VS Code and without a new file type to adopt.
+
+- **Detection in C# and TypeScript.** A CodeLens — **▶ Run · ✎ Edit in generator · ⚠ N issues** —
+  appears above FetchXML in your own source. All three shapes people actually write are
+  understood: a plain or verbatim string, an interpolated string / template literal, and a `+`
+  concatenation chain with variables in it. Bare `<filter>` fragments (a lookup's
+  `addCustomFilter`) are detected too. A query assembled with a `StringBuilder` is deliberately
+  not offered rather than half-parsed.
+- **Parameters, inferred.** Each interpolation becomes an `@name` parameter; its type comes from
+  the column the condition compares against, so a test run prompts and validates properly. A
+  GUID is checked, a date is normalised to UTC, and an `-x-days` operator is correctly treated as
+  a count rather than a date. Prompted values are remembered per workspace, never written to the file.
+- **Generator.** Tree of the query, per-element properties with table and column pickers from live
+  metadata, grouped operator picker, an editable XML pane, and the issues list. Attributes the
+  generator has no field for are preserved and shown, so an exotic query is never silently simplified.
+- **Run and results.** Rows in a grid with **formatted values**, so option sets and lookups read
+  as labels rather than ints and GUIDs; link-entity aliases and aggregate aliases get their own
+  columns. The header states which environment and identity the query ran as — that identity is
+  not who will run your plugin — and rows are capped for a test run. Copy as CSV/JSON.
+- **Diagnostics worth having even if you never open the generator.** An unescaped value interpolated
+  into an XML attribute (with a quick fix that wraps it in `SecurityElement.Escape` / `escapeXml`);
+  a local-time date compared against a UTC column; unknown table or column names; a query too long
+  for the `?fetchXml=` URL; `top` combined with paging; an aggregate attribute missing its alias;
+  and an aggregate query handed to a consumer that rejects one.
+- **Writing an edit back is guarded.** The edited literal is re-read with the same tokenizer that
+  parsed it and the write is REFUSED unless it decodes back identically; a no-op save never touches
+  the file; the change lands as a single undo step, preserving the literal's original form. **Save to
+  code** also saves the file, so the query that compiles and deploys is the one you just edited.
+- Snippets: `dvpt-fetch`, `dvpt-fetch-param`, `dvpt-fetch-filter`, `dvpt-escape-xml`.
+- Metadata is lazy and **session-scoped** with a **Clear Dataverse Metadata Cache** command — a
+  column you add in the maker portal shows up without reloading the window.
+
+**Also**
+
+- The unit-coverage floor is ratcheted up (statements 10 → 30, branches 11 → 34, functions
+  15 → 37, lines 10 → 30): `src/query` is almost entirely pure modules, and the floor should
+  follow.
+- Fixed a stale assertion in the live plugin-profiler suite, which still expected the pre-0.14.44
+  `ProfilerExecutionUtility.Replay(...)` generation instead of the in-process shape
+  ([#210](https://github.com/pete-mc/dataverse-powertools/issues/210)); `npm run test:live` is green again.
+- The FetchXML CodeLens and quick fixes also work in untitled buffers, so a query can be pasted
+  into a scratch file and run.
+
 ## 1.0.0
 
 The 1.0.0 GA — the first stable release since 0.7.0, folding in 68 pre-release builds (0.7.1 → 0.14.50).
@@ -75,7 +126,7 @@ Every pre-release entry is kept below.
 
 ### 0.14.40 (pre-release)
 
-- **Fix: the plug-in profiler couldn't find your step in a busy org.** "Profile next run" / capture lists profilable steps via `sdkmessageprocessingsteps`, but the query fetched the first **200** active steps and filtered client-side. An org with 200+ system (`Microsoft.*`) steps filled that whole page, so a freshly-registered *user* step never appeared and capture dead-ended at "No registered plugin steps to profile." It now filters **server-side by plugin assembly** (`plugintypeid/pluginassemblyid/name eq …`) when the project's assembly is known, so your step is found regardless of how many system steps exist. Pure query builder (`buildProfilableStepsResource`) with unit tests; verified live against an org with 200+ active steps.
+- **Fix: the plug-in profiler couldn't find your step in a busy org.** "Profile next run" / capture lists profilable steps via `sdkmessageprocessingsteps`, but the query fetched the first **200** active steps and filtered client-side. An org with 200+ system (`Microsoft.*`) steps filled that whole page, so a freshly-registered *user* step never appeared and capture dead-ended at "No registered plugin steps to profile." It now filters **server-side by plugin assembly** (`plugintypeid/pluginassemblyid/name eq …`) when the project's assembly is known, so your step is found regardless of how many system steps exist. Pure query generator (`buildProfilableStepsResource`) with unit tests; verified live against an org with 200+ active steps.
 - **New: plug-in profiler capture → replay → execute e2e** (`src/ui-test/e2e/pluginProfilerReplay.e2e.ts`, Windows-only, live). Drives the panel's **Debugging** block end to end: scaffold a Plugins project + xUnit test project, write a plug-in registered on **Create of territory**, **Build & deploy** it, and assert the step is discoverable as **profilable** live (the fix above). The modal-driven tail (Profile next run → live Web-API trigger → **Continue** → download → **Replay & debug** → `dotnet test` the generated replay to green) is gated behind `DVPT_E2E_PROFILER_CAPTURE=1` — the reliable portion runs by default; the tail drives a VS Code modal that the shared 8GB e2e VM can't hold a Selenium session through. No change to the shipped extension beyond the profiler fix.
 
 ### 0.14.39 (pre-release)
@@ -125,7 +176,7 @@ Testing (#143 Move 2) — **mock the Dataverse Web API.** A reusable in-memory W
 
 ### 0.14.29 (pre-release)
 
-PCF (#141) — **choose the control template + framework when scaffolding.** Adding a PCF component previously always ran `pac pcf init --template field --framework none`. It now asks two quick-picks up front — **template** (Field vs Dataset) and **framework** (Standard vs React) — and scaffolds accordingly. Dismissing either pick falls back to the previous field/none default, so nothing breaks. The choice values come from fixed enums (no free-text reaches the command line). Pure choice lists + argv builder unit-tested. +4 tests (726).
+PCF (#141) — **choose the control template + framework when scaffolding.** Adding a PCF component previously always ran `pac pcf init --template field --framework none`. It now asks two quick-picks up front — **template** (Field vs Dataset) and **framework** (Standard vs React) — and scaffolds accordingly. Dismissing either pick falls back to the previous field/none default, so nothing breaks. The choice values come from fixed enums (no free-text reaches the command line). Pure choice lists + argv generator unit-tested. +4 tests (726).
 
 ### 0.14.28 (pre-release)
 
@@ -184,7 +235,7 @@ Power Pages / Portals (#150) — **typed portal Web API client** (issue #4, seco
 
 Azure Functions (#145) — **Send test context** (issue #7), the local inner loop for webhook functions.
 
-- **Send test RemoteExecutionContext to local function** builds a sample Dataverse webhook payload — a `RemoteExecutionContext` in the platform's **exact documented DataContractJson wire format** (typed `InputParameters["Target"]` entity with the `__type` discriminator, `/Date(ms)/` timestamps, all top-level fields) — and POSTs it to your locally-running function (`func start`), so you can exercise the typed handler without a live Dataverse trigger. Prompts for the function name, message, and primary entity. The payload builder is pure + unit-tested against the documented shape (5 tests), so `ReadRemoteExecutionContextAsync` deserializes it correctly.
+- **Send test RemoteExecutionContext to local function** builds a sample Dataverse webhook payload — a `RemoteExecutionContext` in the platform's **exact documented DataContractJson wire format** (typed `InputParameters["Target"]` entity with the `__type` discriminator, `/Date(ms)/` timestamps, all top-level fields) — and POSTs it to your locally-running function (`func start`), so you can exercise the typed handler without a live Dataverse trigger. Prompts for the function name, message, and primary entity. The payload generator is pure + unit-tested against the documented shape (5 tests), so `ReadRemoteExecutionContextAsync` deserializes it correctly.
 
 > This closes the last v1-core-adjacent gap in #145 — earlier deferred because I wouldn't hand-generate the payload blind; the shape is now taken verbatim from the [official webhook docs](https://learn.microsoft.com/power-apps/developer/data-platform/use-webhooks). Requires the local host running (`Run locally (func start)`).
 
@@ -314,7 +365,7 @@ PCF (#141) — ship the service-layer pattern as **VS Code snippets** (the 80/20
 
 Testing epic (#143), Move 3 — extract trapped pure logic into `vscode`-free modules and unit-test it, so the network/registration payload shapes and the panel/test-scaffold logic are guarded in CI instead of only by the manual e2e. No behaviour change; 62 new unit tests (478 → 540).
 
-- **Plugin-step & workflow-activity registration payloads** — extracted into `src/general/dataverse/stepPayloads.ts`: the `@odata.bind` step body (`buildStepPayload`), the "does the live step differ" diff (`stepNeedsUpdate` / `normalizeFilteringAttributes`), and the sparse workflow-activity PATCH builder (`getWorkflowPatchPayload`). These build the exact bodies Dataverse receives during Deploy — now covered by 22 tests.
+- **Plugin-step & workflow-activity registration payloads** — extracted into `src/general/dataverse/stepPayloads.ts`: the `@odata.bind` step body (`buildStepPayload`), the "does the live step differ" diff (`stepNeedsUpdate` / `normalizeFilteringAttributes`), and the sparse workflow-activity PATCH generator (`getWorkflowPatchPayload`). These build the exact bodies Dataverse receives during Deploy — now covered by 22 tests.
 - **Panel project-card view-model** — `src/panel/panelCards.ts`: the settings→card field mapping (name fallback chain, `.csproj` detail, trigger passthrough) and the time formatter, split from the fs/vscode reads in `panelState.ts`.
 - **Plugin unit-test scaffolding logic** — `src/plugins/unitTestingLogic.ts`: target-framework compatibility resolution (`net462`→`net472`, netstandard→`net8.0`), C# language-version parsing, class-name sanitising, and the per-framework boilerplate.
 
@@ -393,7 +444,7 @@ Plugins — early-bound authoring quality-of-life.
 
 Foundation & Quality (cont.) — test-layer depth, no user-facing change.
 
-- **Plugin-component integration coverage (#147).** A new integration test opens a plugin-component fixture, drives *Configure Earlybound*, and asserts the **full** set of registry commands is registered — closing the gap the no-workspace test couldn't reach (the model-builder tree's `editModelBuilderSetting` registers lazily on first use). A renamed or dropped command in any of the three registration paths now fails in CI instead of only in the manual e2e.
+- **Plugin-component integration coverage (#147).** A new integration test opens a plugin-component fixture, drives *Configure Earlybound*, and asserts the **full** set of registry commands is registered — closing the gap the no-workspace test couldn't reach (the model-generator tree's `editModelBuilderSetting` registers lazily on first use). A renamed or dropped command in any of the three registration paths now fails in CI instead of only in the manual e2e.
 - **Consolidated the duplicated OData string-escaper (#143).** `escapeODataString` — copy-pasted into four Dataverse Web API modules (plugin/workflow registration, assembly, package) — is now one shared, unit-tested pure module, with tests covering the `$filter` injection shape it exists to prevent. Behaviour is byte-identical.
 - **e2e:** the wizard project-type quick-pick now falls back to keyboard selection when a coordinate click is intercepted by the empty-editor watermark — fixes four plugin-lifecycle e2e steps that broke after the project-type picker was reordered.
 
@@ -404,15 +455,15 @@ Foundation & Quality — multi-component polish, safer onboarding, and a real in
 - **Panel: minimise & organise component cards (#156).** **Ungroup** a group (its members return to the list in order); **minimise/expand individual component cards**; a **multi-component workspace opens with cards minimised** by default (your manual expand/collapse persists and wins next time). A single-type project is now **capped at one component** — to hold more, convert it to a **multi-component project**, which is also renamed and **floated to the top** of the new-project picker ("Multi-component project (two or more types)").
 - **Every component initialises on load (#146).** In a workspace with two components of the same type, the second one's Test Explorer tests + watchers now appear immediately instead of only after re-adding it.
 - **Web Resources onboarding on Add Component (#126).** Adding a Web Resources component now generates typings and offers to create a class — the same first-create experience a standalone project gets.
-- **Removed two broken Command Palette entries (#147)** — *Edit Plugin Message Filter* and *Toggle Emit Entity Type Code* were contributed but never wired up, so they failed "command not found"; both were superseded by the model-builder settings tree.
+- **Removed two broken Command Palette entries (#147)** — *Edit Plugin Message Filter* and *Toggle Emit Entity Type Code* were contributed but never wired up, so they failed "command not found"; both were superseded by the model-generator settings tree.
 - **Under the hood:** a new CI-runnable **integration test layer** (asserts command registration and guards the multi-component Test Explorer wiring), a guard against dead command declarations, and more internal logic extracted to pure, unit-tested modules. Unit coverage 358 → 394.
 
 ### 0.8.6 (pre-release)
 
 Test hardening + safer form-event registration.
 
-- **Form-event registration fails fast on the schema-bug shape.** The form-XML builder now refuses to write a web-resource `<Library>` without a resolved name — the exact shape that once broke a form with `0x80048425` — turning a would-be corrupt form into a clear error. Behaviour is otherwise unchanged.
-- **Under the hood (no functional change):** a new CI-runnable **integration test layer** (asserts command registration and guards the multi-component duplicate-`TestController` crash that shipped in 0.8.4), and the highest-risk internal logic extracted into pure, unit-tested modules — the form-XML builder, the model-builder (earlybound) settings helpers, and the plugin profilable-steps filter (the code path behind "No registered plugin steps to profile"). Unit coverage 358 → 386. See the testing-strategy epic (#143).
+- **Form-event registration fails fast on the schema-bug shape.** The form-XML generator now refuses to write a web-resource `<Library>` without a resolved name — the exact shape that once broke a form with `0x80048425` — turning a would-be corrupt form into a clear error. Behaviour is otherwise unchanged.
+- **Under the hood (no functional change):** a new CI-runnable **integration test layer** (asserts command registration and guards the multi-component duplicate-`TestController` crash that shipped in 0.8.4), and the highest-risk internal logic extracted into pure, unit-tested modules — the form-XML generator, the model-generator (earlybound) settings helpers, and the plugin profilable-steps filter (the code path behind "No registered plugin steps to profile"). Unit coverage 358 → 386. See the testing-strategy epic (#143).
 
 ### 0.8.5 (pre-release)
 
@@ -561,12 +612,12 @@ Manual-testing feedback wave across web resources, plugins, solutions and the pa
 
 ## 0.5.2
 
-- Fixed early-bound generation failing with `spawn EINVAL`: on Windows `pac` is a `.cmd` shim that recent Node versions refuse to spawn directly, so all `pac` calls (early-bound/model builder, portals, solutions) now run through `cmd.exe /c pac …`.
+- Fixed early-bound generation failing with `spawn EINVAL`: on Windows `pac` is a `.cmd` shim that recent Node versions refuse to spawn directly, so all `pac` calls (early-bound/model generator, portals, solutions) now run through `cmd.exe /c pac …`.
 - Fixed plugin deploy failing with `spawn pwsh ENOENT`: the plugin package is now sanitized (forbidden SDK assemblies stripped) with an in-process zip library instead of shelling out to PowerShell, so it no longer requires PowerShell Core and works cross-platform.
 - Fixed new Web Resources projects failing to create with an `npm ERESOLVE` error — TypeScript is now pinned to v5 (a bare install resolved to TypeScript 7, which conflicts with the ESLint TypeScript plugin's peer range).
 - Fixed the early-bound side panel showing "error loading" until VS Code was reloaded after creating a project — the tree view provider is now registered immediately on project creation.
 - Fixed typings generation failing with `XrmDefinitelyTyped.exe ENOENT`: new Web Resources projects now restore the `Delegate.XrmDefinitelyTyped` tool via paket (the restore step had been missing from the template), and the command now reports a clear, actionable error if the tool still isn't present.
-- Fixed service-principal projects failing to reconnect on load ("Dataverse Not Connected", "Error refreshing authorization token", and broken typings): when reassembling the connection string from the stored settings and the secret-storage credentials, the client id was glued onto the URL with no separator (`Url=<url>ClientId=…`). The parts are now merged through the shared connection-string builder so the separators are always correct.
+- Fixed service-principal projects failing to reconnect on load ("Dataverse Not Connected", "Error refreshing authorization token", and broken typings): when reassembling the connection string from the stored settings and the secret-storage credentials, the client id was glued onto the URL with no separator (`Url=<url>ClientId=…`). The parts are now merged through the shared connection-string generator so the separators are always correct.
 - Fixed a new Web Resources project not building cleanly out of the box: the scaffolded `webresources_src/library.ts` re-exported a non-existent `./account` module. It is now an empty stub that `Create Web Resource Class` appends each new class to.
 - Fixed the webpack build of a fresh Web Resources project failing on the scaffolded sample files: `class.ts` and `sample.test.ts` were copied in with unreplaced placeholders (`Form.TableName.Main.FormName`, `import '../ClassName'`), which ts-loader type-checked and rejected. They are templates for the Create Class/Test commands, not scaffold files, so a new project no longer ships them.
 

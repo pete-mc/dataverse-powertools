@@ -21,6 +21,12 @@ npm run test:coverage     # Vitest + a coverage floor CI enforces (see vitest.co
 npm run test:integration  # real VS Code extension host (downloads VS Code once)
 ```
 
+**`test:integration` does NOT rebuild the bundle.** It runs `compile-tests` (tsc → `out/`) and the
+extension host loads `main` = `dist/extension.js`. So after changing anything under `src/` that the
+*extension* runs (a provider, a registration, a command), run `npm run compile` first or the host
+under test is your PREVIOUS build — a fix appears not to work, or a bug appears already fixed. Only
+the test files themselves come from `out/`.
+
 `npm test` = unit + integration. CI ([.github/workflows/ci.yml](.github/workflows/ci.yml))
 runs lint + compile + `test:coverage` + integration on every PR, plus the UI tests.
 **Publishing to the Marketplace is gated on these passing**

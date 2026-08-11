@@ -1,0 +1,106 @@
+/* FetchXML results webview (#238). Theme variables only. */
+
+body {
+  margin: 0;
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  color: var(--vscode-foreground);
+  background: var(--vscode-editor-background);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+#summary {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  line-height: 1.5;
+}
+
+#summary .count {
+  font-weight: 600;
+}
+
+#summary .ran-as {
+  opacity: 0.8;
+}
+
+#summary .capped {
+  color: var(--vscode-editorWarning-foreground);
+}
+
+#error {
+  margin: 12px;
+  padding: 10px;
+  background: var(--vscode-inputValidation-errorBackground);
+  border: 1px solid var(--vscode-inputValidation-errorBorder);
+  white-space: pre-wrap;
+}
+
+#grid {
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+table {
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  white-space: nowrap;
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  background: var(--vscode-editor-background);
+  border-bottom: 2px solid var(--vscode-panel-border);
+  font-weight: 600;
+}
+
+tbody tr:nth-child(even) {
+  background: var(--vscode-list-hoverBackground);
+}
+
+td.empty-value {
+  opacity: 0.5;
+}
+
+footer {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
+  background: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
+  border: none;
+  padding: 4px 10px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--vscode-button-secondaryHoverBackground, var(--vscode-button-hoverBackground));
+}
+
+.no-rows {
+  padding: 16px 12px;
+  opacity: 0.8;
+}

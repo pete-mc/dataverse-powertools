@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "1.0.0",
+  "version": "1.0.1",
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -31,6 +31,26 @@
       {
         "language": "typescriptreact",
         "path": "./snippets/dvpt-pcf.code-snippets"
+      },
+      {
+        "language": "csharp",
+        "path": "./snippets/dvpt-fetchxml-csharp.code-snippets"
+      },
+      {
+        "language": "typescript",
+        "path": "./snippets/dvpt-fetchxml-typescript.code-snippets"
+      },
+      {
+        "language": "typescriptreact",
+        "path": "./snippets/dvpt-fetchxml-typescript.code-snippets"
+      },
+      {
+        "language": "javascript",
+        "path": "./snippets/dvpt-fetchxml-typescript.code-snippets"
+      },
+      {
+        "language": "javascriptreact",
+        "path": "./snippets/dvpt-fetchxml-typescript.code-snippets"
       }
     ],
     "languageModelTools": [
@@ -833,6 +853,21 @@
       {
         "command": "dataverse-powertools.recheckRequirements",
         "title": "Dataverse PowerTools: Recheck Requirements"
+      },
+      {
+        "command": "dataverse-powertools.openFetchXmlGenerator",
+        "title": "Dataverse PowerTools: FetchXML Generator",
+        "enablement": "dataverse-powertools.showLoaded && config.dataverse-powertools.previewFeatures"
+      },
+      {
+        "command": "dataverse-powertools.runFetchXml",
+        "title": "Dataverse PowerTools: Run FetchXML at Cursor",
+        "enablement": "dataverse-powertools.showLoaded && config.dataverse-powertools.previewFeatures"
+      },
+      {
+        "command": "dataverse-powertools.clearQueryMetadataCache",
+        "title": "Dataverse PowerTools: Clear Dataverse Metadata Cache",
+        "enablement": "dataverse-powertools.showLoaded && config.dataverse-powertools.previewFeatures"
       }
     ],
     "configuration": {

@@ -1,0 +1,37 @@
+{
+  "Dataverse FetchXML query": {
+    "prefix": ["dvpt-fetch", "fetchxml"],
+    "body": [
+      "var fetchXml = $@\"<fetch top='50'>",
+      "  <entity name='${1:account}'>",
+      "    <attribute name='${2:name}' />",
+      "    <filter type='and'>",
+      "      <condition attribute='${3:statecode}' operator='eq' value='${4:0}' />",
+      "    </filter>",
+      "  </entity>",
+      "</fetch>\";",
+      "var ${5:results} = service.RetrieveMultiple(new FetchExpression(fetchXml));$0"
+    ],
+    "description": "FetchXML executed through FetchExpression. A CodeLens appears above it: run it, or open it in the builder."
+  },
+  "Dataverse FetchXML query with a parameter": {
+    "prefix": ["dvpt-fetch-param", "fetchxml-param"],
+    "body": [
+      "var fetchXml = $@\"<fetch top='50'>",
+      "  <entity name='${1:incident}'>",
+      "    <attribute name='${2:title}' />",
+      "    <filter type='and'>",
+      "      <condition attribute='${3:customerid}' operator='eq' value='{${4:accountId}}' />",
+      "    </filter>",
+      "  </entity>",
+      "</fetch>\";",
+      "var ${5:results} = service.RetrieveMultiple(new FetchExpression(fetchXml));$0"
+    ],
+    "description": "FetchXML with an interpolated value. The builder shows it as a parameter and a test run prompts for it."
+  },
+  "Escape a value for FetchXML": {
+    "prefix": ["dvpt-escape-xml", "EscapeXml"],
+    "body": ["System.Security.SecurityElement.Escape(${1:value})$0"],
+    "description": "Escape a string before interpolating it into a FetchXML attribute."
+  }
+}
