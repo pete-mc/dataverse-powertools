@@ -84,6 +84,39 @@ whatever else has focus. Key facts:
   pass even when a command errored *after* scaffolding, so assert no "resulted in an error"
   notification too.
 
+## Changelog: two files
+
+- **[CHANGELOG-prerelease.md](CHANGELOG-prerelease.md)** accumulates one section per
+  **pre-release** version — that's where a normal PR's entry goes.
+- **[CHANGELOG.md](CHANGELOG.md)** only gains a section per **full release**, and it's the one
+  the Marketplace shows. At a full release run
+  `node scripts/rollupChangelog.mjs <version> --summary "…"`: it folds every accumulated
+  pre-release section under one `## <version>` heading (demoted to `###`, nothing lost) and
+  resets the pre-release file for the next cycle. `--dry-run` prints what it would move.
+
+## Preview features (release gating)
+
+Unverified features ship **off**, behind `dataverse-powertools.previewFeatures` (default
+false; a checkbox sits next to *Show Log* in the panel footer). The list lives in ONE pure
+module — [src/general/previewFeatures.ts](src/general/previewFeatures.ts) — and gates four
+surfaces, all of which must agree:
+
+1. the panel (project cards, card blocks, secondary/overflow buttons) via `PanelState.previewFeatures`,
+2. the command palette, via `&& config.dataverse-powertools.previewFeatures` on each command's
+   `enablement` in package.json (parity is enforced by `previewFeatures.spec.ts`, in both directions),
+3. the Add Component / project-type quick picks (`visibleProjectTypes`),
+4. anything else conditional in a feature module (e.g. the per-step Profile CodeLens).
+
+Currently gated, each with its manual-test sign-off issue (also on the descriptor as
+`manualTestIssue`): **Azure Functions** (whole project type,
+[#223](https://github.com/pete-mc/dataverse-powertools/issues/223)), **plug-in debugging**
+(profiler capture/download/replay, [#224](https://github.com/pete-mc/dataverse-powertools/issues/224))
+and **Custom APIs** ([#225](https://github.com/pete-mc/dataverse-powertools/issues/225)). The
+e2e/UI suites turn the flag ON via [test/ui-settings.json](test/ui-settings.json), so they keep
+covering the gated flows. To un-gate a feature once its issue is signed off, delete its entry
+from `PREVIEW_FEATURES` and drop the `config.…previewFeatures` clause from its commands in
+package.json — the parity test tells you if you only did half.
+
 ## Traps specific to this repo
 
 - **Commands are declared in two places.** A new command needs both runtime

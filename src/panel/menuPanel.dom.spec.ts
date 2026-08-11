@@ -41,7 +41,7 @@ function postModel(model: unknown): void {
   window.dispatchEvent(new MessageEvent("message", { data: { type: "model", model } }));
 }
 
-const footer = { log: { label: "Show Log", command: "dvpt.log" }, requirementsOk: true };
+const footer = { log: { label: "Show Log", command: "dvpt.log" }, requirementsOk: true, preview: { enabled: false, label: "Preview features" } };
 
 describe("menuPanel.js (webview DOM, #143)", () => {
   beforeEach(() => {
@@ -177,6 +177,23 @@ describe("menuPanel.js (webview DOM, #143)", () => {
     // Two arrangeable projects → group zone appears.
     postModel({ cards: [project("p1", "A"), project("p2", "B")], footer });
     expect(document.querySelector(".new-group-zone")).toBeTruthy();
+  });
+
+  it("renders the preview-features checkbox from the footer state and posts the toggle intent", () => {
+    const { posted } = loadPanel();
+    postModel({ cards: [], footer });
+    const box = document.querySelector(".panel-footer .preview-toggle input") as HTMLInputElement;
+    expect(box).toBeTruthy();
+    expect(box.checked).toBe(false);
+    expect(document.querySelector(".panel-footer .preview-toggle")?.textContent).toContain("Preview features");
+
+    posted.length = 0;
+    box.click();
+    expect(posted).toEqual([{ type: "togglePreviewFeatures" }]);
+
+    // The host owns the value — a model with the flag on renders it ticked.
+    postModel({ cards: [], footer: { ...footer, preview: { enabled: true, label: "Preview features" } } });
+    expect((document.querySelector(".panel-footer .preview-toggle input") as HTMLInputElement).checked).toBe(true);
   });
 
   it("clears prior cards on each model message (no stale DOM)", () => {

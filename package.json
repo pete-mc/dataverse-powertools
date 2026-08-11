@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "0.14.49",
+  "version": "0.14.50",
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -642,47 +642,47 @@
       {
         "command": "dataverse-powertools.downloadPluginProfiles",
         "title": "Dataverse PowerTools: Download Captured Plugin Profiles",
-        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && config.dataverse-powertools.previewFeatures"
       },
       {
         "command": "dataverse-powertools.capturePluginRun",
         "title": "Dataverse PowerTools: Profile the Next Plugin Run (capture)",
-        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && config.dataverse-powertools.previewFeatures"
       },
       {
         "command": "dataverse-powertools.generatePluginReplayTest",
         "title": "Dataverse PowerTools: Replay Plugin Profile as Unit Test",
-        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && config.dataverse-powertools.previewFeatures"
       },
       {
         "command": "dataverse-powertools.guidePluginProfiling",
         "title": "Dataverse PowerTools: Profile a Plugin (how to capture)",
-        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && config.dataverse-powertools.previewFeatures"
       },
       {
         "command": "dataverse-powertools.newCustomApi",
         "title": "Dataverse PowerTools: New Custom API definition",
-        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && config.dataverse-powertools.previewFeatures"
       },
       {
         "command": "dataverse-powertools.generateCustomApiHandlers",
         "title": "Dataverse PowerTools: Generate Custom API handlers",
-        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && config.dataverse-powertools.previewFeatures"
       },
       {
         "command": "dataverse-powertools.generateCustomApiClients",
         "title": "Dataverse PowerTools: Generate Custom API TS clients",
-        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && config.dataverse-powertools.previewFeatures"
       },
       {
         "command": "dataverse-powertools.deployCustomApis",
         "title": "Dataverse PowerTools: Deploy Custom APIs",
-        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && config.dataverse-powertools.previewFeatures"
       },
       {
         "command": "dataverse-powertools.invokeCustomApi",
         "title": "Dataverse PowerTools: Run Custom API",
-        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin"
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && config.dataverse-powertools.previewFeatures"
       },
       {
         "command": "dataverse-powertools.lintServerLogic",
@@ -790,37 +790,37 @@
       {
         "command": "dataverse-powertools.registerWebhookStep",
         "title": "Dataverse PowerTools: Register Webhook & Step",
-        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isAzureFunction"
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isAzureFunction && config.dataverse-powertools.previewFeatures"
       },
       {
         "command": "dataverse-powertools.buildAzureFunction",
         "title": "Dataverse PowerTools: Build Azure Function",
-        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isAzureFunction"
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isAzureFunction && config.dataverse-powertools.previewFeatures"
       },
       {
         "command": "dataverse-powertools.generateAzureFunctionEarlyBound",
         "title": "Dataverse PowerTools: Generate Azure Function Early Bound Classes",
-        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isAzureFunction"
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isAzureFunction && config.dataverse-powertools.previewFeatures"
       },
       {
         "command": "dataverse-powertools.deployAzureFunctionGuide",
         "title": "Dataverse PowerTools: Deploy Azure Function to Azure",
-        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isAzureFunction"
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isAzureFunction && config.dataverse-powertools.previewFeatures"
       },
       {
         "command": "dataverse-powertools.publishAzureFunction",
         "title": "Dataverse PowerTools: Publish Azure Function (func)",
-        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isAzureFunction"
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isAzureFunction && config.dataverse-powertools.previewFeatures"
       },
       {
         "command": "dataverse-powertools.startAzureFunctionHost",
         "title": "Dataverse PowerTools: Run Azure Function locally (func start)",
-        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isAzureFunction"
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isAzureFunction && config.dataverse-powertools.previewFeatures"
       },
       {
         "command": "dataverse-powertools.sendTestContext",
         "title": "Dataverse PowerTools: Send test RemoteExecutionContext to local function",
-        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isAzureFunction"
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isAzureFunction && config.dataverse-powertools.previewFeatures"
       },
       {
         "command": "dataverse-powertools.clearCredentials",
@@ -838,6 +838,17 @@
     "configuration": {
       "title": "Dataverse PowerTools",
       "properties": {
+        "dataverse-powertools.previewFeatures": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Show **preview features** — flows that ship in the extension but have not completed manual verification yet. Off by default: their panel buttons, cards and commands are hidden. Currently gated: **Azure Functions** (the whole component type), **Plug-in debugging** (Profile next run / Download a run / Replay & debug, and the per-step `Profile` CodeLens) and **Custom APIs**. Can also be toggled from the **Preview features** checkbox at the bottom of the Dataverse PowerTools panel."
+        },
+        "dataverse-powertools.collapseCardsFrom": {
+          "type": "number",
+          "default": 3,
+          "minimum": 0,
+          "markdownDescription": "Component cards in the Dataverse PowerTools panel start **collapsed** once the workspace has at least this many components. The default `3` keeps one- and two-component workspaces expanded. Set `0` to always start collapsed, or a large number to never collapse. Expanding or collapsing a card by hand always wins and is remembered per component."
+        },
         "dataverse-powertools.copilot.accessMode": {
           "type": "string",
           "enum": [

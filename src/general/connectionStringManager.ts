@@ -9,6 +9,8 @@ import { DataverseAuthType, parseAuthType } from "./dataverse/authTypes";
 import { buildAuthConnectionString, getOrganizationUrl, normalizeOrganizationUrl, parseConnectionString } from "./connectionString";
 import { discoverEnvironments, discoverEnvironmentsWithSecret } from "./dataverse/globalDiscovery";
 import { refreshPanelData, clearPanelDataCache } from "../panel/panelDataCache";
+import { visibleProjectTypes } from "./previewFeatures";
+import { previewFeaturesEnabled } from "./extensionConfig";
 
 export async function updateConnectionString(context: DataversePowerToolsContext) {
   let connectionString = await createServicePrincipalString(context, true);
@@ -444,7 +446,8 @@ export async function getProjectType(context: DataversePowerToolsContext): Promi
       // with each component in its own subfolder — the recommended layout for anything
       // beyond a single project. `target: undefined` keeps the connection-only-root semantics.
       { label: "Multi-component project (two or more types)", description: "one connection-only root; each component in its own subfolder", target: undefined },
-      ...projectTypeRegistry.map((d) => ({ label: d.displayName, description: d.displayName, target: d.id as string | undefined })),
+      // Preview-only types (e.g. Azure Functions) are offered only with the flag on.
+      ...visibleProjectTypes(projectTypeRegistry, previewFeaturesEnabled()).map((d) => ({ label: d.displayName, description: d.displayName, target: d.id as string | undefined })),
     ],
     { placeHolder: "Select a Project Type." },
   );

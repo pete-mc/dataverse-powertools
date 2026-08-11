@@ -282,17 +282,17 @@
   // --- drag-and-drop layout (#118) ---
   let dragId = null;
   let lastCards = [];
-  let lastMultiComponent = false;
+  let lastCollapseByDefault = false;
 
   // Reconstruct the full layout from the rendered cards. collapsedCards (#156) is the set
-  // of cards whose collapse DIFFERS from the workspace default (multiComponent) — derived
+  // of cards whose collapse DIFFERS from the workspace default (collapseByDefault) — derived
   // from each card's rendered `collapsed`, so it round-trips through a re-render.
   function deriveLayout(cards) {
     const order = [];
     const groups = [];
     const collapsedCards = [];
     function noteCollapse(p) {
-      if (p.dndId && !!p.collapsed !== lastMultiComponent) {
+      if (p.dndId && !!p.collapsed !== lastCollapseByDefault) {
         collapsedCards.push(p.dndId);
       }
     }
@@ -654,6 +654,23 @@
       f.appendChild(el("span"));
     }
     f.appendChild(button(footer.log, "linkbtn"));
+    // Preview-features opt-in, right next to Show Log: a real checkbox so its state is
+    // obvious at a glance. The host owns the setting; this only signals the toggle.
+    if (footer.preview) {
+      const wrap = el("label", "preview-toggle small");
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      box.checked = !!footer.preview.enabled;
+      box.setAttribute("aria-label", footer.preview.label);
+      box.title = "Show features that have not completed manual testing yet";
+      box.addEventListener("change", function () {
+        closeOverflow();
+        vscode.postMessage({ type: "togglePreviewFeatures" });
+      });
+      wrap.appendChild(box);
+      wrap.appendChild(el("span", null, footer.preview.label));
+      f.appendChild(wrap);
+    }
     // Help & feedback links (#120): Docs · Report an issue.
     if (footer.help && footer.help.length) {
       const help = el("div", "help-links small");
@@ -681,7 +698,7 @@
     closeOverflow();
     root.replaceChildren();
     lastCards = message.model.cards;
-    lastMultiComponent = !!message.model.multiComponent;
+    lastCollapseByDefault = !!message.model.collapseByDefault;
     let draggableCount = 0;
     for (const card of message.model.cards) {
       if ((card.kind === "project" && card.dndId) || card.kind === "group") {
