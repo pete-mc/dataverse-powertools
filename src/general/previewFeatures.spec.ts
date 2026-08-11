@@ -17,8 +17,8 @@ const packageJson = JSON.parse(fs.readFileSync(path.join(repoRoot, "package.json
 const contributedCommands: { command: string; enablement?: string }[] = packageJson.contributes.commands;
 
 describe("preview feature registry", () => {
-  it("declares the three release-gated features", () => {
-    expect(PREVIEW_FEATURES.map((f) => f.id)).toEqual(["azureFunctions", "pluginDebugging", "customApis"]);
+  it("declares the release-gated features", () => {
+    expect(PREVIEW_FEATURES.map((f) => f.id)).toEqual(["azureFunctions", "pluginDebugging", "customApis", "fetchXmlQueries"]);
     for (const feature of PREVIEW_FEATURES) {
       expect(feature.label.length, `${feature.id}: needs a label`).toBeGreaterThan(0);
       expect(feature.note.length, `${feature.id}: needs a note`).toBeGreaterThan(0);
@@ -88,10 +88,18 @@ describe("preview ↔ package.json parity", () => {
     expect(properties["dataverse-powertools.collapseCardsFrom"].default).toBe(3);
   });
 
-  it("owns only commands the project-type registry knows about (plus CodeLens-only ones)", () => {
+  it("owns only commands the project-type registry knows about (plus the cross-type ones)", () => {
     const registryCommands = new Set(projectTypeRegistry.flatMap((d) => [...d.commandIds]));
-    const codeLensOnly = new Set(["dataverse-powertools.toggleStepProfilingAtLine"]);
-    const unknown = PREVIEW_FEATURES.flatMap((f) => [...f.commands]).filter((id) => !registryCommands.has(id) && !codeLensOnly.has(id));
+    // Commands NO single project type owns, so the registry can't (its command ownership is unique
+    // per type): a CodeLens-only command, and the FetchXML tools, which act on any C#/TS file and are
+    // gated on `showLoaded` rather than on a type's context key.
+    const notTypeOwned = new Set([
+      "dataverse-powertools.toggleStepProfilingAtLine",
+      "dataverse-powertools.openFetchXmlGenerator",
+      "dataverse-powertools.runFetchXml",
+      "dataverse-powertools.clearQueryMetadataCache",
+    ]);
+    const unknown = PREVIEW_FEATURES.flatMap((f) => [...f.commands]).filter((id) => !registryCommands.has(id) && !notTypeOwned.has(id));
     expect(unknown, "preview commands that no project type owns").toEqual([]);
   });
 });

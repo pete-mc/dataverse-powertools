@@ -1,0 +1,52 @@
+{
+  "Dataverse FetchXML query (Xrm.WebApi)": {
+    "prefix": ["dvpt-fetch", "fetchxml"],
+    "body": [
+      "const fetchXml = `<fetch top='50'>",
+      "  <entity name='${1:account}'>",
+      "    <attribute name='${2:name}' />",
+      "    <filter type='and'>",
+      "      <condition attribute='${3:statecode}' operator='eq' value='${4:0}' />",
+      "    </filter>",
+      "  </entity>",
+      "</fetch>`;",
+      "const ${5:results} = await Xrm.WebApi.retrieveMultipleRecords(\"${1:account}\", \"?fetchXml=\" + encodeURIComponent(fetchXml));$0"
+    ],
+    "description": "FetchXML executed through Xrm.WebApi. A CodeLens appears above it: run it, or open it in the builder."
+  },
+  "Dataverse FetchXML query with a parameter": {
+    "prefix": ["dvpt-fetch-param", "fetchxml-param"],
+    "body": [
+      "const fetchXml = `<fetch top='50'>",
+      "  <entity name='${1:incident}'>",
+      "    <attribute name='${2:title}' />",
+      "    <filter type='and'>",
+      "      <condition attribute='${3:customerid}' operator='eq' value='${${4:accountId}}' />",
+      "    </filter>",
+      "  </entity>",
+      "</fetch>`;",
+      "const ${5:results} = await Xrm.WebApi.retrieveMultipleRecords(\"${1:incident}\", \"?fetchXml=\" + encodeURIComponent(fetchXml));$0"
+    ],
+    "description": "FetchXML with an interpolated value. The builder shows it as a parameter and a test run prompts for it."
+  },
+  "Dataverse FetchXML lookup filter": {
+    "prefix": ["dvpt-fetch-filter", "fetchxml-filter"],
+    "body": [
+      "const filterXml = `<filter type='and'>",
+      "  <condition attribute='${1:statecode}' operator='eq' value='${2:0}' />",
+      "</filter>`;",
+      "${3:control}.addCustomFilter(filterXml, \"${4:account}\");$0"
+    ],
+    "description": "A <filter> fragment for a lookup's custom filter — the shape addCustomFilter expects."
+  },
+  "Escape a value for FetchXML": {
+    "prefix": ["dvpt-escape-xml", "escapeXml"],
+    "body": [
+      "/** Escape a value for interpolation into a FetchXML attribute. */",
+      "function escapeXml(value: string): string {",
+      "  return value.replace(/[&<>\"']/g, (character) => ({ \"&\": \"&amp;\", \"<\": \"&lt;\", \">\": \"&gt;\", '\"': \"&quot;\", \"'\": \"&apos;\" })[character] as string);",
+      "}$0"
+    ],
+    "description": "The escapeXml helper the unescaped-value quick fix calls."
+  }
+}

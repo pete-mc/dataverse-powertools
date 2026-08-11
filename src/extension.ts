@@ -19,6 +19,7 @@ import { registerMenuPanel } from "./panel/menuPanel";
 import { refreshPanelData } from "./panel/panelDataCache";
 import { registerSystemRequirementCommands } from "./general/systemRequirements";
 import { initInteractiveTokenCache } from "./general/dataverse/tokenAcquisition";
+import { registerQueryCommands } from "./query/queryCommands";
 
 export async function activate(vscodeContext: vscode.ExtensionContext) {
   const context = new DataversePowerToolsContext(vscodeContext);
@@ -51,6 +52,10 @@ export async function activate(vscodeContext: vscode.ExtensionContext) {
   // ONCE here (its commands + provider are global) — never per plugin component, or a
   // second plugin component's initialise throws "command … already exists" (#47).
   registerDecorationCodeLens(context);
+  // FetchXML query tools (#238): a CodeLens, diagnostics and quick fixes on FetchXML found in the
+  // user's own C#/TS, plus the builder and results views. Registered ONCE here for the same reason
+  // as the CodeLens above — the providers and commands are global, not per component.
+  registerQueryCommands(context);
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.folderStateReady", false);
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.detectingFolderSettings", true);
   await vscode.commands.executeCommand("setContext", "dataverse-powertools.hasSupportedProjectType", true);

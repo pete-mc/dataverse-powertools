@@ -1,0 +1,276 @@
+/* FetchXML Generator webview (#238). Theme variables only — no hard-coded colours, so it follows
+   whatever theme the user has. */
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  color: var(--vscode-foreground);
+  background: var(--vscode-editor-background);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  flex: 0 0 auto;
+}
+
+#title {
+  font-weight: 600;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#title .consumer {
+  font-weight: 400;
+  opacity: 0.75;
+  margin-left: 8px;
+}
+
+#title .dirty {
+  color: var(--vscode-gitDecoration-modifiedResourceForeground, var(--vscode-foreground));
+  margin-left: 6px;
+}
+
+#actions {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
+  background: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
+  border: none;
+  padding: 4px 10px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--vscode-button-secondaryHoverBackground, var(--vscode-button-hoverBackground));
+}
+
+button#run,
+button#save {
+  color: var(--vscode-button-foreground);
+  background: var(--vscode-button-background);
+}
+
+button#run:hover,
+button#save:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+#notice {
+  padding: 6px 12px;
+  background: var(--vscode-inputValidation-warningBackground);
+  border-bottom: 1px solid var(--vscode-inputValidation-warningBorder);
+}
+
+main {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+#treePane {
+  flex: 1 1 45%;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--vscode-panel-border);
+  min-height: 0;
+}
+
+#tree {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 6px 0;
+}
+
+#treeActions {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.row:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.row.selected {
+  background: var(--vscode-list-activeSelectionBackground);
+  color: var(--vscode-list-activeSelectionForeground);
+}
+
+.row .tag {
+  opacity: 0.7;
+  font-size: 0.9em;
+}
+
+.row .label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row.readonly .label {
+  font-style: italic;
+  opacity: 0.8;
+}
+
+#propertiesPane {
+  flex: 1 1 55%;
+  overflow: auto;
+  padding: 10px 12px;
+  min-width: 260px;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.field label {
+  flex: 0 0 110px;
+  opacity: 0.85;
+}
+
+.field input[type="text"],
+.field input[type="number"],
+.field select {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border, transparent);
+  padding: 3px 5px;
+}
+
+.field input[type="checkbox"] {
+  margin: 0;
+}
+
+.hint {
+  opacity: 0.7;
+  font-size: 0.9em;
+  margin: -2px 0 8px 118px;
+}
+
+h3 {
+  font-size: 0.95em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+  margin: 16px 0 6px;
+}
+
+.pill {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  font-size: 0.85em;
+  margin-left: 6px;
+}
+
+.diagnostic {
+  display: flex;
+  gap: 8px;
+  padding: 4px 0;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+.diagnostic .severity {
+  flex: 0 0 auto;
+}
+
+.diagnostic.error .severity {
+  color: var(--vscode-editorError-foreground);
+}
+
+.diagnostic.warning .severity {
+  color: var(--vscode-editorWarning-foreground);
+}
+
+.diagnostic.info .severity {
+  color: var(--vscode-editorInfo-foreground);
+}
+
+.other {
+  opacity: 0.75;
+  font-size: 0.9em;
+  padding: 2px 0;
+}
+
+#xmlPane {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--vscode-panel-border);
+  padding: 6px 12px 10px;
+}
+
+#xmlPane label {
+  font-size: 0.95em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+  margin-bottom: 4px;
+}
+
+#xml {
+  font-family: var(--vscode-editor-font-family);
+  font-size: var(--vscode-editor-font-size);
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border, transparent);
+  padding: 6px;
+  resize: vertical;
+  white-space: pre;
+  overflow: auto;
+}
+
+#xmlError {
+  color: var(--vscode-editorError-foreground);
+  padding-top: 4px;
+}
+
+.empty {
+  opacity: 0.7;
+  padding: 4px 0;
+}

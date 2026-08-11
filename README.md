@@ -73,6 +73,9 @@ to show them:
 - **Plug-in debugging** — Profile next run, Download a run, Replay & debug, and the per-step
   `Profile` CodeLens.
 - **Custom APIs** — define, generate handlers and typed clients, deploy, and invoke.
+- **FetchXML query tools** — a CodeLens on the FetchXML already in your C#/TypeScript to run it,
+  edit it in a generator, or see what's wrong with it (unescaped values, local-time dates compared
+  against UTC columns, unknown columns).
 
 Everything else is on by default.
 

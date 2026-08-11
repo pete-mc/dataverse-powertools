@@ -66,6 +66,14 @@ export const PREVIEW_FEATURES: readonly PreviewFeature[] = [
     projectTypes: [],
     commands: [`${prefix}newCustomApi`, `${prefix}generateCustomApiHandlers`, `${prefix}generateCustomApiClients`, `${prefix}deployCustomApis`, `${prefix}invokeCustomApi`],
   },
+  {
+    id: "fetchXmlQueries",
+    label: "FetchXML query tools",
+    note: "Detecting FetchXML in code, the generator, running a query and writing an edit back are not manually verified yet.",
+    manualTestIssue: 239,
+    projectTypes: [],
+    commands: [`${prefix}openFetchXmlGenerator`, `${prefix}runFetchXml`, `${prefix}clearQueryMetadataCache`],
+  },
 ];
 
 const PREVIEW_COMMANDS = new Set(PREVIEW_FEATURES.flatMap((feature) => [...feature.commands]));

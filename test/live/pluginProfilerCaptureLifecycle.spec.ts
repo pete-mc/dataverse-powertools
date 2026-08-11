@@ -216,10 +216,14 @@ live("plugin profiler capture -> download -> replay (headless, Windows)", () => 
     fs.writeFileSync(profilePath, report, "utf8");
 
     // Sanity-check the extension's replay-test GENERATION against the real inputs (it is
-    // added to the user's DataverseUnitTest project, which resolves the deps). Its exact
-    // Replay(...) call is what we run below.
+    // added to the user's DataverseUnitTest project, which resolves the deps).
+    // 0.14.44 (#210) moved generation from PRT's ProfilerExecutionUtility/AppDomain to the
+    // IN-PROCESS shape — decode the profile, deserialise the context, invoke the plugin — so
+    // assert that shape here, matching src/plugins/replayTest.spec.ts.
     const generated = replayTestSource({ framework: "xunit", namespaceName: "ReplayTest", className: "ReplayProbeTest", pluginTypeName: PROBE_TYPE, pluginAssemblyFileName: "DvptProbe.dll", profileFileName: profileName });
-    expect(generated).toContain("ProfilerExecutionUtility.Replay(");
+    expect(generated).toContain("ProfileReplay.LoadContext(");
+    expect(generated).toContain("plugin.Execute(ProfileReplay.CreateServiceProvider(context));");
+    expect(generated).not.toContain("ProfilerExecutionUtility");
     expect(generated).toContain(PROBE_TYPE);
 
     // Execute the replay for real via the same PluginProfiler API the generated test uses,
