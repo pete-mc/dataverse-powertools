@@ -990,7 +990,7 @@
     "@azure/msal-node": "^5.4.0",
     "adm-zip": "^0.6.0",
     "chrome-remote-interface": "^0.34.0",
-    "fast-xml-parser": "^5.9.3",
+    "fast-xml-parser": "^5.10.1",
     "fs-extra": "^10.1.0",
     "node-fetch": "^3.2.10"
   },
