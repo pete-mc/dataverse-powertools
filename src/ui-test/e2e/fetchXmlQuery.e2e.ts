@@ -39,7 +39,13 @@ describe("FetchXML query tools (e2e)", function () {
   let workspace: string;
   let solutionFriendlyName: string;
 
-  /** A plugin-style C# file: verbatim FetchXML, one interpolated GUID, handed to FetchExpression. */
+  /**
+   * A plugin-style C# file: verbatim FetchXML, one interpolated value, handed to FetchExpression.
+   *
+   * The interpolation is the STATE code rather than an account id, so the test run comes back with real
+   * rows and several columns — a query that matches nothing proves the plumbing but shows an empty grid,
+   * and this run is also where the documentation screenshot of the results view comes from.
+   */
   const CSHARP_FILE = "QueryProbe.cs";
   const CSHARP_SOURCE = `using System;
 using Microsoft.Xrm.Sdk;
@@ -52,13 +58,17 @@ namespace DvptQueryProbe
         // A marker the write-back test asserts is still present afterwards.
         public const string Marker = "DO-NOT-TOUCH";
 
-        public EntityCollection OpenCasesFor(IOrganizationService service, Guid accountId)
+        public EntityCollection ActiveAccounts(IOrganizationService service, int stateCode)
         {
             var fetchXml = $@"<fetch top='50'>
   <entity name='account'>
     <attribute name='name' />
+    <attribute name='accountnumber' />
+    <attribute name='telephone1' />
+    <attribute name='createdon' />
+    <order attribute='name' />
     <filter type='and'>
-      <condition attribute='accountid' operator='eq' value='{accountId}' />
+      <condition attribute='statecode' operator='eq' value='{stateCode}' />
     </filter>
   </entity>
 </fetch>";
@@ -289,14 +299,18 @@ namespace DvptQueryProbe
     // Wiki frame: the prompt that asks for the placeholder's value before the query runs.
     await sleep(2500);
     await shot("fetchxml-03-parameter-prompt");
-    // One parameter (accountId, inferred Uniqueidentifier from the column) — the prompt validates it,
-    // so an all-zero GUID is accepted and simply matches nothing.
-    await answerText("00000000-0000-0000-0000-000000000000");
+    // One parameter (stateCode, inferred as a whole number from the column) — 0 is Active, so the run
+    // comes back with real accounts.
+    await answerText("0");
 
     // Gate on the run's FINAL line. Metadata has to load first (the entity SET name comes from it),
     // so allow for that round trip.
     const text = await expectOutput(["[Query] GET accounts", "row(s) returned"], { step: "run C# query", timeoutMs: 240000 });
-    expect(/\[Query\] \d+ row\(s\) returned/.test(text), "the run logged a row count").to.equal(true);
+    const rowCount = Number(/\[Query\] (\d+) row\(s\) returned/.exec(text)?.[1] ?? "-1");
+    expect(rowCount, "the run logged a row count").to.be.at.least(0);
+    // Rows, not just a successful call: an empty grid would prove the plumbing while showing nothing,
+    // and this run is where the documentation screenshot of the results view comes from.
+    expect(rowCount, "the query returned actual rows (are there active accounts in the test org?)").to.be.greaterThan(0);
     await assertCommandDidNotError("run C# query");
     // Wiki frame: the results view for that run.
     await sleep(2000);
@@ -307,21 +321,22 @@ namespace DvptQueryProbe
     await openFile(csharpPath());
     await lensTitles();
     await clickLens("generator");
-    // FINAL signal for the open: state rendered. 5 elements = fetch/entity/attribute/filter/condition.
-    await expectOutput(["[Query] Generator ready for QueryProbe.cs", "5 elements"], { step: "open generator", timeoutMs: 120000 });
+    // FINAL signal for the open: state rendered. 9 elements =
+    // fetch/entity/4 attributes/order/filter/condition.
+    await expectOutput(["[Query] Generator ready for QueryProbe.cs", "9 elements"], { step: "open generator", timeoutMs: 120000 });
 
     const webview = await openGeneratorFrame();
     try {
       const rows = await webview.findWebElements(By.css("#tree .row"));
-      expect(rows.length, "the tree renders one row per element").to.equal(5);
+      expect(rows.length, "the tree renders one row per element").to.equal(9);
       const labels = await Promise.all(rows.map((row) => row.getText()));
       expect(labels.join(" | "), "the tree reads like the query").to.contain("account");
 
       // The parameter is bound to the code expression, not invented by the generator.
       const parameterInputs = await webview.findWebElements(By.css("#parameters input"));
-      expect(parameterInputs.length, "one parameter row for {accountId}").to.equal(1);
+      expect(parameterInputs.length, "one parameter row for {stateCode}").to.equal(1);
       const parameterText = await (await webview.findWebElement(By.css("#parameters"))).getText();
-      expect(parameterText, "the parameter names itself after the variable").to.contain("accountId");
+      expect(parameterText, "the parameter names itself after the variable").to.contain("stateCode");
     } finally {
       await webview.switchBack();
     }
@@ -370,10 +385,10 @@ namespace DvptQueryProbe
     expect(after, "the edit landed in the source file").to.contain("top='7'");
     expect(after, "the old value is gone").to.not.contain("top='50'");
     // ...and nothing else did: the surrounding code, the interpolation, and the literal's form.
-    expect(after, "the interpolated expression is preserved verbatim").to.contain("{accountId}");
+    expect(after, "the interpolated expression is preserved verbatim").to.contain("{stateCode}");
     expect(after, "the literal stays an interpolated verbatim string").to.contain('$@"<fetch');
     expect(after, "surrounding code is untouched").to.contain('public const string Marker = "DO-NOT-TOUCH";');
-    expect(after, "the method signature is untouched").to.contain("public EntityCollection OpenCasesFor(IOrganizationService service, Guid accountId)");
+    expect(after, "the method signature is untouched").to.contain("public EntityCollection ActiveAccounts(IOrganizationService service, int stateCode)");
   });
 
   it("re-detects the edited query, so the round trip is stable", async () => {

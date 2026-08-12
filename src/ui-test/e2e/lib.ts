@@ -966,6 +966,75 @@ export class E2EClient {
       await this.request("DELETE", `pluginpackages(${id})`);
     }
   }
+
+  // ---- Custom API (#225): verify what the deploy actually created, then remove it ----
+
+  /** The `customapi` row id for a unique name, or undefined when it is not in the environment. */
+  async findCustomApiId(uniqueName: string): Promise<string | undefined> {
+    const res = await this.request("GET", `customapis?$select=customapiid&$filter=uniquename eq '${uniqueName.replace(/'/g, "''")}'`);
+    if (!res.ok) {
+      return undefined;
+    }
+    const data: any = await res.json();
+    return data?.value?.[0]?.customapiid;
+  }
+
+  /** The Custom API's binding/function flags and plugin type, as Dataverse actually stored them. */
+  async getCustomApi(uniqueName: string): Promise<{ bindingtype: number; isfunction: boolean; displayname: string; plugintypeid?: string } | undefined> {
+    const res = await this.request("GET", `customapis?$select=bindingtype,isfunction,displayname,_plugintypeid_value&$filter=uniquename eq '${uniqueName.replace(/'/g, "''")}'`);
+    if (!res.ok) {
+      return undefined;
+    }
+    const data: any = await res.json();
+    const row = data?.value?.[0];
+    return row ? { bindingtype: row.bindingtype, isfunction: row.isfunction, displayname: row.displayname, plugintypeid: row._plugintypeid_value } : undefined;
+  }
+
+  /** Request parameter + response property unique names for a deployed Custom API. */
+  async getCustomApiMembers(customApiId: string): Promise<{ requestParameters: string[]; responseProperties: string[] }> {
+    const read = async (entitySet: string): Promise<string[]> => {
+      const res = await this.request("GET", `${entitySet}?$select=uniquename&$filter=_customapiid_value eq ${customApiId}`);
+      if (!res.ok) {
+        return [];
+      }
+      const data: any = await res.json();
+      return (data?.value ?? []).map((row: any) => row.uniquename);
+    };
+    return { requestParameters: await read("customapirequestparameters"), responseProperties: await read("customapiresponseproperties") };
+  }
+
+  /** The `plugintype` row id for a type name — what the Custom API deploy has to find. */
+  async findPluginTypeId(typeName: string): Promise<string | undefined> {
+    const res = await this.request("GET", `plugintypes?$select=plugintypeid&$filter=typename eq '${typeName.replace(/'/g, "''")}'`);
+    if (!res.ok) {
+      return undefined;
+    }
+    const data: any = await res.json();
+    return data?.value?.[0]?.plugintypeid;
+  }
+
+  /** Delete a Custom API and its members. Members go first — the API cannot be deleted under them. */
+  async deleteCustomApi(uniqueName: string): Promise<boolean> {
+    const id = await this.findCustomApiId(uniqueName);
+    if (!id) {
+      return false;
+    }
+    for (const entitySet of ["customapirequestparameters", "customapiresponseproperties"]) {
+      const res = await this.request(
+        "GET",
+        `${entitySet}?$select=${entitySet === "customapirequestparameters" ? "customapirequestparameterid" : "customapiresponsepropertyid"}&$filter=_customapiid_value eq ${id}`,
+      );
+      if (res.ok) {
+        const data: any = await res.json();
+        for (const row of data?.value ?? []) {
+          const memberId = row.customapirequestparameterid ?? row.customapiresponsepropertyid;
+          await this.request("DELETE", `${entitySet}(${memberId})`);
+        }
+      }
+    }
+    await this.request("DELETE", `customapis(${id})`);
+    return true;
+  }
 }
 
 /**
