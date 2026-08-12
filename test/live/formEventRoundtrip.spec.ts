@@ -64,7 +64,7 @@ function decorate(form: DataverseForm, libraryName: string, functionName: string
 
 live("form read + decoration logic + webresource lifecycle (extension code vs real env)", () => {
   const client = new LiveDataverseClient(env as LiveEnv);
-  const prefix = testSolutionConfig(env as LiveEnv).prefix;
+  const prefix = testSolutionConfig(env).prefix;
   const stamp = Date.now();
   const libraryName = `${prefix}_dvpttestlib_${stamp}.js`;
   const testFunctionName = `dvpt_test_OnLoad_${stamp}`;

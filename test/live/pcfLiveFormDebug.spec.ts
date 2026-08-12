@@ -5,7 +5,7 @@ import * as path from "path";
 import * as net from "net";
 import * as cp from "child_process";
 import CDP = require("chrome-remote-interface");
-import { loadLiveEnv } from "../liveEnv";
+import { loadLiveEnv, liveOrgUrl } from "../liveEnv";
 import { isPcfBundleUrl, pcfBundleCdpPattern, pcfBundleContentType } from "../../src/pcf/debug/pcfBundleUrl";
 import { resolveBrowser } from "../../src/webresources/debug/browserResolver";
 import { buildBrowserArgs } from "../../src/webresources/debug/browserArgs";
@@ -47,7 +47,7 @@ it(env && browserPath ? "live env + a browser available for the PCF debug e2e" :
 });
 
 gate("PCF live-form debug — interception serves the local bundle (live)", () => {
-  const orgUrl = env!.url.replace(/\/$/, "");
+  const orgUrl = liveOrgUrl(env).replace(/\/$/, "");
   const bundleUrl = `${orgUrl}/WebResources/cc_${NS}.${CTOR}/bundle.js`;
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "dvpt-pcf-debug-"));
   const localBundle = path.join(tmpDir, "bundle.js");

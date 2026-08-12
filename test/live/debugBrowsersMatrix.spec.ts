@@ -5,7 +5,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode"; // aliased to test/vscode.mock.ts
 import CDP = require("chrome-remote-interface");
-import { loadLiveEnv, loadInteractiveTestUser, LiveEnv, testSolutionConfig } from "../liveEnv";
+import { loadLiveEnv, loadInteractiveTestUser, LiveEnv, testSolutionConfig, liveEnvOrPlaceholder } from "../liveEnv";
 import { LiveDataverseClient } from "./dataverseClient";
 import { DataverseWebresource } from "../../src/general/dataverse/DataverseWebresource";
 import { DataverseForm } from "../../src/general/dataverse/DataverseForm";
@@ -45,7 +45,7 @@ function log(m: string): void {
 
 function makeContext(url: string, token: string, workspacePath: string, globalStorage: string, browser: string): DataversePowerToolsContext {
   return {
-    projectSettings: { prefix: "dvpt", tenantId: (env as LiveEnv).tenantId },
+    projectSettings: { prefix: "dvpt", tenantId: liveEnvOrPlaceholder(env).tenantId },
     dataverse: { organizationUrl: url, isValid: true, authorizationToken: token, getAuthorizationToken: async () => token, initialize: async () => true },
     channel: { appendLine: (m: string) => log(`[${browser}] ${m}`), show: () => undefined },
     vscode: { globalStorageUri: { fsPath: globalStorage }, subscriptions: [] as unknown[] },
@@ -162,7 +162,7 @@ async function reloadedBanner(port: number): Promise<string> {
 }
 
 suite("Debug Web Resources — Edge + Chrome unattended (#64)", () => {
-  const e = env as LiveEnv;
+  const e = liveEnvOrPlaceholder(env);
   const u = user!;
   const client = new LiveDataverseClient(e);
   const orgHost = new URL(e.url).host;

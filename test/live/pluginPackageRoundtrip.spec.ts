@@ -40,7 +40,7 @@ function fakeContext(url: string, token: string): DataversePowerToolsContext {
 
 live("plugin build + package push round-trip (pac init + dotnet build -> extension push -> verify -> delete)", () => {
   const client = new LiveDataverseClient(env as LiveEnv);
-  const prefix = testSolutionConfig(env as LiveEnv).prefix;
+  const prefix = testSolutionConfig(env).prefix;
   const stamp = Date.now();
   const projectName = `${prefix}_testplugin${stamp}`;
   const uniqueName = `${prefix}_testpkg${stamp}`;

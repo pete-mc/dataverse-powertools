@@ -25,7 +25,7 @@ function fakeContext(url: string, token: string): DataversePowerToolsContext {
 
 live("webresource deploy round-trip (extension code → test solution → verify)", () => {
   const client = new LiveDataverseClient(env as LiveEnv);
-  const solutionCfg = testSolutionConfig(env as LiveEnv);
+  const solutionCfg = testSolutionConfig(env);
   let solutionUniqueName = "";
   let solutionId = "";
   let webresourceName = "";

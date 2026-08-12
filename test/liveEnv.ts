@@ -98,14 +98,47 @@ export interface TestSolutionConfig {
  * The dedicated test solution/publisher config. Live tests ensure this exists and
  * add anything they create to it, so test artifacts are easy to find (and the
  * solution can be deleted wholesale) instead of scattered in the Default layer.
+ *
+ * `env` is OPTIONAL on purpose. Vitest's `describe.skip` still INVOKES its callback to
+ * collect the suite, so a spec that calls this at describe scope (the common shape here)
+ * evaluates it even when the suite is skipped for want of credentials. Taking
+ * `LiveEnv | undefined` and falling back to the same defaults keeps collection safe; a
+ * skipped suite never runs a test, so these defaults are never used against a real org.
  */
-export function testSolutionConfig(env: LiveEnv): TestSolutionConfig {
+export function testSolutionConfig(env?: LiveEnv): TestSolutionConfig {
   return {
-    solutionUniqueName: env.solutionName || "dvpttests",
+    solutionUniqueName: env?.solutionName || "dvpttests",
     solutionFriendlyName: "Dataverse PowerTools Tests",
     publisherUniqueName: "dataversepowertoolstests",
     publisherFriendlyName: "Dataverse PowerTools Tests",
-    prefix: env.publisherPrefix || "dvpt",
+    prefix: env?.publisherPrefix || "dvpt",
     optionValuePrefix: 65200,
   };
+}
+
+/**
+ * A placeholder org URL for collection-time expressions in suites that are about to be
+ * skipped (see `testSolutionConfig` for why collection still happens). Parsing or string
+ * -munging this is harmless; it is never fetched, because the suite does not run.
+ */
+export const PLACEHOLDER_ORG_URL = "https://placeholder.crm.dynamics.com";
+
+/** The org URL for collection-time use: the real one, or a parseable placeholder when
+ * credentials are absent and the suite is therefore skipped. */
+export function liveOrgUrl(env?: LiveEnv): string {
+  return env?.url || PLACEHOLDER_ORG_URL;
+}
+
+/** A complete `LiveEnv` of harmless placeholders. Empty credentials cannot authenticate against
+ * anything, and the URL is only ever parsed or interpolated during collection. */
+const PLACEHOLDER_LIVE_ENV: LiveEnv = { url: PLACEHOLDER_ORG_URL, clientId: "", clientSecret: "", tenantId: "" };
+
+/**
+ * The env for collection-time use. Use this instead of `env as LiveEnv` / `env!` at describe scope:
+ * the cast satisfies the compiler but still dereferences `undefined` at runtime, which is what made
+ * nine live spec FILES fail to load (and the nightly workflow red every day) whenever credentials
+ * were absent. A suite whose gate is false never runs a test, so placeholders never reach an org.
+ */
+export function liveEnvOrPlaceholder(env?: LiveEnv): LiveEnv {
+  return env ?? PLACEHOLDER_LIVE_ENV;
 }
