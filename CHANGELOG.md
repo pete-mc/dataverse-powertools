@@ -5,6 +5,38 @@ All notable changes to the "dataverse-powertools" extension will be documented i
 Pre-release builds get a per-version entry in [CHANGELOG-prerelease.md](CHANGELOG-prerelease.md);
 those entries are rolled up into one section here when a full release ships.
 
+## 1.0.2
+
+Profiler: a disabled step now explains itself instead of dead-ending; two end-to-end suites root-caused and green.
+
+**"No registered plugin steps to profile" no longer dead-ends when your step is disabled
+([#241](https://github.com/pete-mc/dataverse-powertools/issues/241)).**
+
+The Plugin Profiler deactivates a step while it profiles it. If profiling is never stopped, the step
+stays disabled — and a disabled step can't be profiled, so *Profile next run* correctly found nothing
+and then told you to *"deploy your plugin and register a step first"*: advice you can't act on for a
+step you already deployed. Worse, nothing was written to the log at all, because the diagnostic only
+ran when the query returned rows and the assembly-filtered query returns none in this case.
+
+Now both the notification and the log say what is actually wrong and how to fix it — naming the
+disabled steps and pointing at *stop profiling* — on both the *Profile next run* command and the
+per-step **Profile** CodeLens.
+
+**Also**
+
+- Two end-to-end suites that had been failing on every run are green again, and neither was the bug it
+  looked like:
+  - The solution **Deploy** step was waiting for four *alternative* completion phrasings from a helper
+    that requires **all** of them, two of which the extension never logs. The import was succeeding
+    every time; the gate was unsatisfiable, so it burned its 900-second timeout and reported the
+    opposite ([#240](https://github.com/pete-mc/dataverse-powertools/issues/240)). It now gates on the
+    lines that genuinely occur and confirms in about a minute.
+  - The profiler suite left the step it profiled disabled, so one failed run permanently broke every
+    later run. Teardown now re-enables the original step, and the suite self-heals an already-affected
+    environment before asserting.
+- `waitForOutput`'s all-must-match behaviour is documented, since passing a list of alternatives to it
+  silently produces a permanently-red test.
+
 ## 1.0.1
 
 FetchXML query tools (preview): find the FetchXML in your code, edit it in a generator, run it against the environment.
