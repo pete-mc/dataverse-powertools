@@ -21,10 +21,10 @@ export default defineConfig({
       // Regression guard, kept a couple of points below the actual so it isn't brittle. Ratchet UP
       // as pure modules are extracted (#238 added src/query, which is ~all pure) — never down.
       thresholds: {
-        statements: 30,
-        branches: 34,
-        functions: 37,
-        lines: 30,
+        statements: 32,
+        branches: 36,
+        functions: 39,
+        lines: 32,
       },
     },
   },

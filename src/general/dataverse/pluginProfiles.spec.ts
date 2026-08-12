@@ -67,11 +67,49 @@ describe("plugin profile queries", () => {
 });
 
 describe("active plugin profiles (#139)", () => {
-  it("filters to the profiler's (Profiled) clones server-side and re-checks the marker", () => {
+  it("identifies clones by the PROFILER'S assembly, not by a name suffix (#251)", () => {
     const q = activeProfilesQuery();
     expect(q).toContain("sdkmessageprocessingsteps?$select=sdkmessageprocessingstepid,name,mode");
-    expect(q).toContain("contains(name,'(Profiled)')");
     expect(q).toContain("statecode eq 0");
+    // A clone IS a step whose plug-in type lives in the profiler's assembly. Matching a "(Profiled)"
+    // name suffix instead found nothing when a profiler version named it "(Profiler)", so the panel
+    // reported nothing profiled while profiling was on and the lens could never stop it.
+    expect(q).toContain("startswith(plugintypeid/pluginassemblyid/name,'PluginProfiler')");
+    expect(q).not.toContain("contains(name,'(Profiled)')");
+    // The label still needs the clone's type, so the expand has to reach it.
+    expect(q).toContain("plugintypeid($select=typename");
+  });
+
+  it("keeps a clone identified by the profiler assembly even with no name marker (#251)", () => {
+    const rows = parseActiveProfiles({
+      value: [
+        {
+          sdkmessageprocessingstepid: "33333333-3333-3333-3333-333333333333",
+          // No "(Profiled)"/"(Profiler)" suffix at all — a profiler version that names its clone
+          // differently must still be recognised, or profiling can never be switched off.
+          name: "Acme.UpdatePlugin: Update of account",
+          mode: 0,
+          sdkmessageid: { name: "Update" },
+          sdkmessagefilterid: { primaryobjecttypecode: "account" },
+          plugintypeid: { typename: "PluginProfiler.Plugins.ProfilerPlugin", pluginassemblyid: { name: "PluginProfiler.Plugins" } },
+        },
+      ],
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].profilerStepId).toBe("33333333-3333-3333-3333-333333333333");
+    expect(rows[0].typeName).toBe("Acme.UpdatePlugin");
+  });
+
+  it("strips either suffix from the label", () => {
+    expect(profiledStepTypeLabel("Acme.UpdatePlugin: Update of account (Profiled)")).toBe("Acme.UpdatePlugin");
+    expect(profiledStepTypeLabel("Acme.UpdatePlugin: Update of account (Profiler)")).toBe("Acme.UpdatePlugin");
+  });
+
+  it("still drops a row that is neither the profiler's nor marked", () => {
+    const rows = parseActiveProfiles({
+      value: [{ sdkmessageprocessingstepid: "44444444-4444-4444-4444-444444444444", name: "Acme.OtherPlugin: Create of contact", mode: 1 }],
+    });
+    expect(rows).toEqual([]);
   });
 
   it("parses profiled clones, keeping only the marked rows", () => {

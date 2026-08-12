@@ -21,7 +21,8 @@ export interface RequirementRow {
 
 export interface ActivityItem {
   label: string;
-  status: "running" | "success" | "error";
+  /** "warning" = the operation finished but reported something that did not work (#229). */
+  status: "running" | "success" | "warning" | "error";
   /** Pre-formatted clock time (e.g. "14:32"); empty while running. */
   time: string;
   detail?: string;
@@ -73,8 +74,10 @@ export interface DebuggingBlock {
   captureSupported: boolean;
   /** Fetch a captured run from the org (execution picker when there are several). */
   download: MenuAction;
-  /** Generate + debug a replay test from a downloaded/dropped profile (file picker). */
+  /** Replay the captured run UNDER THE DEBUGGER, stopping on your breakpoints. */
   replay: MenuAction;
+  /** Write the replay test (and harness) without running it — what you commit and run in CI. */
+  generate: MenuAction;
   /** Currently server-side-profiled steps, org-wide (#139) — the always-visible "one is on"
    * list, each row's trash-can stops it. Empty when nothing is profiled. */
   activeProfiles: ActiveProfileRow[];
@@ -337,7 +340,10 @@ function debuggingFor(project: ProjectCardState, state: PanelState): DebuggingBl
     capture: forComponent({ command: "dataverse-powertools.capturePluginRun", label: "Profile next run" }, project),
     captureSupported: project.captureSupported ?? false,
     download: forComponent({ command: "dataverse-powertools.downloadPluginProfiles", label: "Download a run" }, project),
-    replay: forComponent({ command: "dataverse-powertools.generatePluginReplayTest", label: "Replay & debug" }, project),
+    // "Replay & debug" now actually replays under the debugger; generating the test file is its own
+    // action, because that is a different job (commit it, run it in CI) from debugging a capture.
+    replay: forComponent({ command: "dataverse-powertools.replayAndDebug", label: "Replay & debug" }, project),
+    generate: forComponent({ command: "dataverse-powertools.generatePluginReplayTest", label: "Generate Replay Test" }, project),
     activeProfiles: state.activeProfiles ?? [],
   };
 }

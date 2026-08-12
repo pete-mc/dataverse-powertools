@@ -43,8 +43,9 @@ export async function buildAndDeployExec(context: DataversePowerToolsContext) {
       try {
         registered = await saveFormDataExec(context, { publish: false });
       } catch (e: any) {
-        vscode.window.showErrorMessage(e?.message || "Error registering events.");
-        context.channel.show();
+        // The upload succeeded, so this is not a dead deploy — but it is not a clean one either, and
+        // the feed said ✓ for it before #229.
+        context.reportFailure(`Form event registration failed: ${e?.message || "unknown error"}`, { toast: e?.message || "Error registering events." });
       }
     },
   );
@@ -59,8 +60,9 @@ export async function buildAndDeployExec(context: DataversePowerToolsContext) {
         context.channel.appendLine("Publish Complete");
         vscode.window.showInformationMessage(registered ? "Deploy complete — web resources published and form events registered." : "Deploy complete — web resources published.");
       } else {
-        vscode.window.showErrorMessage("Deploy uploaded the web resources but the publish failed — see the output for details.");
-        context.channel.show();
+        context.reportFailure("Publish failed after upload — the deployed web resources are not published.", {
+          toast: "Deploy uploaded the web resources but the publish failed — see the output for details.",
+        });
       }
     },
   );

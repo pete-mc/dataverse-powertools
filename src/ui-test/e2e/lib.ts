@@ -476,7 +476,7 @@ export async function runCommand(title: string): Promise<void> {
  * command-palette keystroke lands nowhere and executeCommand times out
  * ("element not visible"). Clicking the editor part (neutral chrome — triggers
  * nothing) restores focus. */
-async function focusWorkbench(): Promise<void> {
+export async function focusWorkbench(): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   const { By } = require("vscode-extension-tester");
   const driver = new Workbench().getDriver();
@@ -806,7 +806,7 @@ export class E2EClient {
   /** Create a throwaway territory row — reliably triggers Create-of-territory
    * steps (an org may have zero existing territories to update). Returns the id. */
   async createTerritory(): Promise<string | undefined> {
-    const res = await this.request("POST", "territories", { name: `E2E profiler ${Date.now()}` });
+    const res = await this.request("POST", "territories", { name: `Contoso South West ${Date.now()}` });
     if (res.status !== 204 && res.status !== 201) {
       return undefined;
     }

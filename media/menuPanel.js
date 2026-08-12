@@ -80,7 +80,7 @@
   }
 
   function statusIcon(status) {
-    const span = el("span", "st st-" + status, status === "running" ? "⟳" : status === "error" ? "✗" : "✓");
+    const span = el("span", "st st-" + status, status === "running" ? "⟳" : status === "error" ? "✗" : status === "warning" ? "⚠" : "✓");
     span.setAttribute("aria-label", status);
     return span;
   }
@@ -547,12 +547,13 @@
     }
     actions.appendChild(button(block.download, "action"));
     actions.appendChild(button(block.replay, "action"));
+    actions.appendChild(button(block.generate, "action"));
     c.appendChild(actions);
     var note;
     if (block.downloadedProfiles > 0) {
       note = block.downloadedProfiles + " profile" + (block.downloadedProfiles === 1 ? "" : "s") + " in profiles/ · Replay to debug";
     } else if (block.captureSupported) {
-      note = "Profile next run captures a live execution; or Download a run / Replay a profile file, then debug it as a test.";
+      note = "Profile next run captures a live execution (or Download a run). Replay & debug replays it under the debugger, stopping on your breakpoints; Generate Replay Test just writes the test.";
     } else {
       note = "Download a captured run, or drop a profile file in profiles/ and Replay to debug it as a test.";
     }
@@ -623,7 +624,9 @@
     for (const item of card.items) {
       const li = el("li");
       li.appendChild(statusIcon(item.status));
-      li.appendChild(el("span", "grow-text", item.label + (item.status === "error" && item.detail ? " — " + item.detail : "")));
+      // Show the detail for a warning too — "finished, but not everything worked" is only useful with
+      // the reason (#229).
+      li.appendChild(el("span", "grow-text", item.label + ((item.status === "error" || item.status === "warning") && item.detail ? " — " + item.detail : "")));
       li.appendChild(el("span", "t", item.status === "running" ? "…" : item.time));
       list.appendChild(li);
     }

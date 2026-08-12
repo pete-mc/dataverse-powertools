@@ -104,6 +104,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
       `${prefix}downloadPluginProfiles`,
       `${prefix}capturePluginRun`,
       `${prefix}generatePluginReplayTest`,
+      `${prefix}replayAndDebug`,
       `${prefix}guidePluginProfiling`,
       `${prefix}newCustomApi`,
       `${prefix}generateCustomApiHandlers`,

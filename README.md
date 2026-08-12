@@ -29,19 +29,24 @@ one activity bar. Cross-platform, powered by the Power Platform CLI and .NET SDK
   plugins.
 - 🐞 **Real debugging** — hot-reload your local web-resource bundle inside the live
   model-driven app with breakpoints, and **profile a plug-in's next run in one click**
-  (Windows, *preview*) then replay it as a unit test you F5-debug in VS Code with the
-  exact server-side context.
+  (Windows, *preview*) then replay it in VS Code **under the debugger** — your breakpoints
+  hit, with the exact server-side context — or keep the replay as a test for CI.
 - 💪 **Strongly typed** — generate `Xrm` typings and early-bound classes from your
   environment.
 - 🖥️ **Cross-platform** — Windows, macOS, and Linux, on `pac` and `dotnet`.
 
-## Three project types
+## Project types
 
 | Plugins | Web Resources | Solutions |
 | :---: | :---: | :---: |
 | <img src="media/plugin-menu.png" width="230" /> | <img src="media/webresource-menu.png" width="230" /> | <img src="media/solution-menu.png" width="230" /> |
-| Create classes & workflows, register steps with CodeLens, generate early-bound types, build with `dotnet`, deploy as a plugin package, read plugin trace logs in-editor, profile a plug-in's next run and replay it as a unit test you F5-debug in VS Code, unit test with DataverseUnitTest. | Write TypeScript, bundle with webpack (or emit one file per web resource), deploy with automatic form-event registration, debug your local bundle live in the real app with hot reload, generate strongly-typed `Xrm` typings, unit test with Jest + xrm-mock. | Export, unpack, pack and import solutions with `pac` — ready for source control and CI/CD. Power Pages sites round-trip with download/upload too. |
+| Create classes & workflows, register steps with CodeLens, generate early-bound types, build with `dotnet`, deploy as a plugin package, read plugin trace logs in-editor, profile a plug-in's next run and replay it under the debugger in VS Code (or keep the replay as a CI test), unit test with DataverseUnitTest. | Write TypeScript, bundle with webpack (or emit one file per web resource), deploy with automatic form-event registration, debug your local bundle live in the real app with hot reload, generate strongly-typed `Xrm` typings, unit test with Jest + xrm-mock. | Export, unpack, pack and import solutions with `pac` — ready for source control and CI/CD. Power Pages sites round-trip with download/upload too. |
 | **[Learn more →](https://github.com/pete-mc/dataverse-powertools/wiki/Plugins)** | **[Learn more →](https://github.com/pete-mc/dataverse-powertools/wiki/Webresources)** | **[Learn more →](https://github.com/pete-mc/dataverse-powertools/wiki/Solutions)** |
+
+Plus **PCF controls** (scaffold, build, push, refresh types, run the harness, or hot-reload the
+control on a live form), **Portals / Power Pages**
+([guide](https://github.com/pete-mc/dataverse-powertools/wiki/Portals)), and — behind
+*Preview features* — **Custom APIs** and **Azure Functions** webhook handlers.
 
 ## Or start empty — mix components in one repo
 
@@ -57,9 +62,9 @@ all built and deployed from the same place.
 
 ## Debug plug-ins in VS Code — *preview*
 
-Profile a plug-in's real server-side execution, replay it as a unit test you **F5-debug**
-with the exact captured context (no live org), and read plug-in trace logs rendered
-right in the editor — all from the plugin card's **Debugging** block.
+Profile a plug-in's real server-side execution, replay it **under the debugger** so your
+breakpoints hit with the exact captured context (no live org), and read plug-in trace logs
+rendered right in the editor — all from the plugin card's **Debugging** block.
 
 ![Plugin debugging: the generated replay test, the replay running green in-process (no live org), and a rendered trace log](media/demos/plugin-debugging.gif)
 

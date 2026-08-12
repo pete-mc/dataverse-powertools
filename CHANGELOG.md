@@ -5,6 +5,68 @@ All notable changes to the "dataverse-powertools" extension will be documented i
 Pre-release builds get a per-version entry in [CHANGELOG-prerelease.md](CHANGELOG-prerelease.md);
 those entries are rolled up into one section here when a full release ships.
 
+## 1.0.3
+
+**Replay & debug** now does what it says: it replays a captured plug-in run **under the debugger**, so
+your breakpoints are hit. Generating the test is its own button. The legacy plugin path is gone.
+
+**Replay & debug replays the run; Generate Replay Test writes the test**
+
+*Replay & debug* used to only write a test file — nothing ran, nothing was debugged, and you had to go
+and run it yourself. It now runs the replay with the .NET debugger attached and **stops on your
+breakpoints inside your plug-in**, with the captured `Target` and everything your code derived from it
+in *Locals*, and a call stack running from the test host into your own methods. It generates the test
+first if there isn't one, so it works straight after a capture.
+
+Two things had to be right for a breakpoint to be hit, and both were wrong before: the test project
+targets .NET **Framework**, so the debugger has to be `clr` (not `coreclr`), and `dotnet test` runs
+tests in a child **test host** — so that is the process to attach to, which needs the host to wait for
+a debugger first.
+
+**Generate Replay Test** (next to it) is the old behaviour, kept because it is a different job: write
+the replay, commit it, run it in CI.
+
+**Fixes**
+
+- **The Profile CodeLens can stop profiling again**
+  ([#251](https://github.com/pete-mc/dataverse-powertools/issues/251)). Clicking **Profile: On** to stop
+  reported *"No deployed step matches …"* and left profiling on — with your step disabled. The profiled
+  clone was identified by a `(Profiled)` suffix on its name, but the profiler does not name it
+  consistently. It is now identified by the profiler's own assembly, the toggle checks the org before
+  deciding which way to go, and it waits for the change to settle so the label tells the truth.
+- **Run/Debug Test at Cursor and the gutter icons work for plug-in tests**
+  ([#252](https://github.com/pete-mc/dataverse-powertools/issues/252)). Test items had no source
+  location, so VS Code had nothing to anchor those actions to.
+- **The activity feed no longer reports a failed operation as ✓**
+  ([#229](https://github.com/pete-mc/dataverse-powertools/issues/229)). Most commands report a failure
+  to the output and then return normally, and the feed called every one of those a success — including a
+  deploy whose build had died. It now judges the outcome from what the command actually reported, with a
+  new ⚠ state for "finished, but not everything worked" (a step that couldn't be added to the solution,
+  say) so a partial result isn't flattened into either extreme.
+- **First-time plug-in step registration no longer fails the whole deploy.** Creating a step returns
+  `204 No Content` with the new id in a header; the code parsed a JSON body that isn't there.
+
+**Removed**
+
+- **The legacy (template v2) plugin path** — `src/plugins_old/`, its `spkl.exe`/`sn.exe` dependency and
+  its earlybound tree ([#228](https://github.com/pete-mc/dataverse-powertools/issues/228)). Removal was
+  promised for 0.9.0 and is six minor versions overdue. Opening such a project still explains how to
+  migrate (*Add Component → Plugins*, which offers to move the existing project into a subfolder
+  first), and every command now has one implementation.
+
+**Added**
+
+- **Continuous run for web-resource tests** ([#232](https://github.com/pete-mc/dataverse-powertools/issues/232)).
+  The Testing view's watch toggle now works on the Jest profile: saving a file re-runs the affected
+  tests — the one you are editing, or all of them if you changed a source file. It re-uses the ordinary
+  run path per change rather than holding a `jest --watch` process open.
+
+**Docs**
+
+- The wiki's [Profiling a Plug-in Run](https://github.com/pete-mc/dataverse-powertools/wiki/Profiling-a-Plugin-Run)
+  walkthrough now covers both buttons and the breakpoint flow, with screenshots taken from the
+  end-to-end suite — including the debugger paused inside a plug-in mid-replay.
+
 ## 1.0.2
 
 Profiler: a disabled step now explains itself instead of dead-ending; two end-to-end suites root-caused and green.

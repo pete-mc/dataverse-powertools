@@ -73,15 +73,40 @@ export async function toggleStepProfiling(context: DataversePowerToolsContext, u
       vscode.window.showErrorMessage("Connect to Dataverse first to change plug-in profiling.");
       return;
     }
-    // Live on/off state comes from the cached active-profiles list — no per-render/-click query.
-    const active = findMatchingStep(getActiveProfilesCache(), key);
+    // The lens LABEL may read the cache (cheap, per-render), but the ACTION must not: a cache that had
+    // not caught up made a second click start again instead of stopping, and a step being profiled is
+    // disabled — so the start path could not find it either, and profiling could never be turned off
+    // from the lens (#251). Confirm against the org before deciding.
+    let active = findMatchingStep(getActiveProfilesCache(), key);
+    if (!active) {
+      await refreshActiveProfiles(scoped);
+      active = findMatchingStep(getActiveProfilesCache(), key);
+    }
     if (active) {
       await stopProfilingStep(scoped, active);
     } else {
       await startProfilingStep(scoped, key);
     }
-    await refreshActiveProfiles(scoped);
+    // Re-read until the org reflects the change, so the label and the Active profiles block tell the
+    // truth: a clone is not always queryable the instant the tool returns.
+    await settleActiveProfiles(scoped, key, !active);
   });
+}
+
+/**
+ * Refresh the active-profiles cache until it reflects the change we just made, so the CodeLens label and
+ * the panel's Active profiles block are not stale. Dataverse does not always return a just-created clone
+ * immediately, and one read straight after the tool returned is what left the UI saying "Profile: Off"
+ * with profiling on (#251). Gives up quietly after a few seconds — the panel refresh still happened.
+ */
+async function settleActiveProfiles(context: DataversePowerToolsContext, key: RegistrationKey, expectActive: boolean): Promise<void> {
+  for (let attempt = 0; attempt < 6; attempt++) {
+    await refreshActiveProfiles(context);
+    if (!!findMatchingStep(getActiveProfilesCache(), key) === expectActive) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
 }
 
 async function startProfilingStep(context: DataversePowerToolsContext, key: RegistrationKey): Promise<void> {

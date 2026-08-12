@@ -286,7 +286,14 @@ export function parseProfilableSteps(body: any, assemblyName?: string): Profilab
 // `profiler-step` the net48 tool's `disable` takes, so an active profile row = a profiled
 // clone. Read-only; works under both auth types.
 
-const PROFILED_MARKER = /\s*\(Profiled\)\s*$/;
+// The profiler names its clone with a suffix, but WHICH suffix varies by profiler version — both
+// "(Profiled)" and "(Profiler)" have been seen. Used only to tidy the label now; identity comes from
+// the assembly (see activeProfilesQuery), because a name-based identity silently found nothing when the
+// suffix differed, leaving the CodeLens stuck on "Profile: Off" and unable to stop what it started (#251).
+const PROFILED_MARKER = /\s*\((?:Profiled|Profiler)\)\s*$/;
+
+/** The Plugin Profiler's own plug-in assembly. Its steps ARE the profiler clones. */
+export const PROFILER_ASSEMBLY_PREFIX = "PluginProfiler";
 
 export interface ActiveProfileStep {
   /** The profiler clone's step id — the `--profiler-step` disable/delete targets. */
@@ -302,8 +309,13 @@ export interface ActiveProfileStep {
 /** Currently-profiled steps: the profiler's "(Profiled)" clones. `contains` narrows server-side;
  * parseActiveProfiles re-checks the marker so a permissive server filter can't leak non-clones. */
 export function activeProfilesQuery(): string {
-  const expand = "$expand=sdkmessageid($select=name),sdkmessagefilterid($select=primaryobjecttypecode)";
-  return `sdkmessageprocessingsteps?$select=sdkmessageprocessingstepid,name,mode,statecode&${expand}&$filter=statecode eq 0 and contains(name,'(Profiled)')&$top=200`;
+  // Identity comes from the clone's plug-in type belonging to the PROFILER'S assembly — which is what a
+  // clone definitively is. The old filter matched a "(Profiled)" suffix in the NAME, so a profiler
+  // version that named its clone differently returned nothing: the panel said "No steps are being
+  // profiled" and the CodeLens stayed "Profile: Off" while profiling was ON, and the toggle could then
+  // never stop what it started (#251). `startswith` keeps this working across profiler versions.
+  const expand = "$expand=sdkmessageid($select=name),sdkmessagefilterid($select=primaryobjecttypecode),plugintypeid($select=typename;$expand=pluginassemblyid($select=name))";
+  return `sdkmessageprocessingsteps?$select=sdkmessageprocessingstepid,name,mode,statecode&${expand}&$filter=statecode eq 0 and startswith(plugintypeid/pluginassemblyid/name,'${PROFILER_ASSEMBLY_PREFIX}')&$top=200`;
 }
 
 /** Human label from a profiled clone's name: strip the "(Profiled)" suffix and, when the
@@ -318,15 +330,20 @@ export function profiledStepTypeLabel(name: string): string {
  * Keeps only rows still carrying the "(Profiled)" marker. */
 export function parseActiveProfiles(body: any): ActiveProfileStep[] {
   const rows: any[] = body?.value ?? [];
-  return rows
-    .filter((row) => PROFILED_MARKER.test((row.name as string) ?? ""))
-    .map((row) => ({
-      profilerStepId: row.sdkmessageprocessingstepid as string,
-      typeName: profiledStepTypeLabel((row.name as string) ?? ""),
-      message: row.sdkmessageid?.name as string | undefined,
-      primaryEntity: row.sdkmessagefilterid?.primaryobjecttypecode as string | undefined,
-      mode: row.mode as number | undefined,
-    }));
+  return (
+    rows
+      // Keep a row when its plug-in type is the profiler's, OR when it still carries a name marker (so a
+      // response from the older name-based query still parses). Deliberately no longer REQUIRING the
+      // marker: that dropped every clone whose suffix differed, which is half of #251.
+      .filter((row) => String(row.plugintypeid?.pluginassemblyid?.name ?? "").startsWith(PROFILER_ASSEMBLY_PREFIX) || PROFILED_MARKER.test((row.name as string) ?? ""))
+      .map((row) => ({
+        profilerStepId: row.sdkmessageprocessingstepid as string,
+        typeName: profiledStepTypeLabel((row.name as string) ?? ""),
+        message: row.sdkmessageid?.name as string | undefined,
+        primaryEntity: row.sdkmessagefilterid?.primaryobjecttypecode as string | undefined,
+        mode: row.mode as number | undefined,
+      }))
+  );
 }
 
 /** A step-attribute's identity, parsed from the source registration, used to match it to a

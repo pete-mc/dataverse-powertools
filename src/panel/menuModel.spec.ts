@@ -218,12 +218,18 @@ describe("plugin debugging block (#63)", () => {
     expect(card(state({ projects: [project({ type: "webresources", detail: undefined })], previewFeatures: true }), "project").debugging).toBeUndefined();
   });
 
-  it("offers Capture + Download + Replay, targeting the component", () => {
+  it("offers Capture + Download + Replay & debug + Generate, targeting the component", () => {
     const d = card(pluginState({ root: "c:/repo/plugins", isRoot: false, relativeRoot: "plugins" }), "project").debugging!;
     expect(d.capture.command).toBe("dataverse-powertools.capturePluginRun");
     expect(d.download.command).toBe("dataverse-powertools.downloadPluginProfiles");
-    expect(d.replay.command).toBe("dataverse-powertools.generatePluginReplayTest");
+    // "Replay & debug" now REPLAYS under the debugger; writing the test file is its own action, because
+    // that is a different job (commit it, run it in CI) from debugging a captured run.
+    expect(d.replay.command).toBe("dataverse-powertools.replayAndDebug");
+    expect(d.replay.label).toBe("Replay & debug");
+    expect(d.generate.command).toBe("dataverse-powertools.generatePluginReplayTest");
+    expect(d.generate.label).toBe("Generate Replay Test");
     expect(d.capture.args).toContain("c:/repo/plugins");
+    expect(d.generate.args).toContain("c:/repo/plugins");
   });
 
   it("passes through the Windows-only capture gate", () => {

@@ -2,7 +2,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
-import { loadE2EEnv, freshWorkspace, answerText, pickByLabel, pickFirst, waitForFile, dismissOverlays, sleep, E2EClient } from "./lib";
+import { loadE2EEnv, freshWorkspace, answerText, pickByLabel, pickFirst, waitForFile, dismissOverlays, sleep, E2EClient, waitForLogFile, logFileSize } from "./lib";
 import { clickPanelButton, clickOverflowItem, expandComponentCards } from "../supervised/supervisedLib";
 import { initProject, step, showLog } from "./acceptanceLib";
 
@@ -78,7 +78,21 @@ describe("ACCEPTANCE: Web Resource — build, code, register, publish via panel 
   it("registers the form event + publishes — Deploy button; verified in Dataverse", async () => {
     await step(COMPONENT, "Register form event + publish (Deploy)", async () => {
       await expandComponentCards();
+      // Remove any same-named leftover FIRST. Every web-resource suite deploys the same single-bundle
+      // name (`{prefix}_library.js`), so without this the poll below is satisfied by ANOTHER suite's
+      // web resource — it passed instantly, the suite ended while this deploy's webpack child was still
+      // running, ExTester killed it, and the orphaned child logged `Build failed: Command failed: npx
+      // webpack` after the last assertion. That bogus failure signature was #249; the hollow assertion
+      // was its cause. Now the resource can only be found because THIS deploy uploaded it.
+      await client.deleteWebresource(libraryName()).catch(() => undefined);
+      const deployBaseline = logFileSize();
       await clickPanelButton("Deploy to", { timeoutMs: 30000, contains: true }); // "Deploy to {environment}"
+      // Gate on the deploy's OWN log signals, not just on Dataverse state (CLAUDE.md: wait for the
+      // command's FINAL line, or the suite ends mid-command and the next one overlaps it):
+      //   "Saving Form: <id>"  → form-event registration actually ran (what this test's name claims);
+      //   "Publish Complete"   → the LAST thing deploy does, so nothing is still in flight at teardown.
+      await waitForLogFile(/Saving Form: /, { timeoutMs: 300000, sinceByte: deployBaseline });
+      await waitForLogFile("Publish Complete", { timeoutMs: 300000, sinceByte: deployBaseline });
       // Deploy = build + upsert web resource + register form events + publish. Poll Dataverse.
       let id: string | undefined;
       const deadline = Date.now() + 300000;
@@ -100,7 +114,13 @@ describe("ACCEPTANCE: Web Resource — build, code, register, publish via panel 
       if (!content || content.length < 10) {
         throw new Error(`web resource ${libraryName()} deployed but content is empty`);
       }
-      return `web resource ${libraryName()} deployed (id ${id}, ${content.length} bytes of JS)`;
+      // The bundle must be THIS suite's build: the class written in the previous step has to be in the
+      // deployed JS. "a web resource of that name exists and is non-empty" was true of any other
+      // suite's leftover too, which is what made this assertion hollow (#249).
+      if (!content.includes(className)) {
+        throw new Error(`web resource ${libraryName()} deployed but does not contain ${className} — the bundle is not this suite's build`);
+      }
+      return `web resource ${libraryName()} deployed (id ${id}, ${content.length} bytes of JS containing ${className}), form event registered + published`;
     });
   });
 
