@@ -192,13 +192,47 @@ export function shotsEnabled(): boolean {
   return process.env.DVPT_E2E_SHOTS === "1";
 }
 
-/** Full-window PNG named `<name>.png` (callers prefix a step number for stable ordering). */
+/**
+ * Clear what an earlier step left visible in the MAIN document: every outline this module applied, the
+ * focus ring on the last-clicked control, and any text selection. `keepOwnOutline` spares the outline
+ * for the frame being captured right now.
+ */
+async function clearShotArtefacts(keepOwnOutline: boolean): Promise<void> {
+  try {
+    await VSBrowser.instance.driver.executeScript(
+      `const keep = ${keepOwnOutline ? "true" : "false"};
+       for (const el of document.querySelectorAll('[data-dvpt-shot]')) {
+         if (keep && el.dataset.dvptShot === "current") { continue; }
+         el.style.outline = "";
+         el.style.outlineOffset = "";
+         delete el.dataset.dvptShot;
+       }
+       if (!keep && document.activeElement && document.activeElement !== document.body) {
+         try { document.activeElement.blur(); } catch (e) { /* some hosts refuse */ }
+       }
+       const selection = window.getSelection();
+       if (selection && selection.rangeCount > 0) { selection.removeAllRanges(); }`,
+    );
+  } catch {
+    /* best-effort: never fail a step over tidying a screenshot */
+  }
+}
+
+/**
+ * Full-window PNG named `<name>.png` (callers prefix a step number for stable ordering).
+ *
+ * Tidies the window first, because a frame should show only what THIS step is about. Three things
+ * otherwise carry over and read as "these are highlighted too": an outline this module applied for an
+ * earlier frame, the focus ring VS Code leaves on the last control that was clicked, and a live text
+ * selection (reading the output pane leaves one behind).
+ */
 export async function shot(name: string): Promise<void> {
   if (!shotsEnabled()) {
     return;
   }
   try {
     fs.mkdirSync(SHOTS_DIR, { recursive: true });
+    await clearShotArtefacts(false);
     const png = await VSBrowser.instance.driver.takeScreenshot();
     fs.writeFileSync(path.join(SHOTS_DIR, `${name}.png`), png, "base64");
     console.log(`    [shot] ${name}.png`);
@@ -219,12 +253,15 @@ export async function shotWithHighlight(selector: string, name: string, opts: { 
   }
   const driver = VSBrowser.instance.driver;
   try {
+    // Clear first: an earlier frame's outline still on screen would make this one look like it
+    // highlights two controls.
+    await clearShotArtefacts(false);
     const applied = (await driver.executeScript(
       `const wanted = ${JSON.stringify(opts.text ?? "")};
        const all = Array.from(document.querySelectorAll(${JSON.stringify(selector)}));
        const el = wanted ? all.find((c) => (c.textContent || "").includes(wanted)) : all[0];
        if (!el) { return false; }
-       el.dataset.dvptShot = "1";
+       el.dataset.dvptShot = "current";
        el.style.outline = "3px solid #f80";
        el.style.outlineOffset = "2px";
        el.scrollIntoView({ block: "center" });
@@ -234,11 +271,13 @@ export async function shotWithHighlight(selector: string, name: string, opts: { 
       console.log(`    [shot] ${name}: no element matched ${selector} — capturing without a highlight`);
     }
     await sleep(400);
-    await shot(name);
-    await driver.executeScript(
-      `const el = document.querySelector('[data-dvpt-shot="1"]');
-       if (el) { el.style.outline = ""; el.style.outlineOffset = ""; delete el.dataset.dvptShot; }`,
-    );
+    // Keep this frame's own outline; drop everything else (focus ring, selection, older outlines).
+    await clearShotArtefacts(true);
+    fs.mkdirSync(SHOTS_DIR, { recursive: true });
+    const png = await driver.takeScreenshot();
+    fs.writeFileSync(path.join(SHOTS_DIR, `${name}.png`), png, "base64");
+    console.log(`    [shot] ${name}.png`);
+    await clearShotArtefacts(false);
   } catch (error) {
     console.log(`    [shot] ${name} highlight failed: ${String(error).slice(0, 120)}`);
     await shot(name);

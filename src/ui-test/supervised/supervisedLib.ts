@@ -45,11 +45,30 @@ export async function screenshot(name: string): Promise<void> {
   }
 }
 
-/** Briefly outline an element so it's obvious what's about to be clicked. */
+/**
+ * Briefly outline an element so it's obvious what's about to be clicked.
+ *
+ * Clears any outline left by an EARLIER call first. These outlines used to be applied and never
+ * removed, so by the end of a run every button that had ever been clicked was still ringed in orange —
+ * which in a published screenshot reads as "all of these are part of this step".
+ */
 async function highlight(el: WebElement): Promise<void> {
   try {
-    await VSBrowser.instance.driver.executeScript("arguments[0].style.outline = '3px solid #f80'; arguments[0].scrollIntoView({block:'center'});", el);
+    await clearHighlights();
+    await VSBrowser.instance.driver.executeScript(
+      "arguments[0].dataset.dvptHl = '1'; arguments[0].style.outline = '3px solid #f80'; arguments[0].scrollIntoView({block:'center'});",
+      el,
+    );
     await sleep(700);
+  } catch {
+    /* best-effort */
+  }
+}
+
+/** Remove every outline this module applied. Call inside the frame that owns them. */
+async function clearHighlights(): Promise<void> {
+  try {
+    await VSBrowser.instance.driver.executeScript(`for (const el of document.querySelectorAll('[data-dvpt-hl]')) { el.style.outline = ''; delete el.dataset.dvptHl; }`);
   } catch {
     /* best-effort */
   }
@@ -160,6 +179,9 @@ export async function clickPanelButton(label: string, opts: { timeoutMs?: number
           await shot(opts.shot);
         }
         await button.click();
+        // Drop the outline now the frame is captured, while we are still inside the panel iframe that
+        // owns it — otherwise it survives into every later screenshot.
+        await clearHighlights();
         return true;
       });
       if (clicked) {
