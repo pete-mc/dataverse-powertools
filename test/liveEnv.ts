@@ -136,8 +136,9 @@ const PLACEHOLDER_LIVE_ENV: LiveEnv = { url: PLACEHOLDER_ORG_URL, clientId: "", 
 /**
  * The env for collection-time use. Use this instead of `env as LiveEnv` / `env!` at describe scope:
  * the cast satisfies the compiler but still dereferences `undefined` at runtime, which is what made
- * nine live spec FILES fail to load (and the nightly workflow red every day) whenever credentials
- * were absent. A suite whose gate is false never runs a test, so placeholders never reach an org.
+ * nine live spec FILES fail to load whenever credentials were absent — so a contributor without
+ * `sandbox/.env` got TypeErrors instead of skips. A suite whose gate is false never runs a test, so
+ * placeholders never reach an org.
  */
 export function liveEnvOrPlaceholder(env?: LiveEnv): LiveEnv {
   return env ?? PLACEHOLDER_LIVE_ENV;
