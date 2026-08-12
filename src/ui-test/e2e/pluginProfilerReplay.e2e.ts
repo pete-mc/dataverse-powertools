@@ -550,6 +550,39 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
       // A second, un-highlighted frame of the same moment: the wiki needs one that shows WHAT you get
       // when it stops — the captured Target and the values derived from it in Locals, and a call stack
       // running from the test host into the plugin's own methods.
+      //
+      // The VARIABLES view starts with its scopes COLLAPSED, so a naive capture here is an empty pane
+      // under a caption promising the captured values — expand the scopes and prove at least one real
+      // variable is on screen before shooting, so the frame cannot silently become a lie.
+      const localsVisible = await (async (): Promise<boolean> => {
+        const deadline = Date.now() + 30000;
+        while (Date.now() < deadline) {
+          try {
+            await driver.executeScript(
+              `for (const row of document.querySelectorAll('.debug-variables .monaco-list-row[aria-expanded="false"], .debug-pane .monaco-list-row[aria-expanded="false"]')) {
+                 const twistie = row.querySelector('.monaco-tl-twistie');
+                 if (twistie) { twistie.click(); }
+               }`,
+            );
+          } catch {
+            /* the view may re-render mid-expand; the retry covers it */
+          }
+          await sleep(1200);
+          const names = String(
+            (await driver.executeScript(
+              `return Array.from(document.querySelectorAll('.debug-variables .monaco-list-row, .debug-pane .monaco-list-row')).map(function(r){return r.textContent || "";}).join(" | ");`,
+            )) ?? "",
+          );
+          // `target` is the captured Target entity — the whole point of the frame.
+          if (/\btarget\b|localPluginContext/i.test(names)) {
+            return true;
+          }
+        }
+        return false;
+      })();
+      if (!localsVisible) {
+        console.log("    [e2e] NOTE: Locals did not populate, so 09b shows the call stack only — do not caption it as showing Locals.");
+      }
       await shot("09b-locals-and-call-stack");
       // Paused WHERE matters: the focused editor must be the plugin's own file, which is what
       // "debug a captured production run" means — not merely that some session stopped somewhere.
