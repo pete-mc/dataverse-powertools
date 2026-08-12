@@ -114,6 +114,31 @@ function findItem(controller: vscode.TestController, result: TrxTestResult): vsc
   return undefined;
 }
 
+/**
+ * The launch configuration the Debug profile hands to VS Code (pure, unit-tested).
+ *
+ * `type: "coreclr"` is contributed by the C# extension (ms-dotnettools.csharp) — without it VS Code
+ * has no .NET debug adapter and `startDebugging` fails. That is also why the e2e suite's debug steps
+ * self-skip when the extension is absent: this config is ours to get right, but the adapter is not
+ * ours to provide.
+ *
+ * Debugging `dotnet test` (rather than the built test dll) is what lets a breakpoint inside the
+ * PLUGIN bind: the replay harness runs the plugin in-process, so the test host loads the plugin's own
+ * assembly and its symbols.
+ */
+export function buildDebugLaunchConfig(testProject: string, cwd: string, filter: readonly string[]): vscode.DebugConfiguration {
+  return {
+    type: "coreclr",
+    request: "launch",
+    name: "Debug Plugin Tests",
+    program: "dotnet",
+    args: ["test", testProject, ...filter],
+    cwd,
+    console: "internalConsole",
+    stopAtEntry: false,
+  };
+}
+
 async function runHandler(
   context: DataversePowerToolsContext,
   controller: vscode.TestController,
@@ -140,16 +165,7 @@ async function runHandler(
   const filter = runningAll ? [] : ["--filter", fqns.map((f) => `FullyQualifiedName=${f}`).join("|")];
 
   if (debug) {
-    await vscode.debug.startDebugging(vscode.workspace.workspaceFolders?.[0], {
-      type: "coreclr",
-      request: "launch",
-      name: "Debug Plugin Tests",
-      program: "dotnet",
-      args: ["test", testProject, ...filter],
-      cwd,
-      console: "internalConsole",
-      stopAtEntry: false,
-    });
+    await vscode.debug.startDebugging(vscode.workspace.workspaceFolders?.[0], buildDebugLaunchConfig(testProject, cwd, filter));
     run.end();
     return;
   }

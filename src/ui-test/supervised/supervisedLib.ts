@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { ActivityBar, VSBrowser, ViewControl, WebviewView, By, WebElement } from "vscode-extension-tester";
 // Reuse the proven e2e primitives rather than re-implementing them.
-import { sleep, dismissOverlays } from "../e2e/lib";
+import { sleep, dismissOverlays, shot } from "../e2e/lib";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Supervised UI-test harness.
@@ -135,7 +135,7 @@ async function findButtonEl(panel: WebviewView, label: string, contains: boolean
  * Re-opens the frame and polls, since the panel re-renders as state changes. Some
  * labels carry decoration (e.g. "＋ Add Component…"), so pass `contains: true` to match
  * a substring. */
-export async function clickPanelButton(label: string, opts: { timeoutMs?: number; contains?: boolean } = {}): Promise<void> {
+export async function clickPanelButton(label: string, opts: { timeoutMs?: number; contains?: boolean; shot?: string } = {}): Promise<void> {
   const timeoutMs = opts.timeoutMs ?? 30000;
   await narrate(`Click panel button: "${label}"${opts.contains ? " (substring)" : ""}`);
   const deadline = Date.now() + timeoutMs;
@@ -154,6 +154,11 @@ export async function clickPanelButton(label: string, opts: { timeoutMs?: number
           return false;
         }
         await highlight(button);
+        // Capture the documentation frame while the button is outlined — takeScreenshot grabs the
+        // whole window, so being inside the panel iframe here does not matter.
+        if (opts.shot) {
+          await shot(opts.shot);
+        }
         await button.click();
         return true;
       });

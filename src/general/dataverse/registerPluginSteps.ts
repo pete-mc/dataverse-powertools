@@ -2,7 +2,7 @@ import fetch from "node-fetch";
 import DataversePowerToolsContext from "../../context";
 import { addDataverseSolutionComponent } from "./addDataverseSolutionComponent";
 import { DataverseContext, Options } from "./dataverseContext";
-import { dataverseApiUrl, logDataverseHttpError } from "./webApi";
+import { dataverseApiUrl, entityIdFromODataHeader, logDataverseHttpError } from "./webApi";
 import { escapeODataString } from "./odata";
 import { PluginStepRegistration, ExistingStepSnapshot, buildStepPayload, stepNeedsUpdate } from "./stepPayloads";
 
@@ -84,7 +84,14 @@ async function sendJson(context: DataversePowerToolsContext, method: "POST" | "P
     return {};
   }
 
-  return response.json();
+  // A CREATE answers 204 No Content with the new id in the OData-EntityId header, so `.json()` here
+  // threw "Unexpected end of JSON input" and failed the whole deploy the FIRST time a step was
+  // registered (an existing step takes the PATCH path above, which is why only a first-time
+  // registration ever hit it). Returning {} would be worse: the caller needs this id to add the new
+  // step to the solution, so it would silently stop doing that.
+  const text = await response.text();
+  const body = text.length > 0 ? (JSON.parse(text) as Record<string, unknown>) : {};
+  return { ...body, id: entityIdFromODataHeader(response.headers.get("OData-EntityId")) };
 }
 
 async function resolvePluginTypeId(context: DataversePowerToolsContext, assemblyId: string, fullTypeName: string): Promise<string | undefined> {
@@ -269,7 +276,7 @@ export async function registerPluginSteps(
     }
 
     const createResponse = await sendJson(context, "POST", "sdkmessageprocessingsteps", stepPayload);
-    const createdStepId = createResponse?.sdkmessageprocessingstepid;
+    const createdStepId = createResponse?.id ?? createResponse?.sdkmessageprocessingstepid;
     if (createResponse !== undefined && createdStepId) {
       created++;
 

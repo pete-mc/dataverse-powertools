@@ -946,7 +946,9 @@
     "pretest:supervised": "npm run compile-tests && npm run compile",
     "test:supervised": "node scripts/runSupervised.mjs",
     "test:supervised:reuse": "node scripts/runSupervised.mjs --reuse",
-    "pretest:supervised:reuse": "npm run compile-tests && npm run compile"
+    "pretest:supervised:reuse": "npm run compile-tests && npm run compile",
+    "pretest:e2e:debugger": "npm run compile-tests && npm run compile",
+    "test:e2e:debugger": "node scripts/runE2E.mjs --with-debugger \"out/ui-test/e2e/pluginProfilerReplay.e2e.js\""
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",

@@ -25,9 +25,29 @@ fs.rmSync(logFile, { force: true });
 const env = { ...process.env, DVPT_TEST_MSAL_CACHE_FILE: cacheFile, DVPT_TEST_LOG_FILE: logFile };
 
 // Glob(s) to run come from argv; default to the whole e2e suite.
-const globs = process.argv.slice(2);
+const argv = process.argv.slice(2);
+// `--with-debugger` installs the C# extension into the test instance, which is what makes the
+// profiler suite's DEBUG steps run instead of self-skipping: the Test Explorer's Debug profile
+// launches `type: "coreclr"`, contributed by ms-dotnettools.csharp. Opt-in on purpose — installing it
+// puts Roslyn in every workspace the run opens, and this VM has 8GB.
+const withDebugger = argv.includes("--with-debugger");
+const globs = argv.filter((a) => a !== "--with-debugger");
 if (globs.length === 0) {
   globs.push("out/ui-test/e2e/**/*.e2e.js");
+}
+
+if (withDebugger) {
+  console.log("[e2e] installing ms-dotnettools.csharp for the .NET debug steps (best-effort)…");
+  // NOTE: install-from-marketplace takes no --code_version (unlike setup-and-run) — passing it made
+  // the install fail silently and the debug steps self-skip.
+  const install = spawnSync("npx", ["extest", "install-from-marketplace", "ms-dotnettools.csharp", "--extensions_dir", "sandbox/ext-dir-clean"], {
+    cwd: root,
+    stdio: "inherit",
+    shell: process.platform === "win32",
+  });
+  if (install.status !== 0) {
+    console.warn("[e2e] could not install the C# extension — the profiler suite's debug steps will self-skip.");
+  }
 }
 
 console.log("[e2e] seeding interactive MSAL cache (best-effort)…");
