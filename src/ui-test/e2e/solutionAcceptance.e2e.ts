@@ -112,7 +112,14 @@ describe("ACCEPTANCE: Solution — extract, pack, deploy via panel buttons", fun
       await clickPanelButton("Deploy to", { timeoutMs: 30000, contains: true }); // primary "▶ Deploy to {environment}"
       // Deploy re-packs (managed + unmanaged) THEN imports + publishes — slow, so allow a generous
       // window before gating on the import-completion signal in the output channel.
-      const done = await waitForOutput(["Solution Imported successfully", "Published All Customizations", "imported successfully", "Import complete"], 900000);
+      // Gate on the two lines the import path REALLY logs, in order: the import result, then the
+      // publish that follows it (the command's final signal). These are ANDed — see waitForOutput.
+      //
+      // This previously passed four ALTERNATIVE phrasings to an all-must-match helper, two of which
+      // ("imported successfully" lower-case, "Import complete") the extension never logs at all. The
+      // condition was therefore unsatisfiable, so this step burned its full 900s and failed on every
+      // run while the import itself was succeeding (#240).
+      const done = await waitForOutput(["Solution Imported successfully", "Published All Customizations"], 900000);
       if (!done) {
         throw new Error("solution import did not report completion in the output channel");
       }

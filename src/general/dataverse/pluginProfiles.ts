@@ -124,6 +124,46 @@ export async function setPluginAssemblyContent(context: DataversePowerToolsConte
  * capture dead-ended with "No registered plugin steps to profile". The assembly filter returns
  * only the user's own steps regardless of how many system steps exist.
  */
+export function buildAssemblyStepsAnyStateResource(assemblyName: string): string {
+  // Same assembly join, WITHOUT `statecode eq 0`. Used only to explain an empty profilable result:
+  // a step the Plugin Profiler is profiling is left DISABLED (the profiler clones it and deactivates
+  // the original), and if profiling is never stopped the step stays disabled. The profilable query
+  // then correctly returns nothing, and the user saw "No registered plugin steps to profile. Deploy
+  // your plugin and register a step first" — advice that cannot help, for a step they already
+  // deployed and registered. This lets us say what is actually wrong.
+  return `sdkmessageprocessingsteps?$select=name,statecode&$filter=plugintypeid/pluginassemblyid/name eq '${assemblyName.replace(/'/g, "''")}'&$top=50`;
+}
+
+/** Steps of one assembly regardless of state, with their active/inactive split. Undefined on failure. */
+export async function getAssemblyStepStates(context: DataversePowerToolsContext, assemblyName: string): Promise<{ active: number; inactive: string[] } | undefined> {
+  const body = await getJson(context, `List all steps for assembly '${assemblyName}'`, buildAssemblyStepsAnyStateResource(assemblyName));
+  if (!body || !Array.isArray(body.value)) {
+    return undefined;
+  }
+  const rows = body.value as { name?: string; statecode?: number }[];
+  return {
+    active: rows.filter((row) => row.statecode === 0).length,
+    inactive: rows.filter((row) => row.statecode !== 0).map((row) => row.name ?? "(unnamed)"),
+  };
+}
+
+/**
+ * The message to show when nothing is profilable (pure, unit-tested).
+ *
+ * The disabled-step case is the one worth naming: it is what a user hits after leaving profiling on,
+ * and the generic "deploy and register a step" advice actively misleads them.
+ */
+export function noProfilableStepsMessage(assemblyName: string | undefined, states: { active: number; inactive: string[] } | undefined): string {
+  if (assemblyName && states && states.inactive.length > 0 && states.active === 0) {
+    const names = states.inactive.slice(0, 3).join(", ");
+    return (
+      `${states.inactive.length} step(s) are registered for '${assemblyName}' but all are DISABLED (${names}${states.inactive.length > 3 ? ", …" : ""}), ` +
+      `so there is nothing to profile. The Plugin Profiler disables a step while it profiles it — stop profiling that step (or re-enable it) and try again.`
+    );
+  }
+  return "No registered plugin steps to profile. Deploy your plugin and register a step (CodeLens) first.";
+}
+
 export function buildProfilableStepsResource(assemblyName?: string): string {
   // #135: expand the DEDICATED `plugintypeid` lookup — NOT the polymorphic `eventhandler`
   // (which targets plugintype OR serviceendpoint and doesn't populate `typename` for a
@@ -149,6 +189,16 @@ export async function getProfilableSteps(context: DataversePowerToolsContext, as
     return undefined;
   }
   const steps = parseProfilableSteps(body, assemblyName);
+  // The assembly-filtered query returning ZERO ROWS used to log nothing at all — a silent dead end.
+  // Name the most likely cause (every step disabled, typically by profiling left on).
+  if (steps.length === 0 && (body?.value?.length ?? 0) === 0 && assemblyName) {
+    const states = await getAssemblyStepStates(context, assemblyName);
+    context.channel.appendLine(
+      states && states.inactive.length > 0
+        ? `[Profiler] No ACTIVE steps for assembly "${assemblyName}": ${states.inactive.length} registered but disabled (${states.inactive.slice(0, 3).join(", ")}). The profiler disables a step while profiling it — stop profiling to re-enable it.`
+        : `[Profiler] No steps registered for assembly "${assemblyName}" — register a step (CodeLens on the [CrmPluginRegistration] attribute) and deploy.`,
+    );
+  }
   // #135: the query succeeded but every step was filtered out — log WHY so a "No registered
   // plugin steps" dead-end is diagnosable (which bucket the user's live step fell into).
   if (steps.length === 0 && (body?.value?.length ?? 0) > 0) {

@@ -4,7 +4,15 @@ import { runForComponent } from "../components/componentDiscovery";
 import { ProjectTypes } from "../projectTypes/registry";
 import { getOrganizationUrl } from "../general/connectionString";
 import { canCallDataverseApi } from "../general/dataverse/connectionReady";
-import { ActiveProfileStep, RegistrationKey, getProfilableSteps, findMatchingStep, deleteProfilerStep } from "../general/dataverse/pluginProfiles";
+import {
+  ActiveProfileStep,
+  RegistrationKey,
+  getProfilableSteps,
+  findMatchingStep,
+  deleteProfilerStep,
+  getAssemblyStepStates,
+  noProfilableStepsMessage,
+} from "../general/dataverse/pluginProfiles";
 import { parseRegistrationArgs } from "./registrationAttribute";
 import { findPluginClasses } from "./profilerCodeLens";
 import { isCaptureSupported, buildEnableArgs, buildDisableArgs, runProfilerTool } from "./profilerCaptureTool";

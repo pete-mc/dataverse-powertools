@@ -10,6 +10,8 @@ import {
   getPluginAssemblyProfilingInfo,
   setPluginAssemblyContent,
   ProfilableStep,
+  getAssemblyStepStates,
+  noProfilableStepsMessage,
 } from "../general/dataverse/pluginProfiles";
 import { getOrganizationUrl } from "../general/connectionString";
 import { isCaptureSupported, buildEnableArgs, buildDisableArgs, runProfilerTool } from "./profilerCaptureTool";
@@ -151,7 +153,10 @@ export async function capturePluginRun(context: DataversePowerToolsContext): Pro
     return;
   }
   if (steps.length === 0) {
-    vscode.window.showInformationMessage("No registered plugin steps to profile. Deploy your plugin and register a step (CodeLens) first.");
+    // Say what is actually wrong. The common case is a step left DISABLED by profiling that was
+    // never stopped, where "deploy and register a step" is advice the user cannot act on.
+    const states = assemblyName ? await getAssemblyStepStates(context, assemblyName) : undefined;
+    vscode.window.showInformationMessage(noProfilableStepsMessage(assemblyName, states));
     return;
   }
 
