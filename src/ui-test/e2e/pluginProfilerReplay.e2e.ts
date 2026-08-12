@@ -205,6 +205,16 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
       // The extension's capture uses a server-side assembly filter now, so a freshly-registered step
       // is found even though this org has 200+ active system (Microsoft.*) steps. Assert it live —
       // this is the reliable heart of the debugging loop (before the modal that the VM can't drive).
+      //
+      // SELF-HEAL first (#241): profiling DEACTIVATES the step it profiles, and a run that never
+      // reached "Stop Profiling" leaves it that way. The deploy above reports such a step "Unchanged"
+      // without touching `statecode`, so the profilable query then correctly finds nothing — one
+      // failed run used to poison every later run permanently. Re-enable before asserting.
+      const reactivated = await client.reactivateAssemblySteps(projectName).catch(() => 0);
+      if (reactivated > 0) {
+        console.log(`    [e2e] re-enabled ${reactivated} step(s) left disabled by an earlier profiling run`);
+      }
+
       let count = 0;
       const deadline = Date.now() + 120000;
       do {
@@ -320,6 +330,16 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
       const removed = await client.cleanupProfilerSteps("territory");
       if (removed > 0) {
         console.log(`[cleanup] removed ${removed} leftover profiler step(s) on territory`);
+      }
+    } catch {
+      /* best-effort */
+    }
+    // Then RE-ENABLE the original the profiler deactivated (#241). Deleting the clone was never
+    // enough: leaving the original disabled is what made one failed run break every run after it.
+    try {
+      const reactivated = await client.reactivateAssemblySteps(projectName);
+      if (reactivated > 0) {
+        console.log(`[cleanup] re-enabled ${reactivated} original step(s) the profiler had disabled`);
       }
     } catch {
       /* best-effort */

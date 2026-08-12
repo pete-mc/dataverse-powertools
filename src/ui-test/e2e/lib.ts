@@ -438,6 +438,14 @@ export async function runCommandResilient(title: string, attempts = 4): Promise<
  * next — so the test only proceeds once the extension reports the step actually succeeded.
  * Returns the channel text on success, or undefined on timeout.
  */
+/**
+ * Wait until the output channel contains EVERY string in `expected` (they are ANDed, not ORed).
+ *
+ * Passing alternatives here is a trap that cost a daily-failing suite: an array of four different
+ * phrasings of "the import finished" can never all appear, so the wait burns its whole timeout and
+ * the step fails while the command it is watching actually succeeded (#240). Pass the lines that
+ * genuinely co-occur — ideally the command's FINAL signal — or a single string.
+ */
 export async function waitForOutput(expected: string | string[], timeoutMs = 120000, channel = "dataverse-powertools"): Promise<string | undefined> {
   const wants = Array.isArray(expected) ? expected : [expected];
   let view;
@@ -744,6 +752,36 @@ export class E2EClient {
    * Exception in the Plug-in Profiler" (its target assembly may already be gone). Cleanup calls this
    * so a failed run never leaves the shared org broken. Returns the number of steps deleted.
    */
+  /**
+   * Re-activate the ORIGINAL steps of an assembly that profiling left disabled (#241).
+   *
+   * The Plugin Profiler clones a step and DEACTIVATES the original while profiling it. If a run never
+   * reaches "Stop Profiling", the original stays disabled — and because the deploy's step sync reports
+   * it "Unchanged" without touching `statecode`, the profilable query correctly finds nothing forever
+   * after. One failed run therefore poisoned every later run of this suite. Returns how many it
+   * re-enabled.
+   */
+  async reactivateAssemblySteps(assemblyName: string): Promise<number> {
+    const filter = `plugintypeid/pluginassemblyid/name eq '${assemblyName.replace(/'/g, "''")}'`;
+    const res = await this.request("GET", `sdkmessageprocessingsteps?$select=name,statecode,sdkmessageprocessingstepid&$filter=${filter}&$top=50`);
+    if (!res.ok) {
+      return 0;
+    }
+    const rows: any[] = ((await res.json()) as any).value ?? [];
+    let reactivated = 0;
+    for (const step of rows) {
+      // Never touch the profiler's own clones — those get deleted, not re-enabled.
+      if (step.statecode === 0 || /\((Profiler|Profiled)\)\s*$/.test(String(step.name ?? ""))) {
+        continue;
+      }
+      const patch = await this.request("PATCH", `sdkmessageprocessingsteps(${step.sdkmessageprocessingstepid})`, { statecode: 0, statuscode: 1 });
+      if (patch.ok || patch.status === 204) {
+        reactivated++;
+      }
+    }
+    return reactivated;
+  }
+
   async cleanupProfilerSteps(entityLogicalName: string): Promise<number> {
     const filter = `sdkmessagefilterid/primaryobjecttypecode eq '${entityLogicalName.replace(/'/g, "''")}'`;
     const res = await this.request("GET", `sdkmessageprocessingsteps?$select=name,sdkmessageprocessingstepid&$expand=plugintypeid($select=typename)&$filter=${filter}`);

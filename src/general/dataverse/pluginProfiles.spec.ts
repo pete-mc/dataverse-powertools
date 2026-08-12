@@ -9,6 +9,8 @@ import {
   findMatchingStep,
   buildProfilableStepsResource,
   pluginAssemblyProfilingQuery,
+  buildAssemblyStepsAnyStateResource,
+  noProfilableStepsMessage,
 } from "./pluginProfiles";
 
 describe("plugin profile queries", () => {
@@ -109,5 +111,46 @@ describe("active plugin profiles (#139)", () => {
     expect(findMatchingStep(steps, { message: "Create", primaryEntity: "contact" })?.typeName).toBe("Acme.ContactPlugin");
     expect(findMatchingStep(steps, { message: "Update", primaryEntity: "account", typeName: "OtherPlugin" })?.typeName).toBe("Acme.OtherPlugin");
     expect(findMatchingStep(steps, { message: "Delete", primaryEntity: "account" })).toBeUndefined();
+  });
+});
+
+// #241: a step the profiler is profiling stays DISABLED, so the profilable query correctly returns
+// nothing. The old dead end told the user to "deploy and register a step" they already had, and
+// logged nothing at all when the assembly-filtered query came back empty.
+describe("no-profilable-steps diagnosis (#241)", () => {
+  it("filters by assembly WITHOUT the active-state clause, so disabled steps are visible", () => {
+    const resource = buildAssemblyStepsAnyStateResource("ProfilerE2E");
+    expect(resource).toContain("plugintypeid/pluginassemblyid/name eq 'ProfilerE2E'");
+    expect(resource).not.toContain("statecode eq 0");
+    expect(resource).toContain("$select=name,statecode");
+  });
+
+  it("escapes a quote in the assembly name", () => {
+    expect(buildAssemblyStepsAnyStateResource("O'Brien.Plugins")).toContain("name eq 'O''Brien.Plugins'");
+  });
+
+  it("names the disabled-step cause instead of telling the user to register a step", () => {
+    const message = noProfilableStepsMessage("ProfilerE2E", { active: 0, inactive: ["Create territory (DVPT profiler e2e)"] });
+    expect(message).toContain("DISABLED");
+    expect(message).toContain("ProfilerE2E");
+    expect(message).toContain("Create territory (DVPT profiler e2e)");
+    expect(message).toContain("stop profiling");
+    expect(message).not.toContain("Deploy your plugin and register a step");
+  });
+
+  it("truncates a long disabled list", () => {
+    const message = noProfilableStepsMessage("A", { active: 0, inactive: ["s1", "s2", "s3", "s4", "s5"] });
+    expect(message).toContain("5 step(s)");
+    expect(message).toContain("s1, s2, s3, …");
+    expect(message).not.toContain("s4");
+  });
+
+  it("keeps the generic advice when there genuinely are no steps", () => {
+    expect(noProfilableStepsMessage("A", { active: 0, inactive: [] })).toContain("Deploy your plugin and register a step");
+    expect(noProfilableStepsMessage(undefined, undefined)).toContain("Deploy your plugin and register a step");
+  });
+
+  it("keeps the generic advice when active steps exist (a different problem)", () => {
+    expect(noProfilableStepsMessage("A", { active: 2, inactive: ["s1"] })).toContain("Deploy your plugin and register a step");
   });
 });
