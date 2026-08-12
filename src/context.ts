@@ -10,6 +10,7 @@ import { ProjectTypes } from "./projectTypes/registry";
 import type { DiscoveredComponent, Layout } from "./components/discovery";
 import { migrateSettings } from "./general/settingsMigrations";
 import { fsMigrationIo } from "./general/migrationIo";
+import { FAILURE_MARKER, WARNING_MARKER } from "./panel/operationOutcome";
 import path = require("path");
 
 // The enum now lives in the project-type registry (single source of truth,
@@ -35,6 +36,7 @@ export default class DataversePowerToolsContext {
   /** The component the current command invocation targets (set on scoped facade
    * contexts by componentScopedContext; undefined = root/legacy behaviour). */
   public activeComponent?: DiscoveredComponent;
+  private channelListeners = new Set<(line: string) => void>();
   constructor(vscodeContext: vscode.ExtensionContext) {
     this.vscode = vscodeContext;
     this.channel = vscode.window.createOutputChannel("dataverse-powertools");
@@ -54,6 +56,25 @@ export default class DataversePowerToolsContext {
         original(value);
       };
     }
+    // Channel tap: the activity feed decides success/failure from what a command actually reported
+    // (#229), because most commands log a failure and then resolve normally. Wrapping LAST means the
+    // test mirror above still sees every line.
+    const appendLine = this.channel.appendLine.bind(this.channel);
+    this.channel.appendLine = (value: string) => {
+      appendLine(value);
+      if (this.channelListeners.size > 0) {
+        // appendLine is called with multi-line blocks (whole build output), so split before notifying.
+        for (const line of String(value ?? "").split(/\r?\n/)) {
+          for (const listener of [...this.channelListeners]) {
+            try {
+              listener(line);
+            } catch {
+              /* a listener must never break logging */
+            }
+          }
+        }
+      }
+    };
     this.statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     this.statusBar.tooltip = "Dataverse PowerTools";
     this.statusBar.command = "dataverse-powertools.openSettings";
@@ -62,6 +83,33 @@ export default class DataversePowerToolsContext {
 
   async openSettings() {
     await vscode.commands.executeCommand("dataversePowerToolsMenu.focus");
+  }
+
+  /** Subscribe to this context's output lines. Used by the activity feed to judge an operation's
+   * outcome from what the command reported (#229). Dispose when the operation ends. */
+  public onChannelLine(listener: (line: string) => void): { dispose(): void } {
+    this.channelListeners.add(listener);
+    return { dispose: () => this.channelListeners.delete(listener) };
+  }
+
+  /**
+   * Report a failure the command HANDLES itself (logs and returns) rather than throws.
+   *
+   * Use this instead of a bare `channel.appendLine` for anything that means "the command did not do
+   * its job": it writes the canonical marker the activity feed reads, so the operation shows as ✗
+   * instead of ✓ (#229) without the feed having to guess from prose.
+   */
+  public reportFailure(detail: string, options: { toast?: string | false } = {}): void {
+    this.channel.appendLine(`${FAILURE_MARKER} ${detail}`);
+    this.channel.show(true);
+    if (options.toast !== false) {
+      vscode.window.showErrorMessage(options.toast ?? detail);
+    }
+  }
+
+  /** Report that the operation finished but not everything it tried worked — ⚠ in the feed. */
+  public reportWarning(detail: string): void {
+    this.channel.appendLine(`${WARNING_MARKER} ${detail}`);
   }
 
   /** Set the status bar text with the Dataverse PowerTools icon so it's identifiable. */

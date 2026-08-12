@@ -352,6 +352,10 @@ a:focus-visible {
   color: var(--vscode-testing-iconFailed, var(--vscode-errorForeground));
 }
 
+.st-warning {
+  color: var(--vscode-testing-iconQueued, var(--vscode-charts-yellow));
+}
+
 .st-running {
   color: var(--vscode-progressBar-background, var(--vscode-charts-blue));
 }

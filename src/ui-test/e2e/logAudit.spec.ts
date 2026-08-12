@@ -58,6 +58,18 @@ describe("auditLog", () => {
     expect(findings).toHaveLength(1);
   });
 
+  // The profiler suite kills the replay debug session on purpose; VSTest reports the testhost exit with
+  // an EMPTY reason. A real crash carries one, and that must still be reported (#249: never mask a
+  // signature a genuine regression would produce).
+  it("ignores the testhost exit the profiler suite causes by stopping the debug session", () => {
+    expect(auditLog("Testhost process for source(s) 'c:\w\X.Tests.dll' exited with error: . Please check the diagnostic logs for more information.")).toEqual([]);
+  });
+
+  it("still reports a testhost exit that carries a REASON — that is a real crash", () => {
+    const findings = auditLog("Testhost process for source(s) 'c:\w\X.Tests.dll' exited with error: Stack overflow. Please check the diagnostic logs for more information.");
+    expect(findings).toHaveLength(1);
+  });
+
   it("reports line numbers for findings", () => {
     const findings = auditLog("ok\nok\nFailed to save form 'x'");
     expect(findings[0].line).toBe(3);

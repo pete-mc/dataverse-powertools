@@ -549,9 +549,8 @@ export async function buildAndDeploy(context: DataversePowerToolsContext): Promi
         if (error?.stderr) {
           context.channel.appendLine(error.stderr);
         }
-        context.channel.appendLine("Build failed; deployment skipped.");
-        context.channel.show();
-        vscode.window.showErrorMessage("Build failed. See output for details.");
+        // Handled failure, so the feed must not call it ✓ (#229).
+        context.reportFailure("Build failed; deployment skipped.", { toast: "Build failed. See output for details." });
         return;
       }
 

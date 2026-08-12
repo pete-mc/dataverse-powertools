@@ -6,6 +6,7 @@ import * as path from "path";
 import DataversePowerToolsContext from "../context";
 import { resolveTestProjectPath } from "./unitTesting";
 import { parseDotnetListTests } from "./parseDotnetListTests";
+import { locateTest } from "./testSourceLocations";
 import { parseTrx, TrxTestResult } from "./parseTrx";
 import { activeComponentRoot } from "../components/componentDiscovery";
 import { scopedTestControllerId } from "../components/discovery";
@@ -32,22 +33,78 @@ function runDotnetCapture(args: string[], cwd: string): Promise<{ stdout: string
   });
 }
 
+/**
+ * Locate a test's declaration so the TestItem can carry a uri/range (#252) — without them VS Code cannot
+ * offer "Run/Debug Test at Cursor" or gutter icons, and clicking a test does not navigate to it.
+ *
+ * The .NET test adapter reports names only here, so the class/method are found by scanning the test
+ * project's own .cs files. Built once per discovery pass and cached; a miss simply leaves the item
+ * unlocated, which is exactly the previous behaviour.
+ */
+function buildSourceIndex(testProjectDir: string): { file: string; text: string }[] {
+  const files: { file: string; text: string }[] = [];
+  const walk = (dir: string): void => {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name !== "obj" && entry.name !== "bin" && entry.name !== "node_modules") {
+          walk(full);
+        }
+      } else if (entry.name.endsWith(".cs")) {
+        try {
+          files.push({ file: full, text: fs.readFileSync(full, "utf8") });
+        } catch {
+          /* unreadable — skip */
+        }
+      }
+    }
+  };
+  walk(testProjectDir);
+  return files;
+}
+
+/** The uri/range for a test, or undefined when its class is not found in the project's sources. */
+function locationFor(index: { file: string; text: string }[], className: string, methodName?: string): { uri: vscode.Uri; range: vscode.Range } | undefined {
+  for (const entry of index) {
+    const found = locateTest(entry.text, className, methodName);
+    if (found) {
+      return { uri: vscode.Uri.file(entry.file), range: new vscode.Range(found.line, 0, found.line, 0) };
+    }
+  }
+  return undefined;
+}
+
 /** classId is the fully-qualified class name; used as the parent TestItem id. */
-function classItem(controller: vscode.TestController, className: string): vscode.TestItem {
+function classItem(controller: vscode.TestController, className: string, location?: { uri: vscode.Uri; range: vscode.Range }): vscode.TestItem {
   let item = controller.items.get(className);
   if (!item) {
-    item = controller.createTestItem(className, className);
+    // Pass the uri at creation — TestItem.uri is read-only afterwards (#252).
+    item = controller.createTestItem(className, className, location?.uri);
     controller.items.add(item);
+  }
+  if (location) {
+    item.range = location.range;
   }
   return item;
 }
 
-function methodItem(controller: vscode.TestController, className: string, fqn: string, methodName: string): vscode.TestItem {
-  const parent = classItem(controller, className);
+function methodItem(controller: vscode.TestController, className: string, fqn: string, methodName: string, index?: { file: string; text: string }[]): vscode.TestItem {
+  const classLocation = index ? locationFor(index, className) : undefined;
+  const parent = classItem(controller, className, classLocation);
+  const methodLocation = index ? locationFor(index, className, methodName) : undefined;
   let item = parent.children.get(fqn);
   if (!item) {
-    item = controller.createTestItem(fqn, methodName);
+    item = controller.createTestItem(fqn, methodName, methodLocation?.uri ?? classLocation?.uri);
     parent.children.add(item);
+  }
+  if (methodLocation) {
+    item.range = methodLocation.range;
   }
   return item;
 }
@@ -65,8 +122,10 @@ async function discover(context: DataversePowerToolsContext, controller: vscode.
   const { stdout } = await runDotnetCapture(["test", testProject, "--list-tests"], cwd);
   const tests = parseDotnetListTests(stdout);
   controller.items.replace([]);
+  // Read the test project's sources ONCE, so locating N tests does not re-walk the tree N times (#252).
+  const sourceIndex = buildSourceIndex(path.dirname(testProject));
   for (const t of tests) {
-    methodItem(controller, t.className, t.fqn, t.methodName);
+    methodItem(controller, t.className, t.fqn, t.methodName, sourceIndex);
   }
 }
 
@@ -114,6 +173,31 @@ function findItem(controller: vscode.TestController, result: TrxTestResult): vsc
   return undefined;
 }
 
+/**
+ * The launch configuration the Debug profile hands to VS Code (pure, unit-tested).
+ *
+ * `type: "coreclr"` is contributed by the C# extension (ms-dotnettools.csharp) — without it VS Code
+ * has no .NET debug adapter and `startDebugging` fails. That is also why the e2e suite's debug steps
+ * self-skip when the extension is absent: this config is ours to get right, but the adapter is not
+ * ours to provide.
+ *
+ * Debugging `dotnet test` (rather than the built test dll) is what lets a breakpoint inside the
+ * PLUGIN bind: the replay harness runs the plugin in-process, so the test host loads the plugin's own
+ * assembly and its symbols.
+ */
+export function buildDebugLaunchConfig(testProject: string, cwd: string, filter: readonly string[]): vscode.DebugConfiguration {
+  return {
+    type: "coreclr",
+    request: "launch",
+    name: "Debug Plugin Tests",
+    program: "dotnet",
+    args: ["test", testProject, ...filter],
+    cwd,
+    console: "internalConsole",
+    stopAtEntry: false,
+  };
+}
+
 async function runHandler(
   context: DataversePowerToolsContext,
   controller: vscode.TestController,
@@ -140,16 +224,7 @@ async function runHandler(
   const filter = runningAll ? [] : ["--filter", fqns.map((f) => `FullyQualifiedName=${f}`).join("|")];
 
   if (debug) {
-    await vscode.debug.startDebugging(vscode.workspace.workspaceFolders?.[0], {
-      type: "coreclr",
-      request: "launch",
-      name: "Debug Plugin Tests",
-      program: "dotnet",
-      args: ["test", testProject, ...filter],
-      cwd,
-      console: "internalConsole",
-      stopAtEntry: false,
-    });
+    await vscode.debug.startDebugging(vscode.workspace.workspaceFolders?.[0], buildDebugLaunchConfig(testProject, cwd, filter));
     run.end();
     return;
   }

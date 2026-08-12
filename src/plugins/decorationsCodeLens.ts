@@ -35,7 +35,22 @@ async function focusDecorationTokenInEditor(uri: vscode.Uri, line: number): Prom
   return editor;
 }
 
+/**
+ * Fires when the lens LABELS may have changed for a reason VS Code cannot see — profiling starting or
+ * stopping. Without this the "Profile: Off/On" label was computed once and then kept whatever it said
+ * until the document changed: you clicked *Profile: Off*, profiling started, and the lens went on
+ * claiming Off (the visible half of #251).
+ */
+const decorationLensChanged = new vscode.EventEmitter<void>();
+
+/** Re-ask for the decoration lenses — call after the profiler's state changes. */
+export function refreshDecorationCodeLenses(): void {
+  decorationLensChanged.fire();
+}
+
 class DecorationCodeLensProvider implements vscode.CodeLensProvider {
+  public readonly onDidChangeCodeLenses = decorationLensChanged.event;
+
   public provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
     if (document.languageId !== "csharp" || !document.fileName.toLowerCase().endsWith(".cs")) {
       return [];

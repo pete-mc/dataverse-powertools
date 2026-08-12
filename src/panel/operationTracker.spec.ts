@@ -6,7 +6,17 @@ import { runTracked, getRecentOperations, resetOperations } from "./operationTra
 // minimal fake context.
 
 function fakeContext(root?: string): any {
-  return { refreshPanel: vi.fn(), activeComponent: root ? { root } : undefined };
+  const listeners = new Set<(line: string) => void>();
+  return {
+    refreshPanel: vi.fn(),
+    activeComponent: root ? { root } : undefined,
+    onChannelLine: (listener: (line: string) => void) => {
+      listeners.add(listener);
+      return { dispose: () => listeners.delete(listener) };
+    },
+    /** Stand-in for context.channel.appendLine — what the command under test reports while running. */
+    log: (line: string) => listeners.forEach((l) => l(line)),
+  };
 }
 
 describe("operationTracker", () => {
@@ -32,6 +42,50 @@ describe("operationTracker", () => {
     expect(op.status).toBe("error");
     expect(op.detail).toBe("boom");
     expect(op.componentRoot).toBeUndefined();
+  });
+
+  // #229: the case that used to render as ✓ — a command that reports its failure and resolves anyway.
+  it("marks a SWALLOWED failure as error, from what the command reported", async () => {
+    const context = fakeContext();
+    await runTracked(context, "Deploy", () => {
+      context.log("Building...");
+      context.log("[Failed] Build failed: Command failed: npx webpack --config webpack.dev.js");
+      return undefined; // resolves normally, exactly like the real deploy path
+    });
+    const [op] = getRecentOperations();
+    expect(op.status).toBe("error");
+    expect(op.detail).toBe("Build failed: Command failed: npx webpack --config webpack.dev.js");
+  });
+
+  it("marks a partial success as a warning", async () => {
+    const context = fakeContext();
+    await runTracked(context, "Build & deploy package", () => {
+      context.log("Could not associate step 'Create account' with solution 'Dev'.");
+    });
+    expect(getRecentOperations()[0].status).toBe("warning");
+  });
+
+  it("still calls a quiet run a success", async () => {
+    const context = fakeContext();
+    await runTracked(context, "Build", () => {
+      context.log("webpack compiled successfully");
+      context.log("Building Complete");
+    });
+    expect(getRecentOperations()[0].status).toBe("success");
+    expect(getRecentOperations()[0].detail).toBeUndefined();
+  });
+
+  it("stops listening when the operation ends, so a later failure is not blamed on it", async () => {
+    const context = fakeContext();
+    await runTracked(context, "Build", () => undefined);
+    context.log("[Failed] something later went wrong");
+    expect(getRecentOperations()[0].status).toBe("success");
+  });
+
+  it("works against a context with no channel tap (older/facade contexts)", async () => {
+    const context = { refreshPanel: vi.fn() } as any;
+    await runTracked(context, "Build", () => "ok");
+    expect(getRecentOperations()[0].status).toBe("success");
   });
 
   it("keeps only the last 5 operations, newest first", async () => {

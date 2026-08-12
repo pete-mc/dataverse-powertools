@@ -21,17 +21,9 @@ import { invokeCustomApi } from "../customapi/invokeCustomApi";
 import { downloadPluginProfiles } from "../plugins/downloadProfiles";
 import { capturePluginRun } from "../plugins/profilerCapture";
 import { generatePluginReplayTest } from "../plugins/replayTest";
+import { replayAndDebug } from "../plugins/replayDebug";
 import { guidePluginProfiling } from "../plugins/profilerGuide";
 import { generateEarlyBoundV3, configureModelBuilderSettings } from "../general/modelbuilder";
-import { initialisePlugins as initialisePluginsOld } from "../plugins_old/initialisePlugins";
-import { pluginTableSelector as pluginTableSelectorOld } from "../plugins_old/pluginTables";
-import { createSNKKey, generateEarlyBound as generateEarlyBoundOld } from "../plugins_old/earlybound";
-import { buildProject as buildProjectOld } from "../plugins_old/buildPlugin";
-import { buildDeployPlugin as buildDeployPluginOld } from "../plugins_old/buildDeployPlugin";
-import { buildDeployWorkflow as buildDeployWorkflowOld } from "../plugins_old/buildDeployWorkflow";
-import { createPluginClass as createPluginClassOld, createWorkflowClass as createWorkflowClassOld } from "../plugins_old/createPluginClass";
-import { addPluginDecoration } from "../plugins_old/addStepDecoration";
-import { addWorkflowDecoration } from "../plugins_old/addWorkflowDecoration";
 import { generateTypings } from "../webresources/generateTypings";
 import { buildWebresources } from "../webresources/buildWebresources";
 import { deployWebresources } from "../webresources/deployWebresources";
@@ -91,13 +83,10 @@ export interface ProjectTypeActivation {
   onComponentAdded?(context: DataversePowerToolsContext): Promise<void>;
 }
 
+/** The current plugin template. Legacy (<v3, spkl.exe-based) projects were removed in 1.0.3 (#228);
+ *  this now only decides whether to show the migration notice and the v3-only earlybound surfaces. */
 function isPluginV3(context: DataversePowerToolsContext): boolean {
   return context.projectSettings.templateversion === 3;
-}
-
-/** Route a plugin command to its v3 or legacy (template < 3) implementation. */
-function pluginImpl(v3: CommandImpl, legacy: CommandImpl): CommandImpl {
-  return (context, resourceUri) => (isPluginV3(context) ? v3(context, resourceUri) : legacy(context, resourceUri));
 }
 
 /** Label tracked operations with the component when it isn't the workspace root. */
@@ -125,72 +114,59 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
         // plugin components, so "Configure Earlybound" on the project card opens
         // it on demand, scoped to the invoking component (#47).
       } else {
-        // Policy (#71): legacy (<v3, spkl.exe-based, Windows-only) plugin support is
-        // frozen — no new features — and will be REMOVED in 0.9.0. The migration
-        // path is a new Plugins component (Add Component offers to move the existing
-        // project into a subfolder first), then moving the plugin classes across —
-        // the v3 layout (pac plugin init) is too different for a safe auto-rewrite.
+        // The legacy (<v3, spkl.exe-based, Windows-only) plugin path was REMOVED in 1.0.3 (#228) —
+        // six minor versions after #71's promised 0.9.0. The notice stays for a release or two because
+        // it carries the migration path: a new Plugins component (Add Component offers to move this
+        // project into a subfolder first), then move the plugin classes across. The v3 layout
+        // (pac plugin init) is too different for a safe auto-rewrite.
         const upgradeWiki = "https://github.com/pete-mc/dataverse-powertools/wiki/Upgrading-Projects";
-        context.channel.appendLine("[Deprecated] Legacy plugin template (<v3) support is frozen and will be REMOVED in 0.9.0.");
+        context.channel.appendLine("[Deprecated] This project uses the legacy plugin template (<v3), whose support was REMOVED in 1.0.3.");
         context.channel.appendLine(
           "[Deprecated] Migrate: run Add Component → Plugins (it offers to move this project into a subfolder first), then move your plugin classes into the new project.",
         );
         context.channel.appendLine(`[Deprecated] Full upgrade guide (per-version differences, config refresh steps): ${upgradeWiki}`);
         vscode.window
-          .showWarningMessage("This plugin project uses the legacy (<v3) template. Legacy support is frozen and will be removed in Dataverse PowerTools 0.9.0.", "How to upgrade")
+          .showWarningMessage("This plugin project uses the legacy (<v3) template, whose support was removed in Dataverse PowerTools 1.0.3.", "How to upgrade")
           .then((choice) => {
             if (choice === "How to upgrade") {
               void vscode.env.openExternal(vscode.Uri.parse(upgradeWiki));
             }
           });
-        await initialisePluginsOld(context);
-        await pluginTableSelectorOld(context);
-        // Legacy still loads its tree eagerly — reveal the view for it.
-        await vscode.commands.executeCommand("setContext", "dataverse-powertools.earlyboundTreeLoaded", true);
+        // Best-effort: every command now has one (v3) implementation, so initialise that path anyway
+        // rather than leave an inert card. A legacy layout may make it unhappy — never fail activation.
+        try {
+          await initialisePlugins(context);
+        } catch (error) {
+          context.channel.appendLine(`[Deprecated] Could not initialise the legacy project with the current plugin path: ${error}`);
+        }
       }
     },
     commands: {
-      "dataverse-powertools.generateEarlyBound": pluginImpl(tracked("Generate early bound", generateEarlyBoundV3), tracked("Generate early bound", generateEarlyBoundOld)),
+      "dataverse-powertools.generateEarlyBound": tracked("Generate early bound", generateEarlyBoundV3),
       "dataverse-powertools.configurePluginEarlyBound": (context) => configureModelBuilderSettings(context),
-      "dataverse-powertools.openEarlyboundConfig": pluginImpl(
-        (context) => openEarlyboundConfig(context),
-        // Legacy loads its tree at initialise — just bring the view forward.
-        () => vscode.commands.executeCommand("dataversePowerToolsTree.focus"),
-      ),
-      "dataverse-powertools.buildAndDeploy": pluginImpl(tracked("Build & deploy package", buildAndDeploy), tracked("Build & deploy package", buildDeployPluginOld)),
-      "dataverse-powertools.buildDeployPlugin": pluginImpl(tracked("Build & deploy package", buildAndDeploy), tracked("Build & deploy package", buildDeployPluginOld)),
-      "dataverse-powertools.buildProject": pluginImpl(tracked("Build", buildProject), tracked("Build", buildProjectOld)),
-      "dataverse-powertools.buildDeployWorkflow": pluginImpl(tracked("Build & deploy workflow", buildAndDeploy), tracked("Build & deploy workflow", buildDeployWorkflowOld)),
-      "dataverse-powertools.createPluginClass": pluginImpl(
-        (context, uri) => createPluginClass(context, uri),
-        (context) => createPluginClassOld(context),
-      ),
-      "dataverse-powertools.createWorkflowClass": pluginImpl(
-        (context, uri) => createWorkflowClass(context, uri),
-        (context) => createWorkflowClassOld(context),
-      ),
+      "dataverse-powertools.openEarlyboundConfig": (context) => openEarlyboundConfig(context),
+      "dataverse-powertools.buildAndDeploy": tracked("Build & deploy package", buildAndDeploy),
+      "dataverse-powertools.buildDeployPlugin": tracked("Build & deploy package", buildAndDeploy),
+      "dataverse-powertools.buildProject": tracked("Build", buildProject),
+      "dataverse-powertools.buildDeployWorkflow": tracked("Build & deploy workflow", buildAndDeploy),
+      "dataverse-powertools.createPluginClass": (context, uri) => createPluginClass(context, uri),
+      "dataverse-powertools.createWorkflowClass": (context, uri) => createWorkflowClass(context, uri),
       "dataverse-powertools.setupPluginUnitTesting": (context) => promptAndSetupPluginUnitTesting(context),
       "dataverse-powertools.runPluginTests": tracked("Tests", runPluginUnitTests),
       "dataverse-powertools.createPluginTest": (context, uri) => createPluginTest(context, uri),
-      "dataverse-powertools.createSNKKey": pluginImpl(
-        (context) => placeholderSnk(context),
-        (context) => createSNKKey(context),
-      ),
+      "dataverse-powertools.createSNKKey": (context) => placeholderSnk(context),
       "dataverse-powertools.addClassDecoration": (context) => addClassDecoration(context),
-      "dataverse-powertools.addPluginDecoration": pluginImpl(
-        (context) => addClassDecoration(context),
-        (context) => addPluginDecoration(context),
-      ),
-      "dataverse-powertools.addWorkflowDecoration": pluginImpl(
-        (context) => addClassDecoration(context),
-        (context) => addWorkflowDecoration(context),
-      ),
+      "dataverse-powertools.addPluginDecoration": (context) => addClassDecoration(context),
+      "dataverse-powertools.addWorkflowDecoration": (context) => addClassDecoration(context),
       "dataverse-powertools.updateFilteringAttributes": (context) => updateFilteringAttributes(context),
       "dataverse-powertools.viewPluginTraceLogs": (context) => viewPluginTraceLogs(context),
       // Profiles are org-side records — works for both template versions.
       "dataverse-powertools.downloadPluginProfiles": (context) => downloadPluginProfiles(context),
       "dataverse-powertools.capturePluginRun": (context) => capturePluginRun(context),
       "dataverse-powertools.generatePluginReplayTest": (context) => generatePluginReplayTest(context),
+      // Tracked: it runs a build + a test host, so it belongs in the activity feed like the other
+      // long-running operations — and its outcome is now judged from what it reported (#229).
+      "dataverse-powertools.replayAndDebug": tracked("Replay & debug", replayAndDebug),
       "dataverse-powertools.guidePluginProfiling": (context) => guidePluginProfiling(context),
       // Custom API definition-as-code (#142) — plugin-scoped.
       "dataverse-powertools.newCustomApi": (context) => newCustomApi(context),
@@ -220,12 +196,8 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
               await createPluginClass(context);
             }
           });
-      } else {
-        await createSNKKey(context);
-        await generateEarlyBoundOld(context);
-        await buildProjectOld(context);
-        initialisePluginsOld(context);
       }
+      // No legacy arm: a newly created project always uses the current template (#228).
     },
   },
   [ProjectTypes.webresource]: {

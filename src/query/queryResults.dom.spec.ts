@@ -90,6 +90,16 @@ describe("queryResults.js (webview DOM)", () => {
     expect(summary).toContain("more available");
   });
 
+  // Dataverse answers -1 when it did not count the total; rendering that produced "0 rows of -1
+  // matching", which states nothing true. Say nothing instead.
+  it("says nothing about the total when Dataverse did not count it (-1)", () => {
+    loadResults();
+    postResults({ ...payloadFrom(RESPONSE), totalRecordCount: -1 });
+    const summary = document.getElementById("summary")?.textContent ?? "";
+    expect(summary).toContain("2 rows");
+    expect(summary).not.toContain("matching");
+  });
+
   it("states the environment and identity the query ran as", () => {
     // The run happens as the CONNECTED identity, not as whoever will run the plugin — row-level
     // security and eq-userid resolve differently at runtime, so this has to be on screen.

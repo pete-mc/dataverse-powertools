@@ -171,8 +171,11 @@ package.json — the parity test tells you if you only did half.
   [src/general/pac.ts](src/general/pac.ts)).
 - **System requirements are `dotnet` / `node` / `pac` only.** webpack/webpack-cli/jest/typescript
   are per-project local devDeps now, not globals ([src/general/systemRequirements.ts](src/general/systemRequirements.ts)).
-- **`src/plugins_old/` is deprecated** (template version < 3) but still wired for
-  legacy projects. New work goes in `src/plugins/`. Don't add features to `_old`.
+- **`src/plugins_old/` is GONE** (removed in 1.0.3, #228). Legacy template-v2 projects
+  (`templateversion < 3`) now get a migration notice and run the current `src/plugins/` path
+  best-effort; there is no second plugin code path any more. The only legacy-aware bits left are
+  that notice in [activation.ts](src/projectTypes/activation.ts) and the `isPluginV3` context key
+  (which still hides the v3-only earlybound surfaces).
 - **Dataverse HTTP calls belong in `src/general/dataverse/`**, not in feature files.
 - **Secrets never go in `dataverse-powertools.json`** — client id/secret live in VS
   Code secret storage; the settings file holds the non-secret connection base.
@@ -207,9 +210,9 @@ modern plugin flow already shells out to `dotnet`/`pac`.
   tool isn't committed; `scripts/fetchTypingsTool.mjs` fetches it into `tools/` on install /
   prepublish. Pure arg builders live in
   [generateTypings.ts](src/webresources/generateTypings.ts) (`buildTypingsArgs`, unit-tested).
-- **Still Windows-only:** the deprecated `plugins_old/` path (uses `spkl.exe`) and the e2e
-  browser automation (drives Edge on the Windows VM). Don't spend cross-platform effort on
-  `plugins_old/`.
+- **Still Windows-only:** the profiler *capture* path (`Profile next run` — the capture tool is
+  .NET Framework; `Download a run` + replay work anywhere) and the e2e browser automation (drives
+  Edge on the Windows VM). With `plugins_old/` gone (#228) nothing else pins `spkl.exe`/`sn.exe`.
 
 ## Test Explorer (native Testing API, #84)
 
@@ -225,6 +228,14 @@ unit-tested** — `parseTrx`, `parseDotnetListTests` (plugins), `parseJestJson` 
 keep parsing logic there, not in the controllers. Plugins run `dotnet test --logger trx`
 (+ `--filter`); web resources run the local `npx jest --json --testLocationInResults`.
 
+**Continuous run (watch), web resources only** (#232): the Jest Run profile sets
+`supportsContinuousRun`, so VS Code's own watch toggle drives it — no setting of ours, and the
+token it hands us disposes the file watcher when the user turns it off. It re-runs through the
+ORDINARY one-shot jest path per change (never `jest --watch`): a long-lived watcher child is the
+documented way to starve the e2e VM. Which tests a change re-runs is a pure, unit-tested decision
+in [continuousRun.ts](src/webresources/continuousRun.ts) — a test file runs itself, a source file
+runs them all (we don't have Jest's dependency graph, and guessing would skip the tests that matter).
+
 ## GitHub issues & wiki
 
 - **Issues/PRs:** use the `gh` CLI (authenticated). The wiki is a separate git repo
@@ -235,5 +246,7 @@ keep parsing logic there, not in the controllers. Plugins run `dotnet test --log
 ## Housekeeping still open (see the session that set up this foundation)
 
 - ~15 stale Dependabot branches on the remote need triage.
-- Decide whether `src/plugins_old/` can be removed.
-- Wiki likely needs updating for the spkl→`pac` and cross-platform changes.
+- Wiki likely needs updating for the spkl→`pac` and cross-platform changes. PCF, Custom API,
+  LM Tools and multi-component have no wiki/README coverage at all
+  ([#233](https://github.com/pete-mc/dataverse-powertools/issues/233)).
+- `src/plugins_old/` — DONE, removed in 1.0.3 (#228).

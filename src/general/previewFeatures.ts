@@ -53,6 +53,7 @@ export const PREVIEW_FEATURES: readonly PreviewFeature[] = [
       `${prefix}capturePluginRun`,
       `${prefix}downloadPluginProfiles`,
       `${prefix}generatePluginReplayTest`,
+      `${prefix}replayAndDebug`,
       `${prefix}guidePluginProfiling`,
       // CodeLens-only command (not contributed in package.json) — the lens is gated too.
       `${prefix}toggleStepProfilingAtLine`,

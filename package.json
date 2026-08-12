@@ -9,7 +9,7 @@
     "type": "git",
     "url": "https://github.com/pete-mc/dataverse-powertools"
   },
-  "version": "1.0.2",
+  "version": "1.0.3",
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -179,26 +179,6 @@
       ],
       "view/item/context": [
         {
-          "command": "dataversePowerToolsTree.addEntry",
-          "when": "view == dataversePowerToolsTree && viewItem == Available",
-          "group": "inline"
-        },
-        {
-          "command": "dataversePowerToolsTree.deleteEntry",
-          "when": "view == dataversePowerToolsTree && viewItem == Selected",
-          "group": "inline"
-        },
-        {
-          "command": "dataversePowerToolsTree.manualAddToTree",
-          "when": "view == dataversePowerToolsTree && viewItem == SelectedRoot",
-          "group": "inline"
-        },
-        {
-          "command": "dataversePowerToolsTree.updateTree",
-          "when": "view == dataversePowerToolsTree && viewItem == AvailableRoot",
-          "group": "inline"
-        },
-        {
           "command": "dataverse-powertools.editModelBuilderSetting",
           "when": "view == dataversePowerToolsTree && (viewItem == ModelBuilderSetting || viewItem == ModelBuilderFilterItem)",
           "group": "inline"
@@ -343,38 +323,6 @@
       }
     ],
     "commands": [
-      {
-        "command": "dataversePowerToolsTree.deleteEntry",
-        "title": "Remove Table",
-        "icon": {
-          "light": "media/light/error.svg",
-          "dark": "media/dark/error.svg"
-        }
-      },
-      {
-        "command": "dataversePowerToolsTree.addEntry",
-        "title": "Add Table",
-        "icon": {
-          "light": "media/light/pass.svg",
-          "dark": "media/dark/pass.svg"
-        }
-      },
-      {
-        "command": "dataversePowerToolsTree.manualAddToTree",
-        "title": "Add Unlisted Earlybound Table",
-        "icon": {
-          "light": "media/light/add.svg",
-          "dark": "media/dark/add.svg"
-        }
-      },
-      {
-        "command": "dataversePowerToolsTree.updateTree",
-        "title": "Refresh Earlybound Tables From Dataverse",
-        "icon": {
-          "light": "media/light/refresh.svg",
-          "dark": "media/dark/refresh.svg"
-        }
-      },
       {
         "command": "dataversePowerToolsTableIntersectTree.removeNewFormIntersect",
         "title": "Remove Form Intersect",
@@ -671,7 +619,7 @@
       },
       {
         "command": "dataverse-powertools.generatePluginReplayTest",
-        "title": "Dataverse PowerTools: Replay Plugin Profile as Unit Test",
+        "title": "Dataverse PowerTools: Generate Replay Test",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && config.dataverse-powertools.previewFeatures"
       },
       {
@@ -868,6 +816,11 @@
         "command": "dataverse-powertools.clearQueryMetadataCache",
         "title": "Dataverse PowerTools: Clear Dataverse Metadata Cache",
         "enablement": "dataverse-powertools.showLoaded && config.dataverse-powertools.previewFeatures"
+      },
+      {
+        "command": "dataverse-powertools.replayAndDebug",
+        "title": "Dataverse PowerTools: Replay & Debug a Captured Run",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isPlugin && config.dataverse-powertools.previewFeatures"
       }
     ],
     "configuration": {
@@ -946,7 +899,9 @@
     "pretest:supervised": "npm run compile-tests && npm run compile",
     "test:supervised": "node scripts/runSupervised.mjs",
     "test:supervised:reuse": "node scripts/runSupervised.mjs --reuse",
-    "pretest:supervised:reuse": "npm run compile-tests && npm run compile"
+    "pretest:supervised:reuse": "npm run compile-tests && npm run compile",
+    "pretest:e2e:debugger": "npm run compile-tests && npm run compile",
+    "test:e2e:debugger": "node scripts/runE2E.mjs --with-debugger \"out/ui-test/e2e/pluginProfilerReplay.e2e.js\""
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",

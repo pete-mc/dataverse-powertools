@@ -15,7 +15,12 @@ import {
   logFileSize,
   pushModalButton,
   pickManyByLabel,
+  pickFirst,
   E2EClient,
+  csharpExtensionInstalled,
+  shot,
+  shotWithHighlight,
+  runCommandResilient,
 } from "./lib";
 import { clickPanelButton, expandComponentCards } from "../supervised/supervisedLib";
 import { initProject, step, showLog } from "./acceptanceLib";
@@ -28,7 +33,9 @@ import { initProject, step, showLog } from "./acceptanceLib";
 //                       Start-Profiles the step;
 //   trigger           → a throwaway territory create (Web API) fires the async step;
 //   Continue          → downloads the captured profile into profiles/;
-//   Replay & debug    → generates Replay_<Type>_<stamp>.cs + the in-process DvptReplay harness;
+//   Generate Replay Test → writes Replay_<Type>_<stamp>.cs + the in-process DvptReplay harness;
+//   Replay & debug    → RUNS that replay under the debugger (VSTEST_HOST_DEBUG + clr attach), so a
+//                       breakpoint inside the plugin is hit;
 //   dotnet test       → the generated replay RUNS GREEN (#210): the in-process harness deserializes the
 //                       captured .profile into an IPluginExecutionContext and re-executes the real
 //                       plugin against it — no child AppDomain, so it actually runs in the test host.
@@ -37,6 +44,7 @@ import { initProject, step, showLog } from "./acceptanceLib";
 // The click window is gated on the extension's log FILE (waitForLogFile), not Selenium polling, so
 // the session survives on the 8GB VM. Self-skips off Windows and without live creds. See TESTING.md.
 const COMPONENT = "Plugin";
+let breakpointLine = 0;
 const isWindows = process.platform === "win32";
 
 /** First file anywhere under dir (recursive, skips obj) whose name matches, polled until found. */
@@ -75,18 +83,31 @@ async function waitForMatchDeep(dir: string, predicate: (name: string) => boolea
   }
 }
 
-/** A plugin registered on Create-of-territory (Post, ASYNC, Sandbox) that traces the target — a
- *  Web-API-creatable table so the trigger is deterministic, and small enough to replay green. ASYNC
- *  keeps the test simple: the create returns 204 immediately and the profiler runs in a background
- *  job, so the test never has to reason about the trigger's own response. (Profiling works for both
- *  sync and async once the package assembly's content is populated — #208.) The namespace/class must
- *  match the scaffolded file so `Build & deploy` discovers the [CrmPluginRegistration]. */
+/** The plugin this suite profiles, replays and debugs. Registered on Create-of-territory (Post, ASYNC,
+ *  Sandbox): a Web-API-creatable table, so the trigger is deterministic.
+ *
+ *  It is deliberately shaped like a plugin someone would actually write — validate the input, derive
+ *  values from it, trace the outcome — for two reasons. It gives the breakpoint somewhere WORTH
+ *  stopping (`name` and `region` in Locals, a call stack through two of its own methods), and these
+ *  screenshots are published in the wiki walkthrough, where a probe that only traces an id teaches
+ *  nobody anything.
+ *
+ *  It stays free of IOrganizationService calls on purpose: the replay re-executes it in-process against
+ *  the captured context with no live org, so anything that needed a service round-trip could not run.
+ *  ASYNC keeps the test simple — the create returns 204 immediately and the profiler runs in a
+ *  background job, so the test never reasons about the trigger's own response.
+ *  The namespace/class must match the scaffolded file so `Build & deploy` finds the
+ *  [CrmPluginRegistration]. */
 function territoryPluginSource(namespaceName: string, className: string): string {
   return `using Microsoft.Xrm.Sdk;
 using System;
 
 namespace ${namespaceName}
 {
+    /// <summary>
+    /// Onboards a new territory: validates the name, derives the sales region and the territory code
+    /// from it, and traces what it worked out.
+    /// </summary>
     [CrmPluginRegistration(MessageNameEnum.Create, "territory", StageEnum.PostOperation, ExecutionModeEnum.Asynchronous, "", "Create territory (DVPT profiler e2e)", 1, IsolationModeEnum.Sandbox)]
     public class ${className} : PluginBase
     {
@@ -103,10 +124,46 @@ namespace ${namespaceName}
             }
 
             var context = localPluginContext.PluginExecutionContext;
-            if (context.InputParameters.Contains("Target") && context.InputParameters["Target"] is Entity target)
+            if (!context.InputParameters.Contains("Target") || !(context.InputParameters["Target"] is Entity target))
             {
-                localPluginContext.Trace("DVPT profiler e2e fired for territory " + target.Id);
+                return;
             }
+
+            var name = target.GetAttributeValue<string>("name");
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                throw new InvalidPluginExecutionException("A territory must have a name before it can be onboarded.");
+            }
+
+            var region = ResolveSalesRegion(name);
+            var code = BuildTerritoryCode(name, region);
+
+            localPluginContext.Trace("Onboarded territory '" + name + "' as " + code + " in the " + region + " region.");
+        }
+
+        /// <summary>Which sales region a territory belongs to, from its name.</summary>
+        private static string ResolveSalesRegion(string name)
+        {
+            var lowered = name.ToLowerInvariant();
+            if (lowered.Contains("north"))
+            {
+                return "North";
+            }
+
+            if (lowered.Contains("south"))
+            {
+                return "South";
+            }
+
+            return "Central";
+        }
+
+        /// <summary>The territory code: region initial + the first three letters of the name.</summary>
+        private static string BuildTerritoryCode(string name, string region)
+        {
+            var letters = new string(Array.FindAll(name.ToCharArray(), char.IsLetter));
+            var stem = letters.Length >= 3 ? letters.Substring(0, 3) : letters;
+            return (region.Substring(0, 1) + "-" + stem).ToUpperInvariant();
         }
     }
 }
@@ -119,9 +176,11 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
   let workspace: string;
   let solutionFriendlyName: string;
   let client: E2EClient;
-  const projectName = "ProfilerE2E";
-  const packageName = "ProfilerE2E";
-  const className = "ProfilerProbe";
+  // Named like a project someone would really have: these names appear in the wiki walkthrough's
+  // screenshots, and "ProfilerE2E/ProfilerProbe" told the reader nothing except that it was a test.
+  const projectName = "ContosoTerritories";
+  const packageName = "ContosoTerritories";
+  const className = "TerritoryOnboarding";
   let typeName = `${projectName}.${className}`; // refined from the scaffolded file's real namespace
   let triggeredTerritoryId: string | undefined;
 
@@ -231,6 +290,64 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
     });
   });
 
+  // The OTHER way to choose what to profile: a CodeLens on the [CrmPluginRegistration] attribute of the
+  // step itself, so the step is chosen by clicking its own registration rather than by answering a
+  // picker. Nothing asserted this lens existed before — it was manual-only (#224).
+  it("offers a per-step Profile CodeLens on the registration attribute (how you choose the step)", async () => {
+    await step(COMPONENT, "Per-step Profile CodeLens is offered on the registration", async () => {
+      const pluginCs = await waitForMatchDeep(workspace, (n) => n === `${className}.cs`, 30000);
+      if (!pluginCs) {
+        throw new Error(`${className}.cs not found`);
+      }
+      // Close everything first: the wizard opened the SCAFFOLDED version of this file (no
+      // [CrmPluginRegistration] yet — the suite writes the real source afterwards), and that stale buffer
+      // is what the lens provider read, so the lenses came back as "Add Class Decoration". Reopening from
+      // disk with no other editors around is deterministic.
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      const { TextEditor, EditorView } = require("vscode-extension-tester");
+      await new EditorView().closeAllEditors().catch(() => undefined);
+      await sleep(1000);
+      await VSBrowser.instance.openResources(pluginCs);
+      await sleep(3000);
+      await dismissOverlays();
+      // Activate the plugin FILE first: earlier steps open the generated Replay_*.cs, and both
+      // breakpoints and CodeLens reads act on whatever editor is active (which is why a
+      // breakpoint on line ${breakpointLine} once failed against the much shorter replay file).
+      await new EditorView().openEditor(`${className}.cs`).catch(() => undefined);
+      await sleep(1500);
+      const titles: string[] = [];
+      const deadline = Date.now() + 90000;
+      while (Date.now() < deadline) {
+        try {
+          const editor = new TextEditor();
+          // Scroll to the TOP every attempt. The Profile lens sits above the [CrmPluginRegistration]
+          // near line 1 and getCodeLenses() only sees RENDERED decorations, so a scrolled-down editor
+          // reports the lenses of whatever is on screen instead — that is how this read once "saw"
+          // only `2 references | Dataverse: Add Class Decoration` and failed.
+          await editor.moveCursor(1, 1).catch(() => undefined);
+          await sleep(700);
+          const lenses = await editor.getCodeLenses();
+          titles.length = 0;
+          for (const lens of lenses) {
+            titles.push(await lens.getText());
+          }
+          if (titles.some((t) => /Profile:/.test(t))) {
+            break;
+          }
+        } catch {
+          /* lenses resolve asynchronously */
+        }
+        await sleep(3000);
+      }
+      expect(
+        titles.some((t) => /Profile:\s*(Off|On)/.test(t)),
+        `a "Profile: Off/On" CodeLens on the registration — saw: ${titles.join(" | ")}`,
+      ).to.equal(true);
+      await shotWithHighlight(".codelens-decoration a", "02-profile-codelens-select-step", { text: "Profile:" });
+      return `per-step Profile CodeLens offered (${titles.filter((t) => /Profile:/.test(t)).join(", ")})`;
+    });
+  });
+
   it("captures a real run — Profile next run (prepares the package assembly) → trigger → Continue → download", async () => {
     await step(COMPONENT, "Capture a production run (Profile next run + live trigger)", async () => {
       // Reclaim RAM before capture — the just-finished Build & deploy leaves MSBuild/VBCSCompiler
@@ -243,8 +360,9 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
       }
       await sleep(4000);
       await expandComponentCards();
+      await shot("00-debugging-block");
       const logBaseline = logFileSize();
-      await clickPanelButton("Profile next run", { timeoutMs: 30000 });
+      await clickPanelButton("Profile next run", { timeoutMs: 30000, shot: "01-profile-next-run-button" });
       // Gate the enable window on the extension's OWN log line via the mirrored FILE (no WebDriver
       // polling across the click — that's what lost the session on the 8GB VM). "Started profiling"
       // appears only after the extension prepared the package assembly (populated content) and
@@ -271,7 +389,9 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
       }
       // One WebDriver action now that the session is healthy: dismiss the modal → downloadPluginProfiles
       // runs and shows its canPickMany picker; pick ours.
+      await shotWithHighlight(".monaco-dialog-box .monaco-button", "03-trigger-then-continue-modal");
       await pushModalButton("Continue");
+      await shotWithHighlight(".quick-input-widget .monaco-list-row", "04-pick-captured-profile");
       await pickManyByLabel(className, 60000);
       // downloadPluginProfiles writes into `<componentRoot>/profiles` (the root that holds
       // dataverse-powertools.json — the workspace root here, not the plugin subproject), so search
@@ -284,10 +404,16 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
     });
   });
 
-  it("generates a replay test — Replay & debug", async () => {
-    await step(COMPONENT, "Generate replay test (Replay & debug)", async () => {
+  it("generates a replay test — Generate Replay Test", async () => {
+    await step(COMPONENT, "Generate replay test (Generate Replay Test)", async () => {
       await expandComponentCards();
-      await clickPanelButton("Replay & debug", { timeoutMs: 30000 });
+      // "Generate Replay Test" WRITES the test; "Replay & debug" now runs it under the debugger, which
+      // the debug steps below exercise.
+      await clickPanelButton("Generate Replay Test", { timeoutMs: 30000, shot: "05-generate-replay-test-button" });
+      // With more than one downloaded profile the command asks "Replay which profile?" — answer it
+      // (newest first) instead of leaving the command blocked on an unanswered prompt.
+      await shotWithHighlight(".quick-input-widget .monaco-list-row", "05b-replay-which-profile");
+      await pickFirst(15000).catch(() => undefined);
       const replay = await waitForMatchDeep(workspace, (n) => /^Replay_.*\.cs$/.test(n), 120000);
       if (!replay) {
         throw new Error("no Replay_*.cs generated in the test project");
@@ -318,7 +444,304 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
       if (res.status !== 0 || /error CS\d+/.test(out) || /Failed:\s*[1-9]/.test(out) || !/Passed!/.test(out)) {
         throw new Error(`replay test did not run green:\n${out.slice(-2500)}`);
       }
+      await VSBrowser.instance.openResources(replay);
+      await sleep(2000);
+      await dismissOverlays();
+      await shot("06-generated-replay-test");
       return `${path.basename(replay, ".cs")} ran green (captured context replayed through the plugin in-process)`;
+    });
+  });
+
+  // The gap these two steps close: everything above proves the replay EXECUTES, not that you can
+  // DEBUG it. "F5 a captured production run and stop inside your plugin" is the actual promise of
+  // #210, and nothing verified it — that was the last thing resting purely on the manual checklist
+  // (#224).
+  //
+  // Needs the C# extension: the Test Explorer's Debug profile launches `type: "coreclr"`, which
+  // ms-dotnettools.csharp contributes. The e2e instance runs a clean extensions dir, so these steps
+  // SELF-SKIP unless it was installed (`npm run test:e2e:debugger`) rather than fail — and they say so,
+  // so an unproven gap stays visible instead of looking covered.
+  it("binds a breakpoint INSIDE the plugin when debugging the replay (needs the C# extension)", async function () {
+    if (!csharpExtensionInstalled()) {
+      console.log("    [e2e] SKIPPED: ms-dotnettools.csharp is not installed, so the coreclr debug type does not exist — run `npm run test:e2e:debugger`.");
+      this.skip();
+    }
+    await step(COMPONENT, "Debug the replay: breakpoint inside the plugin binds", async () => {
+      // Break on the plugin's OWN trace line — reached only if the captured context really flows back
+      // through the plugin, which is the whole claim.
+      const pluginCs = await waitForMatchDeep(workspace, (n) => n === `${className}.cs`, 30000);
+      if (!pluginCs) {
+        throw new Error(`${className}.cs not found in the workspace`);
+      }
+      const lines = fs.readFileSync(pluginCs, "utf8").split(/\r?\n/);
+      // Break where the plugin DERIVES something, not on its trace line: paused here, Locals hold the
+      // captured `target`, the `name` off it and the `region` just computed — which is the point of
+      // replaying a real run, and what the wiki screenshot needs to show.
+      breakpointLine = lines.findIndex((l) => l.includes("var code = BuildTerritoryCode(")) + 1; // 1-based
+      if (breakpointLine < 1) {
+        throw new Error("could not find the plugin line to break on (var code = BuildTerritoryCode)");
+      }
+
+      await VSBrowser.instance.openResources(pluginCs);
+      await sleep(2500);
+      await dismissOverlays();
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      const { TextEditor, EditorView } = require("vscode-extension-tester");
+      // Activate the plugin FILE first: earlier steps open the generated Replay_*.cs, and both
+      // breakpoints and CodeLens reads act on whatever editor is active (which is why a
+      // breakpoint on line ${breakpointLine} once failed against the much shorter replay file).
+      await new EditorView().openEditor(`${className}.cs`).catch(() => undefined);
+      await sleep(1500);
+      const editor = new TextEditor();
+      // SCROLL the target line into view first. toggleBreakpoint clicks the gutter by finding the
+      // line-number element, and only RENDERED lines exist in the DOM — with the output panel taking the
+      // bottom half of the window barely 21 lines show, so a breakpoint on line ~24 failed with
+      // NoSuchElementError. Moving the cursor there scrolls it in.
+      await editor.moveCursor(breakpointLine, 1);
+      await sleep(800);
+      await editor.toggleBreakpoint(breakpointLine);
+
+      await shotWithHighlight(".codicon-debug-breakpoint", "07-breakpoint-in-plugin");
+      // Drive the PRODUCT's own button. "Replay & debug" runs the replay with VSTEST_HOST_DEBUG and
+      // attaches to the waiting test host with the `clr` adapter — the two things that make a breakpoint
+      // inside the plugin actually pause, and both of which the old Test-Explorer Debug profile got
+      // wrong (coreclr, attached to the `dotnet test` driver instead of the testhost).
+      await expandComponentCards();
+      await clickPanelButton("Replay & debug", { timeoutMs: 30000, shot: "08-replay-and-debug-button" });
+
+      // A VERIFIED (not hollow) breakpoint proves the test host loaded the plugin's own symbols —
+      // the thing that makes debugging a replay possible at all.
+      const driver = VSBrowser.instance.driver;
+      const boundDeadline = Date.now() + 240000;
+      let bound = false;
+      while (Date.now() < boundDeadline && !bound) {
+        bound = (await driver.executeScript(
+          "return document.querySelectorAll('.codicon-debug-breakpoint:not(.codicon-debug-breakpoint-unverified)').length > 0 && document.querySelectorAll('.codicon-debug-breakpoint-unverified').length === 0;",
+        )) as boolean;
+        if (!bound) {
+          await sleep(3000);
+        }
+      }
+      expect(bound, `breakpoint on ${className}.cs:${breakpointLine} VERIFIED (bound) under the debugger`).to.equal(true);
+      return `breakpoint bound at ${className}.cs:${breakpointLine} while debugging the replay`;
+    });
+  });
+
+  it("PAUSES inside the plugin while replaying the captured run, with the captured context in scope", async function () {
+    if (!csharpExtensionInstalled()) {
+      this.skip();
+    }
+    await step(COMPONENT, "Debug the replay: pauses inside the plugin with the captured context", async () => {
+      const driver = VSBrowser.instance.driver;
+      // The replay feeds the captured context through the plugin, so execution must STOP on the
+      // breakpoint set above. The floating debug toolbar's continue icon is the pause signal (the
+      // same check the web-resource debug suite uses).
+      const pausedDeadline = Date.now() + 240000;
+      let paused = false;
+      while (Date.now() < pausedDeadline && !paused) {
+        paused = (await driver.executeScript("return document.querySelectorAll('.debug-toolbar .codicon-debug-continue').length > 0;")) as boolean;
+        if (!paused) {
+          await sleep(3000);
+        }
+      }
+      expect(paused, "debugger PAUSED at the breakpoint inside the plugin during replay").to.equal(true);
+
+      await shotWithHighlight(".debug-toolbar .codicon-debug-continue", "09-paused-inside-plugin");
+      // A second, un-highlighted frame of the same moment: the wiki needs one that shows WHAT you get
+      // when it stops — the captured Target and the values derived from it in Locals, and a call stack
+      // running from the test host into the plugin's own methods.
+      //
+      // The VARIABLES view starts with its scopes COLLAPSED, so a naive capture here is an empty pane
+      // under a caption promising the captured values — expand the scopes and prove at least one real
+      // variable is on screen before shooting, so the frame cannot silently become a lie.
+      const localsVisible = await (async (): Promise<boolean> => {
+        const deadline = Date.now() + 30000;
+        while (Date.now() < deadline) {
+          try {
+            await driver.executeScript(
+              `for (const row of document.querySelectorAll('.debug-variables .monaco-list-row[aria-expanded="false"], .debug-pane .monaco-list-row[aria-expanded="false"]')) {
+                 const twistie = row.querySelector('.monaco-tl-twistie');
+                 if (twistie) { twistie.click(); }
+               }`,
+            );
+          } catch {
+            /* the view may re-render mid-expand; the retry covers it */
+          }
+          await sleep(1200);
+          const names = String(
+            (await driver.executeScript(
+              `return Array.from(document.querySelectorAll('.debug-variables .monaco-list-row, .debug-pane .monaco-list-row')).map(function(r){return r.textContent || "";}).join(" | ");`,
+            )) ?? "",
+          );
+          // `target` is the captured Target entity — the whole point of the frame.
+          if (/\btarget\b|localPluginContext/i.test(names)) {
+            return true;
+          }
+        }
+        return false;
+      })();
+      if (!localsVisible) {
+        console.log("    [e2e] NOTE: Locals did not populate, so 09b shows the call stack only — do not caption it as showing Locals.");
+      }
+      await shot("09b-locals-and-call-stack");
+      // Paused WHERE matters: the focused editor must be the plugin's own file, which is what
+      // "debug a captured production run" means — not merely that some session stopped somewhere.
+      const activeTab = String((await driver.executeScript("return document.querySelector('.tabs-container .tab.active .label-name')?.textContent ?? '';")) ?? "");
+      expect(activeTab, `paused inside ${className}.cs (active tab was "${activeTab}")`).to.contain(`${className}.cs`);
+
+      // Log the call stack for diagnosis, without asserting on it — the Run and Debug view may not be
+      // the visible side bar, and a brittle DOM assert here would buy nothing over the tab check.
+      const stack = String(
+        (await driver.executeScript("return Array.from(document.querySelectorAll('.debug-call-stack .monaco-list-row')).map(function(r){return r.textContent;}).join(' | ');")) ??
+          "",
+      );
+      if (stack) {
+        console.log(`    [e2e] call stack: ${stack.slice(0, 300)}`);
+      }
+
+      // NOT ASSERTED HERE: pressing Continue and watching the replay finish green.
+      //
+      // Every way of delivering Continue to a paused window from Selenium was tried and none of them
+      // reached VS Code: a synthetic `element.click()` (Monaco action items want pointer events), a real
+      // Selenium click (the mouse-move first renders the "Continue (F5)" tooltip, which then swallows the
+      // click — visible in the failure screenshot), the command palette, and F5 via `sendKeys` after
+      // reclaiming focus. The session sat paused at the same line each time. That is a keystroke-delivery
+      // limit of the harness, not a product defect: what the product must do — attach the right debugger
+      // to the right process and STOP inside the plug-in — is asserted above, and that the replay runs to
+      // completion GREEN is asserted by the plain `dotnet test` step earlier in this suite.
+      //
+      // So end the session deterministically instead, and assert the process really did exit.
+      const stopBaseline = logFileSize();
+      await runCommandResilient("Debug: Stop").catch(() => undefined);
+      const finished = await waitForLogFile(/\[Profiler\] Replay finished \(exit code /, { timeoutMs: 120000, sinceByte: stopBaseline });
+      expect(/Replay finished/.test(finished), "the replay process exited once the debug session ended").to.equal(true);
+      // Log whether the toolbar went away, but don't assert on it: the process exiting is the claim (and
+      // is asserted above), while the toolbar is UI chrome that can linger after the session is gone.
+      const endedDeadline = Date.now() + 30000;
+      let ended = false;
+      while (Date.now() < endedDeadline && !ended) {
+        ended = (await driver.executeScript("return document.querySelectorAll('.debug-toolbar').length === 0;")) as boolean;
+        if (!ended) {
+          await sleep(3000);
+        }
+      }
+      console.log(`    [e2e] debug toolbar cleared: ${ended}`);
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      const { TextEditor, EditorView } = require("vscode-extension-tester");
+      // Activate the plugin FILE first: earlier steps open the generated Replay_*.cs, and both
+      // breakpoints and CodeLens reads act on whatever editor is active (which is why a
+      // breakpoint on line ${breakpointLine} once failed against the much shorter replay file).
+      await new EditorView().openEditor(`${className}.cs`).catch(() => undefined);
+      await sleep(1500);
+      await new TextEditor().moveCursor(breakpointLine, 1).catch(() => undefined);
+      await new TextEditor().toggleBreakpoint(breakpointLine).catch(() => undefined);
+      return `paused inside ${className}.cs:${breakpointLine} during replay (captured context in scope); session stopped and the replay process exited`;
+    });
+  });
+
+  // Drive the CodeLens route for real. Last, so a failure here cannot disturb the capture flow above,
+  // and it toggles back OFF so the step is left active for the next run (the #241 lesson).
+  it("starts and stops profiling from the per-step CodeLens", async () => {
+    await step(COMPONENT, "CodeLens route: start profiling, then stop", async () => {
+      const pluginCs = await waitForMatchDeep(workspace, (n) => n === `${className}.cs`, 30000);
+      if (!pluginCs) {
+        throw new Error(`${className}.cs not found`);
+      }
+      // Start from a known window. Inheriting the debug step's state — a live session, the Run and Debug
+      // side bar, the generated Replay_*.cs alongside this file — is what made every CodeLens read here
+      // throw "Waiting until element is visible": close everything, then open ONE editor.
+      await runCommandResilient("Debug: Stop").catch(() => undefined);
+      await sleep(1500);
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      const { EditorView: Editors } = require("vscode-extension-tester");
+      await new Editors().closeAllEditors().catch(() => undefined);
+      await sleep(1000);
+      await VSBrowser.instance.openResources(pluginCs);
+      await sleep(3000);
+      await dismissOverlays();
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      const { TextEditor, EditorView } = require("vscode-extension-tester");
+      // Activate the plugin FILE first: earlier steps open the generated Replay_*.cs, and both
+      // breakpoints and CodeLens reads act on whatever editor is active (which is why a
+      // breakpoint on line ${breakpointLine} once failed against the much shorter replay file).
+      await new EditorView().openEditor(`${className}.cs`).catch(() => undefined);
+      await sleep(1500);
+
+      const clickProfileLens = async (): Promise<string> => {
+        const deadline = Date.now() + 90000;
+        let lastError = "";
+        for (;;) {
+          // Tolerate a transient read: right after a debug session ends the editor can hold a stale,
+          // zero-size `.codelens-decoration`, and ExTester's visibility wait then throws
+          // ("Waiting until element is visible") instead of returning an empty list. That is a retry,
+          // not a verdict — the poll below decides.
+          try {
+            // Scroll to the TOP first. The Profile lens sits above the [CrmPluginRegistration] attribute
+            // near line 1, getCodeLenses() only sees RENDERED decorations, and the breakpoint steps left
+            // the editor scrolled down at line ~38 — so the lens existed and was simply off-screen.
+            await new TextEditor().moveCursor(1, 1).catch(() => undefined);
+            await sleep(700);
+            const lenses = await new TextEditor().getCodeLenses();
+            for (const lens of lenses) {
+              const text = await lens.getText();
+              if (/Profile:/.test(text)) {
+                await lens.click();
+                return text;
+              }
+            }
+          } catch (error) {
+            lastError = (error as Error).message;
+          }
+          if (Date.now() > deadline) {
+            throw new Error(`no Profile CodeLens to click${lastError ? ` (last read: ${lastError})` : ""}`);
+          }
+          await sleep(3000);
+        }
+      };
+
+      const startBaseline = logFileSize();
+      const beforeText = await clickProfileLens();
+      // The TOGGLE path logs "Profiling ON" — "Started profiling" belongs to the capture path, and
+      // waiting for it timed out while profiling was in fact on (the #240 lesson, again).
+      await waitForLogFile("[Profiler] Profiling ON for", { timeoutMs: 180000, sinceByte: startBaseline });
+      // The LABEL must flip, not just the org state: a lens that still reads "Profile: Off" while
+      // profiling is on is the half of #251 you could actually see, and it needed the provider to fire
+      // onDidChangeCodeLenses after the toggle settles. Assert it before the screenshot — the previous
+      // frame published as "Profile: On" was showing "Off".
+      const labelDeadline = Date.now() + 90000;
+      let onLabel = "";
+      while (Date.now() < labelDeadline && !onLabel) {
+        try {
+          const editor = new TextEditor();
+          await editor.moveCursor(1, 1).catch(() => undefined);
+          await sleep(700);
+          for (const lens of await editor.getCodeLenses()) {
+            const text = await lens.getText();
+            if (/Profile:\s*On/.test(text)) {
+              onLabel = text;
+              break;
+            }
+          }
+        } catch {
+          /* transient read — the poll decides */
+        }
+        if (!onLabel) {
+          await sleep(3000);
+        }
+      }
+      expect(onLabel, 'the CodeLens label flipped to "Profile: On" while profiling is on').to.match(/Profile:\s*On/);
+      await shotWithHighlight(".codelens-decoration a", "09-profile-codelens-on", { text: "Profile: On" });
+
+      // Toggling the same lens again stops it. Its on/off label comes from the cached active-profiles
+      // list, so a panel refresh may lag the click.
+      const stopBaseline = logFileSize();
+      await clickProfileLens();
+      // Stopping via the lens logs either "Stopped profiling (deleted profiler step)" or "Profiling OFF"
+      // depending on which arm ran, so match the shared prefix.
+      await waitForLogFile(/\[Profiler\] (Stopped profiling|Profiling OFF)/, { timeoutMs: 180000, sinceByte: stopBaseline });
+      // Leave the step ACTIVE however the profiler left it (#241).
+      await client.reactivateAssemblySteps(projectName).catch(() => 0);
+      return `CodeLens toggled profiling on ("${beforeText.trim()}") and back off`;
     });
   });
 
@@ -340,6 +763,16 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
       const reactivated = await client.reactivateAssemblySteps(projectName);
       if (reactivated > 0) {
         console.log(`[cleanup] re-enabled ${reactivated} original step(s) the profiler had disabled`);
+      }
+    } catch {
+      /* best-effort */
+    }
+    // Delete the captured profiles this run created — otherwise the next run downloads several and
+    // "Replay & debug" starts prompting "Replay which profile?" (see deletePluginProfilesForType).
+    try {
+      const profiles = await client.deletePluginProfilesForType(typeName);
+      if (profiles > 0) {
+        console.log(`[cleanup] deleted ${profiles} captured profile(s) for ${typeName}`);
       }
     } catch {
       /* best-effort */

@@ -180,6 +180,130 @@ export async function pickFirst(timeoutMs = 30000): Promise<void> {
   await sleep(2500);
 }
 
+// ── Documentation screenshots (opt-in via DVPT_E2E_SHOTS=1) ──────────────────────────────────────
+//
+// The suites already click through every real step, so capturing the wiki's walkthrough frames HERE
+// means the images are of the actual UI at the actual moment — a staged re-enactment would drift from
+// the product the first time a label changed. Off by default so normal runs pay nothing.
+
+const SHOTS_DIR = path.join(repoRoot, "sandbox", "screenshots-out", "profiling");
+
+export function shotsEnabled(): boolean {
+  return process.env.DVPT_E2E_SHOTS === "1";
+}
+
+/**
+ * Clear what an earlier step left visible in the MAIN document: every outline this module applied, the
+ * focus ring on the last-clicked control, and any text selection. `keepOwnOutline` spares the outline
+ * for the frame being captured right now.
+ */
+async function clearShotArtefacts(keepOwnOutline: boolean): Promise<void> {
+  try {
+    await VSBrowser.instance.driver.executeScript(
+      `const keep = ${keepOwnOutline ? "true" : "false"};
+       for (const el of document.querySelectorAll('[data-dvpt-shot]')) {
+         if (keep && el.dataset.dvptShot === "current") { continue; }
+         el.style.outline = "";
+         el.style.outlineOffset = "";
+         delete el.dataset.dvptShot;
+       }
+       if (!keep && document.activeElement && document.activeElement !== document.body) {
+         try { document.activeElement.blur(); } catch (e) { /* some hosts refuse */ }
+       }
+       const selection = window.getSelection();
+       if (selection && selection.rangeCount > 0) { selection.removeAllRanges(); }`,
+    );
+  } catch {
+    /* best-effort: never fail a step over tidying a screenshot */
+  }
+}
+
+/**
+ * Full-window PNG named `<name>.png` (callers prefix a step number for stable ordering).
+ *
+ * Tidies the window first, because a frame should show only what THIS step is about. Three things
+ * otherwise carry over and read as "these are highlighted too": an outline this module applied for an
+ * earlier frame, the focus ring VS Code leaves on the last control that was clicked, and a live text
+ * selection (reading the output pane leaves one behind).
+ */
+export async function shot(name: string): Promise<void> {
+  if (!shotsEnabled()) {
+    return;
+  }
+  try {
+    fs.mkdirSync(SHOTS_DIR, { recursive: true });
+    await clearShotArtefacts(false);
+    const png = await VSBrowser.instance.driver.takeScreenshot();
+    fs.writeFileSync(path.join(SHOTS_DIR, `${name}.png`), png, "base64");
+    console.log(`    [shot] ${name}.png`);
+  } catch (error) {
+    console.log(`    [shot] ${name} failed: ${String(error).slice(0, 120)}`);
+  }
+}
+
+/**
+ * Outline the first element matching `selector` in the MAIN document, snap, then un-outline — so each
+ * documentation frame shows exactly which control, option or value the step uses. Quick picks, modals
+ * and the debug toolbar all live in the main document; panel buttons live in the panel's webview and
+ * are captured by `clickPanelButton`'s own `shot` option instead.
+ */
+export async function shotWithHighlight(selector: string, name: string, opts: { text?: string } = {}): Promise<void> {
+  if (!shotsEnabled()) {
+    return;
+  }
+  const driver = VSBrowser.instance.driver;
+  try {
+    // Clear first: an earlier frame's outline still on screen would make this one look like it
+    // highlights two controls.
+    await clearShotArtefacts(false);
+    const applied = (await driver.executeScript(
+      `const wanted = ${JSON.stringify(opts.text ?? "")};
+       const all = Array.from(document.querySelectorAll(${JSON.stringify(selector)}));
+       const el = wanted ? all.find((c) => (c.textContent || "").includes(wanted)) : all[0];
+       if (!el) { return false; }
+       el.dataset.dvptShot = "current";
+       el.style.outline = "3px solid #f80";
+       el.style.outlineOffset = "2px";
+       el.scrollIntoView({ block: "center" });
+       return true;`,
+    )) as boolean;
+    if (!applied) {
+      console.log(`    [shot] ${name}: no element matched ${selector} — capturing without a highlight`);
+    }
+    await sleep(400);
+    // Keep this frame's own outline; drop everything else (focus ring, selection, older outlines).
+    await clearShotArtefacts(true);
+    fs.mkdirSync(SHOTS_DIR, { recursive: true });
+    const png = await driver.takeScreenshot();
+    fs.writeFileSync(path.join(SHOTS_DIR, `${name}.png`), png, "base64");
+    console.log(`    [shot] ${name}.png`);
+    await clearShotArtefacts(false);
+  } catch (error) {
+    console.log(`    [shot] ${name} highlight failed: ${String(error).slice(0, 120)}`);
+    await shot(name);
+  }
+}
+
+/**
+ * Whether the C# extension is installed in the e2e VS Code instance — i.e. whether the `coreclr`
+ * debug type exists at all.
+ *
+ * The plugin Test Explorer's Debug profile launches `type: "coreclr"`, contributed by
+ * ms-dotnettools.csharp. The e2e instance deliberately runs a CLEAN extensions dir (ours only), so
+ * .NET debugging is unavailable by default and the debug steps must self-skip rather than fail.
+ *
+ * Installing it on every run was rejected: it would load Roslyn into every plugin workspace on an 8GB
+ * VM, which is the resource-starvation class of failure these suites already fight. Opt in with
+ * `npm run test:e2e:debugger`.
+ */
+export function csharpExtensionInstalled(): boolean {
+  try {
+    return fs.readdirSync(path.join(repoRoot, "sandbox", "ext-dir-clean")).some((name) => /^ms-dotnettools\.csharp-/i.test(name));
+  } catch {
+    return false;
+  }
+}
+
 /** Current byte length of the mirrored extension-output log file (a stable baseline to search
  *  AFTER, so `waitForLogFile` never matches a stale line from an earlier step). 0 if unset/missing. */
 export function logFileSize(): number {
@@ -391,7 +515,7 @@ export async function runCommand(title: string): Promise<void> {
  * command-palette keystroke lands nowhere and executeCommand times out
  * ("element not visible"). Clicking the editor part (neutral chrome — triggers
  * nothing) restores focus. */
-async function focusWorkbench(): Promise<void> {
+export async function focusWorkbench(): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   const { By } = require("vscode-extension-tester");
   const driver = new Workbench().getDriver();
@@ -721,7 +845,7 @@ export class E2EClient {
   /** Create a throwaway territory row — reliably triggers Create-of-territory
    * steps (an org may have zero existing territories to update). Returns the id. */
   async createTerritory(): Promise<string | undefined> {
-    const res = await this.request("POST", "territories", { name: `E2E profiler ${Date.now()}` });
+    const res = await this.request("POST", "territories", { name: `Contoso South West ${Date.now()}` });
     if (res.status !== 204 && res.status !== 201) {
       return undefined;
     }
@@ -798,6 +922,30 @@ export class E2EClient {
         if (del.ok || del.status === 204) {
           deleted++;
         }
+      }
+    }
+    return deleted;
+  }
+
+  /**
+   * Delete the captured profiles this suite created for a plugin type.
+   *
+   * Without this the org accumulates one `mbs_pluginprofile` per run, and once MORE THAN ONE exists
+   * the download pulls several, so "Replay & debug" starts asking "Replay which profile?" — a prompt
+   * nothing answers, which hangs the command and fails the step. The suite silently depended on a
+   * pristine org; leave it as we found it. Returns how many were deleted.
+   */
+  async deletePluginProfilesForType(typeName: string): Promise<number> {
+    const res = await this.request("GET", `mbs_pluginprofiles?$select=mbs_pluginprofileid&$filter=mbs_typename eq '${typeName.replace(/'/g, "''")}'&$top=100`);
+    if (!res.ok) {
+      return 0;
+    }
+    const rows: any[] = ((await res.json()) as any).value ?? [];
+    let deleted = 0;
+    for (const row of rows) {
+      const del = await this.request("DELETE", `mbs_pluginprofiles(${row.mbs_pluginprofileid})`);
+      if (del.ok || del.status === 204) {
+        deleted++;
       }
     }
     return deleted;

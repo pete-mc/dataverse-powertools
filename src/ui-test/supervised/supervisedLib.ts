@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { ActivityBar, VSBrowser, ViewControl, WebviewView, By, WebElement } from "vscode-extension-tester";
 // Reuse the proven e2e primitives rather than re-implementing them.
-import { sleep, dismissOverlays } from "../e2e/lib";
+import { sleep, dismissOverlays, shot } from "../e2e/lib";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Supervised UI-test harness.
@@ -45,11 +45,30 @@ export async function screenshot(name: string): Promise<void> {
   }
 }
 
-/** Briefly outline an element so it's obvious what's about to be clicked. */
+/**
+ * Briefly outline an element so it's obvious what's about to be clicked.
+ *
+ * Clears any outline left by an EARLIER call first. These outlines used to be applied and never
+ * removed, so by the end of a run every button that had ever been clicked was still ringed in orange —
+ * which in a published screenshot reads as "all of these are part of this step".
+ */
 async function highlight(el: WebElement): Promise<void> {
   try {
-    await VSBrowser.instance.driver.executeScript("arguments[0].style.outline = '3px solid #f80'; arguments[0].scrollIntoView({block:'center'});", el);
+    await clearHighlights();
+    await VSBrowser.instance.driver.executeScript(
+      "arguments[0].dataset.dvptHl = '1'; arguments[0].style.outline = '3px solid #f80'; arguments[0].scrollIntoView({block:'center'});",
+      el,
+    );
     await sleep(700);
+  } catch {
+    /* best-effort */
+  }
+}
+
+/** Remove every outline this module applied. Call inside the frame that owns them. */
+async function clearHighlights(): Promise<void> {
+  try {
+    await VSBrowser.instance.driver.executeScript(`for (const el of document.querySelectorAll('[data-dvpt-hl]')) { el.style.outline = ''; delete el.dataset.dvptHl; }`);
   } catch {
     /* best-effort */
   }
@@ -135,7 +154,7 @@ async function findButtonEl(panel: WebviewView, label: string, contains: boolean
  * Re-opens the frame and polls, since the panel re-renders as state changes. Some
  * labels carry decoration (e.g. "＋ Add Component…"), so pass `contains: true` to match
  * a substring. */
-export async function clickPanelButton(label: string, opts: { timeoutMs?: number; contains?: boolean } = {}): Promise<void> {
+export async function clickPanelButton(label: string, opts: { timeoutMs?: number; contains?: boolean; shot?: string } = {}): Promise<void> {
   const timeoutMs = opts.timeoutMs ?? 30000;
   await narrate(`Click panel button: "${label}"${opts.contains ? " (substring)" : ""}`);
   const deadline = Date.now() + timeoutMs;
@@ -154,7 +173,15 @@ export async function clickPanelButton(label: string, opts: { timeoutMs?: number
           return false;
         }
         await highlight(button);
+        // Capture the documentation frame while the button is outlined — takeScreenshot grabs the
+        // whole window, so being inside the panel iframe here does not matter.
+        if (opts.shot) {
+          await shot(opts.shot);
+        }
         await button.click();
+        // Drop the outline now the frame is captured, while we are still inside the panel iframe that
+        // owns it — otherwise it survives into every later screenshot.
+        await clearHighlights();
         return true;
       });
       if (clicked) {

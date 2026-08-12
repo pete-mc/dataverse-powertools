@@ -35,16 +35,15 @@ export async function runWebresourceBuild(context: DataversePowerToolsContext): 
   } catch (error: any) {
     const failureOutput = `${error?.stdout ?? ""}\n${error?.stderr ?? ""}`;
     context.channel.appendLine(stripAnsi(failureOutput));
-    context.channel.appendLine(`Build failed: ${error?.error?.message ?? error?.message ?? "unknown error"}`);
-    context.channel.show();
-    vscode.window.showErrorMessage("Error building webresources, see output for details.");
+    // reportFailure, not appendLine: this build did not produce a bundle, and the activity feed has to
+    // show ✗ rather than ✓ for the operation that contained it (#229).
+    context.reportFailure(`Build failed: ${error?.error?.message ?? error?.message ?? "unknown error"}`, { toast: "Error building webresources, see output for details." });
     return false;
   }
 
   context.channel.appendLine(stripAnsi(output));
   if (buildOutputHasErrors(output)) {
-    context.channel.show();
-    vscode.window.showErrorMessage("Error building webresources, see output for details.");
+    context.reportFailure("Build failed: webpack reported errors in the bundle.", { toast: "Error building webresources, see output for details." });
     return false;
   }
 

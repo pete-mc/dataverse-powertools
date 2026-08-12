@@ -74,3 +74,19 @@ export function logDataverseError(channel: DataverseLogChannel, operation: strin
   channel.appendLine(`Error while trying to ${operation}: ${message}`);
   channel.show();
 }
+
+/**
+ * The new record's id from a create response's `OData-EntityId` header.
+ *
+ * Dataverse answers a POST with **204 No Content** unless asked for a representation, putting the new
+ * record's URI in this header instead of a body. Calling `.json()` on that response throws
+ * "Unexpected end of JSON input" — and returning `{}` instead is worse than it sounds, because callers
+ * need the id (e.g. to add the newly-created record to a solution). Read it from the header.
+ *
+ * Accepts the full URI form Dataverse sends, with or without a trailing slash or whitespace:
+ * `https://org.crm.dynamics.com/api/data/v9.2/sdkmessageprocessingsteps(0f8f…)`
+ */
+export function entityIdFromODataHeader(header: string | null | undefined): string | undefined {
+  const match = /\(([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\)\s*\/?\s*$/.exec(header ?? "");
+  return match ? match[1] : undefined;
+}

@@ -34,7 +34,9 @@
     const total = payload.totalRecordCount;
     const count = el("div");
     count.appendChild(el("span", "count", `${rows} ${rows === 1 ? "row" : "rows"}`));
-    if (typeof total === "number" && total !== rows) {
+    // Dataverse returns -1 for the total when it did not count (no `returntotalrecordcount`, or the
+    // page is the whole result) — "0 rows of -1 matching" is not a fact about anything, so say nothing.
+    if (typeof total === "number" && total >= 0 && total !== rows) {
       count.appendChild(el("span", undefined, ` of ${total} matching`));
     }
     if (payload.moreRecords) {

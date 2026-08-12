@@ -16,6 +16,8 @@ import {
   clearOutput,
   E2EClient,
   resetAllCredentials,
+  shot,
+  shotWithHighlight,
 } from "./lib";
 
 // End-to-end for the FetchXML query tools (#238), driving the LITERAL VS Code UI.
@@ -257,6 +259,8 @@ namespace DvptQueryProbe
       titles.some((title) => title.includes("generator")),
       `expected an "Edit in generator" lens — saw: ${titles.join(" | ")}`,
     ).to.equal(true);
+    // Wiki frame: the lens as it appears on a query already sitting in your own code.
+    await shotWithHighlight(".codelens-decoration a", "fetchxml-01-codelens-csharp", { text: "Run" });
   });
 
   it("shows the CodeLens on a TypeScript template-literal query, and flags the unescaped value", async () => {
@@ -272,6 +276,8 @@ namespace DvptQueryProbe
       titles.some((title) => title.includes("issue")),
       `expected an issues lens for the unescaped value — saw: ${titles.join(" | ")}`,
     ).to.equal(true);
+    // Wiki frame: the same lens on a TypeScript template literal, flagging the unescaped value.
+    await shotWithHighlight(".codelens-decoration a", "fetchxml-02-codelens-typescript", { text: "issue" });
   });
 
   it("runs the C# query against the environment and returns rows", async () => {
@@ -280,6 +286,9 @@ namespace DvptQueryProbe
     await lensTitles(); // wait for the lenses to resolve before clicking one
     await clickLens("Run");
 
+    // Wiki frame: the prompt that asks for the placeholder's value before the query runs.
+    await sleep(2500);
+    await shot("fetchxml-03-parameter-prompt");
     // One parameter (accountId, inferred Uniqueidentifier from the column) — the prompt validates it,
     // so an all-zero GUID is accepted and simply matches nothing.
     await answerText("00000000-0000-0000-0000-000000000000");
@@ -289,6 +298,9 @@ namespace DvptQueryProbe
     const text = await expectOutput(["[Query] GET accounts", "row(s) returned"], { step: "run C# query", timeoutMs: 240000 });
     expect(/\[Query\] \d+ row\(s\) returned/.test(text), "the run logged a row count").to.equal(true);
     await assertCommandDidNotError("run C# query");
+    // Wiki frame: the results view for that run.
+    await sleep(2000);
+    await shot("fetchxml-04-results");
   });
 
   it("opens the generator on the C# query with the parameter bound to the code expression", async () => {
@@ -313,6 +325,9 @@ namespace DvptQueryProbe
     } finally {
       await webview.switchBack();
     }
+    // Wiki frame: the generator itself. Taken AFTER switching back out of the webview frame — a
+    // screenshot while the driver is inside an iframe context captures the frame, not the window.
+    await shot("fetchxml-05-generator");
   });
 
   it("writes an edit from the generator back into the C# file, leaving the rest of it untouched", async () => {
