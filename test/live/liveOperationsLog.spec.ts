@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import * as cp from "child_process";
-import { loadLiveEnv, LiveEnv, testSolutionConfig } from "../liveEnv";
+import { loadLiveEnv, LiveEnv, testSolutionConfig, liveEnvOrPlaceholder } from "../liveEnv";
 import { LiveDataverseClient } from "./dataverseClient";
 import { DataverseContext } from "../../src/general/dataverse/dataverseContext";
 import { DataverseWebresource } from "../../src/general/dataverse/DataverseWebresource";
@@ -32,7 +32,7 @@ it(env && toolchain ? "live env + pac/dotnet available for operations log" : "op
 const live = env && toolchain ? describe : describe.skip;
 
 live("live operations log (real connect + webresource push + plugin push, captured channel)", () => {
-  const e = env as LiveEnv;
+  const e = liveEnvOrPlaceholder(env);
   const client = new LiveDataverseClient(e);
   const cfg = testSolutionConfig(e);
   const stamp = Date.now();

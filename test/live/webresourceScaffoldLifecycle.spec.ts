@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import * as cp from "child_process";
-import { loadLiveEnv, LiveEnv, testSolutionConfig } from "../liveEnv";
+import { loadLiveEnv, LiveEnv, testSolutionConfig, liveEnvOrPlaceholder } from "../liveEnv";
 import { LiveDataverseClient } from "./dataverseClient";
 import { DataverseContext } from "../../src/general/dataverse/dataverseContext";
 import { DataverseWebresource } from "../../src/general/dataverse/DataverseWebresource";
@@ -62,7 +62,7 @@ function restoreCommands(): string[] {
 }
 
 live("web resources scaffold -> restore -> build -> deploy (command level)", () => {
-  const e = env as LiveEnv;
+  const e = liveEnvOrPlaceholder(env);
   const client = new LiveDataverseClient(e);
   const cfg = testSolutionConfig(e);
   const libraryName = `${cfg.prefix}_library.js`;
