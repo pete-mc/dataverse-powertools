@@ -299,12 +299,17 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
       if (!pluginCs) {
         throw new Error(`${className}.cs not found`);
       }
+      // Close everything first: the wizard opened the SCAFFOLDED version of this file (no
+      // [CrmPluginRegistration] yet — the suite writes the real source afterwards), and that stale buffer
+      // is what the lens provider read, so the lenses came back as "Add Class Decoration". Reopening from
+      // disk with no other editors around is deterministic.
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      const { TextEditor, EditorView } = require("vscode-extension-tester");
+      await new EditorView().closeAllEditors().catch(() => undefined);
+      await sleep(1000);
       await VSBrowser.instance.openResources(pluginCs);
       await sleep(3000);
       await dismissOverlays();
-
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      const { TextEditor, EditorView } = require("vscode-extension-tester");
       // Activate the plugin FILE first: earlier steps open the generated Replay_*.cs, and both
       // breakpoints and CodeLens reads act on whatever editor is active (which is why a
       // breakpoint on line ${breakpointLine} once failed against the much shorter replay file).
@@ -666,8 +671,33 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
       // The TOGGLE path logs "Profiling ON" — "Started profiling" belongs to the capture path, and
       // waiting for it timed out while profiling was in fact on (the #240 lesson, again).
       await waitForLogFile("[Profiler] Profiling ON for", { timeoutMs: 180000, sinceByte: startBaseline });
-      await sleep(4000);
-      await shotWithHighlight(".codelens-decoration a", "09-profile-codelens-on", { text: "Profile:" });
+      // The LABEL must flip, not just the org state: a lens that still reads "Profile: Off" while
+      // profiling is on is the half of #251 you could actually see, and it needed the provider to fire
+      // onDidChangeCodeLenses after the toggle settles. Assert it before the screenshot — the previous
+      // frame published as "Profile: On" was showing "Off".
+      const labelDeadline = Date.now() + 90000;
+      let onLabel = "";
+      while (Date.now() < labelDeadline && !onLabel) {
+        try {
+          const editor = new TextEditor();
+          await editor.moveCursor(1, 1).catch(() => undefined);
+          await sleep(700);
+          for (const lens of await editor.getCodeLenses()) {
+            const text = await lens.getText();
+            if (/Profile:\s*On/.test(text)) {
+              onLabel = text;
+              break;
+            }
+          }
+        } catch {
+          /* transient read — the poll decides */
+        }
+        if (!onLabel) {
+          await sleep(3000);
+        }
+      }
+      expect(onLabel, 'the CodeLens label flipped to "Profile: On" while profiling is on').to.match(/Profile:\s*On/);
+      await shotWithHighlight(".codelens-decoration a", "09-profile-codelens-on", { text: "Profile: On" });
 
       // Toggling the same lens again stops it. Its on/off label comes from the cached active-profiles
       // list, so a panel refresh may lag the click.

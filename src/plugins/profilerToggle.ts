@@ -18,6 +18,7 @@ import { findPluginClasses } from "./profilerCodeLens";
 import { isCaptureSupported, buildEnableArgs, buildDisableArgs, runProfilerTool } from "./profilerCaptureTool";
 import { ensureCaptureToolRuntime } from "./profilerAssets";
 import { ensureProfilerInstalled } from "./profilerCapture";
+import { refreshDecorationCodeLenses } from "./decorationsCodeLens";
 import { guidePluginProfiling } from "./profilerGuide";
 import { refreshActiveProfiles, getActiveProfilesCache } from "../panel/panelDataCache";
 
@@ -90,6 +91,9 @@ export async function toggleStepProfiling(context: DataversePowerToolsContext, u
     // Re-read until the org reflects the change, so the label and the Active profiles block tell the
     // truth: a clone is not always queryable the instant the tool returns.
     await settleActiveProfiles(scoped, key, !active);
+    // Settling updates the cache; this makes the LENS re-read it. Without it the label kept saying
+    // whatever it said when the file was opened (#251) — the part of that bug you could actually see.
+    refreshDecorationCodeLenses();
   });
 }
 

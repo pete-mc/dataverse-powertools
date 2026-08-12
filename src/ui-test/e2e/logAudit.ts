@@ -45,6 +45,11 @@ const BENIGN: RegExp[] = [
   /Failed=0\b/i, // trx-style counters
   /passExecutionContext/i, // form XML attribute containing "ExecutionContext"
   /\(in \d+\s*ms\)/i, // build/restore timing "Restored … (in 401 ms)" — the http-error rule's /i makes [A-Z] match the "ms", not an HTTP 401
+  // The profiler suite's debug step ENDS the replay's debug session on purpose (it cannot drive
+  // Continue — see pluginProfilerReplay.e2e.ts), which kills the waiting test host and makes VSTest say
+  // so. Narrow on purpose: only the testhost-exited line, and only with the empty reason a kill
+  // produces — a real crash carries a reason, and `Build failed`-style signatures stay unmasked (#249).
+  /^Testhost process for source\(s\) '.*' exited with error: \. Please check the diagnostic logs/,
 ];
 
 /** Audit a full e2e log. Returns findings for suspicious lines not covered by
