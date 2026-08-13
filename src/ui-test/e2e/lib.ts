@@ -967,6 +967,28 @@ export class E2EClient {
     }
   }
 
+  // ---- PCF custom control (#227): prove an interactive push really landed, then remove it ----
+
+  /** The `customcontrol` row id for a `<namespace>.<name>` control, or undefined when absent. */
+  async findCustomControlId(fullName: string): Promise<string | undefined> {
+    const res = await this.request("GET", `customcontrols?$select=customcontrolid&$filter=name eq '${fullName.replace(/'/g, "''")}'`);
+    if (!res.ok) {
+      return undefined;
+    }
+    const data: any = await res.json();
+    return data?.value?.[0]?.customcontrolid;
+  }
+
+  /** Delete a pushed custom control. Best-effort: a control referenced by a form cannot be removed. */
+  async deleteCustomControl(fullName: string): Promise<boolean> {
+    const id = await this.findCustomControlId(fullName);
+    if (!id) {
+      return false;
+    }
+    const res = await this.request("DELETE", `customcontrols(${id})`);
+    return res.ok;
+  }
+
   // ---- Custom API (#225): verify what the deploy actually created, then remove it ----
 
   /** The `customapi` row id for a unique name, or undefined when it is not in the environment. */

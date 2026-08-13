@@ -639,6 +639,24 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
     });
   });
 
+  // #231 wanted a LIVE-TRIGGERED trace log: not a hand-made example, but the record a real execution
+  // wrote. The territory create above already ran the plug-in, and its Trace() line is in the org — so
+  // this opens the viewer on that record and captures what a user would read.
+  it("shows the trace log written by the run we triggered (live trace capture)", async () => {
+    await step(COMPONENT, "View plugin trace logs for the triggered run", async () => {
+      await runCommandResilient("Dataverse PowerTools: View Plugin Trace Logs");
+      // Most recent first, and this suite's territory create is the most recent thing to have run.
+      await pickFirst(120000);
+      await sleep(3000);
+      await dismissOverlays();
+      const rendered = String((await VSBrowser.instance.driver.executeScript("return document.querySelector('.monaco-editor')?.innerText ?? '';")) ?? "");
+      // Prove it is OUR run's trace before publishing the frame: the plug-in's own Trace() text.
+      expect(rendered, `the rendered trace log is from the plug-in we triggered — saw: ${rendered.slice(0, 200)}`).to.contain("Onboarded territory");
+      await shot("10-live-trace-log");
+      return "opened the trace log for the triggered run (contains the plug-in's own Trace output)";
+    });
+  });
+
   // Drive the CodeLens route for real. Last, so a failure here cannot disturb the capture flow above,
   // and it toggles back OFF so the step is left active for the next run (the #241 lesson).
   it("starts and stops profiling from the per-step CodeLens", async () => {

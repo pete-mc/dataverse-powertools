@@ -27,6 +27,12 @@ import { initProject, step, showLog } from "./acceptanceLib";
 // The generated handler is a stub with a TODO, so the test writes one line of real implementation into
 // it (echo the input) before deploying: without that the call would return 200 and nothing, which would
 // prove the plumbing while proving nothing about the data.
+//
+// It then EDITS the definition and deploys a SECOND time, because create was the only arm the first
+// version of this suite covered. Update and delete had never run outside a mock, and "the environment
+// ends up matching the file" is the actual promise — a parameter you removed has to disappear from
+// Dataverse, not linger. The same edit proves #254: regenerating refreshes the wrappers and leaves the
+// implementation you wrote alone.
 const COMPONENT = "Custom API";
 
 /**
@@ -63,6 +69,8 @@ describe("ACCEPTANCE: Custom API — define, deploy and execute via panel button
   const className = `Echo${Date.now().toString().slice(-6)}`;
   let pluginTypeName = "";
   let handlerPath = "";
+  /** Captured on the first deploy so the re-deploy can prove the API row was UPDATED, not recreated. */
+  let customApiIdFirstDeploy: string | undefined;
   const isWindows = process.platform === "win32";
 
   function pkgUnique(): string {
@@ -139,18 +147,17 @@ describe("ACCEPTANCE: Custom API — define, deploy and execute via panel button
       await clickOverflowItem("Generate Custom API handlers", { timeoutMs: 45000 });
       // The log names the DEFINITION FILE, not the unique name: "✓ dvpt_X.customapi.json → …".
       await expectOutput([`✓ ${apiUniqueName}.customapi.json → `, `${className}.generated.cs`], { step: "generate handler", timeoutMs: 120000 });
-      // The handler has to end up somewhere the plug-in project COMPILES, or the type it declares never
-      // reaches the assembly and the Custom API deploy has nothing to point at. Accept either location
-      // for now and record which one, so the run shows the whole consequence chain rather than stopping
-      // at the first symptom.
-      const atComponentRoot = path.join(workspace, "CustomApi", `${className}.generated.cs`);
-      const inPluginProject = path.join(workspace, projectName, "CustomApi", `${className}.generated.cs`);
-      const found = (await waitForFile(inPluginProject, 30000)) ? inPluginProject : (await waitForFile(atComponentRoot, 30000)) ? atComponentRoot : undefined;
-      expect(found, `${className}.generated.cs written somewhere`).to.not.equal(undefined);
-      handlerPath = found!;
-      const buildable = handlerPath.startsWith(path.join(workspace, projectName) + path.sep);
-      console.log(`    [e2e] handler written to ${path.relative(workspace, handlerPath)} — ${buildable ? "inside" : "OUTSIDE"} the plug-in project`);
-      expect(buildable, `the generated handler is inside ${projectName}/ so dotnet build compiles it`).to.equal(true);
+      // The handler has to be somewhere the plug-in project COMPILES, or the type it declares never
+      // reaches the assembly and the Custom API deploy has nothing to point at (#225).
+      const outDir = path.join(workspace, projectName, "CustomApi");
+      const wrappersPath = path.join(outDir, `${className}.generated.cs`);
+      expect(await waitForFile(wrappersPath, 30000), `${projectName}/CustomApi/${className}.generated.cs`).to.equal(true);
+      // Two files, not one: the wrappers are regenerated, the implementation is the user's (#254).
+      handlerPath = path.join(outDir, `${className}.cs`);
+      expect(await waitForFile(handlerPath, 30000), `${projectName}/CustomApi/${className}.cs (the file you own)`).to.equal(true);
+      const wrappers = fs.readFileSync(wrappersPath, "utf8");
+      expect(wrappers, "the wrappers file has no implementation to lose").to.not.contain(": IPlugin");
+      expect(fs.readFileSync(handlerPath, "utf8"), "the implementation is in the file you own").to.contain(": IPlugin");
 
       await clearOutput();
       await closeAnyOpenMenu();
@@ -167,22 +174,58 @@ describe("ACCEPTANCE: Custom API — define, deploy and execute via panel button
       expect(clientSource, "the client calls the API by its unique name").to.contain(apiUniqueName);
       expect(clientSource, "the client types the request parameter").to.contain("InputValue");
       expect(clientSource, "the client types the response property").to.contain("OutputValue");
-      return `generated CustomApi/${className}.generated.cs and clients/${apiUniqueName}.ts`;
+      return `generated CustomApi/${className}.generated.cs + ${className}.cs and clients/${className}.client.ts`;
     });
   });
 
-  it("implements the handler, then deploys the package — Build & deploy package", async () => {
-    await step(COMPONENT, "Implement + deploy the plug-in package", async () => {
-      // Replace the generated TODO with the one line a user would write. Done here rather than in the
-      // template so regenerating never silently overwrites real logic.
-      const handler = handlerPath;
-      const source = fs.readFileSync(handler, "utf8");
-      const implemented = source.replace(
-        /\/\/ TODO: implement the .*\n.*\/\/ Read typed inputs from 'request', set typed outputs on 'response'\./,
-        `response.OutputValue = "echo: " + request.InputValue;`,
-      );
-      expect(implemented, "the TODO was found and replaced").to.not.equal(source);
-      fs.writeFileSync(handler, implemented);
+  // #254 was: regenerating rewrote the single handler file, taking the user's Execute body with it.
+  it("keeps YOUR implementation when the handler is regenerated (#254)", async () => {
+    await step(COMPONENT, "Regenerate after editing the definition", async () => {
+      // Write the implementation the way a user would, then change the definition and regenerate.
+      const marker = "// MY-IMPLEMENTATION-MUST-SURVIVE";
+      const implemented = fs
+        .readFileSync(handlerPath, "utf8")
+        .replace(
+          /\/\/ TODO: implement the .*\n.*\/\/ Read typed inputs from 'request', set typed outputs on 'response'\./,
+          `${marker}\n            response.OutputValue = "echo: " + request.InputValue;`,
+        );
+      expect(implemented, "the TODO was found and replaced").to.not.contain("// TODO: implement");
+      fs.writeFileSync(handlerPath, implemented);
+
+      // A real definition change: a second request parameter the wrappers must pick up.
+      const definitionPath = path.join(workspace, `${apiUniqueName}.customapi.json`);
+      const def = JSON.parse(fs.readFileSync(definitionPath, "utf8"));
+      def.requestParameters.push({
+        uniqueName: "Multiplier",
+        name: `${apiUniqueName}.Multiplier`,
+        displayName: "Multiplier",
+        type: "Integer",
+        isOptional: true,
+        description: "Added to prove regeneration refreshes the wrappers.",
+      });
+      fs.writeFileSync(definitionPath, JSON.stringify(def, null, 2) + "\n");
+
+      await clearOutput();
+      await closeAnyOpenMenu();
+      await expandComponentCards();
+      await clickOverflowItem("Generate Custom API handlers", { timeoutMs: 45000 });
+      // The log states which file was left alone, so the guarantee is visible and not just implied.
+      await expectOutput([`✓ ${apiUniqueName}.customapi.json → `, `${className}.cs left as you wrote it`], { step: "regenerate handler", timeoutMs: 120000 });
+
+      const afterUser = fs.readFileSync(handlerPath, "utf8");
+      expect(afterUser, "MY implementation survived regeneration").to.contain(marker);
+      expect(afterUser, "and so did the line I wrote").to.contain('response.OutputValue = "echo: " + request.InputValue;');
+      const afterWrappers = fs.readFileSync(path.join(workspace, projectName, "CustomApi", `${className}.generated.cs`), "utf8");
+      expect(afterWrappers, "the wrappers picked up the new parameter").to.contain("public int Multiplier =>");
+      return `regenerated after adding Multiplier: wrappers refreshed, ${className}.cs untouched`;
+    });
+  });
+
+  it("deploys the plug-in package — Build & deploy package", async () => {
+    await step(COMPONENT, "Deploy the plug-in package", async () => {
+      // The implementation was written in the step above (and survived regeneration), so this compiles
+      // real logic — an echo — rather than an empty TODO.
+      expect(fs.readFileSync(handlerPath, "utf8"), "the handler implements the echo").to.contain('response.OutputValue = "echo: " + request.InputValue;');
 
       await clearOutput();
       await closeAnyOpenMenu();
@@ -220,8 +263,8 @@ describe("ACCEPTANCE: Custom API — define, deploy and execute via panel button
       // Gate on the reconcile SUMMARY, not on "Created CustomAPI": that line is written before the
       // request parameters and response properties are reconciled, so verifying Dataverse on it found
       // the API and its parameter but not yet its response property. The counts also assert the plan —
-      // one of each created, nothing updated, nothing deleted.
-      await expectOutput([`Created CustomAPI '${apiUniqueName}'.`, "Parameters: +1 ~0 -0; Response: +1 ~0 -0."], { step: "deploy custom api", timeoutMs: 300000 });
+      // both request parameters and the one response property created, nothing updated or deleted.
+      await expectOutput([`Created CustomAPI '${apiUniqueName}'.`, "Parameters: +2 ~0 -0; Response: +1 ~0 -0."], { step: "deploy custom api", timeoutMs: 300000 });
 
       const customApiId = await client.findCustomApiId(apiUniqueName);
       expect(customApiId, `customapi row for ${apiUniqueName}`).to.not.equal(undefined);
@@ -235,7 +278,8 @@ describe("ACCEPTANCE: Custom API — define, deploy and execute via panel button
       const members = await client.getCustomApiMembers(customApiId!);
       expect(members.requestParameters, "the request parameter was created").to.include("InputValue");
       expect(members.responseProperties, "the response property was created").to.include("OutputValue");
-      return `customapi ${apiUniqueName} created (${customApiId}) with InputValue → OutputValue`;
+      customApiIdFirstDeploy = customApiId;
+      return `customapi ${apiUniqueName} created (${customApiId}) with InputValue + Multiplier → OutputValue`;
     });
   });
 
@@ -252,7 +296,11 @@ describe("ACCEPTANCE: Custom API — define, deploy and execute via panel button
         await clickOverflowItem("Run Custom API…", { timeoutMs: 45000 });
         // No "which Custom API?" pick: that quick pick only appears with MORE than one definition in the
         // component, and this suite creates exactly one — so the next prompt is the parameter itself.
+        // ONE PROMPT PER REQUEST PARAMETER, in definition order. The regeneration step above added
+        // Multiplier, so there are two now; answering only the first leaves the command waiting and no
+        // call is ever made.
         await answerText("ping"); // InputValue
+        await answerText("2"); // Multiplier (optional, but the prompt still appears)
         try {
           // "POST dvpt_Echo…" — the logged path has no leading slash.
           responseText = await expectOutput([`POST ${apiUniqueName}`, "Response:"], { step: `invoke custom api (attempt ${attempt})`, timeoutMs: 120000 });
@@ -272,6 +320,55 @@ describe("ACCEPTANCE: Custom API — define, deploy and execute via panel button
       expect(responseText, "the response contains the handler's OutputValue").to.contain("OutputValue");
       expect(responseText, "the handler echoed the input we passed").to.contain("echo: ping");
       return `called ${apiUniqueName} with InputValue="ping" and got OutputValue="echo: ping"`;
+    });
+  });
+
+  // The create path was proven above. UPDATE and DELETE were only ever unit-tested against a mock, so a
+  // second deploy of an EDITED definition is the only thing that shows Dataverse ends up matching the
+  // file rather than accumulating whatever earlier versions left behind.
+  it("re-deploys an EDITED definition: updates what changed and DELETES what was removed", async () => {
+    await step(COMPONENT, "Re-deploy after editing (update + delete reconcile)", async () => {
+      const definitionPath = path.join(workspace, `${apiUniqueName}.customapi.json`);
+      const def = JSON.parse(fs.readFileSync(definitionPath, "utf8"));
+      // 1. change an existing parameter  → update
+      const inputValue = def.requestParameters.find((p: any) => p.uniqueName === "InputValue");
+      inputValue.displayName = "Input Value (renamed)";
+      inputValue.isOptional = true;
+      // 2. remove the parameter added earlier → delete
+      def.requestParameters = def.requestParameters.filter((p: any) => p.uniqueName !== "Multiplier");
+      // 3. add a response property → create, alongside an existing one
+      def.responseProperties.push({
+        uniqueName: "Echoed",
+        name: `${apiUniqueName}.Echoed`,
+        displayName: "Echoed",
+        type: "Boolean",
+        description: "Added on the second deploy.",
+      });
+      // 4. change the API row itself → the "Updated CustomAPI" arm rather than "Created"
+      def.displayName = `${apiUniqueName} (renamed)`;
+      fs.writeFileSync(definitionPath, JSON.stringify(def, null, 2) + "\n");
+
+      await clearOutput();
+      await closeAnyOpenMenu();
+      await expandComponentCards();
+      await clickOverflowItem("Deploy Custom APIs", { timeoutMs: 45000 });
+      const summary = await expectOutput([`Updated CustomAPI '${apiUniqueName}'.`, "Parameters: +", "Response: +"], { step: "re-deploy custom api", timeoutMs: 300000 });
+      const counts = /Parameters: (\+\d+ ~\d+ -\d+); Response: (\+\d+ ~\d+ -\d+)\./.exec(summary);
+      console.log(`    [e2e] reconcile summary — Parameters: ${counts?.[1] ?? "?"}; Response: ${counts?.[2] ?? "?"}`);
+      expect(summary, "a request parameter was deleted").to.match(/Parameters: \+\d+ ~\d+ -[1-9]/);
+
+      // Assert the EFFECT in Dataverse, not the counts: the environment must match the file now.
+      const customApiId = await client.findCustomApiId(apiUniqueName);
+      expect(customApiId, "the API is still there (updated, not recreated)").to.equal(customApiIdFirstDeploy);
+      const row = await client.getCustomApi(apiUniqueName);
+      expect(row?.displayname, "the display name change was applied").to.equal(`${apiUniqueName} (renamed)`);
+
+      const members = await client.getCustomApiMembers(customApiId!);
+      expect(members.requestParameters, "the kept parameter is still there").to.include("InputValue");
+      expect(members.requestParameters, "the REMOVED parameter is gone from the environment").to.not.include("Multiplier");
+      expect(members.responseProperties, "the original response property is still there").to.include("OutputValue");
+      expect(members.responseProperties, "the ADDED response property was created").to.include("Echoed");
+      return `re-deploy reconciled: InputValue updated, Multiplier deleted, Echoed created, API row updated in place (${customApiId})`;
     });
   });
 

@@ -19,8 +19,17 @@ import {
   sleep,
   E2EClient,
 } from "./lib";
-import { resetAllCredentials } from "./lib";
-import { signInFreshBrowser, autoLoginWithRetry, bannerOnForm, bannerAfterReload, findDebugPortByProfile, killBrowsersByProfile, killStaleE2EProcesses } from "./browserLib";
+import { resetAllCredentials, shot } from "./lib";
+import {
+  signInFreshBrowser,
+  autoLoginWithRetry,
+  bannerOnForm,
+  bannerAfterReload,
+  findDebugPortByProfile,
+  killBrowsersByProfile,
+  killStaleE2EProcesses,
+  captureBrowserShot,
+} from "./browserLib";
 import { resolveBrowser } from "../../webresources/debug/browserResolver";
 
 // COMPREHENSIVE end-to-end webresource journey — every step driven through the REAL VS Code UI,
@@ -282,6 +291,11 @@ describe("Web resources — comprehensive UI lifecycle (e2e)", function () {
     log(`local banner on first load: ${first}`);
     await expectOutput("[debug] served local", { timeoutMs: 60000, step: "debug serve local" });
     expect(first, "local bundle served onto the form").to.contain(loadedBanner);
+    // #231: the live-app half of the hot-reload story. A screenshot of the FORM showing the banner your
+    // local build produced is the only thing that demonstrates "served into the real app" — the editor
+    // side cannot show it.
+    await captureBrowserShot(port, "webresource-hot-1-form-serving-local-build");
+    await shot("webresource-hot-2-editor-serving");
 
     // ---- Breakpoint hit (#114): set a breakpoint in OnLoad via the UI, assert
     // it binds (filled dot, not the hollow unverified one), let the hot reload
@@ -339,6 +353,9 @@ describe("Web resources — comprehensive UI lifecycle (e2e)", function () {
     const after = await bannerAfterReload(port, [loadedBanner, reloadBanner], reloadBanner);
     log(`banner after edit: ${after}`);
     expect(after, "form hot-reloaded to the edited banner").to.contain(reloadBanner);
+    // The same form after editing the source: same page, new value, no redeploy. Paired with the frame
+    // above this is the before/after a split-screen recording would show.
+    await captureBrowserShot(port, "webresource-hot-3-form-after-edit");
 
     await clearOutput();
     await runCommand("Dataverse PowerTools: Stop Debugging Web Resources");

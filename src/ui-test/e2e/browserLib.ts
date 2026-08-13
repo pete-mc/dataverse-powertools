@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import * as cp from "child_process";
 import * as fs from "fs";
+import * as path from "path";
 import * as net from "net";
 import * as http from "http";
 import CDP = require("chrome-remote-interface");
@@ -236,6 +237,34 @@ interface PageState {
 async function evalOn(client: CDP.Client, expression: string, awaitPromise = false): Promise<unknown> {
   const { result } = await client.Runtime.evaluate({ expression, awaitPromise, returnByValue: true });
   return result.value;
+}
+
+/**
+ * Screenshot the BROWSER (the model-driven app), not the editor — the other half of the hot-reload story
+ * and the only way to show a live form in the docs (#231). Written next to the VS Code frames so a page
+ * can put the two side by side. Opt-in with DVPT_E2E_SHOTS, like every other capture.
+ */
+export async function captureBrowserShot(port: number, name: string): Promise<void> {
+  if (process.env.DVPT_E2E_SHOTS !== "1") {
+    return;
+  }
+  let client: CDP.Client | undefined;
+  try {
+    client = await CDP({ port });
+    const { data } = await client.Page.captureScreenshot({ format: "png" });
+    const dir = path.join(path.resolve(__dirname, "..", "..", ".."), "sandbox", "screenshots-out", "profiling");
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, `${name}.png`), data, "base64");
+    console.log(`    [shot] ${name}.png (browser)`);
+  } catch (error) {
+    console.log(`    [shot] ${name} (browser) failed: ${String(error).slice(0, 120)}`);
+  } finally {
+    try {
+      await client?.close();
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 async function probe(client: CDP.Client): Promise<PageState> {
