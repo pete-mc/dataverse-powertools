@@ -17,6 +17,7 @@ import {
   E2EClient,
   resetAllCredentials,
 } from "./lib";
+import { clickPanelButton, expandComponentCards } from "../supervised/supervisedLib";
 
 // End-to-end: a PCF control created and pushed under INTERACTIVE (OAuth) sign-in (#227).
 //
@@ -33,13 +34,51 @@ import {
 // The interactive connect is silent because DVPT_TEST_MSAL_CACHE_FILE points at a cache pre-seeded by
 // preAcquireInteractiveCache.mjs (there is no browser to drive inside ExTester). Self-skips without
 // sandbox/.env or a seeded cache.
+/** First file anywhere under dir whose name matches (skips node_modules/obj). */
+function findDeep(dir: string, predicate: (name: string) => boolean): string | undefined {
+  let entries: fs.Dirent[] = [];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return undefined;
+  }
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isFile() && predicate(entry.name)) {
+      return full;
+    }
+    if (entry.isDirectory() && entry.name !== "node_modules" && entry.name !== "obj") {
+      const hit = findDeep(full, predicate);
+      if (hit) {
+        return hit;
+      }
+    }
+  }
+  return undefined;
+}
+
+/** findDeep, polled — `pac pcf init` plus npm install takes minutes. */
+async function pollDeep(dir: string, predicate: (name: string) => boolean, timeoutMs: number): Promise<string | undefined> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const hit = findDeep(dir, predicate);
+    if (hit) {
+      return hit;
+    }
+    if (Date.now() > deadline) {
+      return undefined;
+    }
+    await sleep(4000);
+  }
+}
+
 describe("PCF lifecycle — interactive auth (e2e)", function () {
   this.timeout(1800000);
   const env = loadE2EEnv();
   const hasCache = !!process.env.DVPT_TEST_MSAL_CACHE_FILE && fs.existsSync(process.env.DVPT_TEST_MSAL_CACHE_FILE || "");
-  /** Unique per run: a control left in the org by an earlier run would make "pushed" un-provable. */
-  const namespaceName = "DvptE2E";
-  const controlName = `IntCtl${Date.now().toString().slice(-6)}`;
+  /** Read from the manifest pac writes — the wizard does not ask for either. */
+  let controlNamespace = "";
+  let controlConstructor = "";
   let workspace: string;
   let solutionFriendlyName: string;
   let client: E2EClient;
@@ -109,49 +148,70 @@ describe("PCF lifecycle — interactive auth (e2e)", function () {
     await answerFlexible(env!.url, 180000);
     log(`solution (${solutionFriendlyName})`);
     await pickByLabel(solutionFriendlyName);
-    log("namespace");
-    await answerText(namespaceName);
-    log("control name");
-    await answerText(controlName);
-    log("template");
+    // Template + framework are the ONLY control prompts: pac pcf init names the control itself, and the
+    // namespace/constructor are read back from the manifest below.
+    log("control template");
     await pickByLabel("Field", 120000);
-    log("framework");
-    // The label is "Standard (no framework)" — the VALUE is "none", which is not what the picker shows.
+    log("rendering framework");
     await pickByLabel("Standard (no framework)", 120000);
     // pac pcf init + npm install run here, so allow for the restore.
     expect(await waitForFile(path.join(workspace, "dataverse-powertools.json"), 300000), "dataverse-powertools.json").to.equal(true);
-    const manifest = path.join(workspace, controlName, "ControlManifest.Input.xml");
-    expect(await waitForFile(manifest, 600000), `${controlName}/ControlManifest.Input.xml`).to.equal(true);
+    const manifestPath = await pollDeep(workspace, (name) => name === "ControlManifest.Input.xml", 600000);
+    expect(manifestPath, "ControlManifest.Input.xml scaffolded").to.not.equal(undefined);
+    const xml = fs.readFileSync(manifestPath!, "utf8");
+    controlNamespace = /namespace="([^"]+)"/.exec(xml)?.[1] ?? "";
+    controlConstructor = /constructor="([^"]+)"/.exec(xml)?.[1] ?? "";
+    expect(controlNamespace, "manifest namespace").to.not.equal("");
+    expect(controlConstructor, "manifest constructor").to.not.equal("");
+    console.log(`    [e2e] scaffolded control ${controlNamespace}.${controlConstructor}`);
     await assertCommandDidNotError("PCF init (interactive)");
   });
 
   // No-auth sanity first: if scaffolding regressed, the suite says so here rather than blaming OAuth.
   it("refreshes types and builds locally (scaffolding sanity, no auth involved)", async () => {
+    // Buttons, not the command palette: the PCF commands are enablement-gated on
+    // `dataverse-powertools.isPcf`, so a palette entry that is filtered out silently does NOTHING —
+    // no command, no output, no error, just a suite waiting 20 minutes for a line that cannot come.
+    // The card is also what a user clicks.
     await clearOutput();
-    await runCommand("Dataverse PowerTools: Refresh PCF Types");
+    await expandComponentCards();
+    await clickPanelButton("Refresh Types", { timeoutMs: 45000 });
     await expectOutput(["PCF types refreshed successfully."], { step: "refresh pcf types", timeoutMs: 600000 });
-    await assertCommandDidNotError("Refresh PCF Types");
+    await assertCommandDidNotError("Refresh Types");
 
     await clearOutput();
-    await runCommand("Dataverse PowerTools: Build PCF Control");
+    await expandComponentCards();
+    await clickPanelButton("Local Build", { timeoutMs: 45000 });
     await expectOutput(["PCF build completed successfully."], { step: "build pcf", timeoutMs: 900000 });
-    await assertCommandDidNotError("Build PCF Control");
+    await assertCommandDidNotError("Local Build");
   });
 
   // THE point of this suite: `pac pcf push` under a connection with no secret and no tenant.
   it("PUSHES the control to the environment under interactive auth, and it lands in Dataverse", async () => {
+    // `pac pcf init` names the control from its own defaults (SampleNamespace.SampleControl), so the name
+    // is NOT unique per run — a row left by an earlier run would satisfy the assertions below without
+    // this push doing anything. Delete it first, so "it exists" can only mean this push created it. (The
+    // same hollow assertion made #249's bogus build failure invisible.)
+    const existing = await client.deleteCustomControl(`${controlNamespace}.${controlConstructor}`).catch(() => false);
+    if (existing) {
+      console.log(`    [e2e] removed a pre-existing ${controlNamespace}.${controlConstructor} so the push has to recreate it`);
+      await sleep(5000);
+    }
+
     await clearOutput();
-    await runCommand("Dataverse PowerTools: Push PCF Control");
+    await expandComponentCards();
+    // "▶ Push to {environment}" — substring match for the prefix and the environment name.
+    await clickPanelButton("Push to", { timeoutMs: 45000, contains: true });
     // Gate on the command's FINAL line, not on pac chatter: pac exits 0 even on failure in this repo's
     // experience, so the extension's own completion line is the signal.
     await expectOutput(["PCF push complete."], { step: "push pcf (interactive)", timeoutMs: 1200000 });
     await assertCommandDidNotError("Push PCF Control");
 
-    // Verify in Dataverse, not from our log: the customcontrol row has to exist, named
-    // <namespace>.<control>. Push imports it through a temporary solution, so allow a moment.
-    const fullName = `${namespaceName}.${controlName}`;
-    const id = await (async (): Promise<string | undefined> => {
-      const deadline = Date.now() + 300000;
+    // Verify in Dataverse, not from our log. Two things, because either alone can mislead: the
+    // customcontrol row (the control is registered) and its bundle web resource (the code really landed).
+    const fullName = `${controlNamespace}.${controlConstructor}`;
+    const controlId = await (async (): Promise<string | undefined> => {
+      const deadline = Date.now() + 420000;
       for (;;) {
         const found = await client.findCustomControlId(fullName).catch(() => undefined);
         if (found || Date.now() > deadline) {
@@ -160,12 +220,15 @@ describe("PCF lifecycle — interactive auth (e2e)", function () {
         await sleep(7000);
       }
     })();
-    expect(id, `customcontrol ${fullName} exists in Dataverse after an interactive push`).to.not.equal(undefined);
+    expect(controlId, `customcontrol ${fullName} exists in Dataverse after an INTERACTIVE push`).to.not.equal(undefined);
+    const bundle = await client.findWebresourceId(`cc_${fullName}/bundle.js`).catch(() => undefined);
+    expect(bundle, `the control's bundle web resource cc_${fullName}/bundle.js landed`).to.not.equal(undefined);
   });
 
   it("adds the control to the solution — Add PCF Control to Solution (interactive)", async () => {
     await clearOutput();
-    await runCommand("Dataverse PowerTools: Add PCF Control to Solution");
+    await expandComponentCards();
+    await clickPanelButton("Add to Solution", { timeoutMs: 45000 });
     await expectOutput(["PCF control added as a solution reference."], { step: "add pcf to solution", timeoutMs: 300000 });
     await assertCommandDidNotError("Add PCF Control to Solution");
   });
@@ -175,9 +238,11 @@ describe("PCF lifecycle — interactive auth (e2e)", function () {
       return;
     }
     try {
-      const removed = await client.deleteCustomControl(`${namespaceName}.${controlName}`);
-      if (removed) {
-        console.log(`[cleanup] deleted custom control ${namespaceName}.${controlName}`);
+      if (controlNamespace && controlConstructor) {
+        const removed = await client.deleteCustomControl(`${controlNamespace}.${controlConstructor}`);
+        if (removed) {
+          console.log(`[cleanup] deleted custom control ${controlNamespace}.${controlConstructor}`);
+        }
       }
     } catch (error) {
       console.log(`[cleanup] could not delete custom control: ${String(error).slice(0, 120)}`);
