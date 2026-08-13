@@ -5,6 +5,29 @@ All notable changes to the "dataverse-powertools" extension will be documented i
 Pre-release builds get a per-version entry in [CHANGELOG-prerelease.md](CHANGELOG-prerelease.md);
 those entries are rolled up into one section here when a full release ships.
 
+## 1.0.4
+
+**Custom APIs work.** They could not before: the generated C# handler was written where the plug-in
+project never compiled it.
+
+**Generated handlers land in your plug-in project**
+
+*Generate Custom API handlers* wrote the handler one folder above your plug-in project, and a .NET
+project only compiles the C# files inside its own folder. So the handler never made it into the
+assembly, the plug-in type it declares never existed, and *Deploy Custom APIs* always ended with
+*"plugin type '…' not found in the environment — deploy & register the plugin first."*
+
+Handlers now go to `<YourPluginProject>/CustomApi/<Class>.generated.cs`, and the output names the path
+so you can see which project builds it. If you hit that error before, regenerate the handler, deploy the
+package, then deploy the API.
+
+The whole loop is now covered end to end against a real environment — define, generate, deploy the
+package, deploy the API, then call it and check the response — so this stays fixed. Two things to know
+while Custom APIs are still a preview feature: **regenerating a handler overwrites the file, including
+the code you wrote in `Execute`** ([#254](https://github.com/pete-mc/dataverse-powertools/issues/254)),
+and *Run Custom API…* calls Global (unbound) APIs only — use the generated TypeScript client for
+table-bound ones.
+
 ## 1.0.3
 
 **Replay & debug** now does what it says: it replays a captured plug-in run **under the debugger**, so
