@@ -244,13 +244,19 @@ async function evalOn(client: CDP.Client, expression: string, awaitPromise = fal
  * and the only way to show a live form in the docs (#231). Written next to the VS Code frames so a page
  * can put the two side by side. Opt-in with DVPT_E2E_SHOTS, like every other capture.
  */
-export async function captureBrowserShot(port: number, name: string): Promise<void> {
+export async function captureBrowserShot(port: number, name: string, half?: { width: number; height: number }): Promise<void> {
   if (process.env.DVPT_E2E_SHOTS !== "1") {
     return;
   }
   let client: CDP.Client | undefined;
   try {
     client = await CDP({ port });
+    // For a frame that will be stitched beside the editor, render at HALF the screen so the composed
+    // image is one screen wide rather than two full ones squeezed together.
+    if (half) {
+      await client.Emulation.setDeviceMetricsOverride({ width: half.width, height: half.height, deviceScaleFactor: 1, mobile: false });
+      await sleep(1500);
+    }
     const { data } = await client.Page.captureScreenshot({ format: "png" });
     const dir = path.join(path.resolve(__dirname, "..", "..", ".."), "sandbox", "screenshots-out", "profiling");
     fs.mkdirSync(dir, { recursive: true });
@@ -259,6 +265,15 @@ export async function captureBrowserShot(port: number, name: string): Promise<vo
   } catch (error) {
     console.log(`    [shot] ${name} (browser) failed: ${String(error).slice(0, 120)}`);
   } finally {
+    try {
+      // Always drop the emulation override: leaving the page at half width would change what every
+      // later assertion in the suite sees.
+      if (half && client) {
+        await client.Emulation.clearDeviceMetricsOverride();
+      }
+    } catch {
+      /* ignore */
+    }
     try {
       await client?.close();
     } catch {

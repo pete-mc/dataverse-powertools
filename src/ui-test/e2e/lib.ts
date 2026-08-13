@@ -192,6 +192,27 @@ export function shotsEnabled(): boolean {
   return process.env.DVPT_E2E_SHOTS === "1";
 }
 
+/** The window size the e2e instance runs at; a side-by-side half is exactly half of it. */
+export const E2E_WINDOW = { width: 1718, height: 872 };
+export const SIDE_BY_SIDE_HALF = { width: Math.floor(E2E_WINDOW.width / 2), height: E2E_WINDOW.height };
+
+/**
+ * Resize the VS Code window to one half of the screen, for a capture that will be stitched next to a
+ * browser frame — so the composed image reads as ONE screen rather than two overlapping full ones.
+ * Returns a function that puts the window back.
+ */
+export async function useHalfWidthWindow(): Promise<() => Promise<void>> {
+  const window = VSBrowser.instance.driver.manage().window();
+  const previous = await window.getRect().catch(() => ({ width: E2E_WINDOW.width, height: E2E_WINDOW.height, x: 0, y: 0 }));
+  await window.setRect({ width: SIDE_BY_SIDE_HALF.width, height: SIDE_BY_SIDE_HALF.height, x: 0, y: 0 }).catch(() => undefined);
+  // Let the workbench relayout before anything is captured — a mid-reflow frame looks broken.
+  await sleep(2500);
+  return async (): Promise<void> => {
+    await window.setRect({ width: previous.width, height: previous.height, x: previous.x, y: previous.y }).catch(() => undefined);
+    await sleep(2000);
+  };
+}
+
 /**
  * Clear what an earlier step left visible in the MAIN document: every outline this module applied, the
  * focus ring on the last-clicked control, and any text selection. `keepOwnOutline` spares the outline

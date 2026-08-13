@@ -689,8 +689,14 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
       // TIDY BEFORE ASSERTING. The trace document is an untitled markdown editor, and leaving it active
       // made the NEXT test ask it for CodeLenses and find none — so a failure here cascaded into a
       // second, unrelated-looking failure. Cleanup must not depend on the assertions passing.
-      await runCommandResilient("View: Close Editor").catch(() => undefined);
+      // REVERT and close. The viewer opens the log as an UNTITLED document, which VS Code considers
+      // dirty, so a plain "Close Editor" raises a "save your changes?" modal — the suite then sat on
+      // that dialog until the hour-long mocha timeout killed the session, and the next test reported a
+      // dead driver. Reverting discards without asking; the modal dismissal is belt and braces.
+      await runCommandResilient("View: Revert and Close Editor").catch(() => undefined);
       await sleep(1500);
+      await pushModalButton("Don't Save").catch(() => undefined);
+      await sleep(500);
       // Prove it is OUR run's trace before publishing the frame: the plug-in's own Trace() output.
       expect(rendered, `the trace log is from the plug-in we triggered — saw: ${rendered.slice(0, 200)}`).to.contain("Onboarded territory");
       expect(rendered, "the trace log names the plug-in type that wrote it").to.contain(typeName);
