@@ -13,6 +13,7 @@ import { CUSTOM_API_FILE_SUFFIX, CustomApiDefinition, newCustomApiDefinition } f
 import { validateCustomApiDefinition } from "./validate";
 import { generateCustomApiHandler, customApiHandlerFileName } from "./generateHandler";
 import { generateTypedClient, customApiClientFileName } from "./generateTypedClient";
+import { findPrimaryPluginCsproj } from "../plugins/projectPaths";
 
 /** All `*.customapi.json` files directly under a component root. */
 export function findCustomApiDefinitionFiles(root: string): string[] {
@@ -24,6 +25,16 @@ export function findCustomApiDefinitionFiles(root: string): string[] {
   } catch {
     return [];
   }
+}
+
+/**
+ * Where a generated C# handler belongs: the directory of the component's plug-in `.csproj`, falling back
+ * to the component root when there is no project to put it in (the file is then at least visible, and
+ * the deploy will say the type is missing rather than silently pointing at nothing).
+ */
+export async function customApiHandlerDirectory(root: string, preferredProjectName?: string): Promise<string> {
+  const csproj = await findPrimaryPluginCsproj(root, preferredProjectName);
+  return csproj ? path.dirname(csproj) : root;
 }
 
 /** Scaffold a new sample `*.customapi.json` in the active plugin component. */
@@ -78,7 +89,12 @@ export async function generateCustomApiHandlers(context: DataversePowerToolsCont
     return;
   }
 
-  const outDir = path.join(root, "CustomApi");
+  // Into the PLUG-IN PROJECT, not the component root. The handler declares the plug-in type the Custom
+  // API points at, so it has to be inside the folder the .csproj compiles — an SDK-style project globs
+  // `**/*.cs` under its own directory and nothing above it. Written to the component root it never
+  // reached the assembly, the plug-in type never existed, and every Deploy Custom APIs ended in
+  // "plugin type '…' not found in the environment". Same resolution the New plugin class command uses.
+  const outDir = path.join(await customApiHandlerDirectory(root, context.projectSettings.pluginProjectName), "CustomApi");
   let generated = 0;
   let failed = 0;
 
@@ -104,7 +120,9 @@ export async function generateCustomApiHandlers(context: DataversePowerToolsCont
     fs.mkdirSync(outDir, { recursive: true });
     const outPath = path.join(outDir, customApiHandlerFileName(definition));
     fs.writeFileSync(outPath, generateCustomApiHandler(definition), "utf8");
-    context.channel.appendLine(`✓ ${name} → CustomApi/${path.basename(outPath)}`);
+    // Say WHERE it landed relative to the component, so "which project is this compiled into?" is
+    // answerable from the log.
+    context.channel.appendLine(`✓ ${name} → ${path.relative(root, outPath).replace(/\\/g, "/")}`);
     generated++;
   }
 
