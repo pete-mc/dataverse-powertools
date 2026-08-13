@@ -459,6 +459,129 @@ export async function autoLoginWithRetry(port: number, orgUrl: string, opts: Aut
  * re-navigating it doesn't recover — a brand-new browser does. Returns the signed-in browser (the
  * caller owns closing it) plus whether it reached the org.
  */
+/** The device code from pac's own prompt, or undefined if it hasn't printed one yet. */
+export function parseDeviceCode(output: string): string | undefined {
+  // ">>> To finish signing in to pac, open https://login.microsoft.com/device and enter the code C4BTB5ESK"
+  return /enter the code\s+([A-Z0-9]{6,})/i.exec(output ?? "")?.[1];
+}
+
+/**
+ * Complete pac's DEVICE CODE sign-in in a browser.
+ *
+ * Under interactive auth there is no client secret, so `pac auth create` can only use the device-code
+ * flow: it prints a code and blocks until a human enters it. That is correct behaviour, and it is why
+ * PCF — the one component type whose Dataverse path goes through `pac` — could not be covered
+ * unattended (#227). With an MFA-exempt account in a dedicated dev tenant, the flow is drivable: type
+ * the code, sign in, confirm.
+ */
+export async function completeDeviceCodeLogin(
+  exePath: string,
+  profileDir: string,
+  code: string,
+  opts: { username: string; password: string; deviceUrl?: string; log?: (message: string) => void },
+): Promise<boolean> {
+  const log = opts.log ?? ((): void => undefined);
+  const url = opts.deviceUrl ?? "https://login.microsoft.com/device";
+  log(`[device-code] opening ${url} to enter ${code}`);
+  const browser = await launchBrowser(exePath, profileDir, url, 45000);
+  let client: CDP.Client | undefined;
+  try {
+    client = await CDP({ port: browser.port });
+    await sleep(4000);
+    // The code box is #otc on the device-login page. Set it through the value setter so the page's
+    // framework sees the change (a raw .value assignment leaves its model empty and Next stays disabled).
+    const entered = await (async (): Promise<boolean> => {
+      const deadline = Date.now() + 90000;
+      for (;;) {
+        const ok = await evalOn(
+          client!,
+          `(() => { const el = document.querySelector('#otc') || document.querySelector('input[name=otc]');
+             if (!el) { return false; }
+             const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+             set.call(el, ${JSON.stringify(code)});
+             el.dispatchEvent(new Event('input', { bubbles: true }));
+             el.dispatchEvent(new Event('change', { bubbles: true }));
+             const next = document.querySelector('#idSIButton9') || document.querySelector('input[type=submit]');
+             if (next) { next.click(); }
+             return true; })()`,
+        );
+        if (ok === true || Date.now() > deadline) {
+          return ok === true;
+        }
+        await sleep(2000);
+      }
+    })();
+    if (!entered) {
+      log("[device-code] the code box never appeared");
+      browser.kill();
+      return false;
+    }
+    await sleep(5000);
+    // The ordinary managed-AAD sequence, driven here rather than through autoLoginBrowser: that one
+    // waits to land on the ORG host, which a device-code sign-in never does — it ends on a "you have
+    // signed in to Power Platform CLI" page.
+    const fill = async (selector: string, value: string): Promise<boolean> =>
+      (await evalOn(
+        client!,
+        `(() => { const el = document.querySelector(${JSON.stringify(selector)});
+           if (!el || el.offsetParent === null) { return false; }
+           const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+           set.call(el, ${JSON.stringify(value)});
+           el.dispatchEvent(new Event('input', { bubbles: true }));
+           const b = document.querySelector('#idSIButton9') || document.querySelector('input[type=submit]');
+           if (b) { b.click(); }
+           return true; })()`,
+      )) === true;
+
+    for (const [selector, value, what] of [
+      ["input[name=loginfmt]", opts.username, "username"],
+      ["input[name=passwd]", opts.password, "password"],
+    ] as const) {
+      const deadline = Date.now() + 90000;
+      let done = false;
+      while (!done && Date.now() < deadline) {
+        done = await fill(selector, value);
+        if (!done) {
+          await sleep(2000);
+        }
+      }
+      log(`[device-code] ${what}: ${done ? "entered" : "field never appeared"}`);
+    }
+
+    // "Stay signed in?" and the final "you're signing in to Power Platform CLI — Continue".
+    for (let attempt = 0; attempt < 8; attempt++) {
+      await evalOn(
+        client,
+        `(() => { const b = document.querySelector('#idSIButton9') || document.querySelector('input[type=submit]');
+           if (b && !b.disabled) { b.click(); return true; } return false; })()`,
+      );
+      await sleep(2500);
+    }
+
+    const pageText = String((await evalOn(client, "document.body ? document.body.innerText : ''")) ?? "");
+    const signedIn = /signed in|you may now close|Power Platform/i.test(pageText);
+    log(`[device-code] ${signedIn ? "confirmed" : `did not confirm — page said: ${pageText.slice(0, 160)}`}`);
+    // Give pac a moment to notice the completed authorisation before the browser goes away.
+    await sleep(8000);
+    browser.kill();
+    return signedIn;
+  } catch (error) {
+    log(`[device-code] failed: ${String(error).slice(0, 160)}`);
+    try {
+      browser.kill();
+    } catch {
+      /* ignore */
+    }
+    return false;
+  } finally {
+    try {
+      await client?.close();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 export async function signInFreshBrowser(
   exePath: string,
   profileDir: string,

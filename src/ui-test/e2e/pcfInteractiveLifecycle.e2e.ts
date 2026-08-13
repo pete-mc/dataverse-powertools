@@ -1,5 +1,6 @@
 import * as path from "path";
 import * as fs from "fs";
+import * as os from "os";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
 import {
@@ -14,10 +15,14 @@ import {
   sleep,
   expectOutput,
   clearOutput,
+  waitForLogFile,
+  logFileSize,
   E2EClient,
   resetAllCredentials,
 } from "./lib";
 import { clickPanelButton, expandComponentCards } from "../supervised/supervisedLib";
+import { completeDeviceCodeLogin, parseDeviceCode } from "./browserLib";
+import { resolveBrowser } from "../../webresources/debug/browserResolver";
 
 // End-to-end: a PCF control created and pushed under INTERACTIVE (OAuth) sign-in (#227).
 //
@@ -110,7 +115,12 @@ describe("PCF lifecycle — interactive auth (e2e)", function () {
     } catch {
       text = "";
     }
-    expect(/resulted in an error|Error /i.test(text), `no error notification after ${context} — saw: ${text.slice(0, 200)}`).to.equal(false);
+    // Only VS Code's own command-failure toast and the extension's explicit "Error <verb>ing" messages.
+    // A looser /Error /i matched the word inside `npm install --loglevel=error` in a PROGRESS
+    // notification (and inside the CSS that comes back with the notification's text), failing a step
+    // that had gone fine.
+    const failed = /resulted in an error/i.test(text) || /\bError (building|refreshing|pushing|running|deploying)\b/i.test(text);
+    expect(failed, `no error notification after ${context} — saw: ${text.slice(0, 200)}`).to.equal(false);
     await dismissOverlays();
   }
 
@@ -164,6 +174,12 @@ describe("PCF lifecycle — interactive auth (e2e)", function () {
     expect(controlNamespace, "manifest namespace").to.not.equal("");
     expect(controlConstructor, "manifest constructor").to.not.equal("");
     console.log(`    [e2e] scaffolded control ${controlNamespace}.${controlConstructor}`);
+    // The manifest is written by `pac pcf init`, which finishes LONG before `npm install` does — so a
+    // file assert says "ready" while node_modules/.bin is still filling up. Clicking Refresh Types there
+    // ran `pcf-scripts` before it existed and reported "'pcf-scripts' is not recognized", which looks
+    // exactly like the missing-local-bin bug this repo has had before but was just a race with the
+    // restore. Wait for the restore's OWN final line.
+    await expectOutput(["Restore Complete."], { step: "npm restore after pcf init", timeoutMs: 900000 });
     await assertCommandDidNotError("PCF init (interactive)");
   });
 
@@ -173,6 +189,26 @@ describe("PCF lifecycle — interactive auth (e2e)", function () {
     // `dataverse-powertools.isPcf`, so a palette entry that is filtered out silently does NOTHING —
     // no command, no output, no error, just a suite waiting 20 minutes for a line that cannot come.
     // The card is also what a user clicks.
+    // Wait for the LOCAL BIN to settle, not just for a "Restore Complete." line. The component restores
+    // more than once (init, then again on discovery), and `npm install` empties and refills
+    // node_modules/.bin while it runs — so a command launched in that window dies with
+    // "'pcf-scripts' is not recognized", which reads exactly like this repo's missing-local-bin bug and
+    // is really a race. The bin existing, and STAYING there, is the precondition the command needs.
+    const localBin = path.join(workspace, "node_modules", ".bin", process.platform === "win32" ? "pcf-scripts.cmd" : "pcf-scripts");
+    const binReady = await (async (): Promise<boolean> => {
+      const deadline = Date.now() + 900000;
+      let consecutive = 0;
+      while (Date.now() < deadline) {
+        consecutive = fs.existsSync(localBin) ? consecutive + 1 : 0;
+        if (consecutive >= 3) {
+          return true;
+        }
+        await sleep(5000);
+      }
+      return false;
+    })();
+    expect(binReady, "node_modules/.bin/pcf-scripts settled before running the pcf-scripts commands").to.equal(true);
+
     await clearOutput();
     await expandComponentCards();
     await clickPanelButton("Refresh Types", { timeoutMs: 45000 });
@@ -198,10 +234,34 @@ describe("PCF lifecycle — interactive auth (e2e)", function () {
       await sleep(5000);
     }
 
+    const pushBaseline = logFileSize();
     await clearOutput();
     await expandComponentCards();
     // "▶ Push to {environment}" — substring match for the prefix and the environment name.
     await clickPanelButton("Push to", { timeoutMs: 45000, contains: true });
+
+    // `pac pcf push` needs a pac profile, and under interactive auth there is NO client secret — so
+    // `pac auth create` uses the device-code flow: it prints a code and blocks until someone enters it.
+    // That is correct behaviour, and it is the reason this path had never been covered unattended. The
+    // test account is MFA-exempt in a dedicated dev tenant, so drive it: read pac's own code out of the
+    // log and complete the sign-in in a browser.
+    const deviceLog = await waitForLogFile(/enter the code\s+[A-Z0-9]{6,}/i, { timeoutMs: 240000, sinceByte: pushBaseline }).catch(() => "");
+    const code = parseDeviceCode(deviceLog);
+    if (code) {
+      console.log(`    [e2e] pac asked for device code ${code} — completing the sign-in`);
+      const resolved = resolveBrowser("auto", undefined, { platform: process.platform, env: process.env, exists: fs.existsSync });
+      expect(resolved?.executablePath, "a browser to complete the device-code sign-in").to.not.equal(undefined);
+      const completed = await completeDeviceCodeLogin(resolved.executablePath!, path.join(os.tmpdir(), `dvpt-devicecode-${Date.now()}`), code, {
+        username: env!.username!,
+        password: env!.password!,
+        log: (m) => console.log(`    [e2e] ${m}`),
+      });
+      expect(completed, "the device-code sign-in completed").to.equal(true);
+    } else {
+      // A profile may already exist from an earlier run, in which case pac never asks. Say which
+      // happened, so a green run cannot quietly stop covering the device-code path.
+      console.log("    [e2e] pac did not ask for a device code — an existing pac profile was reused");
+    }
     // Gate on the command's FINAL line, not on pac chatter: pac exits 0 even on failure in this repo's
     // experience, so the extension's own completion line is the signal.
     await expectOutput(["PCF push complete."], { step: "push pcf (interactive)", timeoutMs: 1200000 });
@@ -229,8 +289,14 @@ describe("PCF lifecycle — interactive auth (e2e)", function () {
     await clearOutput();
     await expandComponentCards();
     await clickPanelButton("Add to Solution", { timeoutMs: 45000 });
-    await expectOutput(["PCF control added as a solution reference."], { step: "add pcf to solution", timeoutMs: 300000 });
-    await assertCommandDidNotError("Add PCF Control to Solution");
+    // #256: this adds the PUSHED control to the solution configured for the component, like a web
+    // resource — no Solution project required, so no `added as a solution reference` line here.
+    await expectOutput([`Added PCF control '${controlNamespace}.${controlConstructor}' to solution`], { step: "add pcf to solution", timeoutMs: 300000 });
+    await assertCommandDidNotError("Add to Solution");
+
+    // Confirm in Dataverse: the control is a component OF that solution, not merely that we logged it.
+    const inSolution = await client.isCustomControlInSolution(`${controlNamespace}.${controlConstructor}`, env!.solutionName);
+    expect(inSolution, `the control is a component of solution '${env!.solutionName}'`).to.equal(true);
   });
 
   after(async function () {

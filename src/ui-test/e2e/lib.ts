@@ -969,14 +969,37 @@ export class E2EClient {
 
   // ---- PCF custom control (#227): prove an interactive push really landed, then remove it ----
 
-  /** The `customcontrol` row id for a `<namespace>.<name>` control, or undefined when absent. */
+  /**
+   * The `customcontrol` row id for a `<namespace>.<constructor>` control, or undefined when absent.
+   *
+   * Dataverse PREFIXES the stored name with the publisher's customization prefix
+   * (`dvpt_SampleNamespace.SampleControl`), so an equality filter on the manifest name never matches.
+   */
   async findCustomControlId(fullName: string): Promise<string | undefined> {
-    const res = await this.request("GET", `customcontrols?$select=customcontrolid&$filter=name eq '${fullName.replace(/'/g, "''")}'`);
+    const res = await this.request("GET", `customcontrols?$select=customcontrolid,name&$filter=endswith(name,'${fullName.replace(/'/g, "''")}')`);
     if (!res.ok) {
       return undefined;
     }
     const data: any = await res.json();
-    return data?.value?.[0]?.customcontrolid;
+    const row = (data?.value ?? []).find((candidate: any) => candidate?.name === fullName || String(candidate?.name ?? "").endsWith(`_${fullName}`));
+    return row?.customcontrolid;
+  }
+
+  /** Whether a pushed control is a component OF the given solution (#256). */
+  async isCustomControlInSolution(fullName: string, solutionUniqueName: string): Promise<boolean> {
+    const id = await this.findCustomControlId(fullName);
+    if (!id) {
+      return false;
+    }
+    const res = await this.request(
+      "GET",
+      `solutioncomponents?$select=solutioncomponentid&$filter=objectid eq ${id} and solutionid/uniquename eq '${solutionUniqueName.replace(/'/g, "''")}'`,
+    );
+    if (!res.ok) {
+      return false;
+    }
+    const data: any = await res.json();
+    return (data?.value?.length ?? 0) > 0;
   }
 
   /** Delete a pushed custom control. Best-effort: a control referenced by a form cannot be removed. */
