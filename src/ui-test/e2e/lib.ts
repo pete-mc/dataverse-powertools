@@ -985,6 +985,37 @@ export class E2EClient {
     return row?.customcontrolid;
   }
 
+  /** Force the org's plug-in trace level (0 Off, 1 Exception, 2 All) — teardown insurance for a shared org. */
+  async setTraceLogLevel(level: 0 | 1 | 2): Promise<boolean> {
+    const res = await this.request("GET", "organizations?$select=organizationid&$top=1");
+    if (!res.ok) {
+      return false;
+    }
+    const data: any = await res.json();
+    const id = data?.value?.[0]?.organizationid;
+    if (!id) {
+      return false;
+    }
+
+    const patch = await this.request("PATCH", `organizations(${id})`, { plugintracelogsetting: level });
+    return patch.ok;
+  }
+
+  /**
+   * Whether the plug-in wrote a trace log — proof the run happened with tracing on (#231).
+   *
+   * `typename` is the ASSEMBLY-QUALIFIED name ("Ns.Class, Assembly, Version=…, Culture=…, PublicKeyToken=…"),
+   * so an equality filter on the plain type name never matches even when the row is right there.
+   */
+  async hasTraceLogFor(typeName: string): Promise<boolean> {
+    const res = await this.request("GET", `plugintracelogs?$select=plugintracelogid&$top=1&$filter=startswith(typename,'${typeName.replace(/'/g, "''")}')`);
+    if (!res.ok) {
+      return false;
+    }
+    const data: any = await res.json();
+    return (data?.value?.length ?? 0) > 0;
+  }
+
   /** Whether a pushed control is a component OF the given solution (#256). */
   async isCustomControlInSolution(fullName: string, solutionUniqueName: string): Promise<boolean> {
     const id = await this.findCustomControlId(fullName);
