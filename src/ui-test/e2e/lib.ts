@@ -201,16 +201,37 @@ export const SIDE_BY_SIDE_HALF = { width: Math.floor(E2E_WINDOW.width / 2), heig
  * browser frame — so the composed image reads as ONE screen rather than two overlapping full ones.
  * Returns a function that puts the window back.
  */
-export async function useHalfWidthWindow(): Promise<() => Promise<void>> {
-  const window = VSBrowser.instance.driver.manage().window();
-  const previous = await window.getRect().catch(() => ({ width: E2E_WINDOW.width, height: E2E_WINDOW.height, x: 0, y: 0 }));
-  await window.setRect({ width: SIDE_BY_SIDE_HALF.width, height: SIDE_BY_SIDE_HALF.height, x: 0, y: 0 }).catch(() => undefined);
-  // Let the workbench relayout before anything is captured — a mid-reflow frame looks broken.
-  await sleep(2500);
-  return async (): Promise<void> => {
-    await window.setRect({ width: previous.width, height: previous.height, x: previous.x, y: previous.y }).catch(() => undefined);
-    await sleep(2000);
-  };
+export async function shotEditorHalf(name: string): Promise<void> {
+  if (!shotsEnabled()) {
+    return;
+  }
+  try {
+    await clearShotArtefacts(false);
+    fs.mkdirSync(SHOTS_DIR, { recursive: true });
+
+    const { PNG } = require("pngjs");
+    const full = PNG.sync.read(Buffer.from(await VSBrowser.instance.driver.takeScreenshot(), "base64"));
+    const width = Math.min(SIDE_BY_SIDE_HALF.width, full.width);
+    // Crop from the LEFT. Taking the right half looked more "editor-ish" but cut every line of code
+    // mid-statement; the left half keeps the line numbers, the start of each line, and the output panel
+    // — which is what makes the hot-reload story readable next to the form.
+    const left = 0;
+    const half = new PNG({ width, height: full.height });
+    for (let y = 0; y < full.height; y++) {
+      for (let x = 0; x < width; x++) {
+        const source = (full.width * y + (left + x)) << 2;
+        const target = (width * y + x) << 2;
+        half.data[target] = full.data[source];
+        half.data[target + 1] = full.data[source + 1];
+        half.data[target + 2] = full.data[source + 2];
+        half.data[target + 3] = 255;
+      }
+    }
+    fs.writeFileSync(path.join(SHOTS_DIR, `${name}.png`), PNG.sync.write(half));
+    console.log(`    [shot] ${name}.png (editor half ${width}x${full.height})`);
+  } catch (error) {
+    console.log(`    [shot] ${name} (editor half) failed: ${String(error).slice(0, 120)}`);
+  }
 }
 
 /**

@@ -19,7 +19,7 @@ import {
   sleep,
   E2EClient,
 } from "./lib";
-import { resetAllCredentials, shot, useHalfWidthWindow, SIDE_BY_SIDE_HALF } from "./lib";
+import { resetAllCredentials, shot, shotEditorHalf, SIDE_BY_SIDE_HALF } from "./lib";
 import {
   signInFreshBrowser,
   autoLoginWithRetry,
@@ -298,8 +298,7 @@ describe("Web resources — comprehensive UI lifecycle (e2e)", function () {
     // HALF-WIDTH pair: the editor and the app are each captured at half the screen, so composeSideBySide
     // stitches them into something that reads as ONE screen rather than two full ones jammed together.
     // Only the hot-reload story needs this — a single-surface step is clearer as one full-width frame.
-    const restoreWindow = await useHalfWidthWindow();
-    await shot("webresource-hot-1-editor-half");
+    await shotEditorHalf("webresource-hot-1-editor-half");
     await captureBrowserShot(port, "webresource-hot-2-form-serving-local-build", SIDE_BY_SIDE_HALF);
 
     // ---- Breakpoint hit (#114): set a breakpoint in OnLoad via the UI, assert
@@ -360,9 +359,8 @@ describe("Web resources — comprehensive UI lifecycle (e2e)", function () {
     expect(after, "form hot-reloaded to the edited banner").to.contain(reloadBanner);
     // The same form after editing the source: same page, new value, no redeploy. Paired with the frame
     // above this is the before/after a split-screen recording would show.
-    await shot("webresource-hot-3-editor-after-edit");
+    await shotEditorHalf("webresource-hot-3-editor-after-edit");
     await captureBrowserShot(port, "webresource-hot-4-form-after-edit", SIDE_BY_SIDE_HALF);
-    await restoreWindow();
 
     await clearOutput();
     await runCommand("Dataverse PowerTools: Stop Debugging Web Resources");
