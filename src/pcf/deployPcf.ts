@@ -6,6 +6,7 @@ import { runPac } from "../general/modelbuilder/commandRunner";
 import { activeComponentRoot } from "../components/componentDiscovery";
 import { dataverseApiUrl, logDataverseError, logDataverseHttpError } from "../general/dataverse/webApi";
 import { addDataverseSolutionComponent } from "../general/dataverse/addDataverseSolutionComponent";
+import { customControlLookup, pickMatchingRow } from "../general/dataverse/rowLookups";
 import { CONTROL_MANIFEST_FILENAME, findControlDir } from "./controlManifest";
 
 const SOLUTION_DOCS_URL = "https://learn.microsoft.com/power-apps/developer/component-framework/import-custom-controls";
@@ -58,23 +59,10 @@ function findSolutionProjectDir(): string | undefined {
 /** Solution component type for a PCF control (`customcontrol`). Web resources are 61, plug-in steps 92. */
 export const CUSTOM_CONTROL_COMPONENT_TYPE = 66;
 
-/**
- * OData resource that finds a pushed control from its manifest name.
- *
- * Dataverse stores the control PREFIXED with the publisher's customization prefix — a manifest of
- * `namespace="SampleNamespace" constructor="SampleControl"` lands as
- * `dvpt_SampleNamespace.SampleControl`. So `name eq '<namespace>.<constructor>'` never matches. Query on
- * the suffix and let `matchesControlName` pick the row, which keeps this working whatever prefix the
- * solution's publisher uses.
- */
-export function customControlResource(controlName: string): string {
-  return `customcontrols?$select=customcontrolid,name&$filter=endswith(name,'${controlName.replace(/'/g, "''")}')`;
-}
-
-/** True when a stored `customcontrol.name` is this manifest's control, with or without a prefix. */
-export function matchesControlName(storedName: string, controlName: string): boolean {
-  return storedName === controlName || storedName.endsWith(`_${controlName}`);
-}
+// How a customcontrol's name is stored (publisher-prefixed) lives in rowLookups.ts, so the product and
+// the e2e client share ONE definition — they each had their own copy of the wrong one, agreed with each
+// other, and both reported a successful push as "not in the environment" (#143 Move 3).
+export { customControlLookup } from "../general/dataverse/rowLookups";
 
 /** The `customcontrol` row id for a pushed control, or undefined when it is not in the environment. */
 async function findCustomControlId(context: DataversePowerToolsContext, controlName: string): Promise<string | undefined> {
@@ -86,7 +74,8 @@ async function findCustomControlId(context: DataversePowerToolsContext, controlN
     return undefined;
   }
   try {
-    const response = await fetch(dataverseApiUrl(context.dataverse.organizationUrl, customControlResource(controlName)), {
+    const lookup = customControlLookup(controlName);
+    const response = await fetch(dataverseApiUrl(context.dataverse.organizationUrl, lookup.resource), {
       method: "GET",
       /* eslint-disable-next-line @typescript-eslint/naming-convention */
       headers: { Authorization: "Bearer " + (await context.dataverse.getAuthorizationToken()), "Content-Type": "application/json" },
@@ -96,7 +85,7 @@ async function findCustomControlId(context: DataversePowerToolsContext, controlN
       return undefined;
     }
     const data: any = await response.json();
-    const row = (data?.value ?? []).find((candidate: any) => matchesControlName(String(candidate?.name ?? ""), controlName));
+    const row = pickMatchingRow<{ name?: string; customcontrolid?: string }>(data?.value, lookup, "name");
     return row?.customcontrolid;
   } catch (error) {
     logDataverseError(context.channel, `find PCF control '${controlName}'`, error);

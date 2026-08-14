@@ -1,10 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { CUSTOM_CONTROL_COMPONENT_TYPE, controlNameFromManifest, customControlResource, matchesControlName } from "./deployPcf";
+import { CUSTOM_CONTROL_COMPONENT_TYPE, controlNameFromManifest } from "./deployPcf";
 
 // #256: "Add to Solution" used to demand a Solution PROJECT (.cdsproj) in the workspace — PCF was the
 // only component type that did. A web resource (component type 61) and a plug-in step (92) are added to
-// the solution named in the connection settings over the Web API, with no project anywhere. These pin
-// the pieces that make PCF behave the same way.
+// the solution named in the connection settings over the Web API, with no project anywhere.
+//
+// How the customcontrol ROW is stored (publisher-prefixed) is not tested here any more: it moved to
+// general/dataverse/rowLookups.spec.ts, where the product and the e2e client share one definition (#143).
 
 describe("CUSTOM_CONTROL_COMPONENT_TYPE", () => {
   it("is 66 — the solution component type for a customcontrol", () => {
@@ -19,7 +21,7 @@ describe("controlNameFromManifest", () => {
   </control>
 </manifest>`;
 
-  it("builds the <namespace>.<constructor> name the customcontrol row carries", () => {
+  it("builds the <namespace>.<constructor> name the customcontrol row is found by", () => {
     expect(controlNameFromManifest(manifest)).toBe("SampleNamespace.SampleControl");
   });
 
@@ -27,35 +29,5 @@ describe("controlNameFromManifest", () => {
     expect(controlNameFromManifest(`<control namespace="OnlyNs" />`)).toBeUndefined();
     expect(controlNameFromManifest(`<control constructor="OnlyCtor" />`)).toBeUndefined();
     expect(controlNameFromManifest("")).toBeUndefined();
-  });
-});
-
-// Dataverse stores the control PREFIXED with the publisher's customization prefix — a manifest of
-// namespace="SampleNamespace" constructor="SampleControl" lands as "dvpt_SampleNamespace.SampleControl".
-// An equality filter on the manifest name therefore never matches, which made a SUCCESSFUL push look
-// like "not in the environment yet".
-describe("customControlResource", () => {
-  it("matches on the SUFFIX, because the stored name carries a publisher prefix", () => {
-    expect(customControlResource("Ns.Ctl")).toContain("endswith(name,'Ns.Ctl')");
-    expect(customControlResource("Ns.Ctl")).toContain("$select=customcontrolid,name");
-  });
-
-  it("escapes a quote in the name rather than building broken OData", () => {
-    expect(customControlResource("N's.Ctl")).toContain("endswith(name,'N''s.Ctl')");
-  });
-});
-
-describe("matchesControlName", () => {
-  it("accepts the prefixed name Dataverse actually stores", () => {
-    expect(matchesControlName("dvpt_SampleNamespace.SampleControl", "SampleNamespace.SampleControl")).toBe(true);
-  });
-
-  it("accepts an unprefixed name too", () => {
-    expect(matchesControlName("SampleNamespace.SampleControl", "SampleNamespace.SampleControl")).toBe(true);
-  });
-
-  it("rejects a different control that merely ends similarly", () => {
-    expect(matchesControlName("dvpt_OtherNamespace.SampleControl", "SampleNamespace.SampleControl")).toBe(false);
-    expect(matchesControlName("XSampleNamespace.SampleControl", "SampleNamespace.SampleControl")).toBe(false);
   });
 });

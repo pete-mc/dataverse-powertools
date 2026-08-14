@@ -7,6 +7,9 @@ import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
 import { VSBrowser, Workbench, InputBox, BottomBarPanel, Key, ModalDialog } from "vscode-extension-tester";
+// The SAME lookups the product uses. Keeping a second copy here is what let the product and the test
+// agree on a wrong assumption about how Dataverse stores a name, so a working push read as broken.
+import { customControlLookup, pluginTraceLogLookup, pickMatchingRow } from "../../general/dataverse/rowLookups";
 
 export const repoRoot = path.resolve(__dirname, "..", "..", "..");
 
@@ -1018,13 +1021,13 @@ export class E2EClient {
    * (`dvpt_SampleNamespace.SampleControl`), so an equality filter on the manifest name never matches.
    */
   async findCustomControlId(fullName: string): Promise<string | undefined> {
-    const res = await this.request("GET", `customcontrols?$select=customcontrolid,name&$filter=endswith(name,'${fullName.replace(/'/g, "''")}')`);
+    const lookup = customControlLookup(fullName);
+    const res = await this.request("GET", lookup.resource);
     if (!res.ok) {
       return undefined;
     }
     const data: any = await res.json();
-    const row = (data?.value ?? []).find((candidate: any) => candidate?.name === fullName || String(candidate?.name ?? "").endsWith(`_${fullName}`));
-    return row?.customcontrolid;
+    return pickMatchingRow<{ name?: string; customcontrolid?: string }>(data?.value, lookup, "name")?.customcontrolid;
   }
 
   /** Force the org's plug-in trace level (0 Off, 1 Exception, 2 All) — teardown insurance for a shared org. */
@@ -1050,12 +1053,13 @@ export class E2EClient {
    * so an equality filter on the plain type name never matches even when the row is right there.
    */
   async hasTraceLogFor(typeName: string): Promise<boolean> {
-    const res = await this.request("GET", `plugintracelogs?$select=plugintracelogid&$top=1&$filter=startswith(typename,'${typeName.replace(/'/g, "''")}')`);
+    const lookup = pluginTraceLogLookup(typeName);
+    const res = await this.request("GET", lookup.resource);
     if (!res.ok) {
       return false;
     }
     const data: any = await res.json();
-    return (data?.value?.length ?? 0) > 0;
+    return pickMatchingRow<{ typename?: string }>(data?.value, lookup, "typename") !== undefined;
   }
 
   /** Whether a pushed control is a component OF the given solution (#256). */
