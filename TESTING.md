@@ -134,18 +134,47 @@ The suite is `*.e2e.ts` (not the CI `*.test.js` glob), so it stays out of CI.
   → open the live app in a browser and confirm the DEPLOYED code runs → **Debug Web Resources**
   locally + edit source and confirm hot reload. Steps 7–8 drive a real browser (CDP) and need
   the interactive user; they self-skip without it.
-- `pluginProfilerReplay` (Windows-only) — the plug-in **Debugging** block: scaffold a Plugins
-  project + xUnit test project, write a plug-in registered on **Create of territory**, Build &
-  deploy it, assert the step is discoverable as **profilable** live (guards the `getProfilableSteps`
-  server-side assembly filter — a busy org has 200+ system steps), and assert the **package-deploy
-  guard**: because the extension deploys plugins as packages and the Plugin Profiler can only
-  snapshot classic (non-package) assemblies (it reads `pluginassembly.content`, null for packages →
-  the server-side profiler throws "Unexpected Exception in the Plug-in Profiler" and leaves a broken
-  step firing), **Profile next run must REFUSE with a clear message** rather than enable a doomed
-  capture. That refusal is the honest green end state on the current deploy+profiler; making capture
-  actually work for package plugins (classic-assembly deploy for debugging, or populating the
-  assembly content) is a tracked follow-up. Uses log-FILE gating (`waitForLogFile`) so the click
-  doesn't need Selenium polling that lost the session on the 8GB VM.
+- `pluginProfilerReplay` (Windows-only) — the plug-in **Debugging** block end to end: scaffold a
+  Plugins project + xUnit test project, write a plug-in registered on **Create of territory**, Build
+  & deploy it, assert the step is discoverable as **profilable** live (guards the
+  `getProfilableSteps` server-side assembly filter — a busy org has 200+ system steps), then
+  **Profile next run** → trigger → **Continue** → download → **Generate Replay Test** → `dotnet test`
+  green → **Replay & debug** pausing on a breakpoint inside the plug-in → the per-step **Profile
+  CodeLens** toggling on and back off → the **live trace log** for the run it triggered.
+  Capture works for PACKAGE plugins because the extension populates the otherwise-null
+  `pluginassembly.content` from the deployed package (#208) — an earlier version of this suite
+  asserted that *Profile next run* refused, which was the honest end state before that fix.
+  Uses log-FILE gating (`waitForLogFile`) so the click doesn't need Selenium polling that lost the
+  session on the 8GB VM.
+
+### Which suite proves what (#143 Moves 4-5)
+
+Before adding a suite, check nothing already proves the same thing; before deleting one, check what
+it *uniquely* proves. `webresourceLifecycle` was removed because `webresourceComprehensive` ran the
+same five steps with ten log gates instead of none.
+
+| Suite | Uniquely proves | Needs |
+| --- | --- | --- |
+| `webresourceComprehensive` | The authoritative web-resource flow, log-gated, + live app + hot reload | browser user |
+| `webresourceAcceptance` | The same flow through the **panel buttons** | — |
+| `webresourcePerFileLifecycle` | Per-file output mode (#88) + form-XML assertion | — |
+| `webresourceInteractiveLifecycle` | The web-resource flow under **OAuth** | MSAL cache |
+| `pluginAcceptance` | Plugin scaffold → build → deploy via buttons | — |
+| `pluginLifecycle` | **Early-bound** generation compiling into the package (#129/#130) | — |
+| `pluginInteractiveLifecycle` | The plugin flow under **OAuth** | MSAL cache |
+| `pluginProfilerReplay` | Capture → replay → **debugger pause**, trace log | Windows, C# ext |
+| `pcfAcceptance` | PCF scaffold → build → push | — |
+| `pcfInteractiveLifecycle` | PCF under **OAuth**, incl. the pac **device-code** sign-in (#227) | MSAL cache, browser |
+| `customApiLifecycle` | Custom API define → deploy → **execute** → update/delete reconcile | — |
+| `fetchXmlQuery` | FetchXML detection, run, generator write-back, in C# and TS | — |
+| `blankRootComponents` | **Two of every component type** — targeting and per-component wiring | — |
+| `solutionAcceptance` | Solution pack/import | — |
+| `configRefresh` | Stale-config detection and refresh | — |
+
+Only `pluginProfilerReplay` is genuinely Windows-only (the capture tool is .NET Framework, and the
+debugger attaches with `clr`). Everything else is cross-platform and is a candidate for a Linux CI
+job under `xvfb` — the ones marked "MSAL cache" need `DVPT_TEST_USERNAME`/`PASSWORD` for the seeding
+launcher, and self-skip without them.
 
 **VM hygiene (the box is ~8GB).** ExTester + the net8 typings fetch + webpack + a browser is
 near the memory ceiling, and orphans accumulate across runs. If a run starts cascading

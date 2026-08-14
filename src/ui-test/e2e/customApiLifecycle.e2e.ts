@@ -71,7 +71,10 @@ describe("ACCEPTANCE: Custom API — define, deploy and execute via panel button
   let handlerPath = "";
   /** Captured on the first deploy so the re-deploy can prove the API row was UPDATED, not recreated. */
   let customApiIdFirstDeploy: string | undefined;
-  const isWindows = process.platform === "win32";
+  // Deliberately NOT Windows-gated. Every step here is cross-platform — `dotnet` builds the package,
+  // the rest is Web API — so this suite can run in a Linux CI job under xvfb (#143 Move 5). The guard
+  // it used to carry was copied from pluginProfilerReplay, which IS Windows-only because the profiler
+  // capture tool is .NET Framework; that reason does not apply to Custom APIs.
 
   function pkgUnique(): string {
     const settings = JSON.parse(fs.readFileSync(path.join(workspace, "dataverse-powertools.json"), "utf8"));
@@ -79,7 +82,7 @@ describe("ACCEPTANCE: Custom API — define, deploy and execute via panel button
   }
 
   before(async function () {
-    if (!env || !isWindows) {
+    if (!env) {
       this.skip();
     }
     client = new E2EClient(env!);
