@@ -69,7 +69,7 @@ whatever else has focus. Key facts:
   (OAuth) suites run for real** instead of skipping — the extension's cache plugin then signs
   in silently (there's no browser to drive inside ExTester). Best-effort: no creds → those
   suites skip and the service-principal suites still run.
-- Suites: `pluginLifecycle`, `pluginInteractiveLifecycle`, `webresourceLifecycle`,
+- Suites: `pluginLifecycle`, `pluginInteractiveLifecycle`,
   `webresourceInteractiveLifecycle`, and the log-gated 8-step `webresourceComprehensive`
   (init → typings → class+test → build → deploy → register form events → live-app
   deployed-code check → Debug Web Resources hot-reload). Steps are **gated on the extension's

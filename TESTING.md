@@ -124,8 +124,10 @@ The suite is `*.e2e.ts` (not the CI `*.test.js` glob), so it stays out of CI.
 **Suites** (`src/ui-test/e2e/`):
 - `pluginLifecycle` / `pluginInteractiveLifecycle` — scaffold + build + deploy a plugin under
   service-principal / interactive auth.
-- `webresourceLifecycle` / `webresourceInteractiveLifecycle` — init → typings → class+test →
-  build → deploy (+ Register Form Events on the interactive one).
+- `webresourceInteractiveLifecycle` — init → typings → class+test → build → deploy → Register
+  Form Events, under **interactive (OAuth)** auth. The service-principal version of this flow is
+  `webresourceComprehensive`, which does the same steps gated on the log and then goes further;
+  a separate `webresourceLifecycle` duplicated it with no gates and was removed (#143 Move 4).
 - `webresourceComprehensive` — the full 8-step journey, each step **gated on the extension's own
   log line** via `expectOutput()` (a wrong/missing/failed line stops the run): init → net8
   typings → class+test with a form registration → build → build & deploy → register form events
