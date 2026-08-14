@@ -4,6 +4,7 @@ import path = require("path");
 import fs = require("fs");
 import DataversePowerToolsContext from "./context";
 import { getProjectTypeActivation, registerAllComponentCommands } from "./projectTypes/activation";
+import { registerTraceLogDocumentProvider } from "./plugins/traceLogs";
 import { componentScopedContext } from "./components/componentDiscovery";
 import { componentsToInitialise } from "./components/discovery";
 import { clearStoredCredentials } from "./general/connectionStringManager";
@@ -35,6 +36,9 @@ export async function activate(vscodeContext: vscode.ExtensionContext) {
   // Every project type's commands register ONCE here; handlers resolve which
   // component an invocation targets (#47) — no per-type registration anymore.
   registerAllComponentCommands(context);
+  // Read-only documents for generated trace logs. ONCE, globally: a scheme can only be registered once,
+  // so a per-component initialise* would throw on the second component.
+  registerTraceLogDocumentProvider(context.vscode);
   // Workspace-level / connection commands (restore deps, connection string, switch env, open
   // portals, add component, …) also register ONCE here — NOT per workspace load inside
   // generalInitialise (which re-runs on every load and from createNewProject, and would throw

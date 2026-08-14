@@ -6,7 +6,7 @@
 // and a definition change surfaces as a compiler error. No `vscode` import →
 // unit-testable.
 
-import { CustomApiDefinition, CustomApiParameterType, CustomApiRequestParameter, CustomApiResponseProperty } from "./definition";
+import { CUSTOM_API_FILE_SUFFIX, CustomApiDefinition, CustomApiParameterType, CustomApiRequestParameter, CustomApiResponseProperty } from "./definition";
 
 /** Map a Custom API parameter type to the C# type the SDK surfaces it as.
  * Keys are the platform's PascalCase type vocabulary, not identifiers. */
@@ -72,11 +72,14 @@ function escapeXml(value: string): string {
 }
 
 /**
- * Generate the full C# handler file (request wrapper + response wrapper + IPlugin
- * class) for a Custom API definition. The class name / namespace come from the
- * definition's pluginTypeName.
+ * The GENERATED half: the typed request and response wrappers. Rewritten every time, because it is a
+ * projection of the definition and must follow it.
+ *
+ * The `IPlugin` implementation is deliberately NOT here — it used to be, in the same file, so
+ * regenerating after a definition change destroyed whatever the user had written in `Execute` (#254).
+ * It now lives in its own file, written once (`generateCustomApiUserHandler`).
  */
-export function generateCustomApiHandler(def: CustomApiDefinition): string {
+export function generateCustomApiWrappers(def: CustomApiDefinition): string {
   const { namespaceName, className } = splitPluginTypeName(def.pluginTypeName);
   const requestClass = `${className}Request`;
   const responseClass = `${className}Response`;
@@ -87,11 +90,14 @@ export function generateCustomApiHandler(def: CustomApiDefinition): string {
   return `using System;
 using Microsoft.Xrm.Sdk;
 
+// GENERATED FILE — regenerated from ${def.uniqueName}${CUSTOM_API_FILE_SUFFIX} whenever the definition
+// changes. Do not edit: your changes here WILL be overwritten. Your implementation belongs in
+// ${className}.cs, which is written once and never regenerated.
+
 namespace ${namespaceName}
 {
     /// <summary>
-    /// Typed request wrapper for the "${def.uniqueName}" Custom API — reads
-    /// InputParameters as typed values. Generated from ${def.uniqueName}${".customapi.json"}; regenerate on change.
+    /// Typed request wrapper for the "${def.uniqueName}" Custom API — reads InputParameters as typed values.
     /// </summary>
     public sealed class ${requestClass}
     {
@@ -111,7 +117,24 @@ ${requestMembers || "        // (no request parameters defined)"}
 
 ${responseMembers || "        // (no response properties defined)"}
     }
+}
+`;
+}
 
+/**
+ * The USER half: the `IPlugin` implementation, written ONCE and never regenerated, so a definition
+ * change cannot take your code with it (#254).
+ */
+export function generateCustomApiUserHandler(def: CustomApiDefinition): string {
+  const { namespaceName, className } = splitPluginTypeName(def.pluginTypeName);
+  return `using System;
+using Microsoft.Xrm.Sdk;
+
+// YOUR FILE — written once when the handler was first generated, and never overwritten. Regenerating
+// refreshes ${className}.generated.cs (the typed wrappers) and leaves this alone.
+
+namespace ${namespaceName}
+{
     /// <summary>
     /// Implements the "${def.uniqueName}" Custom API message.
     /// Registered as plugin type ${def.pluginTypeName}.
@@ -121,8 +144,8 @@ ${responseMembers || "        // (no response properties defined)"}
         public void Execute(IServiceProvider serviceProvider)
         {
             var context = (IPluginExecutionContext)serviceProvider.GetService(typeof(IPluginExecutionContext));
-            var request = new ${requestClass}(context);
-            var response = new ${responseClass}(context);
+            var request = new ${className}Request(context);
+            var response = new ${className}Response(context);
 
             // TODO: implement the "${def.uniqueName}" operation.
             // Read typed inputs from 'request', set typed outputs on 'response'.
@@ -132,8 +155,22 @@ ${responseMembers || "        // (no response properties defined)"}
 `;
 }
 
+/**
+ * True when a `*.generated.cs` predates the #254 split — i.e. it still carries the `IPlugin`
+ * implementation, so overwriting it could destroy the user's code.
+ */
+export function looksLikeLegacyHandler(existingSource: string): boolean {
+  return /:\s*IPlugin\b/.test(existingSource) || /\bvoid\s+Execute\s*\(\s*IServiceProvider/.test(existingSource);
+}
+
 /** Output file name for a definition's generated handler. */
 export function customApiHandlerFileName(def: CustomApiDefinition): string {
   const { className } = splitPluginTypeName(def.pluginTypeName);
   return `${className}.generated.cs`;
+}
+
+/** File name for the USER's implementation — written once, never regenerated (#254). */
+export function customApiUserHandlerFileName(def: CustomApiDefinition): string {
+  const { className } = splitPluginTypeName(def.pluginTypeName);
+  return `${className}.cs`;
 }

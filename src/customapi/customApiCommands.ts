@@ -11,7 +11,7 @@ import DataversePowerToolsContext from "../context";
 import { activeComponentRoot } from "../components/componentDiscovery";
 import { CUSTOM_API_FILE_SUFFIX, CustomApiDefinition, newCustomApiDefinition } from "./definition";
 import { validateCustomApiDefinition } from "./validate";
-import { generateCustomApiHandler, customApiHandlerFileName } from "./generateHandler";
+import { generateCustomApiWrappers, generateCustomApiUserHandler, looksLikeLegacyHandler, customApiHandlerFileName, customApiUserHandlerFileName } from "./generateHandler";
 import { generateTypedClient, customApiClientFileName } from "./generateTypedClient";
 import { findPrimaryPluginCsproj } from "../plugins/projectPaths";
 
@@ -118,11 +118,32 @@ export async function generateCustomApiHandlers(context: DataversePowerToolsCont
     }
 
     fs.mkdirSync(outDir, { recursive: true });
-    const outPath = path.join(outDir, customApiHandlerFileName(definition));
-    fs.writeFileSync(outPath, generateCustomApiHandler(definition), "utf8");
+    const wrappersPath = path.join(outDir, customApiHandlerFileName(definition));
+    const userPath = path.join(outDir, customApiUserHandlerFileName(definition));
+    const rel = (p: string): string => path.relative(root, p).replace(/\\/g, "/");
+
+    // A `*.generated.cs` from before the split still holds the IPlugin implementation, so rewriting it
+    // is exactly the data loss this split exists to prevent (#254). Refuse, and say what to do.
+    if (fs.existsSync(wrappersPath) && !fs.existsSync(userPath) && looksLikeLegacyHandler(fs.readFileSync(wrappersPath, "utf8"))) {
+      context.reportFailure(
+        `${name}: ${rel(wrappersPath)} still contains your Execute implementation (older layout). ` +
+          `Move the class into ${rel(userPath)}, then run this again — otherwise regenerating would overwrite your code.`,
+        { toast: `Custom API: ${path.basename(wrappersPath)} holds your implementation — move it to ${path.basename(userPath)} first. See the output.` },
+      );
+      failed++;
+      continue;
+    }
+
+    fs.writeFileSync(wrappersPath, generateCustomApiWrappers(definition), "utf8");
+    // The implementation is written ONCE. Regenerating after a definition change refreshes the typed
+    // wrappers and leaves your Execute body alone (#254).
+    const wroteUser = !fs.existsSync(userPath);
+    if (wroteUser) {
+      fs.writeFileSync(userPath, generateCustomApiUserHandler(definition), "utf8");
+    }
     // Say WHERE it landed relative to the component, so "which project is this compiled into?" is
-    // answerable from the log.
-    context.channel.appendLine(`✓ ${name} → ${path.relative(root, outPath).replace(/\\/g, "/")}`);
+    // answerable from the log — and whether your file was created or left as it was.
+    context.channel.appendLine(`✓ ${name} → ${rel(wrappersPath)}${wroteUser ? ` + ${rel(userPath)}` : ` (${path.basename(userPath)} left as you wrote it)`}`);
     generated++;
   }
 

@@ -5,6 +5,40 @@ All notable changes to the "dataverse-powertools" extension will be documented i
 Pre-release builds get a per-version entry in [CHANGELOG-prerelease.md](CHANGELOG-prerelease.md);
 those entries are rolled up into one section here when a full release ships.
 
+## 1.0.5
+
+**Custom API handlers keep the code you write**, and **PCF controls go into the solution you already
+chose**. Both were things you would hit the first time you used the feature properly.
+
+**Regenerating a Custom API handler no longer wipes your implementation**
+
+The handler was a single file holding both the generated wrappers and the `Execute` method you fill in —
+and regenerating rewrote all of it. Since changing the definition and regenerating is the whole point of
+definition-as-code, that cost you your code.
+
+It is two files now:
+
+- `<Class>.generated.cs` — the typed request/response wrappers. Refreshed whenever you regenerate, and
+  it says so at the top.
+- `<Class>.cs` — your `IPlugin` implementation. **Written once, never overwritten.**
+
+If you already have a handler from an earlier version, it still contains your `Execute` — the extension
+detects that and refuses to overwrite it, telling you to move the class into `<Class>.cs` first.
+
+**PCF: Add to Solution uses your configured solution**
+
+It used to require a Solution *project* (`.cdsproj`) in the workspace and did nothing without one — PCF
+was the only component type that asked for that. It now adds the pushed control to the solution from
+your connection settings, the same way a web resource or a plug-in step is added. If you do have a
+solution project it still adds the reference as well, so packing keeps working. When there is nothing to
+add, it tells you to push the control first, which is the actual next step.
+
+**Trace logs open read-only**
+
+Viewing a plug-in trace log opened it as an untitled document, so closing it asked whether you wanted to
+save something you had only read. It opens as a read-only document now, titled with the plug-in and the
+time.
+
 ## 1.0.4
 
 **Custom APIs work.** They could not before: the generated C# handler was written where the plug-in

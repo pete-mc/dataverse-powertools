@@ -2,9 +2,19 @@
 //
 // Usage: node scripts/redactScreenshots.mjs <directory-of-pngs>
 //
-// The e2e screenshot frames (DVPT_E2E_SHOTS=1) show the sandbox org URL in the panel's connection
-// block, in the status bar, and in the query results header. Those frames go on the PUBLIC wiki and a
-// wiki push is one-way, so paint over those regions rather than relying on nobody reading them.
+// NOT USED BY DEFAULT ANY MORE — pass `--redact-identity` to paint anything.
+//
+// The e2e environment is a dedicated Dataverse PowerTools dev/demo org: it holds no real data, is wiped
+// periodically, and its owner has confirmed the URL is fine to publish. So the frames go on the wiki AS
+// CAPTURED, which is both more useful (a screenshot showing a real environment reads as real) and less
+// risky than painting rectangles over live UI — that is how a Locals pane got blanked in the one frame
+// meant to show it.
+//
+// Keep this script for the day the captures come from an org that does matter. Then:
+//   node scripts/redactScreenshots.mjs <dir> --redact-identity
+//
+// The e2e screenshot frames (DVPT_E2E_SHOTS=1) show the org URL in the panel's connection block, in the
+// status bar, and in the query results header. With the flag, those regions are painted over.
 //
 // Regions are measured against the 1718x872 window the e2e instance uses. If that size changes, the
 // script reports frames it could not fully cover instead of silently redacting the wrong pixels.
@@ -50,8 +60,16 @@ const FILL = { r: 37, g: 37, b: 38 }; // VS Code dark sidebar / status-bar backg
 
 const dir = process.argv[2];
 if (!dir || !fs.existsSync(dir)) {
-  console.error("usage: node scripts/redactScreenshots.mjs <directory-of-pngs>");
+  console.error("usage: node scripts/redactScreenshots.mjs <directory-of-pngs> [--redact-identity]");
   process.exit(2);
+}
+
+// Refuse to paint unless asked. The captures come from a disposable demo org whose URL is publishable,
+// and silently redacting cost real content once already.
+if (!process.argv.includes("--redact-identity")) {
+  console.log("redactScreenshots: nothing to do — the e2e org is a disposable demo environment and its URL is publishable.");
+  console.log("Pass --redact-identity to paint over the connection block, the status bar and the results header.");
+  process.exit(0);
 }
 
 let redacted = 0;

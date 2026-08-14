@@ -192,6 +192,48 @@ export function shotsEnabled(): boolean {
   return process.env.DVPT_E2E_SHOTS === "1";
 }
 
+/** The window size the e2e instance runs at; a side-by-side half is exactly half of it. */
+export const E2E_WINDOW = { width: 1718, height: 872 };
+export const SIDE_BY_SIDE_HALF = { width: Math.floor(E2E_WINDOW.width / 2), height: E2E_WINDOW.height };
+
+/**
+ * Resize the VS Code window to one half of the screen, for a capture that will be stitched next to a
+ * browser frame — so the composed image reads as ONE screen rather than two overlapping full ones.
+ * Returns a function that puts the window back.
+ */
+export async function shotEditorHalf(name: string): Promise<void> {
+  if (!shotsEnabled()) {
+    return;
+  }
+  try {
+    await clearShotArtefacts(false);
+    fs.mkdirSync(SHOTS_DIR, { recursive: true });
+
+    const { PNG } = require("pngjs");
+    const full = PNG.sync.read(Buffer.from(await VSBrowser.instance.driver.takeScreenshot(), "base64"));
+    const width = Math.min(SIDE_BY_SIDE_HALF.width, full.width);
+    // Crop from the LEFT. Taking the right half looked more "editor-ish" but cut every line of code
+    // mid-statement; the left half keeps the line numbers, the start of each line, and the output panel
+    // — which is what makes the hot-reload story readable next to the form.
+    const left = 0;
+    const half = new PNG({ width, height: full.height });
+    for (let y = 0; y < full.height; y++) {
+      for (let x = 0; x < width; x++) {
+        const source = (full.width * y + (left + x)) << 2;
+        const target = (width * y + x) << 2;
+        half.data[target] = full.data[source];
+        half.data[target + 1] = full.data[source + 1];
+        half.data[target + 2] = full.data[source + 2];
+        half.data[target + 3] = 255;
+      }
+    }
+    fs.writeFileSync(path.join(SHOTS_DIR, `${name}.png`), PNG.sync.write(half));
+    console.log(`    [shot] ${name}.png (editor half ${width}x${full.height})`);
+  } catch (error) {
+    console.log(`    [shot] ${name} (editor half) failed: ${String(error).slice(0, 120)}`);
+  }
+}
+
 /**
  * Clear what an earlier step left visible in the MAIN document: every outline this module applied, the
  * focus ring on the last-clicked control, and any text selection. `keepOwnOutline` spares the outline
@@ -965,6 +1007,82 @@ export class E2EClient {
     if (id) {
       await this.request("DELETE", `pluginpackages(${id})`);
     }
+  }
+
+  // ---- PCF custom control (#227): prove an interactive push really landed, then remove it ----
+
+  /**
+   * The `customcontrol` row id for a `<namespace>.<constructor>` control, or undefined when absent.
+   *
+   * Dataverse PREFIXES the stored name with the publisher's customization prefix
+   * (`dvpt_SampleNamespace.SampleControl`), so an equality filter on the manifest name never matches.
+   */
+  async findCustomControlId(fullName: string): Promise<string | undefined> {
+    const res = await this.request("GET", `customcontrols?$select=customcontrolid,name&$filter=endswith(name,'${fullName.replace(/'/g, "''")}')`);
+    if (!res.ok) {
+      return undefined;
+    }
+    const data: any = await res.json();
+    const row = (data?.value ?? []).find((candidate: any) => candidate?.name === fullName || String(candidate?.name ?? "").endsWith(`_${fullName}`));
+    return row?.customcontrolid;
+  }
+
+  /** Force the org's plug-in trace level (0 Off, 1 Exception, 2 All) — teardown insurance for a shared org. */
+  async setTraceLogLevel(level: 0 | 1 | 2): Promise<boolean> {
+    const res = await this.request("GET", "organizations?$select=organizationid&$top=1");
+    if (!res.ok) {
+      return false;
+    }
+    const data: any = await res.json();
+    const id = data?.value?.[0]?.organizationid;
+    if (!id) {
+      return false;
+    }
+
+    const patch = await this.request("PATCH", `organizations(${id})`, { plugintracelogsetting: level });
+    return patch.ok;
+  }
+
+  /**
+   * Whether the plug-in wrote a trace log — proof the run happened with tracing on (#231).
+   *
+   * `typename` is the ASSEMBLY-QUALIFIED name ("Ns.Class, Assembly, Version=…, Culture=…, PublicKeyToken=…"),
+   * so an equality filter on the plain type name never matches even when the row is right there.
+   */
+  async hasTraceLogFor(typeName: string): Promise<boolean> {
+    const res = await this.request("GET", `plugintracelogs?$select=plugintracelogid&$top=1&$filter=startswith(typename,'${typeName.replace(/'/g, "''")}')`);
+    if (!res.ok) {
+      return false;
+    }
+    const data: any = await res.json();
+    return (data?.value?.length ?? 0) > 0;
+  }
+
+  /** Whether a pushed control is a component OF the given solution (#256). */
+  async isCustomControlInSolution(fullName: string, solutionUniqueName: string): Promise<boolean> {
+    const id = await this.findCustomControlId(fullName);
+    if (!id) {
+      return false;
+    }
+    const res = await this.request(
+      "GET",
+      `solutioncomponents?$select=solutioncomponentid&$filter=objectid eq ${id} and solutionid/uniquename eq '${solutionUniqueName.replace(/'/g, "''")}'`,
+    );
+    if (!res.ok) {
+      return false;
+    }
+    const data: any = await res.json();
+    return (data?.value?.length ?? 0) > 0;
+  }
+
+  /** Delete a pushed custom control. Best-effort: a control referenced by a form cannot be removed. */
+  async deleteCustomControl(fullName: string): Promise<boolean> {
+    const id = await this.findCustomControlId(fullName);
+    if (!id) {
+      return false;
+    }
+    const res = await this.request("DELETE", `customcontrols(${id})`);
+    return res.ok;
   }
 
   // ---- Custom API (#225): verify what the deploy actually created, then remove it ----

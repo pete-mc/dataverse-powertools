@@ -183,6 +183,8 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
   const className = "TerritoryOnboarding";
   let typeName = `${projectName}.${className}`; // refined from the scaffolded file's real namespace
   let triggeredTerritoryId: string | undefined;
+  /** The second trigger, fired with tracing ON so the viewer has a real row to show (#231). */
+  let tracedTerritoryId: string | undefined;
 
   function pkgUnique(): string {
     const settings = JSON.parse(fs.readFileSync(path.join(workspace, "dataverse-powertools.json"), "utf8"));
@@ -639,6 +641,72 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
     });
   });
 
+  // #231 wanted a LIVE-TRIGGERED trace log: not a hand-made example, but the record a real execution
+  // wrote. The territory create above already ran the plug-in, and its Trace() line is in the org — so
+  // this opens the viewer on that record and captures what a user would read.
+  it("shows the trace log written by the run we triggered (live trace capture)", async () => {
+    await step(COMPONENT, "View plugin trace logs for the triggered run", async () => {
+      // Plug-in tracing is OFF by default, so the earlier trigger wrote no plugintracelog row and the
+      // viewer had nothing to show. Turn it on, fire the plug-in again, THEN look — a trace log is only
+      // worth capturing if it came from a real execution.
+      await runCommandResilient("Dataverse PowerTools: Set Plugin Trace Log Level");
+      await pickByLabel("All", 60000);
+      await pushModalButton("Set to All").catch(() => undefined); // the firehose confirmation
+      await waitForLogFile("[Trace] Plug-in trace log level set to 2", { timeoutMs: 120000 });
+
+      tracedTerritoryId = await client.createTerritory();
+      if (!tracedTerritoryId) {
+        throw new Error("could not create a territory to trigger the plugin for its trace log");
+      }
+      // The step is ASYNC, so the row appears a moment after the create returns.
+      const wroteTrace = await (async (): Promise<boolean> => {
+        const deadline = Date.now() + 180000;
+        for (;;) {
+          if (await client.hasTraceLogFor(typeName).catch(() => false)) {
+            return true;
+          }
+          if (Date.now() > deadline) {
+            return false;
+          }
+          await sleep(5000);
+        }
+      })();
+      expect(wroteTrace, `a plugintracelog row for ${typeName} after triggering with tracing on`).to.equal(true);
+
+      await runCommandResilient("Dataverse PowerTools: View Plugin Trace Logs");
+      // Pick OUR plug-in's log, not the first one. A territory create can fire more than one registered
+      // plug-in (an older package from a previous run was still active in the shared org), so "newest
+      // first" is not the same as "ours" — the first attempt captured a different plug-in's trace.
+      await pickByLabel(className, 120000);
+      await sleep(3000);
+      await dismissOverlays();
+      // Read the DOCUMENT, not the DOM: Monaco renders only the visible lines, so scraping innerText
+      // returned the header plus a column of line numbers while the trace body sat below the fold.
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      const { TextEditor } = require("vscode-extension-tester");
+      const rendered = await new TextEditor().getText();
+      await shot("10-live-trace-log");
+      // TIDY BEFORE ASSERTING. The trace document is an untitled markdown editor, and leaving it active
+      // made the NEXT test ask it for CodeLenses and find none — so a failure here cascaded into a
+      // second, unrelated-looking failure. Cleanup must not depend on the assertions passing.
+      // REVERT and close. The viewer opens the log as an UNTITLED document, which VS Code considers
+      // dirty, so a plain "Close Editor" raises a "save your changes?" modal — the suite then sat on
+      // that dialog until the hour-long mocha timeout killed the session, and the next test reported a
+      // dead driver. Reverting discards without asking; the modal dismissal is belt and braces.
+      await runCommandResilient("View: Revert and Close Editor").catch(() => undefined);
+      await sleep(1500);
+      await pushModalButton("Don't Save").catch(() => undefined);
+      await sleep(500);
+      // Prove it is OUR run's trace before publishing the frame: the plug-in's own Trace() output.
+      expect(rendered, `the trace log is from the plug-in we triggered — saw: ${rendered.slice(0, 200)}`).to.contain("Onboarded territory");
+      expect(rendered, "the trace log names the plug-in type that wrote it").to.contain(typeName);
+      // Put the firehose back — the docs tell users to, and leaving it on costs the shared org.
+      await runCommandResilient("Dataverse PowerTools: Set Plugin Trace Log Level").catch(() => undefined);
+      await pickByLabel("Off", 60000).catch(() => undefined);
+      return "opened the trace log for the triggered run (contains the plug-in's own Trace output)";
+    });
+  });
+
   // Drive the CodeLens route for real. Last, so a failure here cannot disturb the capture flow above,
   // and it toggles back OFF so the step is left active for the next run (the #241 lesson).
   it("starts and stops profiling from the per-step CodeLens", async () => {
@@ -786,6 +854,16 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
       if (triggeredTerritoryId) {
         await client.deleteTerritory(triggeredTerritoryId);
       }
+      // The second trigger, fired with tracing on for the trace-log capture (#231).
+      if (tracedTerritoryId) {
+        await client.deleteTerritory(tracedTerritoryId);
+      }
+    } catch {
+      /* best-effort */
+    }
+    // Never leave the org's trace level on All — it is a shared environment and this is a firehose.
+    try {
+      await client.setTraceLogLevel(0);
     } catch {
       /* best-effort */
     }
