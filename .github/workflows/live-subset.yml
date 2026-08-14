@@ -1,0 +1,127 @@
+# A SUBSET of the live e2e suites, in CI (#143 Move 5).
+#
+# The e2e tier catches things nothing else does — the three multi-component bugs that shipped in 0.8.4
+# (duplicate TestController id, duplicate command registration, inherited-field persistence) were
+# invisible to unit tests and to CI, and were only ever caught by a manual run on a Windows VM. This
+# runs the part of that tier which can run here.
+#
+# WHY THIS IS NARROW, AND WEEKLY:
+#
+# A previous `nightly.yml` failed every day for 12+ days and was deleted, because a red job nobody
+# watches is worse than no job — it trains everyone to ignore the badge. So this takes only suites that
+# are deterministic in CI and, crucially, DO NOT FIGHT OVER SHARED ORG STATE:
+#
+#   blankRootComponents  scaffolds two of every component type locally; the bug class above
+#   configRefresh        stale-config detection, entirely local
+#   fetchXmlQuery        detection, run and generator write-back — its Dataverse calls are READ-ONLY
+#
+# The deploying suites (web resource, plugin, PCF, Custom API) are deliberately excluded: they create
+# and delete rows with FIXED names in one shared environment, so a CI run overlapping a developer's VM
+# run would have them deleting each other's fixtures. That is not hypothetical — cross-suite name
+# collisions inside a single run already produced a hollow assertion (#249). Those stay on the VM until
+# each one namespaces its fixtures per run.
+#
+# pluginProfilerReplay stays Windows-only regardless: the profiler capture tool is .NET Framework and
+# the debugger attaches with `clr`.
+name: Live e2e (subset)
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Mondays, 06:00 UTC. Weekly rather than nightly on purpose — see above.
+    - cron: "0 6 * * 1"
+
+# One at a time: these talk to a single shared Dataverse environment.
+concurrency:
+  group: live-e2e
+  cancel-in-progress: false
+
+jobs:
+  live-subset:
+    name: Live e2e subset (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "8.0.x"
+
+      # Without credentials every suite self-skips, which would report a meaningless green. Say so and
+      # stop instead — a fork or a secretless run should not look like a pass.
+      - name: Check credentials
+        id: creds
+        env:
+          DVPT_TEST_URL: ${{ secrets.DVPT_TEST_URL }}
+        run: |
+          if [ -z "$DVPT_TEST_URL" ]; then
+            echo "No Dataverse credentials configured — nothing to run." >> "$GITHUB_STEP_SUMMARY"
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install the Power Platform CLI
+        if: steps.creds.outputs.present == 'true'
+        run: dotnet tool install --global Microsoft.PowerApps.CLI.Tool
+
+      - run: npm ci
+        if: steps.creds.outputs.present == 'true'
+
+      - name: Compile the bundle and the tests
+        if: steps.creds.outputs.present == 'true'
+        # The extension host loads dist/, the suites come from out/ — both, or the run tests a stale build.
+        run: |
+          npm run compile
+          npm run compile-tests
+
+      # The suites read sandbox/.env; secrets go in it rather than the environment so one code path
+      # loads credentials everywhere (loadE2EEnv).
+      - name: Write sandbox/.env
+        if: steps.creds.outputs.present == 'true'
+        env:
+          DVPT_TEST_URL: ${{ secrets.DVPT_TEST_URL }}
+          DVPT_TEST_TENANT_ID: ${{ secrets.DVPT_TEST_TENANT_ID }}
+          DVPT_TEST_CLIENT_ID: ${{ secrets.DVPT_TEST_CLIENT_ID }}
+          DVPT_TEST_CLIENT_SECRET: ${{ secrets.DVPT_TEST_CLIENT_SECRET }}
+          DVPT_TEST_SOLUTION_NAME: ${{ secrets.DVPT_TEST_SOLUTION_NAME }}
+          DVPT_TEST_PREFIX: ${{ secrets.DVPT_TEST_PREFIX }}
+        run: |
+          mkdir -p sandbox
+          {
+            echo "DVPT_TEST_URL=$DVPT_TEST_URL"
+            echo "DVPT_TEST_TENANT_ID=$DVPT_TEST_TENANT_ID"
+            echo "DVPT_TEST_CLIENT_ID=$DVPT_TEST_CLIENT_ID"
+            echo "DVPT_TEST_CLIENT_SECRET=$DVPT_TEST_CLIENT_SECRET"
+            echo "DVPT_TEST_SOLUTION_NAME=${DVPT_TEST_SOLUTION_NAME:-dvpttests}"
+            echo "DVPT_TEST_PREFIX=${DVPT_TEST_PREFIX:-dvpt}"
+          } > sandbox/.env
+
+      - name: Run the subset
+        if: steps.creds.outputs.present == 'true'
+        run: |
+          xvfb-run -a node scripts/runE2E.mjs \
+            "out/ui-test/e2e/configRefresh.e2e.js" \
+            "out/ui-test/e2e/fetchXmlQuery.e2e.js" \
+            "out/ui-test/e2e/blankRootComponents.e2e.js"
+
+      # The extension mirrors its output channel to this file; the run's own audit scans it for failure
+      # signatures the suites' gates did not predict. Keep it either way — a red run is worth reading.
+      - name: Upload the extension log
+        if: always() && steps.creds.outputs.present == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-log
+          path: sandbox/e2e-extension-output.log
+          if-no-files-found: ignore
+
+      - name: Upload failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-screenshots
+          path: sandbox/screenshots-out/**
+          if-no-files-found: ignore
