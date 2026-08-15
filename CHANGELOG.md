@@ -5,6 +5,48 @@ All notable changes to the "dataverse-powertools" extension will be documented i
 Pre-release builds get a per-version entry in [CHANGELOG-prerelease.md](CHANGELOG-prerelease.md);
 those entries are rolled up into one section here when a full release ships.
 
+## 1.0.6
+
+**Three fixes to things that were quietly wrong**, each found by writing tests for logic that had
+never been reachable from a test.
+
+**Scaffolded files could lose a character**
+
+The project scaffolder replaced its `SOLUTIONPREFIX` and `SOLUTIONPLACEHOLDER` tokens using a
+pattern that was not actually the token: it matched *any character* followed by the rest of the
+word, and consumed that character. It worked on the exact token by luck, and ate a character
+anywhere else it matched.
+
+**A value you typed could be mangled by the next placeholder**
+
+Placeholders were substituted one after another, each re-scanning what the previous one had already
+written. A class name containing another token's text — `FormNameHandler`, say — was safe only
+because of the order the list happened to be in.
+
+Substitution is now literal and single-pass: the scan never revisits text it has emitted, so no
+value can be corrupted whatever order the placeholders are in, and a `# Change Log
+
+All notable changes to the "dataverse-powertools" extension will be documented in this file.
+
+Pre-release builds get a per-version entry in [CHANGELOG-prerelease.md](CHANGELOG-prerelease.md);
+those entries are rolled up into one section here when a full release ships.
+
+ in a value is inserted as
+typed rather than read as replacement syntax.
+
+**"Run this test" could run the whole suite**
+
+In the Test Explorer, running a selection that resolved to no test names produced an empty
+`--filter`. To VSTest an empty filter does not mean "no tests" — it means *every* test, so a
+targeted run silently became a full one. Such a selection is now skipped instead. A test result the
+extension cannot interpret also counts as a failure rather than a pass.
+
+**Under the hood**
+
+Coverage of the extension host is now measured and enforced in CI alongside the unit numbers — the
+two measure opposite halves of the codebase, and only one of them was being reported. Unit tests
+1160 → 1275.
+
 ## 1.0.5
 
 **Custom API handlers keep the code you write**, and **PCF controls go into the solution you already
