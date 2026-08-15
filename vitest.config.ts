@@ -20,11 +20,13 @@ export default defineConfig({
       // these up as vscode-free logic is extracted and unit-tested (see #80).
       // Regression guard, kept a couple of points below the actual so it isn't brittle. Ratchet UP
       // as pure modules are extracted (#238 added src/query, which is ~all pure) — never down.
+      // Ratcheted for #143's extractions (templateSubstitution, connectionWizardFlow,
+      // intersectOperations, testRunArgs) plus the solution/portal/workflow flow specs.
       thresholds: {
-        statements: 32,
-        branches: 36,
-        functions: 39,
-        lines: 32,
+        statements: 33,
+        branches: 37,
+        functions: 40,
+        lines: 33,
       },
     },
   },
