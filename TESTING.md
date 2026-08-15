@@ -122,8 +122,10 @@ The suite is `*.e2e.ts` (not the CI `*.test.js` glob), so it stays out of CI.
    first for `out/`).
 
 **Suites** (`src/ui-test/e2e/`):
-- `pluginLifecycle` / `pluginInteractiveLifecycle` — scaffold + build + deploy a plugin under
-  service-principal / interactive auth.
+- `pluginAcceptance` / `pluginInteractiveLifecycle` — scaffold + early-bound + build + deploy a
+  plugin under service-principal / interactive auth. (A third suite, `pluginLifecycle`, duplicated
+  the service-principal flow through the command palette; its unique early-bound test moved into
+  `pluginAcceptance` and the rest was removed — #143 Move 4.)
 - `webresourceInteractiveLifecycle` — init → typings → class+test → build → deploy → Register
   Form Events, under **interactive (OAuth)** auth. The service-principal version of this flow is
   `webresourceComprehensive`, which does the same steps gated on the log and then goes further;
@@ -159,8 +161,7 @@ same five steps with ten log gates instead of none.
 | `webresourceAcceptance` | The same flow through the **panel buttons** | — |
 | `webresourcePerFileLifecycle` | Per-file output mode (#88) + form-XML assertion | — |
 | `webresourceInteractiveLifecycle` | The web-resource flow under **OAuth** | MSAL cache |
-| `pluginAcceptance` | Plugin scaffold → build → deploy via buttons | — |
-| `pluginLifecycle` | **Early-bound** generation compiling into the package (#129/#130) | — |
+| `pluginAcceptance` | Plugin scaffold → **early-bound** → build → deploy via buttons (#129/#130) | — |
 | `pluginInteractiveLifecycle` | The plugin flow under **OAuth** | MSAL cache |
 | `pluginProfilerReplay` | Capture → replay → **debugger pause**, trace log | Windows, C# ext |
 | `pcfAcceptance` | PCF scaffold → build → push | — |

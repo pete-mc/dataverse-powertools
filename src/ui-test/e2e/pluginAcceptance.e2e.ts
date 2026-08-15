@@ -2,7 +2,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
-import { runScopedName, loadE2EEnv, freshWorkspace, answerText, pickByLabel, waitForFile, dismissOverlays, sleep, E2EClient } from "./lib";
+import { runScopedName, loadE2EEnv, freshWorkspace, answerText, pickByLabel, waitForFile, dismissOverlays, sleep, expectOutput, clearOutput, E2EClient } from "./lib";
 import { clickPanelButton, expandComponentCards } from "../supervised/supervisedLib";
 import { initProject, step, showLog } from "./acceptanceLib";
 
@@ -90,6 +90,50 @@ describe("ACCEPTANCE: Plugin — build, code, register, publish via panel button
       const cs = path.join(workspace, projectName, "AcceptancePluginClass.cs");
       expect(await waitForFile(cs, 120000), "plugin class scaffolded").to.equal(true);
       return `wrote ${projectName}/AcceptancePluginClass.cs (scaffolded with a [CrmPluginRegistration] step)`;
+    });
+  });
+
+  // Ported from pluginLifecycle when that suite was retired as a duplicate (#143 Move 4): it was the
+  // ONLY place early-bound generation was proved, and the build below is what proves the generated
+  // classes actually compile into the package (#130) — a csproj that stopped globbing
+  // ..\generated\**\*.cs would fail there, not here.
+  it("generates early-bound classes — Generate Earlybound button (#129/#130)", async () => {
+    await step(COMPONENT, "Generate early-bound classes", async () => {
+      // Seed modelbuilder.json so the command runs `pac modelbuilder` directly instead of opening the
+      // config wizard, which has no business being in an acceptance path.
+      fs.writeFileSync(
+        path.join(workspace, "modelbuilder.json"),
+        JSON.stringify({ namespace: "Dataverse.Plugins", serviceContextName: "XrmSvc", outputDirectory: "generated" }, null, 2),
+        "utf8",
+      );
+
+      await clearOutput();
+      await expandComponentCards();
+      await clickPanelButton("Generate Earlybound", { timeoutMs: 45000 });
+      await expectOutput("Plugin early bound generation complete.", {
+        timeoutMs: 300000,
+        failMarkers: ["Error running pac modelbuilder", "pac authentication failed", "No active environment"],
+        step: "generate early bound",
+      });
+
+      // The log line is the command's own claim; the files are the fact. `pac` exits 0 on failure, which
+      // is how early-bound once reported success with nothing generated (#129).
+      const generatedDir = path.join(workspace, "generated");
+      const deadline = Date.now() + 30000;
+      let generated: string[] = [];
+      do {
+        try {
+          generated = fs.existsSync(generatedDir) ? fs.readdirSync(generatedDir).filter((name) => name.toLowerCase().endsWith(".cs")) : [];
+        } catch {
+          generated = [];
+        }
+        if (generated.length > 0) {
+          break;
+        }
+        await sleep(2000);
+      } while (Date.now() < deadline);
+      expect(generated.length, "generated/*.cs written by pac modelbuilder").to.be.greaterThan(0);
+      return `generated ${generated.length} early-bound file(s) into generated/`;
     });
   });
 
