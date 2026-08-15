@@ -7,6 +7,9 @@ import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
 import { VSBrowser, Workbench, InputBox, BottomBarPanel, Key, ModalDialog } from "vscode-extension-tester";
+// The SAME lookups the product uses. Keeping a second copy here is what let the product and the test
+// agree on a wrong assumption about how Dataverse stores a name, so a working push read as broken.
+import { customControlLookup, pluginTraceLogLookup, pickMatchingRow } from "../../general/dataverse/rowLookups";
 
 export const repoRoot = path.resolve(__dirname, "..", "..", "..");
 
@@ -57,6 +60,26 @@ export function loadE2EEnv(): E2EEnv | undefined {
 
 export function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * A short id unique to this e2e RUN, shared by every suite in it (`DVPT_E2E_RUN_ID`, set by
+ * scripts/runE2E.mjs).
+ *
+ * Suites create rows in ONE shared Dataverse environment under fixed names, so two runs at once — a CI
+ * job and someone's VM, say — delete each other's fixtures and each sees the other's leftovers. Within a
+ * single run the same trap already bit: every web-resource suite deploys `{prefix}_library.js`, so an
+ * assertion that "the web resource exists" was satisfied by ANOTHER suite's row and proved nothing
+ * (#249). Scope anything you create.
+ */
+export function runId(): string {
+  return process.env.DVPT_E2E_RUN_ID || "local";
+}
+
+/** `base` with this run's id appended, for fixtures that live in the shared environment. */
+export function runScopedName(base: string): string {
+  const id = runId();
+  return id === "local" ? base : `${base}${id}`;
 }
 
 /** Remove onboarding/notification/modal overlays that intercept clicks. */
@@ -126,6 +149,27 @@ async function waitForPicks(input: InputBox, timeoutMs: number): Promise<number>
       return count;
     }
     await sleep(1000);
+  }
+}
+
+/**
+ * Whether the open quick-input widget is a PICKER (a list, however empty) rather than a plain text
+ * box. VS Code renders both through the same widget, and `getQuickPicks()` returns [] for both an
+ * empty picker and a text box — so waiting for items cannot tell them apart, and waiting longer
+ * makes a text box slower without ever succeeding.
+ *
+ * The list container is only rendered, and only visible, for a picker. That is the distinction.
+ */
+async function inputIsPicker(): Promise<boolean> {
+  try {
+    return Boolean(
+      await VSBrowser.instance.driver.executeScript(
+        "const l = document.querySelector('.quick-input-widget .quick-input-list'); if (!l) { return false; } const s = window.getComputedStyle(l); return s.display !== 'none' && s.visibility !== 'hidden' && l.getClientRects().length > 0;",
+      ),
+    );
+  } catch {
+    // If the probe itself fails, don't claim it's a text box — let the caller's normal wait decide.
+    return true;
   }
 }
 
@@ -514,12 +558,46 @@ async function selectPickMatching(input: InputBox, value: string): Promise<boole
  */
 export async function answerFlexible(value: string, timeoutMs = 30000): Promise<void> {
   const input = await waitForInput(timeoutMs);
-  // Global Discovery is a network round-trip; give the picks room to populate before
-  // deciding this is the manual-url text box.
-  const pickCount = await waitForPicks(input, 10000);
+  // This prompt is either a picker (Global Discovery's environment list, a live network round-trip)
+  // or the manual-URL text box, and the harness has to tell which before it can answer.
+  //
+  // Two ways to get this wrong, both of which this repo has now paid for:
+  //
+  // - Waiting a FIXED short time for items meant a slow discovery fell through to the text-box
+  //   branch, typed the URL into an empty quick-pick FILTER, and Enter matched nothing. The picker
+  //   sat there and every later answer went to the wrong prompt — four cascading failures.
+  // - Scaling that wait with the caller's timeout "fixed" the above and broke the other side: a real
+  //   text box never produces items, so it now blocked for the FULL timeout on every text prompt.
+  //   The wizard stalled waiting to be answered and the suite went from 4/4 to 0/4.
+  //
+  // Waiting longer cannot distinguish them, because both look like "no items yet". Ask what the
+  // widget IS instead: only a picker renders a list container. A picker gets the caller's full
+  // timeout to populate; a text box is answered as soon as the short grace elapses.
+  let pickCount = await waitForPicks(input, 10000);
+  const isPicker = pickCount === 0 ? await inputIsPicker() : true;
+  if (pickCount === 0 && isPicker) {
+    console.log(`    [e2e] answerFlexible: picker present but still loading — waiting up to ${timeoutMs}ms for items`);
+    pickCount = await waitForPicks(input, Math.max(0, timeoutMs - 10000));
+  }
   if (pickCount > 0) {
     await selectPickMatching(input, value);
+  } else if (isPicker) {
+    // A picker that never populated must NOT fall through to the text-box branch. Typing into a
+    // quick pick puts the text in its FILTER, Enter matches nothing, and the prompt stays open —
+    // after which every later answer in the wizard goes to the wrong prompt and the whole suite
+    // fails somewhere unrelated. That misdirection is what made this class of failure so expensive
+    // to diagnose: the visible error was always several steps downstream of the cause.
+    //
+    // Fail here instead, naming the actual problem. The caller's timeout is the budget; if Global
+    // Discovery needs longer than that, the timeout is what should change.
+    await shot(`FAILED-picker-never-populated-${value}`).catch(() => undefined);
+    throw new Error(
+      `answerFlexible: the prompt for "${value}" is a quick pick that never populated within ${timeoutMs}ms. ` +
+        `Refusing to type into its filter (that would leave the wizard open and misdirect every later answer). ` +
+        `If this is a slow Global Discovery, raise this step's timeout.`,
+    );
   } else {
+    console.log(`    [e2e] answerFlexible: no quick picks after waiting — treating "${value}" as a text box`);
     for (let attempt = 0; attempt < 4; attempt++) {
       await input.setText(value);
       await sleep(400);
@@ -1018,13 +1096,13 @@ export class E2EClient {
    * (`dvpt_SampleNamespace.SampleControl`), so an equality filter on the manifest name never matches.
    */
   async findCustomControlId(fullName: string): Promise<string | undefined> {
-    const res = await this.request("GET", `customcontrols?$select=customcontrolid,name&$filter=endswith(name,'${fullName.replace(/'/g, "''")}')`);
+    const lookup = customControlLookup(fullName);
+    const res = await this.request("GET", lookup.resource);
     if (!res.ok) {
       return undefined;
     }
     const data: any = await res.json();
-    const row = (data?.value ?? []).find((candidate: any) => candidate?.name === fullName || String(candidate?.name ?? "").endsWith(`_${fullName}`));
-    return row?.customcontrolid;
+    return pickMatchingRow<{ name?: string; customcontrolid?: string }>(data?.value, lookup, "name")?.customcontrolid;
   }
 
   /** Force the org's plug-in trace level (0 Off, 1 Exception, 2 All) — teardown insurance for a shared org. */
@@ -1050,12 +1128,13 @@ export class E2EClient {
    * so an equality filter on the plain type name never matches even when the row is right there.
    */
   async hasTraceLogFor(typeName: string): Promise<boolean> {
-    const res = await this.request("GET", `plugintracelogs?$select=plugintracelogid&$top=1&$filter=startswith(typename,'${typeName.replace(/'/g, "''")}')`);
+    const lookup = pluginTraceLogLookup(typeName);
+    const res = await this.request("GET", lookup.resource);
     if (!res.ok) {
       return false;
     }
     const data: any = await res.json();
-    return (data?.value?.length ?? 0) > 0;
+    return pickMatchingRow<{ typename?: string }>(data?.value, lookup, "typename") !== undefined;
   }
 
   /** Whether a pushed control is a component OF the given solution (#256). */

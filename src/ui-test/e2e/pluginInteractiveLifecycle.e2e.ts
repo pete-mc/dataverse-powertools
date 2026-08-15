@@ -2,7 +2,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
-import { loadE2EEnv, freshWorkspace, answerText, answerFlexible, pickByLabel, runCommand, waitForFile, dismissOverlays, sleep, E2EClient } from "./lib";
+import { runScopedName, loadE2EEnv, freshWorkspace, answerText, answerFlexible, pickByLabel, runCommand, waitForFile, dismissOverlays, sleep, E2EClient } from "./lib";
 import { resetAllCredentials } from "./lib";
 
 // End-to-end: create a Plugins project via the real wizard using INTERACTIVE (OAuth) sign-in —
@@ -16,7 +16,7 @@ describe("Plugin lifecycle — interactive auth (e2e)", function () {
   const env = loadE2EEnv();
   const hasCache = !!process.env.DVPT_TEST_MSAL_CACHE_FILE && fs.existsSync(process.env.DVPT_TEST_MSAL_CACHE_FILE || "");
   const projectName = "E2EPluginInt";
-  const packageName = "E2EPluginIntPkg";
+  const packageName = runScopedName("E2EPluginIntPkg");
   let workspace: string;
   let solutionFriendlyName: string;
 

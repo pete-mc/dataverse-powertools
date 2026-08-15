@@ -901,7 +901,8 @@
     "test:supervised:reuse": "node scripts/runSupervised.mjs --reuse",
     "pretest:supervised:reuse": "npm run compile-tests && npm run compile",
     "pretest:e2e:debugger": "npm run compile-tests && npm run compile",
-    "test:e2e:debugger": "node scripts/runE2E.mjs --with-debugger \"out/ui-test/e2e/pluginProfilerReplay.e2e.js\""
+    "test:e2e:debugger": "node scripts/runE2E.mjs --with-debugger \"out/ui-test/e2e/pluginProfilerReplay.e2e.js\"",
+    "test:integration:coverage": "npm run compile && npm run compile-tests && vscode-test --coverage --coverage-output ./coverage-integration --coverage-reporter json && node scripts/integrationCoverage.mjs"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",

@@ -7,8 +7,30 @@ they fit into the verify loop.
 | --- | --- | --- |
 | Unit (Vitest) | `npm run test:unit` | nothing |
 | Integration (extension host) | `npm run test:integration` | downloads VS Code once |
+| Integration + coverage | `npm run test:integration:coverage` | as above (what CI runs) |
 | UI (ExTester) | `npm run test:ui` | downloads VS Code + chromedriver |
 | **Live (real Dataverse)** | `npm run test:live` | a `.env` with test-env credentials |
+
+## Coverage: two numbers, measuring opposite halves
+
+`npm run test:coverage` (Vitest) and `npm run test:integration:coverage` (extension host) each
+carry a floor CI enforces, and neither is meaningful without the other. Unit coverage is high on
+extracted pure modules and necessarily ~0 on everything `vscode`-tangled; the extension host is
+the only thing that executes the tangled half. Reporting only the first — which is all this repo
+did until #143 — made the suite look thinner than it is, and gave no signal at all when an
+integration test stopped exercising a path.
+
+The integration number comes from V8 coverage of `dist/extension.js`, mapped back to `src/**` by
+the bundle's source map (that mapping is why `webpack.config.js` sets
+`output.devtoolModuleFilenameTemplate`; without it the report can only see the bundle).
+[scripts/integrationCoverage.mjs](scripts/integrationCoverage.mjs) filters to this repo's own
+sources, prints the most-exercised files, and fails below the floor.
+
+Read the **functions** percentage, not statements: every bundled module's top level runs at
+require time, so statement coverage flatters the suite. The script also prints how many loaded
+source files have no function the integration suite ever enters — the honest measure of reach.
+
+Both floors are *regression* guards, not targets. Ratchet them up as tests land; never lower them.
 
 ## Live tests against a real Dataverse environment
 
@@ -122,28 +144,72 @@ The suite is `*.e2e.ts` (not the CI `*.test.js` glob), so it stays out of CI.
    first for `out/`).
 
 **Suites** (`src/ui-test/e2e/`):
-- `pluginLifecycle` / `pluginInteractiveLifecycle` — scaffold + build + deploy a plugin under
-  service-principal / interactive auth.
-- `webresourceLifecycle` / `webresourceInteractiveLifecycle` — init → typings → class+test →
-  build → deploy (+ Register Form Events on the interactive one).
+- `pluginAcceptance` / `pluginInteractiveLifecycle` — scaffold + early-bound + build + deploy a
+  plugin under service-principal / interactive auth. (A third suite, `pluginLifecycle`, duplicated
+  the service-principal flow through the command palette; its unique early-bound test moved into
+  `pluginAcceptance` and the rest was removed — #143 Move 4.)
+- `webresourceInteractiveLifecycle` — init → typings → class+test → build → deploy → Register
+  Form Events, under **interactive (OAuth)** auth. The service-principal version of this flow is
+  `webresourceComprehensive`, which does the same steps gated on the log and then goes further;
+  a separate `webresourceLifecycle` duplicated it with no gates and was removed (#143 Move 4).
 - `webresourceComprehensive` — the full 8-step journey, each step **gated on the extension's own
   log line** via `expectOutput()` (a wrong/missing/failed line stops the run): init → net8
   typings → class+test with a form registration → build → build & deploy → register form events
   → open the live app in a browser and confirm the DEPLOYED code runs → **Debug Web Resources**
   locally + edit source and confirm hot reload. Steps 7–8 drive a real browser (CDP) and need
   the interactive user; they self-skip without it.
-- `pluginProfilerReplay` (Windows-only) — the plug-in **Debugging** block: scaffold a Plugins
-  project + xUnit test project, write a plug-in registered on **Create of territory**, Build &
-  deploy it, assert the step is discoverable as **profilable** live (guards the `getProfilableSteps`
-  server-side assembly filter — a busy org has 200+ system steps), and assert the **package-deploy
-  guard**: because the extension deploys plugins as packages and the Plugin Profiler can only
-  snapshot classic (non-package) assemblies (it reads `pluginassembly.content`, null for packages →
-  the server-side profiler throws "Unexpected Exception in the Plug-in Profiler" and leaves a broken
-  step firing), **Profile next run must REFUSE with a clear message** rather than enable a doomed
-  capture. That refusal is the honest green end state on the current deploy+profiler; making capture
-  actually work for package plugins (classic-assembly deploy for debugging, or populating the
-  assembly content) is a tracked follow-up. Uses log-FILE gating (`waitForLogFile`) so the click
-  doesn't need Selenium polling that lost the session on the 8GB VM.
+- `pluginProfilerReplay` (Windows-only) — the plug-in **Debugging** block end to end: scaffold a
+  Plugins project + xUnit test project, write a plug-in registered on **Create of territory**, Build
+  & deploy it, assert the step is discoverable as **profilable** live (guards the
+  `getProfilableSteps` server-side assembly filter — a busy org has 200+ system steps), then
+  **Profile next run** → trigger → **Continue** → download → **Generate Replay Test** → `dotnet test`
+  green → **Replay & debug** pausing on a breakpoint inside the plug-in → the per-step **Profile
+  CodeLens** toggling on and back off → the **live trace log** for the run it triggered.
+  Capture works for PACKAGE plugins because the extension populates the otherwise-null
+  `pluginassembly.content` from the deployed package (#208) — an earlier version of this suite
+  asserted that *Profile next run* refused, which was the honest end state before that fix.
+  Uses log-FILE gating (`waitForLogFile`) so the click doesn't need Selenium polling that lost the
+  session on the 8GB VM.
+
+### Which suite proves what (#143 Moves 4-5)
+
+Before adding a suite, check nothing already proves the same thing; before deleting one, check what
+it *uniquely* proves. `webresourceLifecycle` was removed because `webresourceComprehensive` ran the
+same five steps with ten log gates instead of none.
+
+| Suite | Uniquely proves | Needs |
+| --- | --- | --- |
+| `webresourceComprehensive` | The authoritative web-resource flow, log-gated, + live app + hot reload | browser user |
+| `webresourceAcceptance` | The same flow through the **panel buttons** | — |
+| `webresourcePerFileLifecycle` | Per-file output mode (#88) + form-XML assertion | — |
+| `webresourceInteractiveLifecycle` | The web-resource flow under **OAuth** | MSAL cache |
+| `pluginAcceptance` | Plugin scaffold → **early-bound** → build → deploy via buttons (#129/#130) | — |
+| `pluginInteractiveLifecycle` | The plugin flow under **OAuth** | MSAL cache |
+| `pluginProfilerReplay` | Capture → replay → **debugger pause**, trace log | Windows, C# ext |
+| `pcfAcceptance` | PCF scaffold → build → push | — |
+| `pcfInteractiveLifecycle` | PCF under **OAuth**, incl. the pac **device-code** sign-in (#227) | MSAL cache, browser |
+| `customApiLifecycle` | Custom API define → deploy → **execute** → update/delete reconcile | — |
+| `fetchXmlQuery` | FetchXML detection, run, generator write-back, in C# and TS | — |
+| `blankRootComponents` | **Two of every component type** — targeting and per-component wiring | — |
+| `solutionAcceptance` | Solution pack/import | — |
+| `configRefresh` | Stale-config detection and refresh | — |
+
+Only `pluginProfilerReplay` is genuinely Windows-only (the capture tool is .NET Framework, and the
+debugger attaches with `clr`). Everything else is cross-platform and is a candidate for a Linux CI
+job under `xvfb` — the ones marked "MSAL cache" need `DVPT_TEST_USERNAME`/`PASSWORD` for the seeding
+launcher, and self-skip without them.
+
+### Name anything you create in the shared org
+
+Every suite works against ONE environment, so two runs at once — the weekly CI job and someone's VM —
+will delete each other's rows and each see the other's leftovers. `scripts/runE2E.mjs` sets
+`DVPT_E2E_RUN_ID` for the whole run; wrap fixture names in `runScopedName()` so they cannot collide.
+The same trap already bit *within* a run: every web-resource suite deploys `{prefix}_library.js`, so
+"the web resource exists" was satisfied by another suite's row and proved nothing (#249).
+
+**Known limit.** A web resource's name comes from the publisher prefix in the project settings, not
+from the suite, so `runScopedName` cannot reach it — those suites stay VM-only until a per-run prefix
+is plumbed through the wizard, and the CI workflow excludes them for that reason.
 
 **VM hygiene (the box is ~8GB).** ExTester + the net8 typings fetch + webpack + a browser is
 near the memory ceiling, and orphans accumulate across runs. If a run starts cascading

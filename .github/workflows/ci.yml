@@ -29,8 +29,12 @@ jobs:
         run: npm run compile
       - name: Unit tests (with coverage gate)
         run: npm run test:coverage
-      - name: Integration tests (headless VS Code)
-        run: xvfb-run -a npm run test:integration
+      # With coverage: the integration suite exercises the `vscode`-tangled half of the codebase
+      # that unit coverage necessarily reads as 0, so reporting only the unit number measured half
+      # the work (#143). Same regression-guard contract as the unit floor — the script fails the
+      # build below it.
+      - name: Integration tests (headless VS Code, with coverage gate)
+        run: xvfb-run -a npm run test:integration:coverage
 
   ui-test:
     name: UI tests (ExTester)

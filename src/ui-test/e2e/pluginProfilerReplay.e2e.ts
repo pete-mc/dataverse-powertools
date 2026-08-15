@@ -652,7 +652,10 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
       await runCommandResilient("Dataverse PowerTools: Set Plugin Trace Log Level");
       await pickByLabel("All", 60000);
       await pushModalButton("Set to All").catch(() => undefined); // the firehose confirmation
-      await waitForLogFile("[Trace] Plug-in trace log level set to 2", { timeoutMs: 120000 });
+      // Generous, because these last two tests run at the END of a full e2e run — an hour in, on an 8GB
+      // box, against a busy org. Both timed out there while passing comfortably in isolation, and in one
+      // case the line arrived just after the deadline: a slow environment, not a broken command.
+      await waitForLogFile("[Trace] Plug-in trace log level set to 2", { timeoutMs: 300000 });
 
       tracedTerritoryId = await client.createTerritory();
       if (!tracedTerritoryId) {
@@ -771,7 +774,9 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
       const beforeText = await clickProfileLens();
       // The TOGGLE path logs "Profiling ON" — "Started profiling" belongs to the capture path, and
       // waiting for it timed out while profiling was in fact on (the #240 lesson, again).
-      await waitForLogFile("[Profiler] Profiling ON for", { timeoutMs: 180000, sinceByte: startBaseline });
+      // See the note on the trace-level wait above: at the tail of a full run this line arrived at ~3
+      // minutes, just past the old 180s deadline.
+      await waitForLogFile("[Profiler] Profiling ON for", { timeoutMs: 360000, sinceByte: startBaseline });
       // The LABEL must flip, not just the org state: a lens that still reads "Profile: Off" while
       // profiling is on is the half of #251 you could actually see, and it needed the provider to fire
       // onDidChangeCodeLenses after the toggle settles. Assert it before the screenshot — the previous

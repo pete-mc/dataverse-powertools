@@ -8,6 +8,7 @@ import { resolveTestProjectPath } from "./unitTesting";
 import { parseDotnetListTests } from "./parseDotnetListTests";
 import { locateTest } from "./testSourceLocations";
 import { parseTrx, TrxTestResult } from "./parseTrx";
+import { buildDotnetTestArgs, buildTestFilterArgs, shouldRunSelection, testRunStateFor, TestSelection } from "./testRunArgs";
 import { activeComponentRoot } from "../components/componentDiscovery";
 import { scopedTestControllerId } from "../components/discovery";
 
@@ -219,9 +220,18 @@ async function runHandler(
   const run = controller.createTestRun(request);
   items.forEach((i) => run.enqueued(i));
 
-  // A VSTest filter targeting exactly the requested tests (omit to run all).
+  // A VSTest filter targeting exactly the requested tests (omitted to run all).
   const runningAll = !request.include;
-  const filter = runningAll ? [] : ["--filter", fqns.map((f) => `FullyQualifiedName=${f}`).join("|")];
+  const selection: TestSelection = runningAll ? {} : { fqns };
+  const filter = buildTestFilterArgs(selection);
+
+  // A selection that resolved to no test names must not run: with no --filter, `dotnet test` runs
+  // the WHOLE suite, so "run this one test" would quietly become "run everything".
+  if (!shouldRunSelection(selection)) {
+    context.channel.appendLine("[tests] the selection resolved to no tests — nothing to run.");
+    run.end();
+    return;
+  }
 
   if (debug) {
     await vscode.debug.startDebugging(vscode.workspace.workspaceFolders?.[0], buildDebugLaunchConfig(testProject, cwd, filter));
@@ -238,7 +248,7 @@ async function runHandler(
     run.end();
     return;
   }
-  await runDotnetCapture(["test", testProject, "--logger", `trx;LogFileName=${trxName}`, "--results-directory", resultsDir, ...filter], cwd);
+  await runDotnetCapture(buildDotnetTestArgs({ testProject, trxName, resultsDirectory: resultsDir, selection }), cwd);
 
   const trxPath = path.join(resultsDir, trxName);
   let results: TrxTestResult[] = [];
@@ -262,9 +272,10 @@ async function runHandler(
     if (!item) {
       continue;
     }
-    if (r.outcome === "passed") {
+    const state = testRunStateFor(r.outcome);
+    if (state === "passed") {
       run.passed(item, r.durationMs);
-    } else if (r.outcome === "skipped") {
+    } else if (state === "skipped") {
       run.skipped(item);
     } else {
       const message = new vscode.TestMessage(r.message ? `${r.message}\n${r.stackTrace ?? ""}`.trim() : "Test failed");

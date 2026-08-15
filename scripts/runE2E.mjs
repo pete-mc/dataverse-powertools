@@ -22,7 +22,13 @@ const cacheFile = process.env.DVPT_TEST_MSAL_CACHE_FILE || path.join(root, "sand
 // the suites' coded expectOutput gates didn't predict.
 const logFile = path.join(root, "sandbox", "e2e-extension-output.log");
 fs.rmSync(logFile, { force: true });
-const env = { ...process.env, DVPT_TEST_MSAL_CACHE_FILE: cacheFile, DVPT_TEST_LOG_FILE: logFile };
+// One id for this whole run, shared by every suite in it. Fixtures live in ONE shared Dataverse
+// environment under otherwise-fixed names, so without this a CI job and a developer's VM run delete each
+// other's rows and each sees the other's leftovers. Base-36 minutes-since-epoch: short enough to keep
+// generated names legible, unique enough that two runs never share one.
+const runIdValue = process.env.DVPT_E2E_RUN_ID || Math.floor(Date.now() / 60000).toString(36);
+const env = { ...process.env, DVPT_TEST_MSAL_CACHE_FILE: cacheFile, DVPT_TEST_LOG_FILE: logFile, DVPT_E2E_RUN_ID: runIdValue };
+console.log(`[e2e] run id ${runIdValue} — fixtures created in the shared org are scoped with it`);
 
 // Glob(s) to run come from argv; default to the whole e2e suite.
 const argv = process.argv.slice(2);

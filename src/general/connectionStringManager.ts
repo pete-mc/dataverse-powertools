@@ -7,6 +7,15 @@ import { MultiStepInput, shouldResume, validationIgnore } from "./inputControls"
 import { getSolutions } from "./dataverse/getSolutions";
 import { DataverseAuthType, parseAuthType } from "./dataverse/authTypes";
 import { buildAuthConnectionString, getOrganizationUrl, normalizeOrganizationUrl, parseConnectionString } from "./connectionString";
+import {
+  buildWizardConnectionString,
+  canListSolutions,
+  listSolutionsConnectionString,
+  needsPrefixPrompt,
+  stepAfterAuthType,
+  stepAfterEnvironmentDiscovery,
+  stepAfterSolutionPick,
+} from "./connectionWizardFlow";
 import { discoverEnvironments, discoverEnvironmentsWithSecret } from "./dataverse/globalDiscovery";
 import { refreshPanelData, clearPanelDataCache } from "../panel/panelDataCache";
 import { visibleProjectTypes } from "./previewFeatures";
@@ -233,23 +242,14 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
   const title = "Creating the Credentials";
   const state = await collectInputs();
   const authType = state.authType ?? DataverseAuthType.clientSecret;
-  let connectionString: string;
-  if (authType === DataverseAuthType.oauth) {
-    connectionString = buildAuthConnectionString({ authType: "OAuth", url: state.organisationUrl, clientId: state.applicationId });
-    context.connectionString = connectionString;
-  } else {
-    connectionString = "AuthType=ClientSecret;LoginPrompt=Never;Url=";
-    connectionString += state.organisationUrl + ";";
-    context.connectionString = connectionString;
-    if (state.saveCredential) {
-      await saveServicePrincipalString(context, state.organisationUrl, state.applicationId, state.clientSecret, state.tenantId);
-      connectionString += "ClientId=";
-      connectionString += state.applicationId += ";ClientSecret=";
-      connectionString += state.clientSecret;
-    } else {
-      connectionString += await getServicePrincipalString(context, state.organisationUrl);
-    }
+  if (authType === DataverseAuthType.clientSecret && state.saveCredential) {
+    await saveServicePrincipalString(context, state.organisationUrl, state.applicationId, state.clientSecret, state.tenantId);
   }
+  const connectionString = buildWizardConnectionString(
+    { authType, organisationUrl: state.organisationUrl, applicationId: state.applicationId, clientSecret: state.clientSecret, saveCredential: state.saveCredential },
+    authType === DataverseAuthType.clientSecret && !state.saveCredential ? await getServicePrincipalString(context, state.organisationUrl) : undefined,
+  );
+  context.connectionString = connectionString;
   context.projectSettings.prefix = state.prefix;
   context.projectSettings.tenantId = state.tenantId;
   // Cleared on a manual-url entry: an environmentId from a previous connection
@@ -278,10 +278,11 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
       ],
       shouldResume: shouldResume,
     })) as any;
-    state.authType = pick?.target ?? DataverseAuthType.clientSecret;
+    const authType: DataverseAuthType = pick?.target ?? DataverseAuthType.clientSecret;
+    state.authType = authType;
     // Both flows discover the environment; interactive signs in first, client secret
     // collects tenant + app id + secret first.
-    if (state.authType === DataverseAuthType.oauth) {
+    if (stepAfterAuthType(authType) === "environment") {
       return (input: MultiStepInput) => inputEnvironment(input, state);
     }
     return (input: MultiStepInput) => inputTenantId(input, state);
@@ -307,11 +308,11 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
       environments.map((environment) => ({ label: environment.friendlyName, description: environment.url, target: environment })),
       { placeHolder: "Select a Dataverse environment", ignoreFocusOut: true },
     );
-    if (!pick) {
+    if (stepAfterEnvironmentDiscovery({ environmentCount: environments.length, picked: Boolean(pick) }) === "manualUrl") {
       return (input: MultiStepInput) => inputManualUrl(input, state);
     }
-    state.organisationUrl = normalizeOrganizationUrl(pick.target.url);
-    state.environmentId = pick.target.environmentId;
+    state.organisationUrl = normalizeOrganizationUrl(pick!.target.url);
+    state.environmentId = pick!.target.environmentId;
     return (input: MultiStepInput) => inputSolutionName(input, state);
   }
 
@@ -377,19 +378,14 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
 
   async function inputSolutionName(_input: MultiStepInput, state: Partial<State>) {
     state.solutionName = undefined;
-    if (state.organisationUrl === undefined) {
+    const credentials = { authType: state.authType!, organisationUrl: state.organisationUrl, applicationId: state.applicationId, clientSecret: state.clientSecret };
+    // Set up a live connection so we can list solutions. For interactive a URL is enough —
+    // getSolutions -> initialize triggers the sign-in here; service principal needs both halves
+    // of its credential or the listing can only fail.
+    if (!canListSolutions(credentials)) {
       return (input: MultiStepInput) => inputManualSolutionName(input, state);
     }
-    // Set up a live connection so we can list solutions. For interactive this is all
-    // that's needed — getSolutions -> initialize triggers the browser sign-in here.
-    if (state.authType === DataverseAuthType.oauth) {
-      context.connectionString = buildAuthConnectionString({ authType: "OAuth", url: state.organisationUrl, clientId: state.applicationId });
-    } else {
-      if (state.applicationId === undefined || state.clientSecret === undefined) {
-        return (input: MultiStepInput) => inputManualSolutionName(input, state);
-      }
-      context.connectionString = `AuthType=ClientSecret;LoginPrompt=Never;Url=${state.organisationUrl};ClientId=${state.applicationId};ClientSecret=${state.clientSecret}`;
-    }
+    context.connectionString = listSolutionsConnectionString(credentials);
     context.projectSettings.tenantId = state.tenantId;
     const solutions = await getSolutions(context);
     if (!solutions) {
@@ -401,7 +397,7 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
     state.solutionName = result?.target.uniqueName;
     state.prefix = result?.target.publisherPrefix;
     window.showInformationMessage(`Solution Selected: ${result?.label}`);
-    if (state.solutionName === undefined) {
+    if (stepAfterSolutionPick(state.solutionName) === "manualSolutionName") {
       return (input: MultiStepInput) => inputManualSolutionName(input, state);
     }
     return;
@@ -422,7 +418,7 @@ export async function createServicePrincipalString(context: DataversePowerToolsC
   }
 
   async function inputPrefix(input: MultiStepInput, state: Partial<State>) {
-    if (state.prefix === null || state.prefix === "" || state.prefix === undefined) {
+    if (needsPrefixPrompt(state.prefix)) {
       state.prefix = await input.showInputBox({
         ignoreFocusOut: true,
         title,

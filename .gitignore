@@ -47,3 +47,4 @@ profiler-tool/bin/
 profiler-tool/obj/
 test/fixtures/profilerProbe/bin/
 test/fixtures/profilerProbe/obj/
+coverage-integration/
