@@ -27,18 +27,37 @@ describe("applyPlaceholders", () => {
   // The order bug: sequential .replace() re-scans text it just inserted, so a VALUE containing a
   // later placeholder's token got substituted again.
   it("does not re-substitute a value that contains another placeholder's token", () => {
-    const result = applyPlaceholders("<Form.TableName.Main.FormName> ClassName", subs([["TableName", "account"], ["FormName", "Information"], ["ClassName", "FormNameHandler"]]));
+    const result = applyPlaceholders(
+      "<Form.TableName.Main.FormName> ClassName",
+      subs([
+        ["TableName", "account"],
+        ["FormName", "Information"],
+        ["ClassName", "FormNameHandler"],
+      ]),
+    );
     expect(result).toBe("<Form.account.Main.Information> FormNameHandler");
   });
 
   it("is order-independent — the reversed array gives the same result", () => {
-    const pairs: Array<[string, string | undefined]> = [["TableName", "account"], ["FormName", "Information"], ["ClassName", "FormNameHandler"]];
+    const pairs: Array<[string, string | undefined]> = [
+      ["TableName", "account"],
+      ["FormName", "Information"],
+      ["ClassName", "FormNameHandler"],
+    ];
     const text = "<Form.TableName.Main.FormName> ClassName";
     expect(applyPlaceholders(text, subs([...pairs].reverse()))).toBe(applyPlaceholders(text, subs(pairs)));
   });
 
   it("prefers the longest placeholder when one is a prefix of another", () => {
-    expect(applyPlaceholders("ClassNameTest and ClassName", subs([["ClassName", "Foo"], ["ClassNameTest", "FooTest"]]))).toBe("FooTest and Foo");
+    expect(
+      applyPlaceholders(
+        "ClassNameTest and ClassName",
+        subs([
+          ["ClassName", "Foo"],
+          ["ClassNameTest", "FooTest"],
+        ]),
+      ),
+    ).toBe("FooTest and Foo");
   });
 
   // Placeholders came from template.json and were compiled with `new RegExp(...)`.

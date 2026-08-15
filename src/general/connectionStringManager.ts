@@ -7,7 +7,15 @@ import { MultiStepInput, shouldResume, validationIgnore } from "./inputControls"
 import { getSolutions } from "./dataverse/getSolutions";
 import { DataverseAuthType, parseAuthType } from "./dataverse/authTypes";
 import { buildAuthConnectionString, getOrganizationUrl, normalizeOrganizationUrl, parseConnectionString } from "./connectionString";
-import { buildWizardConnectionString, canListSolutions, listSolutionsConnectionString, needsPrefixPrompt, stepAfterAuthType, stepAfterEnvironmentDiscovery, stepAfterSolutionPick } from "./connectionWizardFlow";
+import {
+  buildWizardConnectionString,
+  canListSolutions,
+  listSolutionsConnectionString,
+  needsPrefixPrompt,
+  stepAfterAuthType,
+  stepAfterEnvironmentDiscovery,
+  stepAfterSolutionPick,
+} from "./connectionWizardFlow";
 import { discoverEnvironments, discoverEnvironmentsWithSecret } from "./dataverse/globalDiscovery";
 import { refreshPanelData, clearPanelDataCache } from "../panel/panelDataCache";
 import { visibleProjectTypes } from "./previewFeatures";
