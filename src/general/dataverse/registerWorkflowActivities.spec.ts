@@ -72,4 +72,71 @@ describe("registerWorkflowActivities — orchestration vs mocked Web API (#143 M
     expect(result).toMatchObject({ skipped: 1, updated: 0 });
     expect(methodCalls("PATCH", "plugintypes")).toBe(0);
   });
+
+  // The solution association is what makes a registered activity actually ship: an activity that
+  // exists in the environment but is in no solution is invisible to an export, so the next
+  // deployment to another environment silently lacks it.
+  it("associates the activity with the solution as component type 90", async () => {
+    route([matchingRecord]);
+    const { context } = fakeDataverseContext();
+    await registerWorkflowActivities(context, "asm-1", [workflow], "PowerToolsDev");
+
+    const addCalls = fetchMock.mock.calls.filter((c) => String(c[0]).includes("AddSolutionComponent"));
+    expect(addCalls, "AddSolutionComponent should be called once").toHaveLength(1);
+    const body = JSON.parse(String(addCalls[0][1]?.body));
+    expect(body.ComponentType).toBe(90);
+    expect(body.ComponentId).toBe("pt-1");
+    expect(body.SolutionUniqueName).toBe("PowerToolsDev");
+  });
+
+  it("associates an activity it did not have to change — unchanged still means present", async () => {
+    route([matchingRecord]);
+    const { context } = fakeDataverseContext();
+    const result = await registerWorkflowActivities(context, "asm-1", [workflow], "PowerToolsDev");
+    expect(result).toMatchObject({ unchanged: 1 });
+    expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("AddSolutionComponent"))).toBe(true);
+  });
+
+  it("does not associate with the solution when no solution was given", async () => {
+    route([matchingRecord]);
+    const { context } = fakeDataverseContext();
+    await registerWorkflowActivities(context, "asm-1", [workflow]);
+    expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("AddSolutionComponent"))).toBe(false);
+  });
+
+  // A failed PATCH means the activity's metadata is wrong in the environment. Adding it to the
+  // solution anyway would ship that wrong metadata onward as though it were intended.
+  it("does not associate an activity whose metadata update failed", async () => {
+    fetchMock.mockImplementation((url: string, opts: { method?: string } = {}) => {
+      const method = opts.method ?? "GET";
+      if (method === "GET" && String(url).includes("plugintypes")) {
+        return Promise.resolve(okJson({ value: [{ ...matchingRecord, description: "old description" }] }));
+      }
+      if (method === "PATCH") {
+        return Promise.resolve({ ok: false, status: 400, statusText: "Bad Request", headers: { get: () => null }, json: async () => ({}), text: async () => "boom" });
+      }
+      return Promise.resolve(noContent());
+    });
+    const { context } = fakeDataverseContext();
+    const result = await registerWorkflowActivities(context, "asm-1", [workflow], "PowerToolsDev");
+    expect(result).toMatchObject({ skipped: 1, updated: 0 });
+    expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("AddSolutionComponent"))).toBe(false);
+  });
+
+  it("tallies a mixed batch rather than stopping at the first skip", async () => {
+    const missing: WorkflowActivityRegistration = { ...workflow, className: "OtherActivity", fullTypeName: "NS.OtherActivity", workflowName: "Other Activity" };
+    // Filter-aware: the by-type lookup for the missing activity must come back EMPTY. (Answering
+    // every plugintypes query with the same record would let the direct lookup "find" a type that
+    // isn't there, and this test would pass while proving nothing.)
+    fetchMock.mockImplementation((url: string, opts: { method?: string } = {}) => {
+      const method = opts.method ?? "GET";
+      if (method === "GET" && String(url).includes("plugintypes")) {
+        return Promise.resolve(okJson({ value: String(url).includes("OtherActivity") ? [] : [matchingRecord] }));
+      }
+      return Promise.resolve(noContent());
+    });
+    const { context } = fakeDataverseContext();
+    const result = await registerWorkflowActivities(context, "asm-1", [missing, workflow]);
+    expect(result).toMatchObject({ unchanged: 1, skipped: 1, updated: 0 });
+  });
 });
