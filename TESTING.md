@@ -7,8 +7,30 @@ they fit into the verify loop.
 | --- | --- | --- |
 | Unit (Vitest) | `npm run test:unit` | nothing |
 | Integration (extension host) | `npm run test:integration` | downloads VS Code once |
+| Integration + coverage | `npm run test:integration:coverage` | as above (what CI runs) |
 | UI (ExTester) | `npm run test:ui` | downloads VS Code + chromedriver |
 | **Live (real Dataverse)** | `npm run test:live` | a `.env` with test-env credentials |
+
+## Coverage: two numbers, measuring opposite halves
+
+`npm run test:coverage` (Vitest) and `npm run test:integration:coverage` (extension host) each
+carry a floor CI enforces, and neither is meaningful without the other. Unit coverage is high on
+extracted pure modules and necessarily ~0 on everything `vscode`-tangled; the extension host is
+the only thing that executes the tangled half. Reporting only the first — which is all this repo
+did until #143 — made the suite look thinner than it is, and gave no signal at all when an
+integration test stopped exercising a path.
+
+The integration number comes from V8 coverage of `dist/extension.js`, mapped back to `src/**` by
+the bundle's source map (that mapping is why `webpack.config.js` sets
+`output.devtoolModuleFilenameTemplate`; without it the report can only see the bundle).
+[scripts/integrationCoverage.mjs](scripts/integrationCoverage.mjs) filters to this repo's own
+sources, prints the most-exercised files, and fails below the floor.
+
+Read the **functions** percentage, not statements: every bundled module's top level runs at
+require time, so statement coverage flatters the suite. The script also prints how many loaded
+source files have no function the integration suite ever enters — the honest measure of reach.
+
+Both floors are *regression* guards, not targets. Ratchet them up as tests land; never lower them.
 
 ## Live tests against a real Dataverse environment
 

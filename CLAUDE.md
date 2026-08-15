@@ -28,12 +28,20 @@ under test is your PREVIOUS build — a fix appears not to work, or a bug appear
 the test files themselves come from `out/`.
 
 `npm test` = unit + integration. CI ([.github/workflows/ci.yml](.github/workflows/ci.yml))
-runs lint + compile + `test:coverage` + integration on every PR, plus the UI tests.
+runs lint + compile + `test:coverage` + `test:integration:coverage` on every PR, plus the UI tests.
 **Publishing to the Marketplace is gated on these passing**
 ([.github/workflows/main.yml](.github/workflows/main.yml), triggered by a push to `main`) —
-never merge to `main` red. The coverage floor is a *regression* guard (global unit
-coverage is low by design — most logic is `vscode`-tangled); ratchet it up as you extract
-pure modules, don't lower it.
+never merge to `main` red.
+
+**Two coverage numbers, both regression guards, neither a target.** They measure opposite
+halves: unit coverage is high on extracted pure modules and necessarily ~0 on everything
+`vscode`-tangled, and the extension host is the only thing that executes the tangled half.
+`npm run test:integration:coverage` reports the host's coverage of `src/**` via
+[scripts/integrationCoverage.mjs](scripts/integrationCoverage.mjs) (the floor lives there;
+`vitest.config.ts` holds the unit one). Ratchet both up as tests land — never down. Note the
+integration number's *statement* percentage flatters the suite, because every bundled module's
+top level runs at require time; the FUNCTIONS percentage, and the "no function ever entered"
+count the script prints, are the honest read.
 
 ## Three test layers — pick the cheapest that can catch the bug
 

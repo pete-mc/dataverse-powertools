@@ -17,7 +17,13 @@ const extensionConfig = {
     // the bundle is stored in the 'dist' folder (check package.json), 📖 -> https://webpack.js.org/configuration/output/
     path: path.resolve(__dirname, 'dist'),
     filename: 'extension.js',
-    libraryTarget: 'commonjs2'
+    libraryTarget: 'commonjs2',
+    // Point source-map entries at the real files on disk instead of webpack's default
+    // `webpack://<name>/./src/...` pseudo-URLs, which resolve to nothing. With
+    // `nosources-source-map` (no embedded content) that's the difference between a stack
+    // trace / breakpoint / coverage row landing on src/**.ts and landing nowhere — the
+    // integration coverage report (#143) could only see the bundle until this was set.
+    devtoolModuleFilenameTemplate: '../[resource-path]'
   },
   externals: {
     vscode: 'commonjs vscode', // the vscode-module is created on-the-fly and must be excluded. Add other modules that cannot be webpack'ed, 📖 -> https://webpack.js.org/configuration/externals/
