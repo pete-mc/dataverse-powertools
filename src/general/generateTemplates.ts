@@ -10,6 +10,7 @@ import { getProjectTypeActivation } from "../projectTypes/activation";
 import { getTemplateFolderForType } from "../projectTypes/registry";
 import { addPrivateAssetsToWorkflowPackage, ensureReadmePackaging, defaultPluginReadme } from "../plugins/csprojTransforms";
 import { activeComponentRoot } from "../components/componentDiscovery";
+import { applyPlaceholders, applyProjectPlaceholders } from "./templateSubstitution";
 
 function sanitizeProjectName(input: string): string {
   const trimmed = input.trim();
@@ -418,8 +419,7 @@ export async function generateTemplates(context: DataversePowerToolsContext, tar
     }
     const extension = f.extension === ".tstemplate" ? ".ts" : f.extension; // This is done because the .ts files do not copy into the published extension thus we overwrite it when actually copying from extension into the code
     var data = fs.readFileSync(path.join(templateFilePath, f.filename + f.extension, f.version + f.extension), "utf8");
-    data = data.replace(/\SOLUTIONPREFIX/g, context.projectSettings.prefix || "SOLUTIONPREFIX");
-    data = data.replace(/\SOLUTIONPLACEHOLDER/g, context.projectSettings.solutionName || "SOLUTIONPLACEHOLDER");
+    data = applyProjectPlaceholders(data, context.projectSettings);
     const destPath = f.path;
     destPath.unshift(folderPath);
     if (context.projectSettings.type === ProjectTypes.plugin && context.projectSettings.templateversion === 3 && context.projectSettings.pluginProjectName) {
@@ -427,11 +427,8 @@ export async function generateTemplates(context: DataversePowerToolsContext, tar
     }
     destPath.push(f.filename + extension);
     var destPathString = path.join(...destPath);
-    for (let i = 0; i < placeholders.length; i++) {
-      const p = placeholders[i];
-      data = data.replace(new RegExp(p.placeholder, "g"), p.value || p.placeholder);
-      destPathString = destPathString.replace(new RegExp(p.placeholder, "g"), p.value || p.placeholder);
-    }
+    data = applyPlaceholders(data, placeholders);
+    destPathString = applyPlaceholders(destPathString, placeholders);
     await fs.promises.mkdir(path.dirname(destPathString), { recursive: true });
     await vscode.workspace.fs.writeFile(vscode.Uri.file(destPathString), Buffer.from(data, "utf8"));
     return true;
@@ -474,21 +471,11 @@ export async function createTemplatedFile(
               fileExtension = ".ts";
             }
             fileName = destinationFileName;
-            if (replacements) {
-              for (let i = 0; i < replacements.length; i++) {
-                const p = replacements[i];
-                data = data.replace(new RegExp(p.placeholder, "g"), p.value || p.placeholder);
-              }
-            }
+            data = applyPlaceholders(data, replacements);
             destPath.push(fileName + fileExtension);
             var destPathString = path.join(...destPath);
-            if (context.projectSettings.placeholders) {
-              for (let i = 0; i < context.projectSettings.placeholders.length; i++) {
-                const p = context.projectSettings.placeholders[i];
-                data = data.replace(new RegExp(p.placeholder, "g"), p.value || p.placeholder);
-                destPathString = destPathString.replace(new RegExp(p.placeholder, "g"), p.value || p.placeholder);
-              }
-            }
+            data = applyPlaceholders(data, context.projectSettings.placeholders);
+            destPathString = applyPlaceholders(destPathString, context.projectSettings.placeholders);
             await vscode.workspace.fs.writeFile(vscode.Uri.file(destPathString), Buffer.from(data, "utf8"));
             if (openFile) {
               vscode.workspace.openTextDocument(vscode.Uri.file(destPathString)).then((doc) => {

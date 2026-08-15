@@ -2,9 +2,14 @@ import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 
-// Guards the webresource build config against regressing to the fragile setup that broke Build when
-// @types/jest wasn't in the project's LOCAL node_modules (hoisted in a nested project / workspace /
-// pnpm layout) — see #95. The e2e VM has @types/jest installed, so only this pins the invariants.
+// Guards the SHAPE of the webresource build config against regressing to the fragile setup that
+// broke Build when @types/jest wasn't in the project's LOCAL node_modules (hoisted in a nested
+// project / workspace / pnpm layout) — #95. Cheap and specific: it names the three invariants, so a
+// regression says which one moved.
+//
+// webresourceBuildWithoutJestTypes.spec.ts is the other half — it runs tsc against these same
+// templates in a project with no @types/jest at all, proving the shape actually does the job. Keep
+// both: this one localises the break, that one proves it is a break.
 const templateDir = path.resolve(__dirname, "..", "..", "templates", "webresources");
 
 describe("webresource build template (#95)", () => {
