@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import DataversePowerToolsContext, { FormIntersect } from "../../context";
 import { DataverseFormRecord, getDataverseForms } from "../../general/dataverse/getDataverseForms";
 import { collectNewIntersectInputs } from "./collectNewIntersectInputs";
+import { addFormToIntersect, addIntersect, IntersectResult, removeFormFromIntersect, removeIntersect } from "./intersectOperations";
 import { randomUUID } from "crypto";
 
 // One tree view can't represent several web-resource components at once (#47), so
@@ -50,22 +51,12 @@ class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
         this.context.channel.show();
         return;
       }
-      if (this.context.projectSettings.formIntersect === undefined) {
-        this.context.projectSettings.formIntersect = [];
-      }
       const newIntersect = { name: state.intersectName, entity: state.entity, forms: state.forms, id: randomUUID() } as FormIntersect;
-      this.context.projectSettings.formIntersect.push(newIntersect);
-      await this.saveProjectSettings();
+      await this.applyIntersectResult(addIntersect(this.context.projectSettings.formIntersect, newIntersect));
     });
 
     vscode.commands.registerCommand("dataversePowerToolsTableIntersectTree.removeNewFormIntersect", async (event: TreeItem) => {
-      const formIntersect = this.context.projectSettings.formIntersect?.find((fi) => fi.id === (event.originalItem as FormIntersect).id);
-      if (formIntersect === undefined || !this.context.projectSettings.formIntersect) {
-        vscode.window.showErrorMessage("Unable to remove form intersect, form intersect not found.");
-        return;
-      }
-      this.context.projectSettings.formIntersect = this.context.projectSettings.formIntersect.filter((fi) => fi.id !== formIntersect.id);
-      await this.saveProjectSettings();
+      await this.applyIntersectResult(removeIntersect(this.context.projectSettings.formIntersect, (event.originalItem as FormIntersect)?.id));
     });
 
     vscode.commands.registerCommand("dataversePowerToolsTableIntersectTree.addForm", async (event: TreeItem) => {
@@ -74,29 +65,11 @@ class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
         return { label: form.displayName + " [" + form.formType + "]", target: form };
       });
       const selectedForm = await vscode.window.showQuickPick(formslist, { placeHolder: "Select form to add" });
-      const formIntersect = this.context.projectSettings.formIntersect?.find((fi) => fi.id === (event.originalItem as FormIntersect).id);
-      if (selectedForm === undefined || formIntersect === undefined) {
-        vscode.window.showErrorMessage("Unable to add form, no form selected or form intersect not found.");
-        return;
-      }
-      formIntersect.forms.push(selectedForm.target);
-      this.saveProjectSettings();
+      await this.applyIntersectResult(addFormToIntersect(this.context.projectSettings.formIntersect, (event.originalItem as FormIntersect)?.id, selectedForm?.target));
     });
 
-    vscode.commands.registerCommand("dataversePowerToolsTableIntersectTree.removeForm", (event: TreeItem) => {
-      // Check if parent has at least 2 other children, throw error if not
-      const formIntersect = this.context.projectSettings.formIntersect?.find((fi) => fi.name === event.parentName);
-      if (formIntersect === undefined) {
-        vscode.window.showErrorMessage("Unable to remove form, form intersect not found.");
-        return;
-      }
-      if (formIntersect.forms.length <= 2) {
-        vscode.window.showErrorMessage("Unable to remove form, form intersect must have at least 2 forms.");
-        return;
-      }
-      // Remove item from parent
-      formIntersect.forms = formIntersect.forms.filter((f) => f.formId !== (event.originalItem as DataverseFormRecord).formId);
-      this.saveProjectSettings();
+    vscode.commands.registerCommand("dataversePowerToolsTableIntersectTree.removeForm", async (event: TreeItem) => {
+      await this.applyIntersectResult(removeFormFromIntersect(this.context.projectSettings.formIntersect, event.parentName, (event.originalItem as DataverseFormRecord)?.formId));
     });
 
     this.view = vscode.window.createTreeView("dataversePowerToolsTableIntersectTree", options);
@@ -151,6 +124,17 @@ class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
       return this.data;
     }
     return element.children ? element.children : [];
+  }
+
+  /** Persist the result of a CRUD rule, or show why it was refused. The rules live in
+   * intersectOperations so they can be tested; this is the only place that talks to the user. */
+  private async applyIntersectResult(result: IntersectResult): Promise<void> {
+    if (!result.ok) {
+      vscode.window.showErrorMessage(result.reason);
+      return;
+    }
+    this.context.projectSettings.formIntersect = result.intersects;
+    await this.saveProjectSettings();
   }
 
   async saveProjectSettings(): Promise<void> {
