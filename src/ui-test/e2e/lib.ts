@@ -152,6 +152,27 @@ async function waitForPicks(input: InputBox, timeoutMs: number): Promise<number>
   }
 }
 
+/**
+ * Whether the open quick-input widget is a PICKER (a list, however empty) rather than a plain text
+ * box. VS Code renders both through the same widget, and `getQuickPicks()` returns [] for both an
+ * empty picker and a text box — so waiting for items cannot tell them apart, and waiting longer
+ * makes a text box slower without ever succeeding.
+ *
+ * The list container is only rendered, and only visible, for a picker. That is the distinction.
+ */
+async function inputIsPicker(): Promise<boolean> {
+  try {
+    return Boolean(
+      await VSBrowser.instance.driver.executeScript(
+        "const l = document.querySelector('.quick-input-widget .quick-input-list'); if (!l) { return false; } const s = window.getComputedStyle(l); return s.display !== 'none' && s.visibility !== 'hidden' && l.getClientRects().length > 0;",
+      ),
+    );
+  } catch {
+    // If the probe itself fails, don't claim it's a text box — let the caller's normal wait decide.
+    return true;
+  }
+}
+
 /** Select a quick-pick item by its visible label (proven ExTester call). */
 export async function pickByLabel(label: string, timeoutMs = 30000): Promise<void> {
   const input = await waitForInput(timeoutMs);
@@ -537,17 +558,26 @@ async function selectPickMatching(input: InputBox, value: string): Promise<boole
  */
 export async function answerFlexible(value: string, timeoutMs = 30000): Promise<void> {
   const input = await waitForInput(timeoutMs);
-  // Global Discovery is a network round-trip; give the picks room to populate before deciding this is
-  // the manual-url text box.
+  // This prompt is either a picker (Global Discovery's environment list, a live network round-trip)
+  // or the manual-URL text box, and the harness has to tell which before it can answer.
   //
-  // This used to wait a FIXED 10s regardless of the caller's timeout, and that is a race the caller
-  // cannot fix by passing a bigger number. Discovery finishes in a couple of seconds on a warm box, so
-  // it passed in isolation — but in a full e2e run, ~40 minutes in and with the token cache just
-  // cleared, it took longer, this fell through to the text-box branch, typed the URL into an EMPTY
-  // quick-pick filter, and Enter matched nothing. The picker then sat there and every later answer in
-  // the wizard went to the wrong prompt: four cascading failures whose screenshot showed the
-  // environment list populated and waiting. Scale the wait with the caller's timeout instead.
-  const pickCount = await waitForPicks(input, Math.max(10000, Math.min(timeoutMs, 60000)));
+  // Two ways to get this wrong, both of which this repo has now paid for:
+  //
+  // - Waiting a FIXED short time for items meant a slow discovery fell through to the text-box
+  //   branch, typed the URL into an empty quick-pick FILTER, and Enter matched nothing. The picker
+  //   sat there and every later answer went to the wrong prompt — four cascading failures.
+  // - Scaling that wait with the caller's timeout "fixed" the above and broke the other side: a real
+  //   text box never produces items, so it now blocked for the FULL timeout on every text prompt.
+  //   The wizard stalled waiting to be answered and the suite went from 4/4 to 0/4.
+  //
+  // Waiting longer cannot distinguish them, because both look like "no items yet". Ask what the
+  // widget IS instead: only a picker renders a list container. A picker gets the caller's full
+  // timeout to populate; a text box is answered as soon as the short grace elapses.
+  let pickCount = await waitForPicks(input, 10000);
+  if (pickCount === 0 && (await inputIsPicker())) {
+    console.log(`    [e2e] answerFlexible: picker present but still loading — waiting up to ${Math.min(timeoutMs, 60000)}ms for items`);
+    pickCount = await waitForPicks(input, Math.max(0, Math.min(timeoutMs, 60000) - 10000));
+  }
   if (pickCount > 0) {
     await selectPickMatching(input, value);
   } else {
