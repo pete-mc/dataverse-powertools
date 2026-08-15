@@ -574,12 +574,28 @@ export async function answerFlexible(value: string, timeoutMs = 30000): Promise<
   // widget IS instead: only a picker renders a list container. A picker gets the caller's full
   // timeout to populate; a text box is answered as soon as the short grace elapses.
   let pickCount = await waitForPicks(input, 10000);
-  if (pickCount === 0 && (await inputIsPicker())) {
-    console.log(`    [e2e] answerFlexible: picker present but still loading — waiting up to ${Math.min(timeoutMs, 60000)}ms for items`);
-    pickCount = await waitForPicks(input, Math.max(0, Math.min(timeoutMs, 60000) - 10000));
+  const isPicker = pickCount === 0 ? await inputIsPicker() : true;
+  if (pickCount === 0 && isPicker) {
+    console.log(`    [e2e] answerFlexible: picker present but still loading — waiting up to ${timeoutMs}ms for items`);
+    pickCount = await waitForPicks(input, Math.max(0, timeoutMs - 10000));
   }
   if (pickCount > 0) {
     await selectPickMatching(input, value);
+  } else if (isPicker) {
+    // A picker that never populated must NOT fall through to the text-box branch. Typing into a
+    // quick pick puts the text in its FILTER, Enter matches nothing, and the prompt stays open —
+    // after which every later answer in the wizard goes to the wrong prompt and the whole suite
+    // fails somewhere unrelated. That misdirection is what made this class of failure so expensive
+    // to diagnose: the visible error was always several steps downstream of the cause.
+    //
+    // Fail here instead, naming the actual problem. The caller's timeout is the budget; if Global
+    // Discovery needs longer than that, the timeout is what should change.
+    await shot(`FAILED-picker-never-populated-${value}`).catch(() => undefined);
+    throw new Error(
+      `answerFlexible: the prompt for "${value}" is a quick pick that never populated within ${timeoutMs}ms. ` +
+        `Refusing to type into its filter (that would leave the wizard open and misdirect every later answer). ` +
+        `If this is a slow Global Discovery, raise this step's timeout.`,
+    );
   } else {
     console.log(`    [e2e] answerFlexible: no quick picks after waiting — treating "${value}" as a text box`);
     for (let attempt = 0; attempt < 4; attempt++) {
