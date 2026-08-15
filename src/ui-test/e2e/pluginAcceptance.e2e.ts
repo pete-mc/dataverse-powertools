@@ -2,7 +2,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
-import { loadE2EEnv, freshWorkspace, answerText, pickByLabel, waitForFile, dismissOverlays, sleep, E2EClient } from "./lib";
+import { runScopedName, loadE2EEnv, freshWorkspace, answerText, pickByLabel, waitForFile, dismissOverlays, sleep, E2EClient } from "./lib";
 import { clickPanelButton, expandComponentCards } from "../supervised/supervisedLib";
 import { initProject, step, showLog } from "./acceptanceLib";
 
@@ -55,7 +55,7 @@ describe("ACCEPTANCE: Plugin — build, code, register, publish via panel button
   let solutionFriendlyName: string;
   let client: E2EClient;
   const projectName = "AcceptancePlugin";
-  const packageName = "AcceptancePlugin";
+  const packageName = runScopedName("AcceptancePlugin");
 
   function pkgUnique(): string {
     const settings = JSON.parse(fs.readFileSync(path.join(workspace, "dataverse-powertools.json"), "utf8"));

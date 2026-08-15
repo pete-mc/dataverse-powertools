@@ -176,6 +176,18 @@ debugger attaches with `clr`). Everything else is cross-platform and is a candid
 job under `xvfb` — the ones marked "MSAL cache" need `DVPT_TEST_USERNAME`/`PASSWORD` for the seeding
 launcher, and self-skip without them.
 
+### Name anything you create in the shared org
+
+Every suite works against ONE environment, so two runs at once — the weekly CI job and someone's VM —
+will delete each other's rows and each see the other's leftovers. `scripts/runE2E.mjs` sets
+`DVPT_E2E_RUN_ID` for the whole run; wrap fixture names in `runScopedName()` so they cannot collide.
+The same trap already bit *within* a run: every web-resource suite deploys `{prefix}_library.js`, so
+"the web resource exists" was satisfied by another suite's row and proved nothing (#249).
+
+**Known limit.** A web resource's name comes from the publisher prefix in the project settings, not
+from the suite, so `runScopedName` cannot reach it — those suites stay VM-only until a per-run prefix
+is plumbed through the wizard, and the CI workflow excludes them for that reason.
+
 **VM hygiene (the box is ~8GB).** ExTester + the net8 typings fetch + webpack + a browser is
 near the memory ceiling, and orphans accumulate across runs. If a run starts cascading
 (`ECONNREFUSED` to the webdriver, a blank Debug step, or a typings/build timeout that normally

@@ -50,6 +50,12 @@ const BENIGN: RegExp[] = [
   // so. Narrow on purpose: only the testhost-exited line, and only with the empty reason a kill
   // produces — a real crash carries a reason, and `Build failed`-style signatures stay unmasked (#249).
   /^Testhost process for source\(s\) '.*' exited with error: \. Please check the diagnostic logs/,
+  // Clearing the TEMPORARY assembly content after a profiling capture can 400 (0x80040216) — the
+  // capture itself has already succeeded and been saved, and the extension says so on the very next
+  // line ("it self-heals on the next Build & deploy"). Narrow on purpose: the specific message and code,
+  // so a 400 from any other operation is still reported (#249's rule — never mask a signature a real
+  // regression would produce).
+  /^Failed to set the plugin assembly content: 400 Bad Request — .*0x80040216/,
 ];
 
 /** Audit a full e2e log. Returns findings for suspicious lines not covered by

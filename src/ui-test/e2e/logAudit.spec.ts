@@ -70,6 +70,16 @@ describe("auditLog", () => {
     expect(findings).toHaveLength(1);
   });
 
+  // The capture has already succeeded when this fires; the extension logs its own self-heal note on the
+  // next line. Narrow so a 400 from anything else is still reported.
+  it("ignores the post-capture assembly-content 400 the profiler self-heals", () => {
+    expect(auditLog('Failed to set the plugin assembly content: 400 Bad Request — {"error":{"code":"0x80040216"}}')).toEqual([]);
+  });
+
+  it("still reports a 400 from any other operation", () => {
+    expect(auditLog("Failed to publish customizations: 400 Bad Request")).toHaveLength(1);
+  });
+
   it("reports line numbers for findings", () => {
     const findings = auditLog("ok\nok\nFailed to save form 'x'");
     expect(findings[0].line).toBe(3);

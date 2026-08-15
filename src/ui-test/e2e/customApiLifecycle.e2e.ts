@@ -2,7 +2,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { expect } from "chai";
 import { Key, VSBrowser } from "vscode-extension-tester";
-import { loadE2EEnv, freshWorkspace, answerText, pickByLabel, waitForFile, dismissOverlays, sleep, expectOutput, clearOutput, E2EClient } from "./lib";
+import { runScopedName, loadE2EEnv, freshWorkspace, answerText, pickByLabel, waitForFile, dismissOverlays, sleep, expectOutput, clearOutput, E2EClient } from "./lib";
 import { clickPanelButton, clickOverflowItem, expandComponentCards } from "../supervised/supervisedLib";
 import { initProject, step, showLog } from "./acceptanceLib";
 
@@ -63,7 +63,7 @@ describe("ACCEPTANCE: Custom API — define, deploy and execute via panel button
   let solutionFriendlyName: string;
   let client: E2EClient;
   const projectName = "CustomApiE2E";
-  const packageName = "CustomApiE2E";
+  const packageName = runScopedName("CustomApiE2E");
   /** Unique per run: a leftover row from an earlier run would make "created" un-provable. */
   const apiUniqueName = `dvpt_Echo${Date.now().toString().slice(-6)}`;
   const className = `Echo${Date.now().toString().slice(-6)}`;

@@ -62,6 +62,26 @@ export function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/**
+ * A short id unique to this e2e RUN, shared by every suite in it (`DVPT_E2E_RUN_ID`, set by
+ * scripts/runE2E.mjs).
+ *
+ * Suites create rows in ONE shared Dataverse environment under fixed names, so two runs at once — a CI
+ * job and someone's VM, say — delete each other's fixtures and each sees the other's leftovers. Within a
+ * single run the same trap already bit: every web-resource suite deploys `{prefix}_library.js`, so an
+ * assertion that "the web resource exists" was satisfied by ANOTHER suite's row and proved nothing
+ * (#249). Scope anything you create.
+ */
+export function runId(): string {
+  return process.env.DVPT_E2E_RUN_ID || "local";
+}
+
+/** `base` with this run's id appended, for fixtures that live in the shared environment. */
+export function runScopedName(base: string): string {
+  const id = runId();
+  return id === "local" ? base : `${base}${id}`;
+}
+
 /** Remove onboarding/notification/modal overlays that intercept clicks. */
 export async function dismissOverlays(): Promise<void> {
   try {
@@ -517,12 +537,21 @@ async function selectPickMatching(input: InputBox, value: string): Promise<boole
  */
 export async function answerFlexible(value: string, timeoutMs = 30000): Promise<void> {
   const input = await waitForInput(timeoutMs);
-  // Global Discovery is a network round-trip; give the picks room to populate before
-  // deciding this is the manual-url text box.
-  const pickCount = await waitForPicks(input, 10000);
+  // Global Discovery is a network round-trip; give the picks room to populate before deciding this is
+  // the manual-url text box.
+  //
+  // This used to wait a FIXED 10s regardless of the caller's timeout, and that is a race the caller
+  // cannot fix by passing a bigger number. Discovery finishes in a couple of seconds on a warm box, so
+  // it passed in isolation — but in a full e2e run, ~40 minutes in and with the token cache just
+  // cleared, it took longer, this fell through to the text-box branch, typed the URL into an EMPTY
+  // quick-pick filter, and Enter matched nothing. The picker then sat there and every later answer in
+  // the wizard went to the wrong prompt: four cascading failures whose screenshot showed the
+  // environment list populated and waiting. Scale the wait with the caller's timeout instead.
+  const pickCount = await waitForPicks(input, Math.max(10000, Math.min(timeoutMs, 60000)));
   if (pickCount > 0) {
     await selectPickMatching(input, value);
   } else {
+    console.log(`    [e2e] answerFlexible: no quick picks after waiting — treating "${value}" as a text box`);
     for (let attempt = 0; attempt < 4; attempt++) {
       await input.setText(value);
       await sleep(400);

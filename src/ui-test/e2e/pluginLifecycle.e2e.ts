@@ -2,7 +2,20 @@ import * as path from "path";
 import * as fs from "fs";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
-import { loadE2EEnv, freshWorkspace, answerText, answerFlexible, pickByLabel, runCommand, waitForFile, dismissOverlays, sleep, expectOutput, E2EClient } from "./lib";
+import {
+  runScopedName,
+  loadE2EEnv,
+  freshWorkspace,
+  answerText,
+  answerFlexible,
+  pickByLabel,
+  runCommand,
+  waitForFile,
+  dismissOverlays,
+  sleep,
+  expectOutput,
+  E2EClient,
+} from "./lib";
 import { resetAllCredentials } from "./lib";
 
 // End-to-end: create a Plugins project from scratch via the real wizard (pac plugin init
@@ -13,7 +26,7 @@ describe("Plugin lifecycle (e2e)", function () {
   this.timeout(1200000);
   const env = loadE2EEnv();
   const projectName = "E2EPlugin"; // becomes <projectName>.csproj after normalizePluginV3Layout
-  const packageName = "E2EPluginPkg";
+  const packageName = runScopedName("E2EPluginPkg");
   let workspace: string;
   let solutionFriendlyName: string; // the wizard lists solutions by friendly name, not unique name
 
