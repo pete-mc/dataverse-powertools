@@ -229,10 +229,16 @@ modern plugin flow already shells out to `dotnet`/`pac`.
   are `i:nil`, and `profilerSteps.spec.ts` pins the exact bytes against a real serializer's output.
   Don't "tidy" that emitter. Enable also MOVES the step's images to the clone and DISABLES the
   original — miss either and the profiler silently never fires.
-- **Still Windows-only:** the e2e browser automation (drives Edge on the Windows VM) and the
-  net462 replay *runner* in the capture live spec (the product's own replay goes through the
-  user's test project and works anywhere). With `plugins_old/` gone (#228) nothing else pins
-  `spkl.exe`/`sn.exe`.
+- **Still needs .NET Framework: RUNNING a replay.** Capture, download, `Generate Replay Test` and
+  trace logs are cross-platform, but *executing* the generated test (and so `Replay & debug`) is
+  not: the scaffolded test project targets **net471** (`templates/plugin/*_tests.csproj`), and
+  while `dotnet build` compiles net4x anywhere, `dotnet test` needs a .NET Framework test host —
+  **verified on Ubuntu: it builds, then aborts with "Could not find 'mono' host"**. So replay means
+  Windows, or mono elsewhere. Don't repeat the old "download + replay work anywhere" line; only the
+  first half was true.
+- **Still Windows-only:** the e2e browser automation (drives Edge on the Windows VM), and the
+  net462 replay *runner* in the capture live spec for the same reason as above. With
+  `plugins_old/` gone (#228) nothing else pins `spkl.exe`/`sn.exe`.
 
 ## Test Explorer (native Testing API, #84)
 
@@ -263,10 +269,16 @@ runs them all (we don't have Jest's dependency graph, and guessing would skip th
   `permissions.additionalDirectories` in `.claude/settings.local.json` — edit it in
   place and push to its own `…wiki.git` remote.
 
-## Housekeeping still open (see the session that set up this foundation)
+## Housekeeping still open
 
-- ~15 stale Dependabot branches on the remote need triage.
-- Wiki likely needs updating for the spkl→`pac` and cross-platform changes. PCF, Custom API,
-  LM Tools and multi-component have no wiki/README coverage at all
-  ([#233](https://github.com/pete-mc/dataverse-powertools/issues/233)).
+- **~40 stale release branches on the remote.** `git ls-remote --heads origin` returns 42 heads, of
+  which **38 are `release/0.14.x`** plus `release/0.13.0`, `ci/nightly-live-tests` (its workflow was
+  deleted in `30a5501`) and `feature/supervised-ui-test`. There are **no** Dependabot branches left —
+  an earlier version of this file claimed ~15, and that is no longer true.
+- **e2e (ExTester) has never been RUN on Linux.** #265 made the harness portable (browser
+  resolution, `/proc`-based port discovery, `pgrep`/`ss`), but portability is inferred, not proven,
+  until `xvfb-run npm run test:e2e` passes off Windows.
+- Wiki: the profiler pages were updated for cross-platform capture (#264). The spkl→`pac` and
+  multi-component gaps ([#233](https://github.com/pete-mc/dataverse-powertools/issues/233)) are
+  CLOSED — check the wiki before assuming a gap is still open.
 - `src/plugins_old/` — DONE, removed in 1.0.3 (#228).

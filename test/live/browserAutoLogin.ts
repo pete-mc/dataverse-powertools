@@ -4,6 +4,7 @@ import * as path from "path";
 import * as net from "net";
 import * as cp from "child_process";
 import CDP = require("chrome-remote-interface");
+import { testBrowserArgs } from "./testBrowser";
 
 // Unattended Azure AD sign-in for the test browser, driven over the DevTools Protocol.
 // Lets the live/e2e harness exercise the interactive ("Authenticated") user path — and
@@ -246,7 +247,14 @@ export async function preAuthenticateProfile(exePath: string, profileDir: string
   const log = opts.log ?? (() => undefined);
   fs.mkdirSync(profileDir, { recursive: true });
   const port = await freePort();
-  const child = cp.spawn(exePath, [`--remote-debugging-port=${port}`, `--user-data-dir=${profileDir}`, "--no-first-run", "--no-default-browser-check", "--new-window", orgUrl], { stdio: "ignore" });
+  // testBrowserArgs() carries the flags a headless Linux box needs to start Chromium at all
+  // (#265). Every other harness launch site passes them; this one did not, so pre-auth died with
+  // "No usable sandbox!" before CDP ever listened and both browser-matrix cases failed on Linux.
+  const child = cp.spawn(
+    exePath,
+    [`--remote-debugging-port=${port}`, `--user-data-dir=${profileDir}`, "--no-first-run", "--no-default-browser-check", ...testBrowserArgs(), "--new-window", orgUrl],
+    { stdio: "ignore" },
+  );
   try {
     const deadline = Date.now() + 25000;
     let up = false;
