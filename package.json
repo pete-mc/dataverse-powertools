@@ -882,9 +882,8 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run fetch-typings-tool && npm run build-profiler-tool && npm run package",
+    "vscode:prepublish": "npm run fetch-typings-tool && npm run package",
     "fetch-typings-tool": "node scripts/fetchTypingsTool.mjs",
-    "build-profiler-tool": "node scripts/buildProfilerTool.mjs",
     "postinstall": "node scripts/fetchTypingsTool.mjs",
     "compile": "webpack",
     "watch": "webpack --watch",

@@ -232,11 +232,6 @@ describe("plugin debugging block (#63)", () => {
     expect(d.generate.args).toContain("c:/repo/plugins");
   });
 
-  it("passes through the Windows-only capture gate", () => {
-    expect(card(pluginState({ captureSupported: true }), "project").debugging!.captureSupported).toBe(true);
-    expect(card(pluginState({ captureSupported: false }), "project").debugging!.captureSupported).toBe(false);
-  });
-
   it("reports the downloaded-profile count from the local scan", () => {
     expect(card(pluginState({ downloadedProfiles: 0 }), "project").debugging!.downloadedProfiles).toBe(0);
     expect(card(pluginState({ downloadedProfiles: 3 }), "project").debugging!.downloadedProfiles).toBe(3);

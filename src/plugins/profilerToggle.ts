@@ -2,31 +2,20 @@ import * as vscode from "vscode";
 import DataversePowerToolsContext from "../context";
 import { runForComponent } from "../components/componentDiscovery";
 import { ProjectTypes } from "../projectTypes/registry";
-import { getOrganizationUrl } from "../general/connectionString";
 import { canCallDataverseApi } from "../general/dataverse/connectionReady";
-import {
-  ActiveProfileStep,
-  RegistrationKey,
-  getProfilableSteps,
-  findMatchingStep,
-  deleteProfilerStep,
-  getAssemblyStepStates,
-  noProfilableStepsMessage,
-} from "../general/dataverse/pluginProfiles";
+import { ActiveProfileStep, RegistrationKey, getProfilableSteps, findMatchingStep, getAssemblyStepStates, noProfilableStepsMessage } from "../general/dataverse/pluginProfiles";
 import { parseRegistrationArgs } from "./registrationAttribute";
 import { findPluginClasses } from "./profilerCodeLens";
-import { isCaptureSupported, buildEnableArgs, buildDisableArgs, runProfilerTool } from "./profilerCaptureTool";
-import { ensureCaptureToolRuntime } from "./profilerAssets";
+import { enableStepProfiling, disableStepProfiling } from "../general/dataverse/profilerSteps";
 import { ensureProfilerInstalled } from "./profilerCapture";
 import { refreshDecorationCodeLenses } from "./decorationsCodeLens";
-import { guidePluginProfiling } from "./profilerGuide";
 import { refreshActiveProfiles, getActiveProfilesCache } from "../panel/panelDataCache";
 
 // Per-step profiling toggle (#139): flip server-side profiling on/off for the step whose
-// [CrmPluginRegistration(...)] attribute a CodeLens sits on. Enable/disable go through the
-// Windows-only net48 tool; on other OSes the enable falls back to the guide and the disable to a
-// Web-API delete of the profiler clone. State comes from the cached active-profiles list, never a
-// per-render query. Both auth types — gate on the live connection, never tenantId.
+// [CrmPluginRegistration(...)] attribute a CodeLens sits on. Enable/disable go through the Web API
+// (src/general/dataverse/profilerSteps.ts) and work on every OS since #264. State comes from the
+// cached active-profiles list, never a per-render query. Both auth types — gate on the live
+// connection, never tenantId.
 
 const DEFAULT_MAX_PROFILED_EXECUTIONS = 100;
 
@@ -114,10 +103,6 @@ async function settleActiveProfiles(context: DataversePowerToolsContext, key: Re
 }
 
 async function startProfilingStep(context: DataversePowerToolsContext, key: RegistrationKey): Promise<void> {
-  if (!isCaptureSupported()) {
-    await guidePluginProfiling(context);
-    return;
-  }
   const assemblyName = context.projectSettings.pluginProjectName as string | undefined;
   let steps = await getProfilableSteps(context, assemblyName);
   if (steps && steps.length === 0 && assemblyName) {
@@ -137,12 +122,7 @@ async function startProfilingStep(context: DataversePowerToolsContext, key: Regi
   if (!(await ensureProfilerInstalled(context))) {
     return;
   }
-  const runtimeDir = await ensureCaptureToolRuntime(context);
-  if (!runtimeDir) {
-    return;
-  }
-  const organizationUrl = getOrganizationUrl(context.connectionString);
-  const result = await runProfilerTool(context, buildEnableArgs(organizationUrl, step.stepId, DEFAULT_MAX_PROFILED_EXECUTIONS), runtimeDir);
+  const result = await enableStepProfiling(context, step.stepId, DEFAULT_MAX_PROFILED_EXECUTIONS);
   if (!result.ok || !result.profilerStepId) {
     vscode.window.showErrorMessage(`Could not start profiling: ${result.error ?? "unknown error"}`);
     context.channel.show();
@@ -152,25 +132,12 @@ async function startProfilingStep(context: DataversePowerToolsContext, key: Regi
   vscode.window.showInformationMessage(`Profiling on: ${step.typeName}. Trigger it, then Download a run to debug.`);
 }
 
-/** Stop profiling a step: net48 disable on Windows, Web-API delete of the profiler clone elsewhere. */
+/** Stop profiling a step: remove the profiler clone and restore the original (name, images,
+ * enabled state). Cross-platform since #264 — this used to be a Windows-only net48 tool, with a
+ * fallback elsewhere that deleted the clone and left the user's step DISABLED. */
 export async function stopProfilingStep(context: DataversePowerToolsContext, profile: ActiveProfileStep): Promise<void> {
   const label = [profile.typeName, profile.message, profile.primaryEntity].filter(Boolean).join(" · ");
-  if (!isCaptureSupported()) {
-    const ok = await deleteProfilerStep(context, profile.profilerStepId);
-    if (ok) {
-      context.channel.appendLine(`[Profiler] Stopped profiling (deleted profiler step) for ${label}.`);
-      context.channel.appendLine("[Profiler] Note: on non-Windows the original step may need re-enabling in the Plugin Registration Tool.");
-    } else {
-      vscode.window.showErrorMessage("Could not stop profiling — see the output.");
-    }
-    return;
-  }
-  const runtimeDir = await ensureCaptureToolRuntime(context);
-  if (!runtimeDir) {
-    return;
-  }
-  const organizationUrl = getOrganizationUrl(context.connectionString);
-  const result = await runProfilerTool(context, buildDisableArgs(organizationUrl, profile.profilerStepId), runtimeDir);
+  const result = await disableStepProfiling(context, profile.profilerStepId);
   if (result.ok) {
     context.channel.appendLine(`[Profiler] Profiling OFF for ${label}.`);
   } else {

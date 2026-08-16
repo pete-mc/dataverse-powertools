@@ -158,7 +158,7 @@ The suite is `*.e2e.ts` (not the CI `*.test.js` glob), so it stays out of CI.
   → open the live app in a browser and confirm the DEPLOYED code runs → **Debug Web Resources**
   locally + edit source and confirm hot reload. Steps 7–8 drive a real browser (CDP) and need
   the interactive user; they self-skip without it.
-- `pluginProfilerReplay` (Windows-only) — the plug-in **Debugging** block end to end: scaffold a
+- `pluginProfilerReplay` (Windows-only — the *debugger attach* is `clr`) — the plug-in **Debugging** block end to end: scaffold a
   Plugins project + xUnit test project, write a plug-in registered on **Create of territory**, Build
   & deploy it, assert the step is discoverable as **profilable** live (guards the
   `getProfilableSteps` server-side assembly filter — a busy org has 200+ system steps), then
@@ -194,8 +194,9 @@ same five steps with ten log gates instead of none.
 | `solutionAcceptance` | Solution pack/import | — |
 | `configRefresh` | Stale-config detection and refresh | — |
 
-Only `pluginProfilerReplay` is genuinely Windows-only (the capture tool is .NET Framework, and the
-debugger attaches with `clr`). Everything else is cross-platform and is a candidate for a Linux CI
+Only `pluginProfilerReplay` is genuinely Windows-only, and only for the **replay/debugger** half —
+it attaches with `clr`. Profile *capture* stopped being Windows-only in #264 (it is Web API calls
+now, not a net48 tool). Everything else is cross-platform and is a candidate for a Linux CI
 job under `xvfb` — the ones marked "MSAL cache" need `DVPT_TEST_USERNAME`/`PASSWORD` for the seeding
 launcher, and self-skip without them.
 

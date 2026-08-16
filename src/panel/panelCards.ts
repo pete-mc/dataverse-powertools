@@ -23,7 +23,6 @@ export interface ProjectCardFsInfo {
   /** profiles downloaded into <root>/profiles (plugins only; undefined otherwise) */
   downloadedProfiles: number | undefined;
   /** whether headless profiler capture is supported here (plugins on Windows) */
-  captureSupported: boolean | undefined;
 }
 
 /** Map a component's settings + its fs facts into the panel's project-card state.
@@ -43,6 +42,5 @@ export function buildProjectCard(settings: ComponentSettings, root: string, rela
     // #145: the card's primary action follows the trigger (webhook leads with Register, others with Build).
     azureFunctionTrigger: settings.azureFunctionTrigger as string | undefined,
     downloadedProfiles: fsInfo.downloadedProfiles,
-    captureSupported: fsInfo.captureSupported,
   };
 }

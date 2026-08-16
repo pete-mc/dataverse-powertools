@@ -42,7 +42,6 @@ function projectCard(settings: ComponentSettings, root: string, relativeRoot: st
   return buildProjectCard(settings, root, relativeRoot, isRoot, {
     hasSpkl: fs.existsSync(path.join(root, "spkl.json")),
     downloadedProfiles: isPlugin ? countDownloadedProfiles(root) : undefined,
-    captureSupported: isPlugin ? process.platform === "win32" : undefined,
   });
 }
 
