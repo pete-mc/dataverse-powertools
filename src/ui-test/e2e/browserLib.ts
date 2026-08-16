@@ -49,6 +49,13 @@ export async function launchBrowser(exePath: string, profileDir: string, url: st
       `--user-data-dir=${profileDir}`,
       "--no-first-run",
       "--no-default-browser-check",
+      // Linux CI/VM only. Ubuntu 24.04 restricts unprivileged user namespaces via AppArmor, so
+      // Chromium's zygote sandbox cannot start and the process dies immediately with
+      // "No usable sandbox!" before CDP ever listens. Browser-automation frameworks inject these
+      // for their users; we spawn the binary directly, so we must. Scoped to this harness ON PURPOSE — it is
+      // excluded from the VSIX, so weakening the sandbox here never reaches a real user. The
+      // shipped Debug Web Resources flow (webresources/debug/browserArgs.ts) must NOT copy this.
+      ...(process.platform === "linux" ? ["--no-sandbox", "--disable-dev-shm-usage"] : []),
       // Prevent background-tab throttling: under ExTester the VS Code window has focus, so this Edge
       // is backgrounded and Chromium throttles its timers — which stalls AAD's sign-in transition.
       "--disable-background-timer-throttling",
@@ -90,19 +97,25 @@ export async function launchBrowser(exePath: string, profileDir: string, url: st
  *  reparented child processes that `child.kill()` on the launcher shim misses. Used to fully tear
  *  down step 7's browser before step 8 launches the debug browser: a lingering Edge instance makes
  *  the new launch delegate to it, so the port-bearing process exits and the debug port can't be
- *  found. Windows-only (this harness runs on the Windows VM). */
+ *  found. */
 export function killBrowsersByProfile(profileMatch: string): void {
   try {
-    cp.execFileSync(
-      "powershell",
-      [
-        "-NoProfile",
-        "-NonInteractive",
-        "-Command",
-        `Get-CimInstance Win32_Process -Filter "Name='msedge.exe' OR Name='chrome.exe'" | Where-Object { $_.CommandLine -like "*$env:DVPT_KP*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`,
-      ],
-      { env: { ...process.env, DVPT_KP: profileMatch }, encoding: "utf8" },
-    );
+    if (process.platform === "win32") {
+      cp.execFileSync(
+        "powershell",
+        [
+          "-NoProfile",
+          "-NonInteractive",
+          "-Command",
+          `Get-CimInstance Win32_Process -Filter "Name='msedge.exe' OR Name='chrome.exe'" | Where-Object { $_.CommandLine -like "*$env:DVPT_KP*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`,
+        ],
+        { env: { ...process.env, DVPT_KP: profileMatch }, encoding: "utf8" },
+      );
+      return;
+    }
+    // pkill -f matches against the full command line, the same thing the CIM filter inspects.
+    // Exit status 1 just means "nothing matched", which execFileSync raises — hence best-effort.
+    cp.execFileSync("pkill", ["-f", profileMatch], { encoding: "utf8" });
   } catch {
     /* best effort */
   }
@@ -113,25 +126,40 @@ export function killBrowsersByProfile(profileMatch: string): void {
  * 8GB VM this matters: a debug session that dies before teardown orphans its `node webpack --watch`
  * (kept rebuilding, ~100-300MB each) and its Edge browser, and enough of them accumulated across runs
  * will starve VS Code's Electron host mid-suite (seen as ECONNREFUSED to the webdriver, run 13). This
- * is best-effort and Windows-only (the e2e only runs on the Windows VM).
+ * is best-effort.
  */
 export function killStaleE2EProcesses(): void {
-  try {
-    cp.execFileSync(
-      "powershell",
-      [
-        "-NoProfile",
-        "-NonInteractive",
-        "-Command",
-        // Orphan webpack --watch node processes from prior debug sessions...
-        "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -match 'webpack' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue };" +
-          // ...and orphan debug/verify browsers spawned under our e2e profile dirs.
-          "Get-CimInstance Win32_Process -Filter \"Name='msedge.exe' OR Name='chrome.exe'\" | Where-Object { $_.CommandLine -match 'dvpt-e2e-browser|webresource-debug-profile' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }",
-      ],
-      { encoding: "utf8" },
-    );
-  } catch {
-    /* best effort */
+  if (process.platform === "win32") {
+    try {
+      cp.execFileSync(
+        "powershell",
+        [
+          "-NoProfile",
+          "-NonInteractive",
+          "-Command",
+          // Orphan webpack --watch node processes from prior debug sessions...
+          "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -match 'webpack' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue };" +
+            // ...and orphan debug/verify browsers spawned under our e2e profile dirs.
+            "Get-CimInstance Win32_Process -Filter \"Name='msedge.exe' OR Name='chrome.exe'\" | Where-Object { $_.CommandLine -match 'dvpt-e2e-browser|webresource-debug-profile' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }",
+        ],
+        { encoding: "utf8" },
+      );
+    } catch {
+      /* best effort */
+    }
+    return;
+  }
+  // Same two targets via pkill -f (extended regex over the full command line). `node.*webpack`
+  // rather than bare `webpack` on purpose — it mirrors the Windows filter's Name='node.exe' clause,
+  // and an unanchored `webpack` here would also match a developer's own build running on the box.
+  // Kept as separate calls so a no-match on the first (exit 1, which execFileSync throws on)
+  // doesn't skip the second.
+  for (const pattern of ["node.*webpack", "dvpt-e2e-browser|webresource-debug-profile"]) {
+    try {
+      cp.execFileSync("pkill", ["-f", pattern], { encoding: "utf8" });
+    } catch {
+      /* best effort — nothing matched */
+    }
   }
 }
 
@@ -161,6 +189,35 @@ function httpGetJson(port: number, pathname: string, timeoutMs = 1000): Promise<
  *  System32, so a bare "netstat" throws ENOENT and finds nothing. */
 function listeningPorts(): number[] {
   const ports = new Set<number>();
+  if (process.platform !== "win32") {
+    // `ss` on modern Linux, `netstat -an` as the fallback. Every :<port> on a LISTEN line is
+    // collected rather than pinned to a specific local-address form — addresses appear as
+    // 0.0.0.0, [::], 127.0.0.53%lo and more, and a regex tight enough to enumerate them silently
+    // drops ports. Callers probe each candidate over HTTP and discard the non-CDP ones, so a false
+    // positive costs one fast failed request while a false negative loses the browser entirely.
+    for (const [exe, args] of [
+      ["ss", ["-ltn"]],
+      ["netstat", ["-an"]],
+    ] as [string, string[]][]) {
+      try {
+        const out = cp.execFileSync(exe, args, { encoding: "utf8", maxBuffer: 1024 * 1024 * 8 });
+        for (const line of out.split("\n")) {
+          if (!/LISTEN/.test(line)) {
+            continue;
+          }
+          for (const m of line.matchAll(/:(\d+)\b/g)) {
+            ports.add(Number(m[1]));
+          }
+        }
+        if (ports.size > 0) {
+          break;
+        }
+      } catch {
+        /* try the next candidate */
+      }
+    }
+    return [...ports];
+  }
   const sysRoot = process.env.SystemRoot || process.env.windir || "C:\\Windows";
   for (const exe of [`${sysRoot}\\System32\\netstat.exe`, "netstat"]) {
     try {
