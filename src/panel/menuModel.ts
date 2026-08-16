@@ -62,16 +62,13 @@ export interface ActiveProfileRow {
 }
 
 /** The profiler/debugging block embedded in a plugin project card (#63). Local
- * data only (a scan of profiles/), so the panel stays network-free. Capture is
- * Windows-only (a net48 tool); download + replay-from-file work everywhere. */
+ * data only (a scan of profiles/), so the panel stays network-free. Capture, download and
+ * replay-from-file all work on every OS (capture since #264). */
 export interface DebuggingBlock {
   /** Profiles downloaded into / dropped in profiles/. */
   downloadedProfiles: number;
-  /** Start Profiling the next plugin run and fetch it (Windows-only). */
+  /** Start Profiling the next plugin run and fetch it. */
   capture: MenuAction;
-  /** Whether the capture action can run here (win32). When false the panel gates it
-   * and points at the download/file path instead. */
-  captureSupported: boolean;
   /** Fetch a captured run from the org (execution picker when there are several). */
   download: MenuAction;
   /** Replay the captured run UNDER THE DEBUGGER, stopping on your breakpoints. */
@@ -164,9 +161,6 @@ export interface ProjectCardState extends ProjectMenuState {
   detail?: string;
   /** Plugin cards only: profiles downloaded into profiles/ (local scan). */
   downloadedProfiles?: number;
-  /** Plugin cards only: whether headless capture (Start Profiling) can run here
-   * (Windows). Set from the host platform in panelState. */
-  captureSupported?: boolean;
 }
 
 export interface PanelState {
@@ -338,7 +332,6 @@ function debuggingFor(project: ProjectCardState, state: PanelState): DebuggingBl
   return {
     downloadedProfiles: project.downloadedProfiles ?? 0,
     capture: forComponent({ command: "dataverse-powertools.capturePluginRun", label: "Profile next run" }, project),
-    captureSupported: project.captureSupported ?? false,
     download: forComponent({ command: "dataverse-powertools.downloadPluginProfiles", label: "Download a run" }, project),
     // "Replay & debug" now actually replays under the debugger; generating the test file is its own
     // action, because that is a different job (commit it, run it in CI) from debugging a capture.

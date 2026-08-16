@@ -13,9 +13,8 @@ import {
   getAssemblyStepStates,
   noProfilableStepsMessage,
 } from "../general/dataverse/pluginProfiles";
-import { getOrganizationUrl } from "../general/connectionString";
-import { isCaptureSupported, buildEnableArgs, buildDisableArgs, runProfilerTool } from "./profilerCaptureTool";
-import { ensureCaptureToolRuntime, getProfilerSolutionBase64 } from "./profilerAssets";
+import { enableStepProfiling, disableStepProfiling } from "../general/dataverse/profilerSteps";
+import { getProfilerSolutionBase64 } from "./profilerAssets";
 import { downloadPluginProfiles } from "./downloadProfiles";
 
 /** True if `fullPathLower` is a plausible LOCAL build-output copy of `<assemblyName>.dll` — a file of
@@ -66,10 +65,10 @@ export function findLocalPluginAssemblyDll(root: string, assemblyName: string): 
   }
 }
 
-// "Profile the next run" (#63 capture, Windows-only): Start Profiling a registered
-// step via the bundled net48 tool, ask the user to trigger the plugin, then fetch the
-// captured execution (the download flow's execution picker handles multiple runs) and
-// Stop Profiling. On non-Windows this defers to the manual download/file path.
+// "Profile the next run" (#63 capture): Start Profiling a registered step, ask the user to
+// trigger the plugin, then fetch the captured execution (the download flow's execution picker
+// handles multiple runs) and Stop Profiling. Cross-platform since #264 — enable/disable are
+// Web API calls in src/general/dataverse/profilerSteps.ts, not a bundled net48 tool.
 
 const DEFAULT_MAX_PROFILED_EXECUTIONS = 100;
 
@@ -126,17 +125,6 @@ export async function capturePluginRun(context: DataversePowerToolsContext): Pro
     return;
   }
 
-  if (!isCaptureSupported()) {
-    const choice = await vscode.window.showInformationMessage(
-      "Starting a profile capture is Windows-only. On macOS/Linux, capture in the Plugin Registration Tool, then download or drop in the profile.",
-      "Download a captured profile",
-    );
-    if (choice === "Download a captured profile") {
-      await downloadPluginProfiles(context);
-    }
-    return;
-  }
-
   if (!(await ensureProfilerInstalled(context))) {
     return;
   }
@@ -179,7 +167,6 @@ export async function capturePluginRun(context: DataversePowerToolsContext): Pro
   // the LOCAL build the extension just deployed (the deployed package's own content isn't retrievable
   // from Dataverse), enable, then clear it in the finally. This makes capture work for the extension's
   // package plugins (#208).
-  const organizationUrl = getOrganizationUrl(context.connectionString);
   let restoreAssemblyId: string | undefined;
   const asmInfo = await getPluginAssemblyProfilingInfo(context, step.assemblyName);
   if (asmInfo?.packageId && !asmInfo.hasContent) {
@@ -204,11 +191,7 @@ export async function capturePluginRun(context: DataversePowerToolsContext): Pro
   // no matter where the capture bails.
   let profilerStepId: string | undefined;
   try {
-    const runtimeDir = await ensureCaptureToolRuntime(context);
-    if (!runtimeDir) {
-      return;
-    }
-    const enabled = await runProfilerTool(context, buildEnableArgs(organizationUrl, step.stepId, DEFAULT_MAX_PROFILED_EXECUTIONS), runtimeDir);
+    const enabled = await enableStepProfiling(context, step.stepId, DEFAULT_MAX_PROFILED_EXECUTIONS);
     if (!enabled.ok || !enabled.profilerStepId) {
       vscode.window.showErrorMessage(`Could not start profiling: ${enabled.error ?? "unknown error"}`);
       context.channel.show();
@@ -227,8 +210,7 @@ export async function capturePluginRun(context: DataversePowerToolsContext): Pro
     }
   } finally {
     if (profilerStepId) {
-      const runtimeDir = await ensureCaptureToolRuntime(context);
-      const disabled = runtimeDir ? await runProfilerTool(context, buildDisableArgs(organizationUrl, profilerStepId), runtimeDir) : { ok: false, error: "runtime unavailable" };
+      const disabled = await disableStepProfiling(context, profilerStepId);
       context.channel.appendLine(disabled.ok ? "[Profiler] Stopped profiling." : `[Profiler] Stop profiling failed: ${disabled.error ?? "unknown"}`);
     }
     if (restoreAssemblyId) {

@@ -55,10 +55,10 @@ jobs:
     name: Publish to Marketplace
     needs: [build-test, version-check]
     if: needs.version-check.outputs.changed == 'true'
-    # Windows runner: vscode:prepublish builds the net48 capture tool
-    # (profiler-tool/ -> tools/pluginprofiler/) from source, which .NET Framework
-    # can only compile on Windows. Everything else (webpack/vsce) is cross-platform.
-    runs-on: windows-latest
+    # Cross-platform since #264: the plugin-profiler capture tool it used to build here was
+    # net48 (Windows-only to compile) and is gone — capture is now Web API calls in the
+    # extension itself. Everything left (webpack/vsce/the net8 typings tool) is portable.
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:

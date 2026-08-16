@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { clock, buildProjectCard, ProjectCardFsInfo } from "./panelCards";
 import { ComponentSettings } from "../components/discovery";
 
-const noFs: ProjectCardFsInfo = { hasSpkl: false, downloadedProfiles: undefined, captureSupported: undefined };
+const noFs: ProjectCardFsInfo = { hasSpkl: false, downloadedProfiles: undefined };
 
 describe("clock", () => {
   it("returns empty string for undefined", () => {
@@ -40,11 +40,10 @@ describe("buildProjectCard", () => {
   });
 
   it("passes through the fs/OS facts verbatim", () => {
-    const fsInfo: ProjectCardFsInfo = { hasSpkl: true, downloadedProfiles: 3, captureSupported: true };
+    const fsInfo: ProjectCardFsInfo = { hasSpkl: true, downloadedProfiles: 3 };
     const card = buildProjectCard({ type: "plugin" } as unknown as ComponentSettings, "/r", "", true, fsInfo);
     expect(card.hasSpkl).toBe(true);
     expect(card.downloadedProfiles).toBe(3);
-    expect(card.captureSupported).toBe(true);
   });
 
   it("carries the azure-function trigger through (#145)", () => {

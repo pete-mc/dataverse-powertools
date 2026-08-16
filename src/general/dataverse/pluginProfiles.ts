@@ -396,8 +396,10 @@ export async function getActiveProfiles(context: DataversePowerToolsContext): Pr
   return body ? parseActiveProfiles(body) : undefined;
 }
 
-/** Delete a profiler clone step via the Web API — the non-Windows fallback for "Stop"
- * (the net48 disable tool is Windows-only). Returns true on success. */
+/** Delete a profiler clone step via the Web API. NOTE: this only removes the clone — it does not
+ * restore the profiled step's name or re-enable it. Prefer disableStepProfiling (profilerSteps.ts),
+ * which does the whole reversal; this is kept as the blunt cleanup for a clone whose configuration
+ * can't be read. Returns true on success. */
 export async function deleteProfilerStep(context: DataversePowerToolsContext, profilerStepId: string): Promise<boolean> {
   if (!GUID.test(profilerStepId)) {
     return false;

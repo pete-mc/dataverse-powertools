@@ -535,16 +535,7 @@
     row.appendChild(el("span", "grow"));
     c.appendChild(row);
     const actions = el("div", "secondary-row");
-    if (block.captureSupported) {
-      actions.appendChild(button(block.capture, "action"));
-    } else {
-      // Capture (Start Profiling) is a Windows-only net48 tool; disable it elsewhere.
-      const disabled = el("button", "action", block.capture.label);
-      disabled.type = "button";
-      disabled.disabled = true;
-      disabled.title = "Profiling capture is Windows-only. Use Download a run, or Replay a downloaded profile file.";
-      actions.appendChild(disabled);
-    }
+    actions.appendChild(button(block.capture, "action"));
     actions.appendChild(button(block.download, "action"));
     actions.appendChild(button(block.replay, "action"));
     actions.appendChild(button(block.generate, "action"));
@@ -552,10 +543,8 @@
     var note;
     if (block.downloadedProfiles > 0) {
       note = block.downloadedProfiles + " profile" + (block.downloadedProfiles === 1 ? "" : "s") + " in profiles/ · Replay to debug";
-    } else if (block.captureSupported) {
-      note = "Profile next run captures a live execution (or Download a run). Replay & debug replays it under the debugger, stopping on your breakpoints; Generate Replay Test just writes the test.";
     } else {
-      note = "Download a captured run, or drop a profile file in profiles/ and Replay to debug it as a test.";
+      note = "Profile next run captures a live execution (or Download a run). Replay & debug replays it under the debugger, stopping on your breakpoints; Generate Replay Test just writes the test.";
     }
     c.appendChild(el("div", "small", note));
     c.appendChild(activeProfilesBlock(block.activeProfiles || []));

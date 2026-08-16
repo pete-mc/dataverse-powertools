@@ -218,9 +218,21 @@ modern plugin flow already shells out to `dotnet`/`pac`.
   tool isn't committed; `scripts/fetchTypingsTool.mjs` fetches it into `tools/` on install /
   prepublish. Pure arg builders live in
   [generateTypings.ts](src/webresources/generateTypings.ts) (`buildTypingsArgs`, unit-tested).
-- **Still Windows-only:** the profiler *capture* path (`Profile next run` — the capture tool is
-  .NET Framework; `Download a run` + replay work anywhere) and the e2e browser automation (drives
-  Edge on the Windows VM). With `plugins_old/` gone (#228) nothing else pins `spkl.exe`/`sn.exe`.
+- **Profiler capture is cross-platform now** (#264): `Profile next run` / the per-step Profile
+  CodeLens used to shell out to a bundled **net48** tool (`profiler-tool/`) because PRT's
+  `ProfilerManagementUtility.EnablePlugin` takes a .NET-Framework `CrmServiceClient`. Decompiling
+  that method showed it is only ordinary SDK requests, so it now lives in
+  [profilerSteps.ts](src/general/dataverse/profilerSteps.ts) as Web API calls — the tool, its build
+  script and the `windows-latest` pin on the publish job are all gone. **The `configuration` blob is
+  a contract with the profiler's own server-side plug-in** (a `DataContractSerializer` over
+  `[DataContract(Name = "Configuration", Namespace = "")]`): members are ALPHABETICAL and unset ones
+  are `i:nil`, and `profilerSteps.spec.ts` pins the exact bytes against a real serializer's output.
+  Don't "tidy" that emitter. Enable also MOVES the step's images to the clone and DISABLES the
+  original — miss either and the profiler silently never fires.
+- **Still Windows-only:** the e2e browser automation (drives Edge on the Windows VM) and the
+  net462 replay *runner* in the capture live spec (the product's own replay goes through the
+  user's test project and works anywhere). With `plugins_old/` gone (#228) nothing else pins
+  `spkl.exe`/`sn.exe`.
 
 ## Test Explorer (native Testing API, #84)
 
