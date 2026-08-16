@@ -11,7 +11,8 @@ import { DataverseWebresource } from "../../src/general/dataverse/DataverseWebre
 import { DataverseForm } from "../../src/general/dataverse/DataverseForm";
 import { debugWebResources, stopDebugWebResources } from "../../src/webresources/debug/debugWebresources";
 import { preAuthenticateProfile, autoLoginBrowser, findDebugPortByProfile } from "./browserAutoLogin";
-import { resolveBrowser } from "../../src/webresources/debug/browserResolver";
+import { BrowserPreference } from "../../src/webresources/debug/browserResolver";
+import { resolveTestBrowser, testBrowserArgs } from "./testBrowser";
 import DataversePowerToolsContext from "../../src/context";
 
 // Unattended #64 coverage across BOTH browsers using the interactive test user.
@@ -215,7 +216,14 @@ suite("Debug Web Resources — Edge + Chrome unattended (#64)", () => {
     it(
       `serves LOCAL into a real form and hot-reloads on ${browser}`,
       async () => {
-        (vscode.workspace as unknown as { getConfiguration: () => unknown }).getConfiguration = () => ({ get: (k: string) => (k === "debugBrowser" ? browser : undefined), update: () => undefined });
+        // Feed the real command the same browser the harness resolved, plus this platform's extra
+        // flags — DVPT_TEST_BROWSER_PATH may point at a Chromium that install-path probing cannot
+        // find, and Linux needs --no-sandbox that the product rightly does not default on.
+        (vscode.workspace as unknown as { getConfiguration: () => unknown }).getConfiguration = () => ({
+          get: (k: string) =>
+            k === "debugBrowser" ? browser : k === "debugBrowserPath" ? resolveTestBrowser(browser as BrowserPreference)?.executablePath : k === "debugBrowserArgs" ? testBrowserArgs() : undefined,
+          update: () => undefined,
+        });
         const workspacePath = path.join(tmpRoot, browser, "workspace");
         const binDir = path.join(workspacePath, "bin");
         const bundlePath = path.join(binDir, BUNDLE);
@@ -228,9 +236,10 @@ suite("Debug Web Resources — Edge + Chrome unattended (#64)", () => {
 
         // Sign the profile in first (clean browser, no interception attached) so the debug
         // session opens already authenticated — like a real developer's persistent profile.
-        const resolved = resolveBrowser(browser, undefined, { platform: process.platform, env: process.env, exists: fs.existsSync });
+        const resolved = resolveTestBrowser(browser as BrowserPreference);
+        expect(resolved, `no browser available for ${browser}`).toBeTruthy();
         log(`[${browser}] pre-authenticating the debug profile with the interactive test user`);
-        const authed = await preAuthenticateProfile(resolved.executablePath, profileDir, e.url, { username: u.username, password: u.password, orgHost, log });
+        const authed = await preAuthenticateProfile(resolved!.executablePath, profileDir, e.url, { username: u.username, password: u.password, orgHost, log });
         expect(authed, `pre-auth failed on ${browser}`).toBe(true);
 
         const ctx = makeContext(e.url, client.accessToken, workspacePath, globalStorage, browser);

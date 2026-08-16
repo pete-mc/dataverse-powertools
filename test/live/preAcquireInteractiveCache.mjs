@@ -10,17 +10,42 @@ import * as path from "path";
 import * as net from "net";
 import * as cp from "child_process";
 import { createRequire } from "module";
-const require = createRequire("file:///C:/Users/Peter/sources/repos/dataverse-powertools/index.js");
+import { fileURLToPath } from "url";
+const require = createRequire(import.meta.url);
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(HERE, "..", "..");
 const { PublicClientApplication } = require("@azure/msal-node");
 const CDP = require("chrome-remote-interface");
 
 const CLIENT_ID = "51f81489-12ee-4a9e-aaae-a2591f45987d"; // == DEFAULT_INTERACTIVE_CLIENT_ID
 const AUTHORITY = "https://login.microsoftonline.com/organizations";
-const EDGE = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
+// Browser resolution mirrors src/webresources/debug/browserResolver.ts. It is duplicated rather
+// than imported because this is a standalone .mjs run by scripts/runE2E.mjs, and test/ is outside
+// the tsconfig scope so there is no compiled copy to import. DVPT_TEST_BROWSER_PATH wins: a
+// headless Linux box often has no system browser, only one fetched by another tool at a
+// version-stamped path that cannot be discovered by probing.
+const BROWSER_CANDIDATES = {
+  win32: [
+    "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+    "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+    "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  ],
+  darwin: ["/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"],
+  linux: ["/usr/bin/microsoft-edge", "/usr/bin/microsoft-edge-stable", "/opt/microsoft/msedge/msedge", "/usr/bin/google-chrome", "/usr/bin/google-chrome-stable", "/usr/bin/chromium", "/usr/bin/chromium-browser"],
+};
+function resolveBrowserPath() {
+  if (process.env.DVPT_TEST_BROWSER_PATH) return process.env.DVPT_TEST_BROWSER_PATH;
+  const found = (BROWSER_CANDIDATES[process.platform] || BROWSER_CANDIDATES.linux).find((c) => fs.existsSync(c));
+  if (!found) throw new Error("No Edge/Chrome/Chromium found. Set DVPT_TEST_BROWSER_PATH to a Chromium executable.");
+  return found;
+}
+// Ubuntu 23.10+ blocks Chromium's sandbox via its unprivileged-userns AppArmor restriction; without
+// these the browser dies with "No usable sandbox!" before its CDP port ever listens.
+const BROWSER_EXTRA_ARGS = process.platform === "linux" ? ["--no-sandbox", "--disable-dev-shm-usage"] : [];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function env() {
-  const t = fs.readFileSync("C:/Users/Peter/sources/repos/dataverse-powertools/sandbox/.env", "utf8");
+  const t = fs.readFileSync(path.join(REPO_ROOT, "sandbox", ".env"), "utf8");
   const e = {};
   for (const l of t.split(/\r?\n/)) { const m = l.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/); if (m) e[m[1]] = m[2]; }
   return e;
@@ -32,7 +57,7 @@ async function driveMsalLogin(authUrl, USER, PASS) {
   const profile = path.join(os.tmpdir(), "dvpt-preacquire-login");
   fs.rmSync(profile, { recursive: true, force: true }); fs.mkdirSync(profile, { recursive: true });
   const port = await freePort();
-  const child = cp.spawn(EDGE, [`--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check", "--new-window", authUrl], { stdio: "ignore" });
+  const child = cp.spawn(resolveBrowserPath(), [`--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check", ...BROWSER_EXTRA_ARGS, "--new-window", authUrl], { stdio: "ignore" });
   try {
     let client; for (let i = 0; i < 40 && !client; i++) { try { client = await CDP({ port }); } catch { await sleep(400); } }
     const { Runtime } = client; await Runtime.enable();

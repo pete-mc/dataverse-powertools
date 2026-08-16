@@ -8,6 +8,16 @@ export interface BrowserLaunchOptions {
   userDataDir: string;
   /** Initial URL to open (the org). */
   url: string;
+  /**
+   * Extra Chromium flags from `dataverse-powertools.debugBrowserArgs`. An escape hatch for
+   * environments whose browser needs a flag we deliberately don't ship as a default — the
+   * motivating case is Ubuntu 23.10+/24.04, which restricts unprivileged user namespaces via
+   * AppArmor so Chromium's sandbox can't start ("No usable sandbox!") and the process dies
+   * before CDP listens; `--no-sandbox` fixes it there. That is NOT a default: it would weaken
+   * the sandbox for every Linux user, including the majority who aren't affected, on a browser
+   * pointed at their live org. Opt in per machine instead.
+   */
+  extraArgs?: string[];
 }
 
 /**
@@ -27,6 +37,9 @@ export function buildBrowserArgs(options: BrowserLaunchOptions): string[] {
     "--disable-background-timer-throttling",
     "--disable-backgrounding-occluded-windows",
     "--disable-renderer-backgrounding",
+    // User flags go after ours so they can override an earlier one, but before the URL —
+    // Chromium treats the first non-flag argument as the page to open.
+    ...(options.extraArgs ?? []),
     "--new-window",
     options.url,
   ];

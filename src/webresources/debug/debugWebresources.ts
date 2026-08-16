@@ -81,6 +81,7 @@ export async function debugWebResources(context: DataversePowerToolsContext): Pr
   const settings = vscode.workspace.getConfiguration("dataverse-powertools");
   const prefer = (settings.get<string>("debugBrowser") || "auto") as BrowserPreference;
   const overridePath = settings.get<string>("debugBrowserPath") || undefined;
+  const extraArgs = settings.get<string[]>("debugBrowserArgs") || [];
 
   let browser;
   try {
@@ -144,7 +145,7 @@ export async function debugWebResources(context: DataversePowerToolsContext): Pr
     //    after interception is fully armed (step 5). Launching straight at the
     //    org forced a reload after arming, and that reload raced the app's
     //    boot, occasionally wedging the first load (user report).
-    browserProc = cp.spawn(browser.executablePath, buildBrowserArgs({ port, userDataDir, url: "about:blank" }), {
+    browserProc = cp.spawn(browser.executablePath, buildBrowserArgs({ port, userDataDir, url: "about:blank", extraArgs }), {
       detached: false,
       stdio: "ignore",
     });

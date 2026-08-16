@@ -869,6 +869,14 @@
           "type": "string",
           "default": "",
           "markdownDescription": "Optional full path to the Edge/Chrome executable used by **Debug Web Resources**. Leave blank to auto-detect a supported browser."
+        },
+        "dataverse-powertools.debugBrowserArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "Extra command-line flags passed to the browser launched by **Debug Web Resources** and **Debug on live form**.\n\nMainly for Linux: Ubuntu 23.10+ restricts unprivileged user namespaces via AppArmor, so Chromium's sandbox cannot start and the browser exits with `No usable sandbox!` before the debugger can attach. Setting `[\"--no-sandbox\", \"--disable-dev-shm-usage\"]` works around it.\n\nNot a default, deliberately — `--no-sandbox` disables a real security boundary on a browser signed in to your Dataverse environment, and most machines don't need it."
         }
       }
     }

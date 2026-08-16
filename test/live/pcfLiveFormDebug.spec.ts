@@ -7,7 +7,7 @@ import * as cp from "child_process";
 import CDP = require("chrome-remote-interface");
 import { loadLiveEnv, liveOrgUrl } from "../liveEnv";
 import { isPcfBundleUrl, pcfBundleCdpPattern, pcfBundleContentType } from "../../src/pcf/debug/pcfBundleUrl";
-import { resolveBrowser } from "../../src/webresources/debug/browserResolver";
+import { resolveTestBrowser, testBrowserArgs } from "./testBrowser";
 import { buildBrowserArgs } from "../../src/webresources/debug/browserArgs";
 
 // LIVE e2e for the PCF "Debug on live form (hot)" feature (#141 #5): prove the extension's CDP
@@ -19,12 +19,7 @@ import { buildBrowserArgs } from "../../src/webresources/debug/browserArgs";
 // Self-skips without creds or a browser. Mirrors the manual proof used to land 0.14.33/0.14.34.
 
 const env = loadLiveEnv();
-let browserPath: string | undefined;
-try {
-  browserPath = env ? resolveBrowser("auto", undefined, { platform: process.platform, env: process.env, exists: fs.existsSync }).executablePath : undefined;
-} catch {
-  browserPath = undefined;
-}
+const browserPath = env ? resolveTestBrowser()?.executablePath : undefined;
 
 const NS = "DvptE2E";
 const CTOR = "DebugProbe";
@@ -78,7 +73,7 @@ gate("PCF live-form debug — interception serves the local bundle (live)", () =
     const userDataDir = path.join(tmpDir, "profile");
     fs.mkdirSync(userDataDir, { recursive: true });
     const port = await freePort();
-    browserProc = cp.spawn(browserPath!, [...buildBrowserArgs({ port, userDataDir, url: "about:blank" }), "--headless=new"], { stdio: "ignore" });
+    browserProc = cp.spawn(browserPath!, [...buildBrowserArgs({ port, userDataDir, url: "about:blank", extraArgs: testBrowserArgs() }), "--headless=new"], { stdio: "ignore" });
 
     const client = await (async () => {
       const deadline = Date.now() + 20000;

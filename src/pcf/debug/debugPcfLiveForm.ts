@@ -96,6 +96,7 @@ export async function debugPcfLiveForm(context: DataversePowerToolsContext): Pro
   const settings = vscode.workspace.getConfiguration("dataverse-powertools");
   const prefer = (settings.get<string>("debugBrowser") || "auto") as BrowserPreference;
   const overridePath = settings.get<string>("debugBrowserPath") || undefined;
+  const extraArgs = settings.get<string[]>("debugBrowserArgs") || [];
   let browser;
   try {
     browser = resolveBrowser(prefer, overridePath, { platform: process.platform, env: process.env, exists: fs.existsSync });
@@ -149,7 +150,7 @@ export async function debugPcfLiveForm(context: DataversePowerToolsContext): Pro
     const port = await findFreePort();
 
     // 4. Launch on about:blank; navigate only after interception is armed (avoids a reload race).
-    browserProc = cp.spawn(browser.executablePath, buildBrowserArgs({ port, userDataDir, url: "about:blank" }), { detached: false, stdio: "ignore" });
+    browserProc = cp.spawn(browser.executablePath, buildBrowserArgs({ port, userDataDir, url: "about:blank", extraArgs }), { detached: false, stdio: "ignore" });
     browserProc.on("exit", () => void stopPcfLiveDebug());
 
     // 5. Connect CDP, bypass the service worker (#64), intercept the deployed control's bundle.

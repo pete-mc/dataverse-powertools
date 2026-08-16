@@ -8,6 +8,7 @@ import * as cp from "child_process";
 import * as vscode from "vscode"; // aliased to test/vscode.mock.ts
 import CDP = require("chrome-remote-interface");
 import { loadLiveEnv, loadInteractiveTestUser, LiveEnv } from "../liveEnv";
+import { resolveTestBrowser, testBrowserArgs } from "./testBrowser";
 import { LiveDataverseClient } from "./dataverseClient";
 import { DataverseWebresource } from "../../src/general/dataverse/DataverseWebresource";
 import { acquireInteractiveToken } from "../../src/general/dataverse/tokenAcquisition";
@@ -21,10 +22,13 @@ import DataversePowerToolsContext from "../../src/context";
 //   DVPT_DEBUG_DEMO=1 npm run test:live -- test/live/interactiveConnect.spec.ts
 const env = loadLiveEnv();
 const user = loadInteractiveTestUser();
-const enabled = !!env && !!user && process.env.DVPT_DEBUG_DEMO === "1";
+// Resolved, not hard-coded: this used to pin the Windows Edge install path, which made the
+// interactive (OAuth) coverage Windows-only even though the auth code under test is not.
+const TEST_BROWSER = resolveTestBrowser();
+// Gated on a real browser too — without one this suite would spawn undefined and fail with an
+// ENOENT that says nothing about auth.
+const enabled = !!env && !!user && !!TEST_BROWSER && process.env.DVPT_DEBUG_DEMO === "1";
 const suite = enabled ? describe : describe.skip;
-
-const EDGE = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 const log = (m: string): void => {
   // eslint-disable-next-line no-console
@@ -64,7 +68,11 @@ async function driveMsalLogin(authUrl: string, u: { username: string; password: 
   fs.rmSync(profile, { recursive: true, force: true });
   fs.mkdirSync(profile, { recursive: true });
   const port = await freePort();
-  const child = cp.spawn(EDGE, [`--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check", "--new-window", authUrl], { stdio: "ignore" });
+  const child = cp.spawn(
+    TEST_BROWSER!.executablePath,
+    [`--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check", ...testBrowserArgs(), "--new-window", authUrl],
+    { stdio: "ignore" },
+  );
   try {
     let client: CDP.Client | undefined;
     for (let i = 0; i < 40 && !client; i++) {

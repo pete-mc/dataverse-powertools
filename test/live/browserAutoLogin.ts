@@ -53,23 +53,47 @@ export async function readDevToolsPort(profileDir: string, timeoutMs = 25000): P
   }
 }
 
-/**
- * Discover the remote-debugging port of the browser launched with `--user-data-dir=profileDir`.
- * Chromium only writes `DevToolsActivePort` when the port is 0 (auto-picked); when a launcher
- * passes an explicit port (as Debug Web Resources does), read it from the process command line.
- * Windows-only (this harness runs on the Windows VM), via PowerShell/CIM.
- */
-export async function findDebugPortByProfile(profileDir: string, timeoutMs = 25000): Promise<number> {
+/** Windows: query the command line through CIM. */
+function debugPortFromCimSnapshot(profileDir: string): number {
   const script =
     `$p=$env:DVPT_PROFILE; ` +
     `$proc = Get-CimInstance Win32_Process -Filter "Name='msedge.exe' OR Name='chrome.exe'" | ` +
     `Where-Object { $_.CommandLine -like "*$p*" -and $_.CommandLine -like '*remote-debugging-port=*' } | Select-Object -First 1; ` +
     `if ($proc -and $proc.CommandLine -match 'remote-debugging-port=(\\d+)') { $matches[1] }`;
+  const out = cp.execFileSync("powershell", ["-NoProfile", "-NonInteractive", "-Command", script], { env: { ...process.env, DVPT_PROFILE: profileDir }, encoding: "utf8" }).trim();
+  return Number(out);
+}
+
+/**
+ * macOS/Linux: same question, asked of `ps`. `-ww` forces unlimited-width output: attached to a
+ * terminal ps truncates each command line to the window width, and a Chromium command line is
+ * long enough that the `--remote-debugging-port=` we want can fall off the end.
+ */
+function debugPortFromPsSnapshot(profileDir: string): number {
+  const out = cp.execFileSync("ps", ["-Aww", "-o", "args="], { encoding: "utf8" });
+  for (const line of out.split("\n")) {
+    if (!line.includes(profileDir)) {
+      continue;
+    }
+    const m = /--remote-debugging-port=(\d+)/.exec(line);
+    if (m) {
+      return Number(m[1]);
+    }
+  }
+  return 0;
+}
+
+/**
+ * Discover the remote-debugging port of the browser launched with `--user-data-dir=profileDir`.
+ * Chromium only writes `DevToolsActivePort` when the port is 0 (auto-picked); when a launcher
+ * passes an explicit port (as Debug Web Resources does), read it from the process command line.
+ */
+export async function findDebugPortByProfile(profileDir: string, timeoutMs = 25000): Promise<number> {
+  const snapshot = process.platform === "win32" ? debugPortFromCimSnapshot : debugPortFromPsSnapshot;
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     try {
-      const out = cp.execFileSync("powershell", ["-NoProfile", "-NonInteractive", "-Command", script], { env: { ...process.env, DVPT_PROFILE: profileDir }, encoding: "utf8" }).trim();
-      const port = Number(out);
+      const port = snapshot(profileDir);
       if (port > 0) {
         return port;
       }
