@@ -2,7 +2,20 @@ import * as path from "path";
 import * as fs from "fs";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
-import { runScopedName, loadE2EEnv, freshWorkspace, answerText, pickByLabel, waitForFile, dismissOverlays, sleep, expectOutput, clearOutput, E2EClient } from "./lib";
+import {
+  runScopedName,
+  loadE2EEnv,
+  freshWorkspace,
+  openWorkspaceFolder,
+  answerText,
+  pickByLabel,
+  waitForFile,
+  dismissOverlays,
+  sleep,
+  expectOutput,
+  clearOutput,
+  E2EClient,
+} from "./lib";
 import { clickPanelButton, expandComponentCards } from "../supervised/supervisedLib";
 import { initProject, step, showLog } from "./acceptanceLib";
 
@@ -70,8 +83,7 @@ describe("ACCEPTANCE: Plugin — build, code, register, publish via panel button
     await client.connect();
     solutionFriendlyName = (await client.getSolutionFriendlyName(env!.solutionName)) ?? env!.solutionName;
     workspace = freshWorkspace("acc-plugin");
-    await VSBrowser.instance.openResources(workspace);
-    await VSBrowser.instance.waitForWorkbench();
+    await openWorkspaceFolder(workspace);
     await sleep(3500);
     await dismissOverlays();
     await showLog();

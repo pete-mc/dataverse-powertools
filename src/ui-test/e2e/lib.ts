@@ -799,6 +799,84 @@ export async function waitForFile(filePath: string, timeoutMs: number, intervalM
  * can't resolve them. Using the OS temp dir isolates the project (test/live does the
  * same, via os.tmpdir()).
  */
+/**
+ * Open a workspace FOLDER and prove it actually attached to the window Selenium drives.
+ *
+ * `VSBrowser.openResources` shells out to `code -r <path>` — a reuse-window IPC call. When the CLI
+ * can't reach the running instance (observed on Linux, #268) it opens the folder in a SECOND
+ * window instead, and Selenium keeps driving the original, folder-less one. Nothing throws: the
+ * extension activates, the panel renders, the connection wizard completes — and then every path
+ * guarded on `vscode.workspace.workspaceFolders` silently no-ops. On Linux that surfaced three
+ * steps later as "No input box appeared", because generateTemplates and both restoreDependencies
+ * calls had bailed (two of them logging "No Template Found", one only showing a toast).
+ *
+ * The window TITLE is the cheap, reliable signal — VS Code puts the folder name in it, and a
+ * folder-less window is titled just "Visual Studio Code". So: open, then wait for the title to
+ * carry the folder name, retrying the open once before failing with a message that names the
+ * actual problem rather than letting a later step die of a missing prompt.
+ */
+export async function openWorkspaceFolder(dir: string, timeoutMs: number = 60000): Promise<void> {
+  const folderName = path.basename(dir);
+  const deadline = Date.now() + timeoutMs;
+  let reopened = false;
+  await VSBrowser.instance.openResources(dir);
+  await VSBrowser.instance.waitForWorkbench();
+  for (;;) {
+    let title = "";
+    try {
+      title = await VSBrowser.instance.driver.getTitle();
+    } catch {
+      /* window not ready yet */
+    }
+    if (title.includes(folderName)) {
+      return;
+    }
+    // The folder may have landed in a SECOND window (that is what `code -r` does when it can't
+    // reach the running instance over IPC). Selenium can see those as extra window handles, so
+    // look for one whose title carries the folder name and drive THAT window instead.
+    const driver = VSBrowser.instance.driver;
+    let handles: string[] = [];
+    try {
+      handles = await driver.getAllWindowHandles();
+    } catch {
+      /* session not ready */
+    }
+    if (handles.length > 1) {
+      const current = await driver.getWindowHandle().catch(() => "");
+      for (const handle of handles) {
+        try {
+          await driver.switchTo().window(handle);
+          if ((await driver.getTitle()).includes(folderName)) {
+            await VSBrowser.instance.waitForWorkbench();
+            return;
+          }
+        } catch {
+          /* handle went away */
+        }
+      }
+      if (current) {
+        await driver
+          .switchTo()
+          .window(current)
+          .catch(() => undefined);
+      }
+    }
+    if (Date.now() > deadline) {
+      throw new Error(
+        `Workspace folder "${folderName}" never attached to the driven window (title: "${title}", ${handles.length} window handle(s)). ` +
+          `\`code -r\` opens the folder in a second window when it cannot reach the running instance over IPC — see #268.`,
+      );
+    }
+    // One re-issue: the IPC may simply have lost the race with the workbench coming up.
+    if (!reopened && Date.now() > deadline - timeoutMs / 2) {
+      reopened = true;
+      await VSBrowser.instance.openResources(dir);
+      await VSBrowser.instance.waitForWorkbench();
+    }
+    await sleep(1000);
+  }
+}
+
 export function freshWorkspace(name: string): string {
   const base = path.join(os.tmpdir(), "dvpt-e2e");
   let dir = path.join(base, name);
