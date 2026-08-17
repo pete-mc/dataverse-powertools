@@ -814,6 +814,14 @@ export async function waitForFile(filePath: string, timeoutMs: number, intervalM
  * folder-less window is titled just "Visual Studio Code". So: open, then wait for the title to
  * carry the folder name, retrying the open once before failing with a message that names the
  * actual problem rather than letting a later step die of a missing prompt.
+ *
+ * This POLLS on every platform — it is not a Windows no-op. Measured on the Windows e2e host, the
+ * driven window is titled exactly "Visual Studio Code" for the first ~8 SECONDS before the folder
+ * attaches, i.e. transiently indistinguishable from the Linux failure. So the wait earns its keep
+ * twice: it protects Linux against an attach that never happens, and Windows against one that is
+ * merely slow (which a bare `waitForWorkbench()` would have sailed straight past). Cost there is
+ * below measurement noise. Match with `includes`, never a prefix — the title carries an optional
+ * leading editor segment ("file — folder — Visual Studio Code").
  */
 export async function openWorkspaceFolder(dir: string, timeoutMs: number = 60000): Promise<void> {
   const folderName = path.basename(dir);
