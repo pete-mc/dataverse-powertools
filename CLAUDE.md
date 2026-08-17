@@ -236,6 +236,13 @@ modern plugin flow already shells out to `dotnet`/`pac`.
   **verified on Ubuntu: it builds, then aborts with "Could not find 'mono' host"**. So replay means
   Windows, or mono elsewhere. Don't repeat the old "download + replay work anywhere" line; only the
   first half was true.
+  **The Framework pin is the PROJECT, not the harness** ([#269](https://github.com/pete-mc/dataverse-powertools/issues/269)):
+  `replayHarnessSource()` uses only `Convert.FromBase64String`/`DeflateStream`/`DataContractSerializer`/
+  `Microsoft.Xrm.Sdk`, all of which exist on .NET 8 — the pins are `ensureReplayCsproj` injecting the
+  Framework-only `Microsoft.CrmSdk.CoreAssemblies`, and the scaffolded `net471` TFMs. Proven by
+  replaying a REAL captured profile under net8.0 on Linux with the shipping harness and the
+  netstandard `Microsoft.PowerPlatform.Dataverse.Client`. `debugTypeForFramework` already returns
+  `coreclr` for non-net4, so the debugger needs no change. Only the DEPLOYED assembly must be net462.
 - **Still Windows-only:** the e2e browser automation (drives Edge on the Windows VM), and the
   net462 replay *runner* in the capture live spec for the same reason as above. With
   `plugins_old/` gone (#228) nothing else pins `spkl.exe`/`sn.exe`.
