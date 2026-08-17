@@ -61,10 +61,21 @@ export class Uri {
   }
 }
 
+// Debug session hooks. The web-resource debug feature registers an onDidTerminateDebugSession
+// listener the first time it runs (ensureTerminateHook), so a mock without `debug` throws — and
+// because that hook sets its "registered" flag BEFORE subscribing, only the FIRST live test to
+// launch a debug session failed, which reads like a browser-specific fault rather than a missing
+// mock. Returns a disposable, as the real API does.
+export const debug = {
+  onDidTerminateDebugSession: vi.fn((_listener: (session: { name?: string }) => void) => ({ dispose: vi.fn() })),
+  startDebugging: vi.fn(async () => true),
+  activeDebugSession: undefined as { name?: string } | undefined,
+};
+
 export const EventEmitter = class<T> {
   event = vi.fn();
   fire = vi.fn<(data: T) => void>();
   dispose = vi.fn();
 };
 
-export default { window, commands, workspace, StatusBarAlignment, ProgressLocation, Uri, EventEmitter };
+export default { window, commands, workspace, debug, StatusBarAlignment, ProgressLocation, Uri, EventEmitter };
