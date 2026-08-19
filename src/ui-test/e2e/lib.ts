@@ -392,6 +392,8 @@ export function csharpExtensionInstalled(): boolean {
 
 /** Current byte length of the mirrored extension-output log file (a stable baseline to search
  *  AFTER, so `waitForLogFile` never matches a stale line from an earlier step). 0 if unset/missing. */
+/** Current size of the mirrored log, in BYTES — pair only with waitForLogFile's `sinceByte`, which
+ * slices bytes to match. */
 export function logFileSize(): number {
   const p = process.env.DVPT_TEST_LOG_FILE;
   try {
@@ -422,7 +424,16 @@ export async function waitForLogFile(needle: string | RegExp, opts: { timeoutMs?
   let tail = "";
   for (;;) {
     try {
-      tail = fs.existsSync(p) ? fs.readFileSync(p, "utf8").slice(since) : "";
+      // Slice BYTES, not characters. `sinceByte` comes from logFileSize() → statSync().size, which
+      // is a byte count, but `readFileSync(p, "utf8").slice(n)` slices UTF-16 code units — and the
+      // extension's own log is full of multi-byte characters (✅, —, …, ✓, ✗), each 3 bytes but 1
+      // unit. So the character slice skipped FURTHER than intended, by one character per extra byte,
+      // and silently discarded the very lines being waited for. That is a whole class of phantom
+      // "timed out waiting for X" failures — X had been logged, just before the mis-computed offset.
+      // It was read as product slowness for a long time (#261): a 165-line log already drifts 30
+      // characters, and a full run's log drifts far more.
+      const buffer = fs.existsSync(p) ? fs.readFileSync(p) : Buffer.alloc(0);
+      tail = buffer.subarray(Math.min(since, buffer.length)).toString("utf8");
     } catch {
       /* the extension is mid-append; retry */
     }
