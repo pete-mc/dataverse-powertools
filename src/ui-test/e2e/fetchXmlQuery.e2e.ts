@@ -3,6 +3,7 @@ import * as fs from "fs";
 import { expect } from "chai";
 import { By, Key, TextEditor, VSBrowser, WebElement, WebView } from "vscode-extension-tester";
 import {
+  runCommandResilient,
   openWorkspaceFolder,
   loadE2EEnv,
   freshWorkspace,
@@ -403,7 +404,13 @@ namespace DvptQueryProbe
 
   it("clears the metadata cache", async () => {
     await clearOutput();
-    await runCommand("Dataverse PowerTools: Clear Dataverse Metadata Cache");
+    // Resilient, not bare: this is the LAST step, and everything before it — the generator
+    // round-trip, the CodeLens reads, the re-detection — leaves the window without keyboard focus
+    // often enough that the palette keystroke lands nowhere and executeCommand dies with
+    // "element not visible" after 5s. That is the exact failure runCommandResilient documents and
+    // retries (focus the workbench, dismiss overlays, try again); a bare runCommand has no answer
+    // to it, and this step failed that way on two consecutive full Linux runs.
+    await runCommandResilient("Dataverse PowerTools: Clear Dataverse Metadata Cache");
     await expectOutput(["[Query] Metadata cache cleared."], { step: "clear metadata cache", timeoutMs: 60000 });
     await assertCommandDidNotError("clear metadata cache");
   });
