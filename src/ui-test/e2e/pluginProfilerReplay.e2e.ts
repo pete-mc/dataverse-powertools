@@ -779,11 +779,16 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
 
       const startBaseline = logFileSize();
       const beforeText = await clickProfileLens();
+      // TWO gates, not one (#261). The toggle now logs the moment it begins, so a click that never
+      // landed fails here in seconds with an unambiguous message — instead of being indistinguishable
+      // from a slow org for six minutes and then failing on the completion gate, which is exactly how
+      // #261 read. Only once we KNOW the command started do we wait out the org.
+      await waitForLogFile("[Profiler] Starting profiling for", { timeoutMs: 60000, sinceByte: startBaseline });
       // The TOGGLE path logs "Profiling ON" — "Started profiling" belongs to the capture path, and
-      // waiting for it timed out while profiling was in fact on (the #240 lesson, again).
-      // See the note on the trace-level wait above: at the tail of a full run this line arrived at ~3
-      // minutes, just past the old 180s deadline.
-      await waitForLogFile("[Profiler] Profiling ON for", { timeoutMs: 360000, sinceByte: startBaseline });
+      // waiting for it timed out while profiling was in fact on (the #240 lesson, again). Measured on
+      // Linux, this leg alone ran past 360s, so the budget is generous; `[Profiler] Toggle finished
+      // in Ns.` in the log is what to read if it ever needs revisiting.
+      await waitForLogFile("[Profiler] Profiling ON for", { timeoutMs: 600000, sinceByte: startBaseline });
       // The LABEL must flip, not just the org state: a lens that still reads "Profile: Off" while
       // profiling is on is the half of #251 you could actually see, and it needed the provider to fire
       // onDidChangeCodeLenses after the toggle settles. Assert it before the screenshot — the previous

@@ -19,6 +19,13 @@ import { refreshActiveProfiles, getActiveProfilesCache } from "../panel/panelDat
 
 const DEFAULT_MAX_PROFILED_EXECUTIONS = 100;
 
+/** Human-readable label for a registration key or an active profile, for the log. Pure. */
+export function describeKey(key: { typeName?: string; message?: string; primaryEntity?: string }): string {
+  const name = key.typeName ?? "this step";
+  const qualifier = [key.message, key.primaryEntity].filter(Boolean).join(" ");
+  return qualifier ? `${name} (${qualifier})` : name;
+}
+
 /** The class type name whose declaration follows the attribute at `attributeLine`. Pure. */
 export function findEnclosingClassType(source: string, attributeLine: number): string | undefined {
   let best: string | undefined;
@@ -72,14 +79,26 @@ export async function toggleStepProfiling(context: DataversePowerToolsContext, u
       await refreshActiveProfiles(scoped);
       active = findMatchingStep(getActiveProfilesCache(), key);
     }
-    if (active) {
-      await stopProfilingStep(scoped, active);
-    } else {
-      await startProfilingStep(scoped, key);
-    }
-    // Re-read until the org reflects the change, so the label and the Active profiles block tell the
-    // truth: a clone is not always queryable the instant the tool returns.
-    await settleActiveProfiles(scoped, key, !active);
+    // Announce BEFORE the work, and show progress while it runs. Until #261 this path logged
+    // nothing at all until it finished, so a toggle that took minutes against a slow org was
+    // indistinguishable from a click that never landed — for the user AND for the e2e, which sat on
+    // a single "Profiling ON" gate with no way to tell "still working" from "never started".
+    const startedAt = Date.now();
+    context.channel.appendLine(`[Profiler] ${active ? "Stopping" : "Starting"} profiling for ${describeKey(active ?? key)}…`);
+    await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: `${active ? "Stopping" : "Starting"} plug-in profiling…`, cancellable: false },
+      async () => {
+        if (active) {
+          await stopProfilingStep(scoped, active);
+        } else {
+          await startProfilingStep(scoped, key);
+        }
+        // Re-read until the org reflects the change, so the label and the Active profiles block tell
+        // the truth: a clone is not always queryable the instant the tool returns.
+        await settleActiveProfiles(scoped, key, !active);
+      },
+    );
+    context.channel.appendLine(`[Profiler] Toggle finished in ${Math.round((Date.now() - startedAt) / 1000)}s.`);
     // Settling updates the cache; this makes the LENS re-read it. Without it the label kept saying
     // whatever it said when the file was opened (#251) — the part of that bug you could actually see.
     refreshDecorationCodeLenses();
@@ -114,6 +133,9 @@ async function startProfilingStep(context: DataversePowerToolsContext, key: Regi
   }
   const step = findMatchingStep(steps, key);
   if (!step) {
+    // Channel line as well as the toast: this used to return with nothing in the log, so the only
+    // evidence anything happened was a notification the user may have missed entirely.
+    context.channel.appendLine(`[Profiler] No deployed step matches ${describeKey(key)} — deploy the plug-in and register the step first.`);
     vscode.window.showInformationMessage(
       `No deployed step matches ${key.message ?? "this message"}${key.primaryEntity ? " of " + key.primaryEntity : ""}. Deploy the plugin and register the step first.`,
     );
