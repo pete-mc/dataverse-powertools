@@ -783,7 +783,10 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
       // landed fails here in seconds with an unambiguous message — instead of being indistinguishable
       // from a slow org for six minutes and then failing on the completion gate, which is exactly how
       // #261 read. Only once we KNOW the command started do we wait out the org.
-      await waitForLogFile("[Profiler] Starting profiling for", { timeoutMs: 60000, sinceByte: startBaseline });
+      // Gate on the FIRST line the command emits — written before any Dataverse call, so it proves
+      // the click reached the extension and nothing else. Gating on "Starting profiling" instead put
+      // the state-confirmation query inside this budget, and that query is the slow part (#261).
+      await waitForLogFile("[Profiler] Toggle requested for", { timeoutMs: 60000, sinceByte: startBaseline });
       // The TOGGLE path logs "Profiling ON" — "Started profiling" belongs to the capture path, and
       // waiting for it timed out while profiling was in fact on (the #240 lesson, again). Measured on
       // Linux, this leg alone ran past 360s, so the budget is generous; `[Profiler] Toggle finished

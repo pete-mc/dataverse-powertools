@@ -66,25 +66,35 @@ export async function toggleStepProfiling(context: DataversePowerToolsContext, u
     return;
   }
   await runForComponent(context, ProjectTypes.plugin, uri, async (scoped) => {
+    // FIRST line out, before any Dataverse call. The state confirmation below is itself a query, and
+    // on a busy org it was the slow part — over a minute with nothing logged, which is what actually
+    // made #261 look like "the toggle takes six minutes" when the toggle itself takes about three
+    // seconds. Anything that can block must be announced before it runs, not after.
+    const requestedAt = Date.now();
+    scoped.channel.appendLine(`[Profiler] Toggle requested for ${describeKey(key)} — confirming current state…`);
     if (!canCallDataverseApi({ organizationUrl: scoped.dataverse?.organizationUrl, isValid: scoped.dataverse?.isValid })) {
+      scoped.channel.appendLine("[Profiler] Not connected to Dataverse — cannot change profiling.");
       vscode.window.showErrorMessage("Connect to Dataverse first to change plug-in profiling.");
       return;
     }
     // The lens LABEL may read the cache (cheap, per-render), but the ACTION must not: a cache that had
     // not caught up made a second click start again instead of stopping, and a step being profiled is
     // disabled — so the start path could not find it either, and profiling could never be turned off
-    // from the lens (#251). Confirm against the org before deciding.
-    let active = findMatchingStep(getActiveProfilesCache(), key);
-    if (!active) {
-      await refreshActiveProfiles(scoped);
-      active = findMatchingStep(getActiveProfilesCache(), key);
-    }
+    // from the lens (#251).
+    //
+    // Confirm against the org in BOTH directions. Refreshing only when the cache said "not active"
+    // left a stale ACTIVE entry trusted outright, so a click meant to START profiling took the stop
+    // branch against a clone that was no longer there — the mirror image of #251, and invisible in
+    // the log until the lines above existed.
+    const confirmStartedAt = Date.now();
+    await refreshActiveProfiles(scoped);
+    const active = findMatchingStep(getActiveProfilesCache(), key);
+    scoped.channel.appendLine(`[Profiler] Current state confirmed in ${Math.round((Date.now() - confirmStartedAt) / 1000)}s: profiling is ${active ? "ON" : "OFF"}.`);
     // Announce BEFORE the work, and show progress while it runs. Until #261 this path logged
     // nothing at all until it finished, so a toggle that took minutes against a slow org was
     // indistinguishable from a click that never landed — for the user AND for the e2e, which sat on
     // a single "Profiling ON" gate with no way to tell "still working" from "never started".
-    const startedAt = Date.now();
-    context.channel.appendLine(`[Profiler] ${active ? "Stopping" : "Starting"} profiling for ${describeKey(active ?? key)}…`);
+    scoped.channel.appendLine(`[Profiler] ${active ? "Stopping" : "Starting"} profiling for ${describeKey(active ?? key)}…`);
     await vscode.window.withProgress(
       { location: vscode.ProgressLocation.Notification, title: `${active ? "Stopping" : "Starting"} plug-in profiling…`, cancellable: false },
       async () => {
@@ -98,7 +108,7 @@ export async function toggleStepProfiling(context: DataversePowerToolsContext, u
         await settleActiveProfiles(scoped, key, !active);
       },
     );
-    context.channel.appendLine(`[Profiler] Toggle finished in ${Math.round((Date.now() - startedAt) / 1000)}s.`);
+    scoped.channel.appendLine(`[Profiler] Toggle finished in ${Math.round((Date.now() - requestedAt) / 1000)}s.`);
     // Settling updates the cache; this makes the LENS re-read it. Without it the label kept saying
     // whatever it said when the file was opened (#251) — the part of that bug you could actually see.
     refreshDecorationCodeLenses();
