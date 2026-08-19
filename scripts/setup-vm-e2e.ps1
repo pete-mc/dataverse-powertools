@@ -3,6 +3,16 @@
   One-time toolchain setup for running the Dataverse PowerTools e2e suites on a fresh
   Windows VM (VMware/Hyper-V/etc.), isolated from your main desktop.
 
+.NOTES
+  SECONDARY PATH. Prefer scripts/setup-linux-e2e.sh + `npm run test:e2e:headless`.
+
+  This VM exists for exactly one reason: Selenium types into whatever window has focus, so the
+  suite needs a display nobody else is touching. On Linux `xvfb` provides that without a dedicated
+  machine, which is strictly less to maintain. Nothing in the product needs Windows any more —
+  profile capture stopped needing it in #264, and running a replay stopped in #269 (the plug-in
+  multi-targets net462;net8.0, so the tests run under a .NET, not .NET Framework, test host).
+  Keep this script working while a Windows host is still in use, but do not add to it.
+
 .DESCRIPTION
   Installs Node, the .NET SDK, the .NET Framework 4.x developer pack (for the net462
   plugin build + XrmDefinitelyTyped), Git, the Power Platform CLI (pac), and the global

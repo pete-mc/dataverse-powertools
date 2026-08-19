@@ -802,18 +802,26 @@ export async function waitForFile(filePath: string, timeoutMs: number, intervalM
 /**
  * Open a workspace FOLDER and prove it actually attached to the window Selenium drives.
  *
- * `VSBrowser.openResources` shells out to `code -r <path>` — a reuse-window IPC call. When the CLI
- * can't reach the running instance (observed on Linux, #268) it opens the folder in a SECOND
- * window instead, and Selenium keeps driving the original, folder-less one. Nothing throws: the
- * extension activates, the panel renders, the connection wizard completes — and then every path
- * guarded on `vscode.workspace.workspaceFolders` silently no-ops. On Linux that surfaced three
- * steps later as "No input box appeared", because generateTemplates and both restoreDependencies
- * calls had bailed (two of them logging "No Template Found", one only showing a toast).
+ * `VSBrowser.openResources` shells out to a reuse-window call, and on Linux that call used to do
+ * NOTHING (#268): ExTester ran it through VS Code's Node CLI entry point
+ * (`ELECTRON_RUN_AS_NODE=1 <code> cli.js -r <folder> …`), which exits 0, prints nothing, spawns no
+ * lasting process — and never opens the folder. Bisected against invoking the Code binary directly
+ * with the same arguments and the same user-data-dir, which reuses the window correctly; that fix
+ * is applied to ExTester by scripts/patchExtester.mjs.
+ *
+ * The failure was silent in every layer, which is why this assertion still exists after the fix.
+ * `execSync` saw exit 0, `waitForWorkbench()` succeeded because the workbench IS up (just
+ * folder-less), the extension activated, the panel rendered and the connection wizard completed —
+ * and then every path guarded on `vscode.workspace.workspaceFolders` no-opped. The first visible
+ * symptom was "No input box appeared" three steps later, in a different function, because
+ * generateTemplates and both restoreDependencies calls had bailed (two logging "No Template
+ * Found", one only showing a toast).
  *
  * The window TITLE is the cheap, reliable signal — VS Code puts the folder name in it, and a
  * folder-less window is titled just "Visual Studio Code". So: open, then wait for the title to
  * carry the folder name, retrying the open once before failing with a message that names the
- * actual problem rather than letting a later step die of a missing prompt.
+ * actual problem rather than letting a later step die of a missing prompt. Measured on Linux with
+ * the patch in place, the title carries the folder within ~6s.
  *
  * This POLLS on every platform — it is not a Windows no-op. Measured on the Windows e2e host, the
  * driven window is titled exactly "Visual Studio Code" for the first ~8 SECONDS before the folder
@@ -872,7 +880,8 @@ export async function openWorkspaceFolder(dir: string, timeoutMs: number = 60000
     if (Date.now() > deadline) {
       throw new Error(
         `Workspace folder "${folderName}" never attached to the driven window (title: "${title}", ${handles.length} window handle(s)). ` +
-          `\`code -r\` opens the folder in a second window when it cannot reach the running instance over IPC — see #268.`,
+          `The reuse-window call did not open it. On Linux that is #268 — check scripts/patchExtester.mjs still applies ` +
+          `(it warns loudly when vscode-extension-tester changes shape and it can no longer patch \`CodeUtil.open\`).`,
       );
     }
     // One re-issue: the IPC may simply have lost the race with the workbench coming up.

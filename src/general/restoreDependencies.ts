@@ -154,6 +154,14 @@ export async function restoreDependencies(context: DataversePowerToolsContext, i
           );
         }
         context.channel.appendLine("Restore Complete.");
+      } else if (vscode.workspace.workspaceFolders === undefined) {
+        // NOT a template problem — there is no workspace folder attached to this window, so there
+        // is nowhere to restore INTO. Saying "No Template Found" here sent #268 chasing the
+        // template loader for a run whose real fault was that the folder never attached, three
+        // steps before the first visible symptom. Name the actual cause.
+        context.reportFailure("No workspace folder is open, so there is nothing to restore into. Open the project folder (File → Open Folder) and run this again.", {
+          toast: "No workspace folder is open — open the project folder and try again.",
+        });
       } else {
         context.channel.appendLine("No Template Found; Try reloading extension again");
         vscode.window.showErrorMessage("No Template Found; Try reloading extension again");

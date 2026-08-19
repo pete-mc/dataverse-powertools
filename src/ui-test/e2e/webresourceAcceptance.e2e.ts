@@ -2,7 +2,20 @@ import * as path from "path";
 import * as fs from "fs";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
-import { loadE2EEnv, freshWorkspace, answerText, pickByLabel, pickFirst, waitForFile, dismissOverlays, sleep, E2EClient, waitForLogFile, logFileSize } from "./lib";
+import {
+  openWorkspaceFolder,
+  loadE2EEnv,
+  freshWorkspace,
+  answerText,
+  pickByLabel,
+  pickFirst,
+  waitForFile,
+  dismissOverlays,
+  sleep,
+  E2EClient,
+  waitForLogFile,
+  logFileSize,
+} from "./lib";
 import { clickPanelButton, clickOverflowItem, expandComponentCards } from "../supervised/supervisedLib";
 import { initProject, step, showLog } from "./acceptanceLib";
 
@@ -33,7 +46,7 @@ describe("ACCEPTANCE: Web Resource — build, code, register, publish via panel 
     await client.connect();
     solutionFriendlyName = (await client.getSolutionFriendlyName(env!.solutionName)) ?? env!.solutionName;
     workspace = freshWorkspace("acc-webresource");
-    await VSBrowser.instance.openResources(workspace);
+    await openWorkspaceFolder(workspace);
     await VSBrowser.instance.waitForWorkbench();
     await sleep(3500);
     await dismissOverlays();

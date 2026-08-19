@@ -85,6 +85,28 @@ describe("ensureReplayCsproj", () => {
     const once = ensureReplayCsproj(csproj);
     expect(ensureReplayCsproj(once)).toBe(once);
   });
+
+  // #269: a net8.0 test project is the only kind `dotnet test` runs without a .NET Framework test
+  // host, so the Framework-only CoreAssemblies reference must NOT be injected there — it makes
+  // restore fail, which is what pinned replay to Windows.
+  describe("on a modern test project", () => {
+    const modernCsproj = `<Project Sdk="Microsoft.NET.Sdk">\n  <PropertyGroup>\n    <TargetFramework>net8.0</TargetFramework>\n  </PropertyGroup>\n</Project>`;
+
+    it("supplies Microsoft.Xrm.Sdk from the netstandard client package instead", () => {
+      const patched = ensureReplayCsproj(modernCsproj);
+      expect(patched).toContain('<PackageReference Include="Microsoft.PowerPlatform.Dataverse.Client"');
+      expect(patched).not.toContain("Microsoft.CrmSdk.CoreAssemblies");
+    });
+
+    it("omits the binding redirects, which are meaningless off .NET Framework", () => {
+      expect(ensureReplayCsproj(modernCsproj)).not.toContain("AutoGenerateBindingRedirects");
+    });
+
+    it("is idempotent", () => {
+      const once = ensureReplayCsproj(modernCsproj);
+      expect(ensureReplayCsproj(once)).toBe(once);
+    });
+  });
 });
 
 describe("replayClassName", () => {

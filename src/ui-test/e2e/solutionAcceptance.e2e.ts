@@ -2,7 +2,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
-import { loadE2EEnv, freshWorkspace, waitForFile, waitForOutput, dismissOverlays, sleep, E2EClient } from "./lib";
+import { openWorkspaceFolder, loadE2EEnv, freshWorkspace, waitForFile, waitForOutput, dismissOverlays, sleep, E2EClient } from "./lib";
 import { clickPanelButton, expandComponentCards } from "../supervised/supervisedLib";
 import { initProject, step, showLog } from "./acceptanceLib";
 
@@ -32,7 +32,7 @@ describe("ACCEPTANCE: Solution — extract, pack, deploy via panel buttons", fun
     await client.connect();
     solutionFriendlyName = (await client.getSolutionFriendlyName(env!.solutionName)) ?? env!.solutionName;
     workspace = freshWorkspace("acc-solution");
-    await VSBrowser.instance.openResources(workspace);
+    await openWorkspaceFolder(workspace);
     await VSBrowser.instance.waitForWorkbench();
     await sleep(3500);
     await dismissOverlays();

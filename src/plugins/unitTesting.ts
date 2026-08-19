@@ -14,6 +14,14 @@ import {
   resolveCompatibleTestTargetFramework,
   tryParseCSharpLanguageVersion,
 } from "./unitTestingLogic";
+import {
+  DEPLOY_TARGET_FRAMEWORK,
+  MODERN_TARGET_FRAMEWORK,
+  ensureMultiTargetedPluginCsproj,
+  isTestProjectPinnedToFramework,
+  parseTargetFrameworks,
+  testTargetFrameworkForPlugin,
+} from "./multiTarget";
 
 const dataverseUnitTestPackage = "DataverseUnitTest";
 
@@ -148,16 +156,46 @@ async function ensureTestProjectLanguageCompatibility(context: DataversePowerToo
   }
 }
 
+/**
+ * Multi-target the plug-in project (net462;net8.0) so its tests can target a framework with a
+ * runnable test host on any OS (#269). Without this the test project inherits net4x and
+ * `dotnet test` needs mono off Windows. Idempotent; only writes when it changes something.
+ */
+async function ensurePluginProjectIsTestable(context: DataversePowerToolsContext, pluginCsprojPath: string, testCsprojPath: string): Promise<void> {
+  // A test project pinned to .NET Framework by its own references (FakeXrmEasy.9 in the legacy
+  // template-v2 scaffold, Microsoft.CrmSdk.*) can't move to net8.0 — so multi-targeting the
+  // plug-in for its benefit would be churn that buys nothing. Leave both alone; a project that
+  // tests fine on Windows today keeps doing so.
+  if (fs.existsSync(testCsprojPath) && isTestProjectPinnedToFramework(await fs.promises.readFile(testCsprojPath, "utf8"))) {
+    return;
+  }
+
+  const pluginContent = await fs.promises.readFile(pluginCsprojPath, "utf8");
+  const multiTargeted = ensureMultiTargetedPluginCsproj(pluginContent);
+  if (multiTargeted === pluginContent) {
+    return;
+  }
+  await fs.promises.writeFile(pluginCsprojPath, multiTargeted, "utf8");
+  context.channel.appendLine(
+    `Multi-targeted ${path.basename(pluginCsprojPath)} as ${DEPLOY_TARGET_FRAMEWORK};${MODERN_TARGET_FRAMEWORK} so its tests run without a .NET Framework test host. ` +
+      `The deployed assembly is still ${DEPLOY_TARGET_FRAMEWORK} only.`,
+  );
+}
+
 async function ensureTestProjectTargetFramework(context: DataversePowerToolsContext, pluginCsprojPath: string, testCsprojPath: string): Promise<void> {
   const pluginContent = await fs.promises.readFile(pluginCsprojPath, "utf8");
-  const pluginTargetFramework = pluginContent.match(/<TargetFramework>\s*([^<]+)\s*<\/TargetFramework>/i)?.[1]?.trim();
+  const pluginTargetFramework = parseTargetFrameworks(pluginContent)[0];
   if (!pluginTargetFramework) {
     return;
   }
 
-  const compatibleTestTargetFramework = resolveCompatibleTestTargetFramework(pluginTargetFramework);
-
   const testContent = await fs.promises.readFile(testCsprojPath, "utf8");
+  // Same guard as ensurePluginProjectIsTestable: never retarget a test project its own references
+  // pin to .NET Framework, even if the plug-in happens to multi-target.
+  const compatibleTestTargetFramework = isTestProjectPinnedToFramework(testContent)
+    ? resolveCompatibleTestTargetFramework(pluginTargetFramework)
+    : (testTargetFrameworkForPlugin(pluginContent, resolveCompatibleTestTargetFramework) ?? pluginTargetFramework);
+
   if (!/<TargetFramework>\s*([^<]+)\s*<\/TargetFramework>/i.test(testContent)) {
     return;
   }
@@ -165,7 +203,11 @@ async function ensureTestProjectTargetFramework(context: DataversePowerToolsCont
   const updated = testContent.replace(/<TargetFramework>\s*([^<]+)\s*<\/TargetFramework>/i, `<TargetFramework>${compatibleTestTargetFramework}</TargetFramework>`);
   if (updated !== testContent) {
     await fs.promises.writeFile(testCsprojPath, updated, "utf8");
-    if (compatibleTestTargetFramework !== pluginTargetFramework) {
+    if (compatibleTestTargetFramework === MODERN_TARGET_FRAMEWORK) {
+      context.channel.appendLine(
+        `Updated test project target framework to ${compatibleTestTargetFramework} — the plug-in multi-targets, so the tests run without a .NET Framework test host (#269).`,
+      );
+    } else if (compatibleTestTargetFramework !== pluginTargetFramework) {
       context.channel.appendLine(
         `Updated test project target framework to ${compatibleTestTargetFramework} (plugin target ${pluginTargetFramework} is below DataverseUnitTest minimum).`,
       );
@@ -227,6 +269,9 @@ export async function setupPluginUnitTesting(context: DataversePowerToolsContext
     }
   }
 
+  // Order matters: the plug-in must multi-target BEFORE the test project's framework is
+  // resolved from it, or the tests inherit net4x and can only run on Windows (#269).
+  await ensurePluginProjectIsTestable(context, pluginCsprojPath, testCsprojPath);
   await ensureTestProjectTargetFramework(context, pluginCsprojPath, testCsprojPath);
   await ensureTestProjectLanguageCompatibility(context, testCsprojPath);
 
@@ -283,6 +328,7 @@ export async function runPluginUnitTests(context: DataversePowerToolsContext): P
 
   const pluginCsprojPath = await findPrimaryPluginCsproj(workspacePath, context.projectSettings.pluginProjectName);
   if (pluginCsprojPath) {
+    await ensurePluginProjectIsTestable(context, pluginCsprojPath, testCsprojPath);
     await ensureTestProjectTargetFramework(context, pluginCsprojPath, testCsprojPath);
   }
   await ensureTestProjectLanguageCompatibility(context, testCsprojPath);

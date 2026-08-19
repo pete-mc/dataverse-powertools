@@ -4,6 +4,7 @@ import * as path from "path";
 import DataversePowerToolsContext from "../context";
 import { resolveTestProjectPath } from "./unitTesting";
 import { activeComponentRoot } from "../components/componentDiscovery";
+import { MODERN_SDK_PACKAGE, MODERN_SDK_PACKAGE_VERSION, MODERN_TARGET_FRAMEWORK, modernTargetFrameworkOf } from "./multiTarget";
 
 // Replay a captured profile as a GENERATED UNIT TEST (#63 phase 2c, #210). The generated test runs
 // the plugin IN-PROCESS: a shared harness (DvptProfileReplay.cs) decodes the profile
@@ -223,10 +224,29 @@ namespace DvptReplay
 
 /** Ensure a test .csproj can build+run the replay harness (idempotent, pure): a direct
  * Microsoft.Xrm.Sdk reference (the plugin project's is PrivateAssets and doesn't flow — CS0012
- * otherwise) via Microsoft.CrmSdk.CoreAssemblies, plus binding redirects so the net472 SDK graph
- * resolves. No PluginProfiler assemblies — the harness is standalone (#210). */
+ * otherwise). No PluginProfiler assemblies — the harness is standalone (#210).
+ *
+ * WHICH package supplies Microsoft.Xrm.Sdk depends on the test project's framework (#269): a
+ * modern project (net8.0, which is what a multi-targeted plug-in gives it, and the only kind
+ * `dotnet test` can run without a .NET Framework test host) needs the netstandard2.0 assembly out
+ * of Microsoft.PowerPlatform.Dataverse.Client. Injecting the Framework-only
+ * Microsoft.CrmSdk.CoreAssemblies there — which is what this used to do unconditionally — makes
+ * restore fail. The binding redirects are Framework-only too; on net8.0 they are meaningless. */
 export function ensureReplayCsproj(csprojXml: string): string {
   let out = csprojXml;
+  const modern = modernTargetFrameworkOf(csprojXml) !== undefined;
+
+  if (modern) {
+    if (!out.includes(MODERN_SDK_PACKAGE)) {
+      const itemGroup =
+        `  <ItemGroup>\n    <!-- Replay harness needs Microsoft.Xrm.Sdk directly; on ${MODERN_TARGET_FRAMEWORK} it comes from the\n` +
+        `         netstandard2.0 client package (Dataverse PowerTools #210/#269) -->\n` +
+        `    <PackageReference Include="${MODERN_SDK_PACKAGE}" Version="${MODERN_SDK_PACKAGE_VERSION}" />\n  </ItemGroup>\n`;
+      out = out.replace(/<\/Project>\s*$/, `${itemGroup}</Project>\n`);
+    }
+    return out;
+  }
+
   if (!/Microsoft\.CrmSdk\.CoreAssemblies/.test(out)) {
     const itemGroup = `  <ItemGroup>\n    <!-- Replay harness needs Microsoft.Xrm.Sdk directly (Dataverse PowerTools #210) -->\n    <PackageReference Include="Microsoft.CrmSdk.CoreAssemblies" Version="9.0.2.*" />\n  </ItemGroup>\n`;
     out = out.replace(/<\/Project>\s*$/, `${itemGroup}</Project>\n`);

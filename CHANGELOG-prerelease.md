@@ -9,6 +9,20 @@ Everything below has shipped to the pre-release channel and is not yet in a full
 
 ## 1.0.7 (pre-release)
 
+**Replaying a plug-in profile now works on macOS and Linux too**
+
+Capturing stopped being Windows-only earlier in this cycle; *replaying* the captured run — and so
+**Replay & debug**, with breakpoints inside your plug-in — was still stuck there, because the
+scaffolded test project targeted .NET Framework and `dotnet test` needs a .NET Framework test host
+to run one.
+
+New plug-in projects now target **`net462;net8.0`**: `net462` is still exactly what gets deployed to
+Dataverse — the package we build and push is unchanged, down to its dependency list — while the
+extra target is what your **tests** build and run against. That's all it took; the replay harness
+itself never needed .NET Framework. Setting up unit testing or generating a replay test on an
+existing project offers the same upgrade. A test project pinned to .NET Framework by its own
+packages (the old FakeXrmEasy scaffold, say) is left exactly as it is.
+
 **Capturing a plug-in profile now works on macOS and Linux**
 
 *Profile next run* — and the per-step **Profile** CodeLens — were Windows-only. Everyone else had
@@ -20,9 +34,8 @@ journey runs wherever VS Code does, under both service-principal and interactive
 bundled .NET Framework helper that used to do this is gone, along with the ~12MB of Plug-in
 Registration Tool assemblies it downloaded onto your machine the first time you profiled anything.
 
-*Replaying* a captured run under the debugger still needs .NET Framework — your plug-in test
-project targets it — so that step remains Windows (or macOS/Linux with mono). Capturing,
-downloading, generating the replay test and reading trace logs no longer do.
+(*Replaying* a captured run needed .NET Framework when this shipped; it doesn't any more — see the
+entry above.)
 
 **Stopping profiling now always puts your step back**
 

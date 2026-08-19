@@ -3,6 +3,7 @@ import * as fs from "fs";
 import { expect } from "chai";
 import { By, Key, TextEditor, VSBrowser, WebElement, WebView } from "vscode-extension-tester";
 import {
+  openWorkspaceFolder,
   loadE2EEnv,
   freshWorkspace,
   answerText,
@@ -225,7 +226,7 @@ namespace DvptQueryProbe
     fs.writeFileSync(csharpPath(), CSHARP_SOURCE, "utf8");
     fs.writeFileSync(tsPath(), TS_SOURCE, "utf8");
 
-    await VSBrowser.instance.openResources(workspace);
+    await openWorkspaceFolder(workspace);
     await VSBrowser.instance.waitForWorkbench();
     await sleep(3500);
     await dismissOverlays();

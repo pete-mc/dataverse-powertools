@@ -11,6 +11,7 @@ import { findPrimaryPluginCsproj, hasDeployablePluginTypes } from "./projectPath
 import { activeComponentRoot } from "../components/componentDiscovery";
 import { prefixedPackageId, pluginPackageUniqueName } from "./pluginPackageNaming";
 import { registerWorkflowActivities, WorkflowActivityRegistration } from "../general/dataverse/registerWorkflowActivities";
+import { DEPLOY_BUILD_ARG } from "./multiTarget";
 
 interface ExecResult {
   stdout: string;
@@ -531,6 +532,12 @@ export async function buildAndDeploy(context: DataversePowerToolsContext): Promi
       if (buildTarget) {
         buildArgs.push(buildTarget);
       }
+      // Collapse a multi-targeted plug-in project (#269) back to the framework Dataverse loads.
+      // Both the build and the pack below must pass it: pack reuses this build via --no-build, and
+      // it derives the nuspec's dependency groups from the RESTORE graph — so a project restored
+      // for both frameworks emits a stray net8.0 dependency group and warns NU5128, even though
+      // only lib/net462 is packed.
+      buildArgs.push(DEPLOY_BUILD_ARG);
 
       context.channel.appendLine(`Build Package & Deploy started${buildTarget ? ` for ${buildTarget}` : ""}.`);
 
@@ -558,7 +565,7 @@ export async function buildAndDeploy(context: DataversePowerToolsContext): Promi
       if (buildTarget) {
         packArgs.push(buildTarget);
       }
-      packArgs.push("--configuration", "Debug", "--no-build");
+      packArgs.push("--configuration", "Debug", "--no-build", DEPLOY_BUILD_ARG);
 
       const csprojPathForPack = await findPrimaryPluginCsproj(workspacePath, context.projectSettings.pluginProjectName);
       let expectedPackageId: string | undefined;

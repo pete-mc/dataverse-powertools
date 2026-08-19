@@ -133,79 +133,91 @@ export default class DataversePowerToolsContext {
 
   async writeSettings() {
     const filePath = this.settingsFilePath();
-    if (filePath !== undefined) {
-      let toWrite = JSON.parse(JSON.stringify(this.projectSettings));
-      delete toWrite.pluginModelBuilder;
-      // A subfolder component must not PERSIST fields it only inherited from the root
-      // (connection, tenant, env). Discovery merges them into its in-memory settings for a
-      // complete view, but writing them back would make the component self-contained — it
-      // would then stop tracking the root's connection changes (#47).
-      for (const field of this.activeComponent?.inheritedFields ?? []) {
-        delete toWrite[field];
-      }
-      if (typeof toWrite.connectionString === "string" && toWrite.connectionString.length > 0) {
-        // Persist only the non-secret base; client id/secret live in secret storage.
-        const parts = parseConnectionString(toWrite.connectionString);
-        delete parts.clientId;
-        delete parts.clientSecret;
-        toWrite.connectionString = buildConnectionString(parts);
-      }
-      return new Promise<void>((resolve, reject) => {
-        fs.writeFile(filePath, JSON.stringify(toWrite), (err) => {
-          if (err) {
-            this.channel.appendLine(`Error writing settings file: ${err}`);
-            reject(err);
-          } else {
-            resolve();
-          }
-        });
+    if (filePath === undefined) {
+      // No workspace folder, so there is nowhere to write. This used to return silently while
+      // the caller went on to log "Settings Saved!" — a lie that cost #268 a whole debugging
+      // session: initialiseProject appeared to succeed, dataverse-powertools.json never existed,
+      // and the first visible symptom was a missing prompt three steps later.
+      this.reportFailure("Could not save project settings: no workspace folder is open. Open the project folder (File → Open Folder) and initialise again.", {
+        toast: "No workspace folder is open — project settings were not saved.",
       });
+      return;
     }
+    let toWrite = JSON.parse(JSON.stringify(this.projectSettings));
+    delete toWrite.pluginModelBuilder;
+    // A subfolder component must not PERSIST fields it only inherited from the root
+    // (connection, tenant, env). Discovery merges them into its in-memory settings for a
+    // complete view, but writing them back would make the component self-contained — it
+    // would then stop tracking the root's connection changes (#47).
+    for (const field of this.activeComponent?.inheritedFields ?? []) {
+      delete toWrite[field];
+    }
+    if (typeof toWrite.connectionString === "string" && toWrite.connectionString.length > 0) {
+      // Persist only the non-secret base; client id/secret live in secret storage.
+      const parts = parseConnectionString(toWrite.connectionString);
+      delete parts.clientId;
+      delete parts.clientSecret;
+      toWrite.connectionString = buildConnectionString(parts);
+    }
+    return new Promise<void>((resolve, reject) => {
+      fs.writeFile(filePath, JSON.stringify(toWrite), (err) => {
+        if (err) {
+          this.channel.appendLine(`Error writing settings file: ${err}`);
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
   }
 
   async readSettings() {
     const filePath = this.settingsFilePath();
-    if (filePath !== undefined) {
-      await this.readFileAsync(filePath)
-        .then(async (data: any) => {
-          // Central migration runner (#71): ordered, idempotent, versioned. The
-          // io lets migrations touch sibling files (spkl.json, modelbuilder.json).
-          const migration = migrateSettings(JSON.parse(data), fsMigrationIo(path.dirname(filePath)));
-          if (migration.fromNewerVersion) {
-            this.channel.appendLine(
-              `Warning: dataverse-powertools.json was written by a NEWER extension (settingsVersion ${migration.settings.settingsVersion}). Update Dataverse PowerTools if anything misbehaves.`,
-            );
-          } else if (migration.applied.length > 0) {
-            this.channel.appendLine(`Migrated settings: ${migration.applied.join("; ")}.`);
-          }
-          this.projectSettings = migration.settings as ProjectSettings;
-          this.connectionString = this.projectSettings.connectionString || "";
-          // Interactive (OAuth) connections carry no client secret — the persisted
-          // connection string is complete on its own, so don't look up a stored secret
-          // or re-run the setup wizard (which asks for the auth type again).
-          if (parseAuthType(parseConnectionString(this.connectionString).authType) !== DataverseAuthType.oauth) {
-            const name = getOrganizationUrl(this.connectionString);
-            const credentialString = await getServicePrincipalString(this, name);
-            if (credentialString === "") {
-              await createServicePrincipalString(this);
-              this.connectionString = this.projectSettings.connectionString || "";
-            } else {
-              // Merge the stored base (AuthType/Url/…) with the secret-storage
-              // ClientId/ClientSecret. A plain `+=` glued `Url=<url>` and `ClientId=…`
-              // together (the persisted base has no trailing `;`), producing an invalid
-              // connection string that broke auth and typings on every reload.
-              this.connectionString = mergeCredentialConnectionString(this.projectSettings.connectionString, credentialString);
-            }
-          }
-        })
-        .catch((err) => {
-          if (err.code === "ENOENT") {
-            this.channel.appendLine(`No project settings file found in the root of the workspace. Run the 'Dataverse PowerTools: Initialise Project' command to create one.`);
-          } else {
-            this.channel.appendLine(`Error reading settings file: ${err}`);
-          }
-        });
+    if (filePath === undefined) {
+      // Same silent-no-op trap as writeSettings (#268) — but only a channel line here, because
+      // readSettings runs on activation in windows that legitimately have no folder open.
+      this.channel.appendLine("No workspace folder is open, so no project settings were loaded.");
+      return;
     }
+    await this.readFileAsync(filePath)
+      .then(async (data: any) => {
+        // Central migration runner (#71): ordered, idempotent, versioned. The
+        // io lets migrations touch sibling files (spkl.json, modelbuilder.json).
+        const migration = migrateSettings(JSON.parse(data), fsMigrationIo(path.dirname(filePath)));
+        if (migration.fromNewerVersion) {
+          this.channel.appendLine(
+            `Warning: dataverse-powertools.json was written by a NEWER extension (settingsVersion ${migration.settings.settingsVersion}). Update Dataverse PowerTools if anything misbehaves.`,
+          );
+        } else if (migration.applied.length > 0) {
+          this.channel.appendLine(`Migrated settings: ${migration.applied.join("; ")}.`);
+        }
+        this.projectSettings = migration.settings as ProjectSettings;
+        this.connectionString = this.projectSettings.connectionString || "";
+        // Interactive (OAuth) connections carry no client secret — the persisted
+        // connection string is complete on its own, so don't look up a stored secret
+        // or re-run the setup wizard (which asks for the auth type again).
+        if (parseAuthType(parseConnectionString(this.connectionString).authType) !== DataverseAuthType.oauth) {
+          const name = getOrganizationUrl(this.connectionString);
+          const credentialString = await getServicePrincipalString(this, name);
+          if (credentialString === "") {
+            await createServicePrincipalString(this);
+            this.connectionString = this.projectSettings.connectionString || "";
+          } else {
+            // Merge the stored base (AuthType/Url/…) with the secret-storage
+            // ClientId/ClientSecret. A plain `+=` glued `Url=<url>` and `ClientId=…`
+            // together (the persisted base has no trailing `;`), producing an invalid
+            // connection string that broke auth and typings on every reload.
+            this.connectionString = mergeCredentialConnectionString(this.projectSettings.connectionString, credentialString);
+          }
+        }
+      })
+      .catch((err) => {
+        if (err.code === "ENOENT") {
+          this.channel.appendLine(`No project settings file found in the root of the workspace. Run the 'Dataverse PowerTools: Initialise Project' command to create one.`);
+        } else {
+          this.channel.appendLine(`Error reading settings file: ${err}`);
+        }
+      });
   }
 
   async readFileAsync(filePath: string) {

@@ -68,9 +68,13 @@ vs `.test.ts` under `ui-test` (UI).
 scaffold→restore→typings→build→deploy with no UI — the reliable way to verify the two flows.
 
 `npm run test:e2e` drives the **literal VS Code UI** (`src/ui-test/e2e/*.e2e.ts`) via
-Selenium/ExTester against the live test env. **Run it only in an isolated Windows VM**
-(`scripts/setup-vm-e2e.ps1`) — on a shared desktop Selenium's keystrokes get corrupted by
-whatever else has focus. Key facts:
+Selenium/ExTester against the live test env. Selenium types into whatever window has focus, so it
+needs a display nothing else is using. **On Linux that is `xvfb`, not a VM: `npm run test:e2e:headless`**
+(provision with `scripts/setup-linux-e2e.sh`). The Windows VM path (`scripts/setup-vm-e2e.ps1`)
+still works but needs a dedicated machine. Two Linux-only ExTester bugs are patched on postinstall by
+[scripts/patchExtester.mjs](scripts/patchExtester.mjs) — `openResources()` silently doing nothing
+(#268) and the ChromeDriver lookup dying when GitHub raw is down (#270); both warn loudly if they
+stop applying. Key facts:
 - It goes through **`scripts/runE2E.mjs`** (not a bare `extest`): the launcher **seeds an
   MSAL token cache** (`scripts/preAcquireInteractiveCache.mjs`, ROPC with the MFA-exempt
   `DVPT_TEST_USERNAME`/`PASSWORD`) and sets `DVPT_TEST_MSAL_CACHE_FILE`, so the **interactive
@@ -82,8 +86,9 @@ whatever else has focus. Key facts:
   (init → typings → class+test → build → deploy → register form events → live-app
   deployed-code check → Debug Web Resources hot-reload). Steps are **gated on the extension's
   own log line** via `expectOutput()` — a wrong/missing line stops the run.
-- **VM hygiene matters (8GB box):** reap orphaned `webpack --watch` node procs, ExTester
-  `Code.exe` (under `%TEMP%\test-resources`), and `msedge` between runs — they accumulate and
+- **Host hygiene matters (small boxes, ~8GB):** reap orphaned `webpack --watch` node procs, ExTester
+  VS Code processes (under `$TMPDIR/test-resources`, `%TEMP%\test-resources` on Windows), and the
+  browser between runs — they accumulate and
   starve the host (a mid-suite `ECONNREFUSED` to the webdriver = OOM). The debug feature
   tree-kills its watcher on stop; the comprehensive suite reaps stragglers in `before`. In a
   very long session, background full-e2e runs can get killed ~10 min in — run subsets or start
@@ -229,23 +234,33 @@ modern plugin flow already shells out to `dotnet`/`pac`.
   are `i:nil`, and `profilerSteps.spec.ts` pins the exact bytes against a real serializer's output.
   Don't "tidy" that emitter. Enable also MOVES the step's images to the clone and DISABLES the
   original — miss either and the profiler silently never fires.
-- **Still needs .NET Framework: RUNNING a replay.** Capture, download, `Generate Replay Test` and
-  trace logs are cross-platform, but *executing* the generated test (and so `Replay & debug`) is
-  not: the scaffolded test project targets **net471** (`templates/plugin/*_tests.csproj`), and
-  while `dotnet build` compiles net4x anywhere, `dotnet test` needs a .NET Framework test host —
-  **verified on Ubuntu: it builds, then aborts with "Could not find 'mono' host"**. So replay means
-  Windows, or mono elsewhere. Don't repeat the old "download + replay work anywhere" line; only the
-  first half was true.
-  **The Framework pin is the PROJECT, not the harness** ([#269](https://github.com/pete-mc/dataverse-powertools/issues/269)):
-  `replayHarnessSource()` uses only `Convert.FromBase64String`/`DeflateStream`/`DataContractSerializer`/
-  `Microsoft.Xrm.Sdk`, all of which exist on .NET 8 — the pins are `ensureReplayCsproj` injecting the
-  Framework-only `Microsoft.CrmSdk.CoreAssemblies`, and the scaffolded `net471` TFMs. Proven by
-  replaying a REAL captured profile under net8.0 on Linux with the shipping harness and the
-  netstandard `Microsoft.PowerPlatform.Dataverse.Client`. `debugTypeForFramework` already returns
-  `coreclr` for non-net4, so the debugger needs no change. Only the DEPLOYED assembly must be net462.
-- **Still Windows-only:** the e2e browser automation (drives Edge on the Windows VM), and the
-  net462 replay *runner* in the capture live spec for the same reason as above. With
-  `plugins_old/` gone (#228) nothing else pins `spkl.exe`/`sn.exe`.
+- **Replay is cross-platform now (#269).** The plug-in project **multi-targets `net462;net8.0`**
+  ([multiTarget.ts](src/plugins/multiTarget.ts)) so the test project can be net8.0 — which is the
+  only way `dotnet test` runs without a .NET Framework test host (on Ubuntu net4x builds fine, then
+  aborts with "Could not find 'mono' host"). `debugTypeForFramework` therefore resolves to
+  `coreclr`, so `Replay & debug` works off Windows too. **Only the DEPLOYED assembly is net462.**
+  Three things must stay true, and each has a test:
+  - **`DvptDeployBuild=true` goes on BOTH the `dotnet build` and the `dotnet pack`** in
+    [buildAndDeploy.ts](src/plugins/buildAndDeploy.ts). It collapses the project back to net462, and
+    pack derives the nuspec's dependency groups from the RESTORE graph — so packing a project
+    restored for both frameworks emits a stray `<group targetFramework="net8.0" />` and warns
+    NU5128, even though only `lib/net462` is packed. Pack reuses the build via `--no-build`, so a
+    property on only one of them is a different graph than the one being packed.
+  - **`ensureReplayCsproj` is TFM-aware**: on a modern test project it must supply Microsoft.Xrm.Sdk
+    from the netstandard `Microsoft.PowerPlatform.Dataverse.Client`, NOT the Framework-only
+    `Microsoft.CrmSdk.CoreAssemblies` (which fails restore) — that injection was the original pin.
+  - **A test project pinned to Framework by its OWN references is left alone** (`FakeXrmEasy.9` in
+    the legacy template-v2 scaffold, `Microsoft.CrmSdk.*`). Modernising it would trade a working
+    Windows test run for a broken one everywhere.
+  The guard is [test/live/replayHarnessNet8.spec.ts](test/live/replayHarnessNet8.spec.ts) — it drives
+  the SHIPPING generators through a real `dotnet build`/`pack`/`test`, needs **no org and no
+  credentials**, and runs anywhere `dotnet` does (~27s under `npm run test:live`).
+- **Still Windows-only:** just ONE thing, and it is a cross-check rather than a product path — the
+  replay step in `test/live/pluginProfilerCaptureLifecycle.spec.ts`, which executes *Microsoft's*
+  net462 profiler engine (`PluginProfiler.Library`) to confirm a profile we captured is one the
+  shipping PRT also accepts. The e2e browser automation is NOT Windows-only: `browserResolver.ts`
+  resolves Edge/Chrome on Linux and `scripts/setup-linux-e2e.sh` installs Edge. With `plugins_old/`
+  gone (#228) nothing else pins `spkl.exe`/`sn.exe`.
 
 ## Test Explorer (native Testing API, #84)
 
@@ -282,9 +297,11 @@ runs them all (we don't have Jest's dependency graph, and guessing would skip th
   which **38 are `release/0.14.x`** plus `release/0.13.0`, `ci/nightly-live-tests` (its workflow was
   deleted in `30a5501`) and `feature/supervised-ui-test`. There are **no** Dependabot branches left —
   an earlier version of this file claimed ~15, and that is no longer true.
-- **e2e (ExTester) has never been RUN on Linux.** #265 made the harness portable (browser
-  resolution, `/proc`-based port discovery, `pgrep`/`ss`), but portability is inferred, not proven,
-  until `xvfb-run npm run test:e2e` passes off Windows.
+- **e2e (ExTester) on Linux: launches, attaches, drives — a FULL credentialed run is still
+  unproven.** #265 made the harness portable; #268/#270 (patched in `scripts/patchExtester.mjs`)
+  made it actually work. Verified on Ubuntu 24.04: ExTester downloads VS Code, packages the VSIX,
+  launches under `xvfb`, and `openWorkspaceFolder()` attaches the folder in ~6s. What has NOT been
+  run end to end off Windows is the full credentialed suite against the shared org.
 - Wiki: the profiler pages were updated for cross-platform capture (#264). The spkl→`pac` and
   multi-component gaps ([#233](https://github.com/pete-mc/dataverse-powertools/issues/233)) are
   CLOSED — check the wiki before assuming a gap is still open.

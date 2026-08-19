@@ -3,6 +3,7 @@ import * as fs from "fs";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
 import {
+  openWorkspaceFolder,
   loadE2EEnv,
   freshWorkspace,
   answerText,
@@ -54,7 +55,7 @@ describe("Web resources lifecycle — per-file output (e2e)", function () {
     solutionFriendlyName = (await client.getSolutionFriendlyName(env!.solutionName)) ?? env!.solutionName;
 
     workspace = freshWorkspace("webresource-perfile");
-    await VSBrowser.instance.openResources(workspace);
+    await openWorkspaceFolder(workspace);
     await VSBrowser.instance.waitForWorkbench();
     await sleep(3500);
     await dismissOverlays();

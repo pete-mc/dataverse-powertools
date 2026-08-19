@@ -29,8 +29,9 @@ one activity bar. Cross-platform, powered by the Power Platform CLI and .NET SDK
   plugins.
 - 🐞 **Real debugging** — hot-reload your local web-resource bundle inside the live
   model-driven app with breakpoints, and **profile a plug-in's next run in one click**
-  (Windows, *preview*) then replay it in VS Code **under the debugger** — your breakpoints
-  hit, with the exact server-side context — or keep the replay as a test for CI.
+  (*preview*) then replay it in VS Code **under the debugger** — your breakpoints hit, with
+  the exact server-side context — or keep the replay as a test for CI. Capture and replay
+  both work on Windows, macOS and Linux.
 - 💪 **Strongly typed** — generate `Xrm` typings and early-bound classes from your
   environment.
 - 🖥️ **Cross-platform** — Windows, macOS, and Linux, on `pac` and `dotnet`.
