@@ -60,18 +60,24 @@ async function keyForAttribute(uri: vscode.Uri, line: number): Promise<Registrat
 
 /** CodeLens command handler: toggle profiling for the step at (uri, line). */
 export async function toggleStepProfiling(context: DataversePowerToolsContext, uri: vscode.Uri, line: number): Promise<void> {
+  // The VERY first statement of the command, before reading the document and before
+  // runForComponent. Measurement drove this: with the announcement inside runForComponent's
+  // callback, the log showed "Current state confirmed in 0s" and "Toggle finished in 3s" — the
+  // profiler work is fast — yet a gate on that first line still expired after 60s. Everything the
+  // command does is quick; resolving the component around it is not. An announcement that sits
+  // behind the slow part cannot tell you the slow part is running, which is the whole lesson of
+  // #261: the toggle was never six minutes of work, it was seconds of work behind a silent wait.
+  const requestedAt = Date.now();
+  context.channel.appendLine(`[Profiler] Toggle requested on line ${line + 1} — resolving component…`);
+
   const key = await keyForAttribute(uri, line);
   if (!key) {
+    context.channel.appendLine("[Profiler] No readable [CrmPluginRegistration] on that line — nothing to toggle.");
     vscode.window.showWarningMessage("Could not read the plugin step registration on this line.");
     return;
   }
   await runForComponent(context, ProjectTypes.plugin, uri, async (scoped) => {
-    // FIRST line out, before any Dataverse call. The state confirmation below is itself a query, and
-    // on a busy org it was the slow part — over a minute with nothing logged, which is what actually
-    // made #261 look like "the toggle takes six minutes" when the toggle itself takes about three
-    // seconds. Anything that can block must be announced before it runs, not after.
-    const requestedAt = Date.now();
-    scoped.channel.appendLine(`[Profiler] Toggle requested for ${describeKey(key)} — confirming current state…`);
+    scoped.channel.appendLine(`[Profiler] Component resolved in ${Math.round((Date.now() - requestedAt) / 1000)}s; confirming current state for ${describeKey(key)}…`);
     if (!canCallDataverseApi({ organizationUrl: scoped.dataverse?.organizationUrl, isValid: scoped.dataverse?.isValid })) {
       scoped.channel.appendLine("[Profiler] Not connected to Dataverse — cannot change profiling.");
       vscode.window.showErrorMessage("Connect to Dataverse first to change plug-in profiling.");
