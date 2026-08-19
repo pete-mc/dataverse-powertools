@@ -354,12 +354,20 @@ export async function generatePluginReplayTest(context: DataversePowerToolsConte
   const stamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
   const className = replayClassName(pluginTypeName, stamp);
 
-  // Ensure the test project can build+run the harness (Microsoft.Xrm.Sdk + binding redirects), idempotent.
+  // Ensure the test project can build+run the harness (a direct Microsoft.Xrm.Sdk reference),
+  // idempotent. WHICH package supplies it depends on the framework (#269), so say which was used
+  // rather than always claiming binding redirects — those are Framework-only and a net8.0 project
+  // never gets them.
   const csprojXml = await fs.promises.readFile(testCsprojPath, "utf8");
   const patched = ensureReplayCsproj(csprojXml);
   if (patched !== csprojXml) {
     await fs.promises.writeFile(testCsprojPath, patched);
-    context.channel.appendLine(`[Profiler] Wired ${testProjectName}.csproj for the replay harness (Microsoft.Xrm.Sdk + binding redirects).`);
+    const modernTarget = modernTargetFrameworkOf(csprojXml);
+    context.channel.appendLine(
+      modernTarget
+        ? `[Profiler] Wired ${testProjectName}.csproj for the replay harness (Microsoft.Xrm.Sdk via ${MODERN_SDK_PACKAGE}, ${modernTarget}).`
+        : `[Profiler] Wired ${testProjectName}.csproj for the replay harness (Microsoft.Xrm.Sdk + binding redirects).`,
+    );
   }
 
   // Write the shared replay harness once (all Replay_*.cs in this project use it).
