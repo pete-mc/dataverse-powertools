@@ -403,6 +403,17 @@ namespace DvptQueryProbe
   });
 
   it("clears the metadata cache", async () => {
+    // Close everything FIRST. This is the last step in the suite, and it inherits an editor holding
+    // the generator webview plus a C# file thick with CodeLenses. With those open the command
+    // palette never becomes visible: runCommandResilient burned all four attempts, each dying on
+    // Selenium's "Waiting until element is visible" after ~5s, so the command never ran at all.
+    // pluginProfilerReplay hit precisely this and documents the same remedy — close everything, then
+    // act. `dismissOverlays()` alone is not enough; the editors themselves are the problem.
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    const { EditorView } = require("vscode-extension-tester");
+    await new EditorView().closeAllEditors().catch(() => undefined);
+    await sleep(1500);
+    await dismissOverlays();
     await clearOutput();
     // Resilient, not bare: this is the LAST step, and everything before it — the generator
     // round-trip, the CodeLens reads, the re-detection — leaves the window without keyboard focus
