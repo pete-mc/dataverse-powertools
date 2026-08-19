@@ -783,26 +783,16 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
       // landed fails here in seconds with an unambiguous message — instead of being indistinguishable
       // from a slow org for six minutes and then failing on the completion gate, which is exactly how
       // #261 read. Only once we KNOW the command started do we wait out the org.
-      // This gate measures ONE thing: how long VS Code takes to dispatch the CodeLens command after
-      // the click. Everything the command itself does is fast — measured on Linux, in this order:
-      //
-      //   [Profiler] Toggle requested on line 12 — resolving component…
-      //   [Profiler] Component resolved in 0s; confirming current state for …
-      //   [Profiler] Profiling ON for …
-      //   [Profiler] Toggle finished in 3s.
-      //
-      // …yet a 60s gate on the FIRST of those still expired, three runs running. The command is not
-      // slow and the click is not lost (the toggle always happens, just late): the extension host is
-      // still busy from the capture/replay steps above, and a queued command handler does not run
-      // until it frees up. So this budget is deliberately large — it is waiting on the host, not on
-      // the profiler. If it ever expires, the extension never got the click at all, which is a real
-      // failure. See #261; the per-stage timings above are what to read.
-      await waitForLogFile("[Profiler] Toggle requested on line", { timeoutMs: 300000, sinceByte: startBaseline });
+      // Both gates are modest on purpose. The 360s/300s budgets this step used to carry were
+      // chasing a phantom: waitForLogFile was slicing UTF-16 units off a BYTE offset, so it read
+      // past lines that were already in the file, and no budget could ever have been large enough.
+      // With that fixed (see waitForLogFile), the real numbers are small — measured here, the
+      // command is acknowledged immediately and a full toggle finishes in 1-2s.
+      await waitForLogFile("[Profiler] Toggle requested on line", { timeoutMs: 60000, sinceByte: startBaseline });
       // The TOGGLE path logs "Profiling ON" — "Started profiling" belongs to the capture path, and
-      // waiting for it timed out while profiling was in fact on (the #240 lesson, again). Measured on
-      // Linux, this leg alone ran past 360s, so the budget is generous; `[Profiler] Toggle finished
-      // in Ns.` in the log is what to read if it ever needs revisiting.
-      await waitForLogFile("[Profiler] Profiling ON for", { timeoutMs: 600000, sinceByte: startBaseline });
+      // waiting for it timed out while profiling was in fact on (the #240 lesson, again).
+      // `[Profiler] Toggle finished in Ns.` in the log is what to read if this ever needs revisiting.
+      await waitForLogFile("[Profiler] Profiling ON for", { timeoutMs: 120000, sinceByte: startBaseline });
       // The LABEL must flip, not just the org state: a lens that still reads "Profile: Off" while
       // profiling is on is the half of #251 you could actually see, and it needed the provider to fire
       // onDidChangeCodeLenses after the toggle settles. Assert it before the screenshot — the previous
