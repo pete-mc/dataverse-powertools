@@ -188,6 +188,14 @@ describe.skipIf(!gate)("replaying a captured profile without .NET Framework (#26
   it("runs the generated replay test green under dotnet test — no mono, no .NET Framework host", () => {
     cp.execFileSync("dotnet", ["new", "xunit", "--name", "DvptReplayProbe.Tests", "--output", testDir, "--force"], { cwd: workDir, stdio: "inherit" });
 
+    // DataverseUnitTest is what `Setup Plugin Unit Testing` adds, and it pulls
+    // Microsoft.PowerPlatform.Dataverse.Client in transitively with a floor that rises over time
+    // (3.4.0.54 wants >= 1.2.10). Without it in this project the replay reference could be pinned
+    // BELOW that floor and nothing here would notice — which is exactly what happened: a hard 1.2.5
+    // pin shipped, and the e2e caught NU1605 "Detected package downgrade" (an error, not a warning)
+    // only once a real profiler run reached `dotnet test`. Keep this reference.
+    cp.execFileSync("dotnet", ["add", path.join(testDir, "DvptReplayProbe.Tests.csproj"), "package", "DataverseUnitTest"], { cwd: workDir, stdio: "inherit" });
+
     const csprojPath = path.join(testDir, "DvptReplayProbe.Tests.csproj");
     let csproj = fs.readFileSync(csprojPath, "utf8");
     csproj = csproj.replace(/<TargetFramework>[^<]+<\/TargetFramework>/i, `<TargetFramework>${MODERN_TARGET_FRAMEWORK}</TargetFramework>`);
@@ -216,6 +224,9 @@ describe.skipIf(!gate)("replaying a captured profile without .NET Framework (#26
     const output = `${run.stdout ?? ""}\n${run.stderr ?? ""}`;
     // The pre-#269 failure mode, named explicitly so a regression is unmistakable.
     expect(output, "the test project must not need a .NET Framework test host").not.toContain("Could not find 'mono' host");
+    // And the regression that shipped WITH #269: a replay SDK reference pinned below the floor
+    // DataverseUnitTest requires makes restore fail outright.
+    expect(output, "the replay SDK reference must not downgrade DataverseUnitTest's transitive one").not.toContain("NU1605");
     expect(run.status, `replay test did not pass:\n${output}`).toBe(0);
     expect(output).toMatch(/Passed!\s+-\s+Failed:\s+0,\s+Passed:\s+1/);
   }, 900000);

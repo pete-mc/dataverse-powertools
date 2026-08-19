@@ -1,3 +1,5 @@
+#if NETFRAMEWORK // Custom workflow activities are .NET Framework only (System.Activities has no .NET build),
+        // so they are excluded from the test-only target of a multi-targeted project (Dataverse PowerTools #269).
 using System;
 using System.Activities;
 using Microsoft.Xrm.Sdk;
@@ -41,3 +43,4 @@ namespace NAMESPACEPLACEHOLDER
             IOrganizationService systemService);
     }
 }
+#endif

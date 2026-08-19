@@ -52,7 +52,14 @@ const FRAMEWORK_PINNED_TEST_PACKAGE_PATTERN = /^(Microsoft\.CrmSdk\.|FakeXrmEasy
 
 /** The netstandard2.0 source of Microsoft.Xrm.Sdk for the modern target. */
 export const MODERN_SDK_PACKAGE = "Microsoft.PowerPlatform.Dataverse.Client";
-export const MODERN_SDK_PACKAGE_VERSION = "1.2.5";
+/**
+ * FLOATING, not pinned — deliberately. DataverseUnitTest pulls this package in transitively and
+ * raises its floor over time (3.4.0.54 wants >= 1.2.10). A hard pin below that floor is a package
+ * DOWNGRADE, which NuGet reports as error NU1605, not a warning: `dotnet test` on the generated
+ * replay project fails to restore at all. A floating patch keeps us at or above whatever the test
+ * package needs. Matches the existing `9.0.2.*` convention in ensureReplayCsproj.
+ */
+export const MODERN_SDK_PACKAGE_VERSION = "1.2.*";
 
 /** True for a classic .NET Framework moniker (`net462`, `net48`, `net471`). */
 export function isFrameworkTargetFramework(targetFramework: string): boolean {
@@ -182,4 +189,46 @@ export function testTargetFrameworkForPlugin(pluginCsprojXml: string, fallback: 
   }
   const frameworks = parseTargetFrameworks(pluginCsprojXml);
   return frameworks.length > 0 ? fallback(frameworks[0]) : undefined;
+}
+
+/**
+ * .NET namespaces that exist ONLY on .NET Framework, so a source file using one cannot compile for
+ * the modern target. Custom workflow ACTIVITIES are the case that matters: they derive from
+ * `System.Activities.CodeActivity` and use `Microsoft.Xrm.Sdk.Workflow`, neither of which has a
+ * .NET build. Every scaffolded plug-in project contains `WorkflowBase.cs`, so without handling this
+ * the whole project stopped compiling the moment it multi-targeted — a build failure that the e2e
+ * log audit caught while the file-existence assertions above it still passed.
+ */
+const FRAMEWORK_ONLY_NAMESPACE_PATTERN = /^\s*using\s+(System\.Activities|Microsoft\.Xrm\.Sdk\.Workflow)\s*;/m;
+
+/** The guard wrapped around Framework-only sources so they simply vanish from the modern target. */
+const FRAMEWORK_GUARD_OPEN = "#if NETFRAMEWORK";
+const FRAMEWORK_GUARD_CLOSE = "#endif";
+
+/** True when a C# source can only compile for .NET Framework. Pure. */
+export function isFrameworkOnlySource(source: string): boolean {
+  return FRAMEWORK_ONLY_NAMESPACE_PATTERN.test(source);
+}
+
+/**
+ * Wrap a Framework-only C# source in `#if NETFRAMEWORK` so a multi-targeted project still compiles
+ * for the modern, test-only target — the file is simply empty there.
+ *
+ * `NETFRAMEWORK` is defined by the SDK for every net4x moniker and by nothing else, so this needs no
+ * co-operation from the csproj. Excluding the file via `<Compile Remove>` instead would work only
+ * for the filenames we happen to know at transform time; the guard travels with the file, so a
+ * workflow class the user adds LATER from our template is already handled.
+ *
+ * Idempotent, and a no-op for sources that are not Framework-only. Pure.
+ */
+export function guardFrameworkOnlySource(source: string): string {
+  if (!isFrameworkOnlySource(source) || source.includes(FRAMEWORK_GUARD_OPEN)) {
+    return source;
+  }
+  const trimmedEnd = source.replace(/\s+$/, "");
+  return (
+    `${FRAMEWORK_GUARD_OPEN} // Custom workflow activities are .NET Framework only (System.Activities has no .NET build),\n` +
+    `        // so they are excluded from the test-only target of a multi-targeted project (Dataverse PowerTools #269).\n` +
+    `${trimmedEnd}\n${FRAMEWORK_GUARD_CLOSE}\n`
+  );
 }

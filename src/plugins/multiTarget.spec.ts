@@ -3,8 +3,11 @@ import {
   DEPLOY_BUILD_ARG,
   DEPLOY_TARGET_FRAMEWORK,
   MODERN_SDK_PACKAGE,
+  MODERN_SDK_PACKAGE_VERSION,
   MODERN_TARGET_FRAMEWORK,
   ensureMultiTargetedPluginCsproj,
+  guardFrameworkOnlySource,
+  isFrameworkOnlySource,
   isFrameworkTargetFramework,
   isModernTargetFramework,
   isMultiTargetedForTests,
@@ -149,5 +152,56 @@ describe("isTestProjectPinnedToFramework", () => {
 
   it("does not confuse FakeXrmEasy.9 with an unrelated package that merely starts the same", () => {
     expect(isTestProjectPinnedToFramework(`<PackageReference Include="FakeXrmEasy.9.Abstractions" Version="2.0.0" />`)).toBe(false);
+  });
+});
+
+describe("guardFrameworkOnlySource", () => {
+  // Every scaffolded plug-in project ships WorkflowBase.cs, which derives from
+  // System.Activities.CodeActivity — a namespace with no .NET build. Multi-targeting without
+  // handling that broke `dotnet build` outright, and the file-existence assertions above it in the
+  // e2e still passed; only the log audit caught it.
+  const workflowSource = `using System;
+using System.Activities;
+using Microsoft.Xrm.Sdk;
+using Microsoft.Xrm.Sdk.Workflow;
+
+namespace Contoso
+{
+    public abstract class WorkflowBase : CodeActivity { }
+}
+`;
+
+  it("detects a source that can only compile for .NET Framework", () => {
+    expect(isFrameworkOnlySource(workflowSource)).toBe(true);
+    expect(isFrameworkOnlySource(`using System;\nusing Microsoft.Xrm.Sdk;\n\npublic class P : IPlugin { }`)).toBe(false);
+  });
+
+  it("does not mistake Microsoft.Xrm.Sdk for the Framework-only Workflow namespace under it", () => {
+    expect(isFrameworkOnlySource("using Microsoft.Xrm.Sdk;")).toBe(false);
+    expect(isFrameworkOnlySource("using Microsoft.Xrm.Sdk.Query;")).toBe(false);
+  });
+
+  it("wraps the whole file so the modern target compiles it away", () => {
+    const guarded = guardFrameworkOnlySource(workflowSource);
+    expect(guarded.startsWith("#if NETFRAMEWORK")).toBe(true);
+    expect(guarded.trimEnd().endsWith("#endif")).toBe(true);
+    expect(guarded).toContain("public abstract class WorkflowBase : CodeActivity");
+  });
+
+  it("leaves a plug-in source untouched — it must compile for BOTH targets", () => {
+    const plugin = `using Microsoft.Xrm.Sdk;\n\npublic class P : IPlugin { }`;
+    expect(guardFrameworkOnlySource(plugin)).toBe(plugin);
+  });
+
+  it("is idempotent — a file already guarded is not double-wrapped", () => {
+    const once = guardFrameworkOnlySource(workflowSource);
+    expect(guardFrameworkOnlySource(once)).toBe(once);
+  });
+});
+
+describe("the modern SDK reference version", () => {
+  it("floats rather than pinning, so it cannot downgrade DataverseUnitTest's transitive reference", () => {
+    // A hard pin below that floor is NU1605 — an ERROR, so `dotnet test` fails to restore at all.
+    expect(MODERN_SDK_PACKAGE_VERSION).toMatch(/\*/);
   });
 });

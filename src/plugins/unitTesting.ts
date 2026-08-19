@@ -18,6 +18,7 @@ import {
   DEPLOY_TARGET_FRAMEWORK,
   MODERN_TARGET_FRAMEWORK,
   ensureMultiTargetedPluginCsproj,
+  guardFrameworkOnlySource,
   isTestProjectPinnedToFramework,
   parseTargetFrameworks,
   testTargetFrameworkForPlugin,
@@ -157,6 +158,40 @@ async function ensureTestProjectLanguageCompatibility(context: DataversePowerToo
 }
 
 /**
+ * Wrap every .NET Framework-only C# source under `projectDirectory` in `#if NETFRAMEWORK`, so a
+ * multi-targeted project still compiles for its modern, test-only target. Returns the file names it
+ * changed. Skips bin/obj. Idempotent — a guarded file is left alone.
+ */
+async function guardFrameworkOnlySourcesIn(projectDirectory: string): Promise<string[]> {
+  const changed: string[] = [];
+  const walk = async (directory: string): Promise<void> => {
+    let entries: fs.Dirent[];
+    try {
+      entries = await fs.promises.readdir(directory, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const full = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name !== "bin" && entry.name !== "obj") {
+          await walk(full);
+        }
+      } else if (entry.name.toLowerCase().endsWith(".cs")) {
+        const source = await fs.promises.readFile(full, "utf8");
+        const guardedSource = guardFrameworkOnlySource(source);
+        if (guardedSource !== source) {
+          await fs.promises.writeFile(full, guardedSource, "utf8");
+          changed.push(entry.name);
+        }
+      }
+    }
+  };
+  await walk(projectDirectory);
+  return changed;
+}
+
+/**
  * Multi-target the plug-in project (net462;net8.0) so its tests can target a framework with a
  * runnable test host on any OS (#269). Without this the test project inherits net4x and
  * `dotnet test` needs mono off Windows. Idempotent; only writes when it changes something.
@@ -175,6 +210,19 @@ async function ensurePluginProjectIsTestable(context: DataversePowerToolsContext
   if (multiTargeted === pluginContent) {
     return;
   }
+
+  // Guard Framework-only sources BEFORE the project multi-targets, or the very next build fails.
+  // Every plug-in project scaffolded before #269 has an unguarded WorkflowBase.cs, and
+  // System.Activities has no .NET build — so the modern target cannot compile it. Sources
+  // scaffolded from the current templates already carry the guard, making this a no-op.
+  const guarded = await guardFrameworkOnlySourcesIn(path.dirname(pluginCsprojPath));
+  if (guarded.length > 0) {
+    context.channel.appendLine(
+      `Excluded ${guarded.length} .NET Framework-only source file(s) from the test-only target with #if NETFRAMEWORK: ${guarded.join(", ")}. ` +
+        `Custom workflow activities can't compile for ${MODERN_TARGET_FRAMEWORK}; they still build and deploy for ${DEPLOY_TARGET_FRAMEWORK}.`,
+    );
+  }
+
   await fs.promises.writeFile(pluginCsprojPath, multiTargeted, "utf8");
   context.channel.appendLine(
     `Multi-targeted ${path.basename(pluginCsprojPath)} as ${DEPLOY_TARGET_FRAMEWORK};${MODERN_TARGET_FRAMEWORK} so its tests run without a .NET Framework test host. ` +
