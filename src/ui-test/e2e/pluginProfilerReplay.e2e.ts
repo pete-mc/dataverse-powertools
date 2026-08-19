@@ -43,10 +43,16 @@ import { initProject, step, showLog } from "./acceptanceLib";
 //                       This end-to-end proves profiling now works for the extension's PACKAGE plugins
 //                       (#208) AND that a captured run replays back through the plugin (#210).
 // The click window is gated on the extension's log FILE (waitForLogFile), not Selenium polling, so
-// the session survives on the 8GB VM. Self-skips off Windows and without live creds. See TESTING.md.
+// the session survives on a small box. Self-skips without live creds. See TESTING.md.
+//
+// This suite used to self-skip off Windows too, because the scaffolded test project targeted .NET
+// Framework: `dotnet test` needed a Framework test host, and the debugger had to attach with `clr`.
+// #269 removed both — the plug-in multi-targets net462;net8.0, so the test project is net8.0 and
+// `debugTypeForFramework` resolves to `coreclr`. The DEBUG steps still self-skip without the C#
+// extension (`npm run test:e2e:debugger` installs it), on every OS, because `coreclr` is the type
+// IT contributes.
 const COMPONENT = "Plugin";
 let breakpointLine = 0;
-const isWindows = process.platform === "win32";
 
 /** First file anywhere under dir (recursive, skips obj) whose name matches, polled until found. */
 async function waitForMatchDeep(dir: string, predicate: (name: string) => boolean, timeoutMs: number): Promise<string | undefined> {
@@ -193,7 +199,7 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
   }
 
   before(async function () {
-    if (!env || !isWindows) {
+    if (!env) {
       this.skip();
     }
     client = new E2EClient(env!);
