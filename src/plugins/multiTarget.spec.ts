@@ -81,8 +81,18 @@ describe("ensureMultiTargetedPluginCsproj", () => {
   });
 
   it("supplies Microsoft.Xrm.Sdk for the modern target without adding a package dependency", () => {
-    expect(multiTargeted).toContain(`<ItemGroup Condition="'$(TargetFramework)'=='${MODERN_TARGET_FRAMEWORK}'">`);
-    expect(multiTargeted).toMatch(new RegExp(`<PackageReference Include="${MODERN_SDK_PACKAGE.replace(/\./g, "\\.")}"[^>]*PrivateAssets="All"`));
+    const groupOpen = `<ItemGroup Condition="'$(TargetFramework)'=='${MODERN_TARGET_FRAMEWORK}'">`;
+    expect(multiTargeted).toContain(groupOpen);
+    // Substring assertions over the modern ItemGroup rather than a regex built from a package id:
+    // escaping only "." there was an incomplete regex escape (CodeQL js/incomplete-sanitization),
+    // and this reads better anyway — it says WHERE the reference has to be, not just that the file
+    // contains one somewhere.
+    const modernGroup = multiTargeted.slice(multiTargeted.indexOf(groupOpen));
+    const reference = modernGroup.split("\n").find((oneLine) => oneLine.includes(`Include="${MODERN_SDK_PACKAGE}"`));
+    expect(reference, `no ${MODERN_SDK_PACKAGE} reference in the ${MODERN_TARGET_FRAMEWORK} ItemGroup`).toBeDefined();
+    // Same TAG, not merely the same file: PrivateAssets is what keeps it out of the plug-in
+    // package's dependency graph, so it has to be on this reference.
+    expect(reference).toContain('PrivateAssets="All"');
   });
 
   it("leaves packages that exist on both frameworks unconditioned", () => {
