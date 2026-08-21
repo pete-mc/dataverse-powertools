@@ -6,6 +6,11 @@
   const vscode = acquireVsCodeApi();
   const root = document.getElementById("root");
   let openMenu = null;
+  // Which card's overflow menu is open, keyed by the card's stable id, plus a per-render
+  // map of "reopen the menu for this key" callbacks. Both exist for #259 — see the
+  // model handler at the bottom.
+  let openMenuKey = null;
+  const overflowOpeners = new Map();
 
   function execute(action) {
     vscode.postMessage({ type: "execute", command: action.command, args: action.args || [] });
@@ -16,6 +21,7 @@
       openMenu.remove();
       openMenu = null;
     }
+    openMenuKey = null;
   }
 
   document.addEventListener("click", function (event) {
@@ -50,18 +56,21 @@
     return b;
   }
 
-  /** ⋯ button opening a popup menu of rare actions. */
-  function overflowButton(actions, ownerLabel) {
+  /** ⋯ button opening a popup menu of rare actions.
+   *
+   * `ownerKey` is the owning card's stable id (`card.id`). The menu lives in DOM the next
+   * render throws away, so the opener is registered under that key and the model handler
+   * calls it again afterwards to put the menu back (#259).
+   */
+  function overflowButton(actions, ownerLabel, ownerKey) {
     const b = el("button", "iconbtn", "⋯");
     b.type = "button";
     b.setAttribute("aria-haspopup", "menu");
     b.setAttribute("aria-label", "More actions for " + ownerLabel);
-    b.addEventListener("click", function (event) {
-      event.stopPropagation();
-      if (openMenu) {
-        closeOverflow();
-        return;
-      }
+
+    /** Build and show the menu. `focusIndex` is the item to focus, or null to focus nothing
+     * — a restore after a re-render the user didn't ask for must not steal focus. */
+    function open(focusIndex) {
       const menu = el("div", "overflow-menu");
       menu.setAttribute("role", "menu");
       for (const action of actions) {
@@ -71,10 +80,26 @@
       }
       b.parentElement.appendChild(menu);
       openMenu = menu;
-      const first = menu.querySelector("button");
-      if (first) {
-        first.focus();
+      openMenuKey = ownerKey;
+      if (focusIndex !== null && focusIndex >= 0) {
+        const items = menu.querySelectorAll("button");
+        // The card's actions can change between renders; land on the last item rather
+        // than nothing if the menu got shorter.
+        const target = items[Math.min(focusIndex, items.length - 1)];
+        if (target) {
+          target.focus();
+        }
       }
+    }
+
+    overflowOpeners.set(ownerKey, open);
+    b.addEventListener("click", function (event) {
+      event.stopPropagation();
+      if (openMenu) {
+        closeOverflow();
+        return;
+      }
+      open(0);
     });
     return b;
   }
@@ -207,7 +232,7 @@
     row.appendChild(el("span", "grow"));
     row.appendChild(button(card.switchAction, "iconbtn text"));
     const anchor = el("span", "menu-anchor");
-    anchor.appendChild(overflowButton(card.overflow, "environment"));
+    anchor.appendChild(overflowButton(card.overflow, "environment", card.id));
     row.appendChild(anchor);
     c.appendChild(row);
     c.appendChild(el("div", "small", card.url + " · " + card.authLabel));
@@ -233,7 +258,7 @@
     row.appendChild(el("span", "grow"));
     if (card.overflow.length) {
       const anchor = el("span", "menu-anchor");
-      anchor.appendChild(overflowButton(card.overflow, card.name));
+      anchor.appendChild(overflowButton(card.overflow, card.name, card.id));
       row.appendChild(anchor);
     }
     c.appendChild(row);
@@ -687,7 +712,18 @@
     if (!message || message.type !== "model") {
       return;
     }
+    // #259: this render used to just close an open overflow menu. Most renders are not
+    // user-initiated — the system-requirement scan posts a model per progress tick — so a
+    // menu opened during a background scan vanished under the pointer, and the e2e's
+    // retry loop hit the same re-render every time. Remember what was open, and whether
+    // focus was inside it, and restore both once the new DOM exists.
+    const reopenKey = openMenuKey;
+    const focusIndex =
+      openMenu && openMenu.contains(document.activeElement)
+        ? Array.prototype.indexOf.call(openMenu.querySelectorAll("button"), document.activeElement)
+        : null;
     closeOverflow();
+    overflowOpeners.clear();
     root.replaceChildren();
     lastCards = message.model.cards;
     lastCollapseByDefault = !!message.model.collapseByDefault;
@@ -708,6 +744,14 @@
       root.appendChild(newGroupZone());
     }
     root.appendChild(renderFooter(message.model.footer));
+    // Reopen only if the owning card is still on screen; a card that went away takes its
+    // menu with it.
+    if (reopenKey !== null) {
+      const reopen = overflowOpeners.get(reopenKey);
+      if (reopen) {
+        reopen(focusIndex);
+      }
+    }
   });
 
   vscode.postMessage({ type: "ready" });
