@@ -163,7 +163,10 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
     contextKey: "isWebResource",
     // Rev 1 = the 0.7.4/0.7.5 config wave: per-file output ternary, inline
     // source maps, modern tsconfig, ts-jest transform config.
-    configRevision: 1,
+    // Rev 2 (#258) = webpack.common.js reads webresourceLibraryName, so the bundle output name
+    // is configurable. Harmless to refresh into a project that doesn't set it — the name falls
+    // back to "library", which is exactly what the old hardcoded template emitted.
+    configRevision: 2,
     refreshableFiles: [
       ".eslintrc.json",
       ".prettierrc.json",

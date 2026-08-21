@@ -9,6 +9,26 @@ Everything below has shipped to the pre-release channel and is not yet in a full
 
 ## 1.0.7 (pre-release)
 
+**Name your PCF control when you scaffold it**
+
+Creating a PCF control now asks for its name and namespace, suggesting a name based on the
+component's folder. Before this it never asked, so *every* control this extension scaffolded was
+called `SampleNamespace.SampleControl` — which meant two PCF components in one workspace pushed to
+the same control in Dataverse and the second quietly replaced the first. Existing controls are
+untouched; this only affects newly scaffolded ones.
+
+**Two Web Resources components no longer deploy over each other**
+
+In bundled output mode the built library deploys as `<prefix>_library.js`. That name was fixed, so
+two Web Resources components in one workspace both produced it and whichever deployed second won.
+
+The bundle name is now a project setting, `webresourceLibraryName`. A component added in a
+subfolder is given its folder name automatically, so the collision doesn't arise; the root
+component keeps `library`, which means **no existing project's deployed web resource changes name**
+— nothing gets orphaned and no form registration breaks. Form registrations still recognise the
+old name too, so if you do rename a bundle, handlers pointing at the previous one are cleaned up
+rather than stranded. Existing projects pick this up through *Refresh Project Config Files*.
+
 **Replaying a plug-in profile now works on macOS and Linux too**
 
 Capturing stopped being Windows-only earlier in this cycle; *replaying* the captured run — and so

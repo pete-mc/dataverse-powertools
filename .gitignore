@@ -45,3 +45,6 @@ tools/xrmdefinitelytyped/
 test/fixtures/profilerProbe/bin/
 test/fixtures/profilerProbe/obj/
 coverage-integration/
+
+# Scratch project the webpack-template contract spec builds (see webpackTemplateOutput.spec.ts)
+.tmp-webpack-spec-*/

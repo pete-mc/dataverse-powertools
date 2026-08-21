@@ -5,6 +5,7 @@ import { ProjectTypes, getProjectTypeDescriptor, projectTypeRegistry } from "./r
 import { runForComponent } from "../components/componentDiscovery";
 import { runTracked } from "../panel/operationTracker";
 import { initialiseWebresources } from "../webresources/initialiseWebresources";
+import { defaultLibraryBaseName } from "../webresources/libraryNames";
 import { initialiseSolutions } from "../solution/initialiseSolutions";
 import { initialisePortals } from "../portals/initialisePortals";
 import { initialisePlugins } from "../plugins/initialisePlugins";
@@ -212,6 +213,11 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
         { placeHolder: "How should web resources be built?" },
       );
       context.projectSettings.webresourceOutput = pick?.target ?? "bundle";
+      // Bundle output name (#258). Only ever set HERE, on a freshly scaffolded component: the
+      // root keeps "library" so existing projects are untouched, while a sub-component takes its
+      // folder name so two web-resource components stop deploying over each other's
+      // {prefix}_library.js. Renaming an existing component's would orphan a deployed resource.
+      context.projectSettings.webresourceLibraryName = defaultLibraryBaseName(context.activeComponent?.relativeRoot ?? "");
       await context.writeSettings();
     },
     commands: {

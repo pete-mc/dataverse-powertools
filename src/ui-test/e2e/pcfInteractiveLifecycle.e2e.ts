@@ -20,6 +20,7 @@ import {
   logFileSize,
   E2EClient,
   resetAllCredentials,
+  runScopedIdentifier,
 } from "./lib";
 import { clickPanelButton, expandComponentCards } from "../supervised/supervisedLib";
 import { completeDeviceCodeLogin, parseDeviceCode } from "./browserLib";
@@ -165,6 +166,12 @@ describe("PCF lifecycle — interactive auth (e2e)", function () {
     await pickByLabel("Field", 120000);
     log("rendering framework");
     await pickByLabel("Standard (no framework)", 120000);
+    // Control name + namespace (#258): run-scoped, so this suite's control is distinct from
+    // pcfAcceptance's and from a concurrent run's rather than all being SampleNamespace.SampleControl.
+    log("control name");
+    await answerText(runScopedIdentifier("IntPcfControl"));
+    log("control namespace");
+    await answerText("DvptE2E");
     // pac pcf init + npm install run here, so allow for the restore.
     expect(await waitForFile(path.join(workspace, "dataverse-powertools.json"), 300000), "dataverse-powertools.json").to.equal(true);
     const manifestPath = await pollDeep(workspace, (name) => name === "ControlManifest.Input.xml", 600000);

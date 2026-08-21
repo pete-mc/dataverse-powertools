@@ -17,6 +17,8 @@ import {
   dismissOverlays,
   sleep,
   E2EClient,
+  runScopedName,
+  setComponentSetting,
 } from "./lib";
 import { resetAllCredentials } from "./lib";
 
@@ -34,10 +36,17 @@ describe("Web resources lifecycle — interactive auth (e2e)", function () {
   let workspace: string;
   let solutionFriendlyName: string;
 
+  // The bundle output name for this run (#258). The product defaults it to "library"; the suite
+  // overrides it right after scaffold so each run deploys to its own web resource.
+  const LIBRARY_BASE = runScopedName("library");
   function libraryName(): string {
     try {
       const settings = JSON.parse(fs.readFileSync(path.join(workspace, "dataverse-powertools.json"), "utf8"));
-      return `${settings.prefix}_library.js`;
+      // Run-scoped (#258): the deployed bundle is `{prefix}_{webresourceLibraryName}.js`. The prefix
+      // is the solution publisher's and can't change, but the bundle name is now a project setting
+      // the suite writes right after scaffold — so two overlapping runs stop deploying over each
+      // other's `{prefix}_library.js`.
+      return `${settings.prefix}_${LIBRARY_BASE}.js`;
     } catch {
       return `${env?.prefix}_library.js`;
     }
@@ -99,6 +108,9 @@ describe("Web resources lifecycle — interactive auth (e2e)", function () {
     await dismissOverlays();
 
     expect(await waitForFile(path.join(workspace, "dataverse-powertools.json"), 60000), "dataverse-powertools.json").to.equal(true);
+    // Give this run its own bundle name before anything builds (#258) — webpack.common.js reads
+    // it from dataverse-powertools.json at build time, so this is the only step needed.
+    setComponentSetting(workspace, "webresourceLibraryName", LIBRARY_BASE);
   });
 
   it("generates typings under interactive auth (bundled net8 tool, #91)", async () => {

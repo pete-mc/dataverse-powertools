@@ -22,7 +22,10 @@ import {
   shot,
   shotWithHighlight,
   runCommandResilient,
+  runScopedIdentifier,
+  runId,
 } from "./lib";
+import { LOCAL_RUN_ID } from "./fixtureNames";
 import { clickPanelButton, expandComponentCards } from "../supervised/supervisedLib";
 import { initProject, step, showLog } from "./acceptanceLib";
 
@@ -105,7 +108,7 @@ async function waitForMatchDeep(dir: string, predicate: (name: string) => boolea
  *  background job, so the test never reasons about the trigger's own response.
  *  The namespace/class must match the scaffolded file so `Build & deploy` finds the
  *  [CrmPluginRegistration]. */
-function territoryPluginSource(namespaceName: string, className: string): string {
+function territoryPluginSource(namespaceName: string, className: string, stepMarkerName: string): string {
   return `using Microsoft.Xrm.Sdk;
 using System;
 
@@ -115,7 +118,7 @@ namespace ${namespaceName}
     /// Onboards a new territory: validates the name, derives the sales region and the territory code
     /// from it, and traces what it worked out.
     /// </summary>
-    [CrmPluginRegistration(MessageNameEnum.Create, "territory", StageEnum.PostOperation, ExecutionModeEnum.Asynchronous, "", "Create territory (DVPT profiler e2e)", 1, IsolationModeEnum.Sandbox)]
+    [CrmPluginRegistration(MessageNameEnum.Create, "territory", StageEnum.PostOperation, ExecutionModeEnum.Asynchronous, "", "Create territory (DVPT profiler e2e ${stepMarkerName})", 1, IsolationModeEnum.Sandbox)]
     public class ${className} : PluginBase
     {
         public ${className}(string unsecureConfiguration, string secureConfiguration)
@@ -185,9 +188,15 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
   let client: E2EClient;
   // Named like a project someone would really have: these names appear in the wiki walkthrough's
   // screenshots, and "ProfilerE2E/ProfilerProbe" told the reader nothing except that it was a test.
-  const projectName = "ContosoTerritories";
-  const packageName = "ContosoTerritories";
-  const className = "TerritoryOnboarding";
+  // Scoped per run (#258): all three end up as rows in the ONE shared org — the plug-in package,
+  // its assembly/type, and the registered step — so two overlapping runs would otherwise deploy
+  // over each other and each suite's cleanup would delete the other's.
+  const projectName = runScopedIdentifier("ContosoTerritories");
+  const packageName = runScopedIdentifier("ContosoTerritories");
+  const className = runScopedIdentifier("TerritoryOnboarding");
+  // Goes into the step's registered NAME, which the profiler's clone inherits (plus " (Profiler)"),
+  // so `cleanupProfilerSteps` can tell this run's clone from a concurrent run's.
+  const stepMarker = runId();
   let typeName = `${projectName}.${className}`; // refined from the scaffolded file's real namespace
   let triggeredTerritoryId: string | undefined;
   /** The second trigger, fired with tracing ON so the viewer has a real row to show (#231). */
@@ -238,7 +247,7 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
       const scaffolded = fs.readFileSync(cs, "utf8");
       const ns = /namespace\s+([A-Za-z0-9_.]+)/.exec(scaffolded)?.[1] ?? projectName;
       typeName = `${ns}.${className}`;
-      fs.writeFileSync(cs, territoryPluginSource(ns, className), "utf8");
+      fs.writeFileSync(cs, territoryPluginSource(ns, className, stepMarker), "utf8");
       return `wrote ${projectName}/${className}.cs — [CrmPluginRegistration(Create, territory, Post, Async)] type ${typeName}`;
     });
   });
@@ -839,9 +848,14 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
     // "(Profiler)" step keeps firing on Create-of-territory and every territory create in the shared
     // org then 400s. This must run regardless of how the tail failed.
     try {
-      const removed = await client.cleanupProfilerSteps("territory");
-      if (removed > 0) {
-        console.log(`[cleanup] removed ${removed} leftover profiler step(s) on territory`);
+      const { deleted, foreign } = await client.cleanupProfilerSteps("territory", stepMarker === LOCAL_RUN_ID ? undefined : stepMarker);
+      if (deleted > 0) {
+        console.log(`[cleanup] removed ${deleted} leftover profiler step(s) on territory`);
+      }
+      if (foreign > 0) {
+        // Another run's, or an abandoned one. Not ours to delete — but a live "(Profiler)" step
+        // makes every territory create in the shared org fail, so say so loudly.
+        console.log(`[cleanup] WARNING: left ${foreign} profiler step(s) on territory belonging to another run — if no run is active, delete them by hand`);
       }
     } catch {
       /* best-effort */

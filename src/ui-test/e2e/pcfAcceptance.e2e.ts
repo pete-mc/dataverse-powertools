@@ -2,7 +2,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
-import { openWorkspaceFolder, loadE2EEnv, freshWorkspace, pickByLabel, dismissOverlays, sleep, E2EClient } from "./lib";
+import { openWorkspaceFolder, loadE2EEnv, freshWorkspace, pickByLabel, dismissOverlays, sleep, answerText, runScopedIdentifier, E2EClient } from "./lib";
 import { clickPanelButton, clickOverflowItem, expandComponentCards } from "../supervised/supervisedLib";
 import { initProject, step, showLog } from "./acceptanceLib";
 
@@ -55,6 +55,13 @@ describe("ACCEPTANCE: PCF — build, code, publish via panel buttons", function 
   let solutionFriendlyName: string;
   let client: E2EClient;
 
+  // Run-scoped (#258). The deployed `customcontrol` row is `{prefix}_{namespace}.{constructor}`,
+  // and both come from `pac pcf init`. The extension now asks for them, so the suite can give each
+  // run its own control instead of every run (and BOTH PCF suites) sharing pac's default
+  // SampleNamespace.SampleControl and deploying over each other.
+  const controlName = runScopedIdentifier("AccPcfControl");
+  const CONTROL_NAMESPACE = "DvptE2E";
+
   /** Namespace + constructor from the scaffolded control manifest (for the deployed bundle name). */
   function manifest(): { namespace: string; constructor: string } {
     const file = findDeep(workspace, (name) => name === "ControlManifest.Input.xml");
@@ -87,6 +94,8 @@ describe("ACCEPTANCE: PCF — build, code, publish via panel buttons", function 
       await initProject("PCF Control", env!, solutionFriendlyName, async () => {
         await pickByLabel("Field"); // control template
         await pickByLabel("Standard (no framework)"); // rendering framework
+        await answerText(controlName); // control name — run-scoped (#258)
+        await answerText(CONTROL_NAMESPACE); // control namespace
       });
       const idx = await pollDeep(workspace, (name) => name === "index.ts", 300000);
       const man = await pollDeep(workspace, (name) => name === "ControlManifest.Input.xml", 60000);

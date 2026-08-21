@@ -234,6 +234,10 @@ interface ProjectSettings {
   settingsVersion?: number;
   /** Web resource build output (#88): one bundled library (default) or one JS per source file. */
   webresourceOutput?: "bundle" | "perFile";
+  /** Bundle-mode output name (#258): the deployed resource is `{prefix}_{this}.js`, default
+   * `library`. Set per component at scaffold so two web-resource components in one workspace
+   * don't deploy over each other. Read at BUILD time by the project's webpack.common.js. */
+  webresourceLibraryName?: string;
   tenantId?: string;
   /** Optional environment tag (e.g. DEV / TEST / PROD) shown as a badge in the actions panel. */
   environmentLabel?: string;
