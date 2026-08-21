@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 import { DataverseForm } from "../general/dataverse/DataverseForm";
 import { randomUUID } from "crypto";
 import { parseRegisterEvents, validateRegisterEvent, RegisterEventDecoration } from "./registerEventParser";
-import { webresourceLibraryName, candidateLibraryNames } from "./libraryNames";
+import { webresourceLibraryName, candidateLibraryNames, libraryBaseFor } from "./libraryNames";
 import { applyFormRegistrations, ResolvedRegistration } from "./formRegistrationXml";
 import { activeComponentRoot } from "../components/componentDiscovery";
 
@@ -90,12 +90,14 @@ export async function saveFormDataExec(context: DataversePowerToolsContext, opti
     throw new Error("No publisher prefix in dataverse-powertools.json — cannot determine the web resource library name. No forms were changed.");
   }
   const outputMode = context.projectSettings.webresourceOutput;
-  const libraryFor = (event: SourcedRegisterEvent) => webresourceLibraryName(prefix, outputMode, event.sourceFile);
+  const bundleBase = libraryBaseFor(context.projectSettings);
+  const libraryFor = (event: SourcedRegisterEvent) => webresourceLibraryName(prefix, outputMode, event.sourceFile, bundleBase);
   // Only handlers bound to one of OUR possible library names (either mode) may be
   // cleaned up — other solutions' handlers on the same form are untouchable.
   const ownedLibraries = candidateLibraryNames(
     prefix,
     files.map((file) => file.fsPath),
+    bundleBase,
   );
 
   let totalForms = 0;

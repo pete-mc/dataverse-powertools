@@ -16,6 +16,11 @@ const settings = (() => {
   }
 })();
 const perFile = settings.webresourceOutput === "perFile";
+// Bundle output name (#258): the deployed web resource is SOLUTIONPREFIX_<this>.js. Defaults to
+// "library" — every project scaffolded before this setting existed keeps exactly the name it
+// already deploys to. A sub-component is given its folder name at scaffold so two web-resource
+// components in one workspace stop overwriting each other's resource.
+const libraryName = String(settings.webresourceLibraryName || "library").replace(/[^A-Za-z0-9_]/g, "") || "library";
 const perFileEntries = () =>
   Object.fromEntries(
     Fs.readdirSync(Path.resolve(__dirname, "webresources_src"))
@@ -57,7 +62,7 @@ module.exports = {
         library: { name: "SOLUTIONPREFIX", type: "assign-properties" },
       }
     : {
-        filename: "SOLUTIONPREFIX_library.js",
+        filename: "SOLUTIONPREFIX_" + libraryName + ".js",
         library: ["SOLUTIONPREFIX"], //used to call functions on forms eg: LIBRARYPREFIX.Class.Function
         libraryTarget: "var",
       },

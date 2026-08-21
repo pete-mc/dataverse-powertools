@@ -143,6 +143,35 @@ live("web resources scaffold -> restore -> build -> deploy (command level)", () 
     expect(fs.existsSync(path.join(projectDir, "bin", libraryName)), `bin/${libraryName} produced by webpack`).toBe(true);
   }, 180000);
 
+  // #258 — the bundle output name is a project setting now, so two web-resource components in one
+  // workspace stop both deploying to {prefix}_library.js. The default above proves nothing changed
+  // for existing projects; this proves the setting actually reaches a REAL webpack build. Reuses
+  // the same project (node_modules already installed) rather than scaffolding a second one.
+  it("honours webresourceLibraryName, so a second component can deploy alongside the first", () => {
+    // The settings file is written by the WIZARD, not the template, so a scaffold made here has
+    // none — which is itself the default case the previous test covers. Write one, as a real
+    // project has.
+    const settingsFile = path.join(projectDir, "dataverse-powertools.json");
+    const original = fs.existsSync(settingsFile) ? fs.readFileSync(settingsFile, "utf8") : undefined;
+    const scoped = `${cfg.prefix}_secondcomponent.js`;
+    try {
+      const settings = { ...(original ? JSON.parse(original) : {}), webresourceLibraryName: "secondcomponent" };
+      fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2), "utf8");
+      cp.execSync("webpack --config webpack.dev.js", { cwd: projectDir, stdio: "pipe", timeout: 180000 });
+      expect(fs.existsSync(path.join(projectDir, "bin", scoped)), `bin/${scoped} produced by webpack`).toBe(true);
+      // A DIFFERENT resource, not a rename — the first component's bundle is still there, which is
+      // exactly what makes two components able to coexist.
+      expect(scoped).not.toBe(libraryName);
+      expect(fs.existsSync(path.join(projectDir, "bin", libraryName)), `bin/${libraryName} still present`).toBe(true);
+    } finally {
+      if (original === undefined) {
+        fs.rmSync(settingsFile, { force: true });
+      } else {
+        fs.writeFileSync(settingsFile, original, "utf8");
+      }
+    }
+  }, 180000);
+
   it("deploys the built webresource through the extension code and verifies it in Dataverse", async () => {
     const content = fs.readFileSync(path.join(projectDir, "bin", libraryName)).toString("base64");
     const webresource = new DataverseWebresource(libraryName, context);

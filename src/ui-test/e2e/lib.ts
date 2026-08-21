@@ -89,6 +89,20 @@ export function runScopedIdentifier(base: string): string {
   return scopedIdentifier(base, runId());
 }
 
+/**
+ * Set one field in a component's `dataverse-powertools.json`, in place.
+ *
+ * Used to give a web-resource component a run-scoped bundle name (#258). The bundle name is read
+ * at BUILD time by the project's own webpack.common.js, so writing it any time between scaffold
+ * and build is enough — no template regeneration needed.
+ */
+export function setComponentSetting(componentRoot: string, key: string, value: unknown): void {
+  const file = path.join(componentRoot, "dataverse-powertools.json");
+  const settings = JSON.parse(fs.readFileSync(file, "utf8"));
+  settings[key] = value;
+  fs.writeFileSync(file, JSON.stringify(settings, null, 2), "utf8");
+}
+
 /** Remove onboarding/notification/modal overlays that intercept clicks. */
 export async function dismissOverlays(): Promise<void> {
   try {

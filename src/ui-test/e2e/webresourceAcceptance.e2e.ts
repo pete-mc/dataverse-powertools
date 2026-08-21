@@ -15,6 +15,8 @@ import {
   E2EClient,
   waitForLogFile,
   logFileSize,
+  runScopedName,
+  setComponentSetting,
 } from "./lib";
 import { clickPanelButton, clickOverflowItem, expandComponentCards } from "../supervised/supervisedLib";
 import { initProject, step, showLog } from "./acceptanceLib";
@@ -33,14 +35,16 @@ describe("ACCEPTANCE: Web Resource — build, code, register, publish via panel 
   let client: E2EClient;
   const className = "AcceptanceWebResource";
 
+  // The bundle output name for this run (#258). The product defaults it to "library"; the suite
+  // overrides it right after scaffold so each run deploys to its own web resource.
+  const LIBRARY_BASE = runScopedName("library");
   function libraryName(): string {
     const settings = JSON.parse(fs.readFileSync(path.join(workspace, "dataverse-powertools.json"), "utf8"));
-    // NOT run-scoped (#258). In bundle output mode the deployed name is `{prefix}_library.js`, and
-    // BOTH halves are fixed: the prefix is inferred from the chosen solution's publisher (an invented
-    // one would be rejected by Dataverse), and "library" is hardcoded by the product — in
-    // src/webresources/libraryNames.ts and in templates/webresources/webpack.common.js. Scoping this
-    // therefore needs a configurable bundle name in the product, not a change here.
-    return `${settings.prefix ?? env?.prefix}_library.js`;
+    // Run-scoped (#258): the deployed bundle is `{prefix}_{webresourceLibraryName}.js`. The prefix
+    // is the solution publisher's and can't change, but the bundle name is now a project setting
+    // the suite writes right after scaffold — so two overlapping runs stop deploying over each
+    // other's `{prefix}_library.js`.
+    return `${settings.prefix ?? env?.prefix}_${LIBRARY_BASE}.js`;
   }
 
   before(async function () {
@@ -65,6 +69,9 @@ describe("ACCEPTANCE: Web Resource — build, code, register, publish via panel 
         await pickByLabel("No", 600000); // "create a new webresource?" — restores + typings run first
       });
       expect(await waitForFile(path.join(workspace, "dataverse-powertools.json"), 300000), "project scaffolded").to.equal(true);
+      // Give this run its own bundle name before anything builds (#258) — webpack.common.js reads
+      // it from dataverse-powertools.json at build time, so this is the only step needed.
+      setComponentSetting(workspace, "webresourceLibraryName", LIBRARY_BASE);
       return "Web Resources project scaffolded + connected (service principal)";
     });
   });

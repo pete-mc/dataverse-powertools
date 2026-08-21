@@ -137,9 +137,12 @@ export async function restoreDependencies(context: DataversePowerToolsContext, i
         const workspacePath = activeComponentRoot(context) ?? vscode.workspace.workspaceFolders[0].uri.fsPath;
         const restoreCommands = initialising ? context.template?.initCommands || [] : context.template?.restoreCommands || [];
         // PCF scaffold (#141): ask once, up front, for the control template + framework so the
-        // pac pcf init below uses the user's choice instead of the hardcoded field/none. The
-        // returned argv is fixed-enum tokens only (safe to run as-is, bypassing the string gate).
-        const pcfInitArgv = initialising && context.projectSettings.type === ProjectTypes.pcf ? await promptPcfInitArgs() : undefined;
+        // pac pcf init below uses the user's choice instead of the hardcoded field/none. It also
+        // asks for the control name/namespace (#258) — those used to be pac's SampleNamespace.
+        // SampleControl for EVERY control, so two PCF components deployed over each other. The
+        // component folder name seeds the suggestion. The name/namespace tokens are the only
+        // free text in this argv and are validated in pcfInitArgs; the rest are fixed enums.
+        const pcfInitArgv = initialising && context.projectSettings.type === ProjectTypes.pcf ? await promptPcfInitArgs(path.basename(workspacePath)) : undefined;
         for (const c of restoreCommands) {
           const resolvedCommand = pcfInitArgv && isPacPcfInit(c.command) ? pcfInitArgv : resolveInitCommand(c.command, workspacePath, context, initialising);
           const displayCommand = Array.isArray(resolvedCommand) ? resolvedCommand.join(" ") : resolvedCommand;
