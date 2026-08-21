@@ -190,6 +190,7 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
       `${prefix}debugWebresources`,
       `${prefix}stopDebugWebresources`,
       `${prefix}switchWebresourceOutput`,
+      `${prefix}switchWebresourceLibraryName`,
       `${prefix}runWebresourceTests`,
       `${prefix}openFormIntersects`,
       `${prefix}refreshConfigFiles`,
@@ -215,6 +216,8 @@ export const projectTypeRegistry: readonly ProjectTypeDescriptor[] = [
           { command: `${prefix}openFormIntersects`, label: "Configure form intersects" },
           { command: `${prefix}refreshConfigFiles`, label: "Refresh config files" },
           { command: `${prefix}switchWebresourceOutput`, label: `Output mode (${state.webresourceOutput === "perFile" ? "per-file" : "bundled"})…` },
+          // Only meaningful in bundled mode — per-file names come from the source filenames.
+          ...(state.webresourceOutput === "perFile" ? [] : [{ command: `${prefix}switchWebresourceLibraryName`, label: "Bundle name…" }]),
           ...(state.hasSpkl ? [{ command: `${prefix}upgradeFromSpkl`, label: "Upgrade from Spkl" }] : []),
         ],
       };

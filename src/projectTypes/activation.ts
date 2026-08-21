@@ -34,6 +34,7 @@ import { saveFormData } from "../webresources/saveFormData";
 import { upgradeFromSpkl } from "../webresources/upgradeFromSpkl";
 import { debugWebResources, stopDebugWebResources } from "../webresources/debug/debugWebresources";
 import { switchWebresourceOutput } from "../webresources/switchOutputMode";
+import { switchWebresourceLibraryName } from "../webresources/switchLibraryName";
 import { runWebresourceTests } from "../webresources/runTests";
 import { openFormIntersects } from "../webresources/tableIntersects/tableIntersects";
 import { refreshConfigFiles } from "../general/configRefresh";
@@ -207,7 +208,7 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
       // Output mode (#88): the webpack template reads this setting at build time.
       const pick = await vscode.window.showQuickPick(
         [
-          { label: "Single bundled library (recommended)", description: "one <prefix>_library.js from library.ts", target: "bundle" as const },
+          { label: "Single bundled library (recommended)", description: "one <prefix>_<name>.js built from library.ts", target: "bundle" as const },
           { label: "One file per web resource", description: "one <prefix>_<name>.js per webresources_src/*.ts", target: "perFile" as const },
         ],
         { placeHolder: "How should web resources be built?" },
@@ -249,6 +250,7 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
       "dataverse-powertools.debugWebresources": (context) => debugWebResources(context),
       "dataverse-powertools.stopDebugWebresources": () => stopDebugWebResources(),
       "dataverse-powertools.switchWebresourceOutput": (context) => switchWebresourceOutput(context),
+      "dataverse-powertools.switchWebresourceLibraryName": (context) => switchWebresourceLibraryName(context),
       "dataverse-powertools.runWebresourceTests": tracked("Tests", runWebresourceTests),
       "dataverse-powertools.openFormIntersects": (context) => openFormIntersects(context),
       "dataverse-powertools.refreshConfigFiles": (context) => refreshConfigFiles(context),

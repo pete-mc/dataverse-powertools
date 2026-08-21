@@ -701,6 +701,11 @@
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
       },
       {
+        "command": "dataverse-powertools.switchWebresourceLibraryName",
+        "title": "Dataverse PowerTools: Change Web Resource Bundle Name",
+        "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"
+      },
+      {
         "command": "dataverse-powertools.runWebresourceTests",
         "title": "Dataverse PowerTools: Run Web Resource Tests",
         "enablement": "dataverse-powertools.showLoaded && dataverse-powertools.isWebResource"

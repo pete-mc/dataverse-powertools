@@ -11,6 +11,7 @@ import { isWebresourceBundleUrl, bundleCdpPattern, bundleContentType } from "./w
 import { buildAttachDebugConfig } from "./debugConfig";
 import { activeComponentRoot } from "../../components/componentDiscovery";
 import { findFreePort, killProcessTree, connectCdpWithRetry } from "./cdpProcess";
+import { webresourceLibraryName, libraryBaseFor } from "../libraryNames";
 
 // "Debug Web Resources": run the local webpack bundle *inside the real model-driven app*.
 // A dedicated Edge/Chrome instance is launched under the DevTools Protocol; the browser's
@@ -74,7 +75,11 @@ export async function debugWebResources(context: DataversePowerToolsContext): Pr
     vscode.window.showErrorMessage("This project has no solution prefix configured, so the bundle name is unknown.");
     return;
   }
-  const bundleName = `${prefix}_library.js`;
+  // The bundle name is per-component (#258), not a fixed "library" — it drives the CDP intercept
+  // pattern, the URL match against the live app, AND the hot-reload watcher's filename check, so
+  // hardcoding it made the whole debug session a no-op for any component with its own name:
+  // nothing to serve, nothing intercepted, no reload.
+  const bundleName = webresourceLibraryName(prefix, "bundle", "library.ts", libraryBaseFor(context.projectSettings));
   const binDir = path.join(workspacePath, "bin");
   const bundlePath = path.join(binDir, bundleName);
 

@@ -238,6 +238,10 @@ interface ProjectSettings {
    * `library`. Set per component at scaffold so two web-resource components in one workspace
    * don't deploy over each other. Read at BUILD time by the project's webpack.common.js. */
   webresourceLibraryName?: string;
+  /** Bundle names this component USED to deploy under (#258). Kept so form handlers bound to a
+   * previous name stay in `candidateLibraryNames` and can still be cleaned up — dropping them
+   * would strand those handlers on a web resource that is no longer deployed. */
+  webresourcePreviousLibraryNames?: string[];
   tenantId?: string;
   /** Optional environment tag (e.g. DEV / TEST / PROD) shown as a badge in the actions panel. */
   environmentLabel?: string;

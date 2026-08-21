@@ -18,7 +18,7 @@ export async function switchWebresourceOutput(context: DataversePowerToolsContex
   const current = context.projectSettings.webresourceOutput === "perFile" ? "perFile" : "bundle";
   const pick = await vscode.window.showQuickPick(
     [
-      { label: `${current === "bundle" ? "$(check) " : ""}Single bundled library`, description: "one <prefix>_library.js from library.ts", target: "bundle" as const },
+      { label: `${current === "bundle" ? "$(check) " : ""}Single bundled library`, description: "one <prefix>_<name>.js built from library.ts", target: "bundle" as const },
       {
         label: `${current === "perFile" ? "$(check) " : ""}One file per web resource`,
         description: "one <prefix>_<name>.js per webresources_src/*.ts",
