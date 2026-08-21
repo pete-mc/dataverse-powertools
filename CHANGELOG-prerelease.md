@@ -9,6 +9,15 @@ Everything below has shipped to the pre-release channel and is not yet in a full
 
 ## 1.0.7 (pre-release)
 
+**The Actions panel's ⋯ menu no longer closes itself**
+
+Opening a card's overflow menu while something was happening in the background — most often the
+system-requirement scan that runs after a project is created — made the menu vanish under the
+pointer. Any refresh of the panel rebuilt it from scratch, taking the open menu with it, and a
+scan refreshes it repeatedly as each tool is checked. The menu now stays open across a refresh,
+picks up whatever actions the card has after it, and keeps your keyboard place if you were
+arrowing through it.
+
 **Name your PCF control when you scaffold it**
 
 Creating a PCF control now asks for its name and namespace, suggesting a name based on the

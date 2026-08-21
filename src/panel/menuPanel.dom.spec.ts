@@ -207,6 +207,122 @@ describe("menuPanel.js (webview DOM, #143)", () => {
     expect(document.querySelector('[data-card-id="n1"]')).toBeFalsy();
   });
 
+  // #259 — the panel re-renders on every host model message, and most of those the user
+  // never asked for: the system-requirement scan alone posts one per progress tick. The
+  // render used to unconditionally close an open overflow menu, so a menu opened while a
+  // scan was running vanished under the pointer (and pcfAcceptance's Restore step, which
+  // retries the open/click for 45s, hit the same re-render on every attempt).
+  describe("overflow menu survives a re-render (#259)", () => {
+    const projectCard = (overflow: unknown[], id = "project:pcf") => ({
+      kind: "project",
+      id,
+      name: "MyControl",
+      typeLabel: "PCF",
+      overflow,
+      primary: { label: "Push", command: "dvpt.push" },
+      secondary: [],
+    });
+    const restore = { label: "Restore dependencies", command: "dvpt.restore" };
+    const openOverflow = (cardId = "project:pcf") => (document.querySelector(`[data-card-id="${cardId}"] .menu-anchor > button`) as HTMLButtonElement).click();
+    const menuItems = () => Array.from(document.querySelectorAll(".overflow-menu button.menu-item"));
+    const labels = () => menuItems().map((b) => b.textContent);
+
+    it("opens a card's overflow menu on the ⋯ button", () => {
+      loadPanel();
+      postModel({ cards: [projectCard([restore])], footer });
+      expect(menuItems().length).toBe(0);
+      openOverflow();
+      expect(labels()).toEqual(["Restore dependencies"]);
+    });
+
+    it("keeps the menu open when a background re-render replaces the DOM", () => {
+      loadPanel();
+      postModel({ cards: [projectCard([restore])], footer });
+      openOverflow();
+      // A requirement-scan progress tick: same cards, new model message.
+      postModel({ cards: [projectCard([restore])], footer });
+      expect(labels()).toEqual(["Restore dependencies"]);
+      // Exactly one menu — the old DOM went with replaceChildren(), it wasn't duplicated.
+      expect(document.querySelectorAll(".overflow-menu").length).toBe(1);
+    });
+
+    it("the reopened menu is live, not a stale copy — its items still post execute", () => {
+      const { posted } = loadPanel();
+      postModel({ cards: [projectCard([restore])], footer });
+      openOverflow();
+      postModel({ cards: [projectCard([restore])], footer });
+      posted.length = 0;
+      (menuItems()[0] as HTMLButtonElement).click();
+      expect(posted).toEqual([{ type: "execute", command: "dvpt.restore", args: [] }]);
+    });
+
+    it("the reopened menu shows the NEW model's actions", () => {
+      loadPanel();
+      postModel({ cards: [projectCard([restore])], footer });
+      openOverflow();
+      postModel({ cards: [projectCard([restore, { label: "Refresh Types", command: "dvpt.types" }])], footer });
+      expect(labels()).toEqual(["Restore dependencies", "Refresh Types"]);
+    });
+
+    it("does not resurrect a menu the user closed", () => {
+      loadPanel();
+      postModel({ cards: [projectCard([restore])], footer });
+      openOverflow();
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+      expect(menuItems().length).toBe(0);
+      postModel({ cards: [projectCard([restore])], footer });
+      expect(menuItems().length).toBe(0);
+    });
+
+    it("does not reopen a menu whose card is gone from the new model", () => {
+      loadPanel();
+      postModel({ cards: [projectCard([restore])], footer });
+      openOverflow();
+      postModel({ cards: [projectCard([restore], "project:other")], footer });
+      expect(menuItems().length).toBe(0);
+    });
+
+    it("restores focus to the same item when focus was inside the menu", () => {
+      loadPanel();
+      postModel({ cards: [projectCard([restore, { label: "Refresh Types", command: "dvpt.types" }])], footer });
+      openOverflow();
+      (menuItems()[1] as HTMLButtonElement).focus();
+      postModel({ cards: [projectCard([restore, { label: "Refresh Types", command: "dvpt.types" }])], footer });
+      expect(document.activeElement).toBe(menuItems()[1]);
+    });
+
+    it("does not steal focus on a re-render the user did not cause", () => {
+      loadPanel();
+      postModel({ cards: [projectCard([restore])], footer });
+      openOverflow();
+      // Focus moves out of the menu (the menu stays open — it only closes on a click,
+      // Escape, or an outside click).
+      (document.querySelector('[data-card-id="project:pcf"] button.action.primary') as HTMLButtonElement).focus();
+      postModel({ cards: [projectCard([restore])], footer });
+      expect(labels()).toEqual(["Restore dependencies"]);
+      expect(menuItems()).not.toContain(document.activeElement);
+    });
+
+    it("restores the environment card's menu too", () => {
+      loadPanel();
+      const env = {
+        kind: "environment",
+        id: "environment",
+        name: "Contoso",
+        connected: true,
+        url: "https://contoso.crm.dynamics.com",
+        authLabel: "OAuth",
+        switchAction: { label: "Switch", command: "dvpt.switch" },
+        overflow: [{ label: "Clear Stored Credentials", command: "dvpt.clearCreds" }],
+      };
+      postModel({ cards: [env], footer });
+      openOverflow("environment");
+      expect(labels()).toEqual(["Clear Stored Credentials"]);
+      postModel({ cards: [env], footer });
+      expect(labels()).toEqual(["Clear Stored Credentials"]);
+    });
+  });
+
   it("ignores messages that are not the model type", () => {
     loadPanel();
     postModel({ cards: [{ kind: "notice", id: "n1", text: "Real" }], footer });

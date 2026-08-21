@@ -2,7 +2,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
-import { openWorkspaceFolder, loadE2EEnv, freshWorkspace, pickByLabel, dismissOverlays, sleep, answerText, runScopedIdentifier, E2EClient } from "./lib";
+import { openWorkspaceFolder, loadE2EEnv, freshWorkspace, pickByLabel, dismissOverlays, sleep, answerText, expectOutput, clearOutput, runScopedIdentifier, E2EClient } from "./lib";
 import { clickPanelButton, clickOverflowItem, expandComponentCards } from "../supervised/supervisedLib";
 import { initProject, step, showLog } from "./acceptanceLib";
 
@@ -109,12 +109,22 @@ describe("ACCEPTANCE: PCF — build, code, publish via panel buttons", function 
 
   it("restores dependencies + builds the bundle — Restore + Local Build buttons", async () => {
     await step(COMPONENT, "Build (Restore deps + Local Build → out/controls/bundle.js)", async () => {
+      // The system-requirement scan kicked off by project init re-renders the panel on every
+      // progress tick, and each re-render used to close an overflow menu we had just opened —
+      // so the click below could never land while the scan ran (#259). The product now keeps
+      // the menu open across a re-render, but gating on the scan's FINAL line still removes
+      // the overlap rather than relying on the repair. No clearOutput first: the line may
+      // already have been written during init, and it is only ever appended.
+      await expectOutput("Requirement scan complete.", { timeoutMs: 180000, failMarkers: [], step: "requirement scan" });
+
       // pcf build (pcf-scripts) needs node_modules; a user runs Restore dependencies first.
+      await clearOutput();
       await expandComponentCards();
       await clickOverflowItem("Restore dependencies", { timeoutMs: 45000 });
-      // Wait for npm install to land a package-lock (best-effort — the Local Build below fails
-      // clearly if deps are still missing).
-      await pollDeep(workspace, (name) => name === "package-lock.json", 600000);
+      // Gate on the restore's own final line, not on package-lock.json appearing: npm writes
+      // the lockfile mid-install, so polling for it let Local Build start while the restore was
+      // still running, and the two commands interleaved.
+      await expectOutput("Restore Complete.", { timeoutMs: 600000, step: "restore dependencies" });
       await sleep(4000);
       await expandComponentCards();
       await clickPanelButton("Local Build", { timeoutMs: 30000 });
