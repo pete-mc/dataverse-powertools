@@ -7,9 +7,11 @@
 // Two things had to be right for a breakpoint in the PLUGIN to actually be hit, and the old
 // Test-Explorer Debug profile got both wrong:
 //
-//  1. THE DEBUGGER. The generated test project targets .NET **Framework** (net472 today), so the adapter
-//     must be `clr`. `coreclr` cannot debug a .NET Framework process; the session started and symbols
-//     even resolved, but execution never stopped.
+//  1. THE DEBUGGER. The adapter has to match the test project's framework: `clr` for .NET Framework,
+//     `coreclr` for .NET. `coreclr` cannot debug a .NET Framework process; the session started and
+//     symbols even resolved, but execution never stopped. Since #269 a new test project targets
+//     net8.0 (the plug-in multi-targets net462;net8.0), so this resolves to `coreclr` — which is what
+//     lets Replay & debug work off Windows at all. A Framework-pinned project still gets `clr`.
 //  2. THE PROCESS. `dotnet test` does not run tests itself: it spawns a child **testhost** and the tests
 //     run there. A launch config attached to the `dotnet test` driver therefore debugs the wrong process.
 //     `VSTEST_HOST_DEBUG=1` makes the test host wait and print its own process id, which we attach to —

@@ -14,9 +14,14 @@ import { profileFileName } from "../../src/plugins/downloadProfiles";
 // org, a real capture persisted to mbs_pluginprofile, and the replay of that capture.
 //
 // CAPTURE runs on any OS since #264 — it used to shell out to a net48, Windows-only console
-// tool, and this whole file was Windows-gated because of it. Only the REPLAY test below is
-// still Windows-only: it executes the net462 profiler engine directly (the product's own
-// replay goes through the user's DataverseUnitTest project).
+// tool, and this whole file was Windows-gated because of it.
+//
+// The REPLAY test below stays Windows-only, but it is no longer the coverage that matters. It
+// executes MICROSOFT's net462 profiler engine (PluginProfiler.Library) directly — a cross-check
+// against the shipping PRT, not against our code. Since #269 the PRODUCT's replay path runs the
+// generated test under net8.0 on any OS, and that path is covered cross-platform, with no org
+// needed, by replayHarnessNet8.spec.ts. Keep this one as the extra confidence that a profile our
+// capture produced is one Microsoft's own engine also accepts.
 //
 // Self-skipping: needs live creds + dotnet. Deploys a trivial DB plugin (the committed
 // DvptProbe fixture), profiles it, and cleans everything up.
@@ -223,7 +228,7 @@ live("plugin profiler capture -> download -> replay (headless)", () => {
     expect(restored.statecode).toBe(0);
   }, 600000);
 
-  (replayGate ? it : it.skip)("replays the captured profile green (Windows: net462 profiler engine)", async () => {
+  (replayGate ? it : it.skip)("replays the captured profile green through Microsoft's own net462 profiler engine (Windows)", async () => {
     // Execute the replay for real via the same PluginProfiler API the generated test uses,
     // from the PRT tools folder so the net462 profiler engine + its deps resolve (the
     // dep/binding-redirect wrangling a synthetic xunit project needs is out of scope here;

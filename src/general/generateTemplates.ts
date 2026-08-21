@@ -9,6 +9,7 @@ import { restoreDependencies } from "./restoreDependencies";
 import { getProjectTypeActivation } from "../projectTypes/activation";
 import { getTemplateFolderForType } from "../projectTypes/registry";
 import { addPrivateAssetsToWorkflowPackage, ensureReadmePackaging, defaultPluginReadme } from "../plugins/csprojTransforms";
+import { ensureMultiTargetedPluginCsproj } from "../plugins/multiTarget";
 import { activeComponentRoot } from "../components/componentDiscovery";
 import { applyPlaceholders, applyProjectPlaceholders } from "./templateSubstitution";
 
@@ -238,15 +239,17 @@ export async function normalizePluginV3Layout(context: DataversePowerToolsContex
   }
 
   // Pack a README into the plugin NuGet package (suppresses the missing-readme
-  // warning) and keep Microsoft.CrmSdk.Workflow out of the package's dependency
-  // graph (PrivateAssets — `dotnet add package` can't set it).
+  // warning), keep Microsoft.CrmSdk.Workflow out of the package's dependency
+  // graph (PrivateAssets — `dotnet add package` can't set it), and multi-target
+  // net462;net8.0 so the project's TESTS can run without a .NET Framework test
+  // host (#269 — the deployed assembly is still net462 alone).
   const readmePath = path.join(projectDirectory, "README.md");
   if (!fs.existsSync(readmePath)) {
     await fs.promises.writeFile(readmePath, defaultPluginReadme(projectName), "utf8");
   }
   if (fs.existsSync(renamedCsprojPath)) {
     const csproj = await fs.promises.readFile(renamedCsprojPath, "utf8");
-    const patched = ensureReadmePackaging(addPrivateAssetsToWorkflowPackage(csproj));
+    const patched = ensureMultiTargetedPluginCsproj(ensureReadmePackaging(addPrivateAssetsToWorkflowPackage(csproj)));
     if (patched !== csproj) {
       await fs.promises.writeFile(renamedCsprojPath, patched, "utf8");
     }

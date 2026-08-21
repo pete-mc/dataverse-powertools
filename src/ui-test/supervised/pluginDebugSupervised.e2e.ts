@@ -2,7 +2,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
-import { freshWorkspace, answerText, answerFlexible, pickByLabel, resetAllCredentials, runCommand, dismissOverlays, sleep } from "../e2e/lib";
+import { openWorkspaceFolder, freshWorkspace, answerText, answerFlexible, pickByLabel, resetAllCredentials, runCommand, dismissOverlays, sleep } from "../e2e/lib";
 import {
   narrate,
   clickPanelButton,
@@ -82,7 +82,7 @@ describe("SUPERVISED: plugin lifecycle (UI-only, human-assisted)", function () {
   before(async function () {
     workspace = freshWorkspace("supervised-plugin");
     console.log(`\n[supervised] workspace: ${workspace}`);
-    await VSBrowser.instance.openResources(workspace);
+    await openWorkspaceFolder(workspace);
     await VSBrowser.instance.waitForWorkbench();
     await sleep(3500);
     await dismissOverlays();

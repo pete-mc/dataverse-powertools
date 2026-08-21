@@ -392,6 +392,8 @@ export function csharpExtensionInstalled(): boolean {
 
 /** Current byte length of the mirrored extension-output log file (a stable baseline to search
  *  AFTER, so `waitForLogFile` never matches a stale line from an earlier step). 0 if unset/missing. */
+/** Current size of the mirrored log, in BYTES — pair only with waitForLogFile's `sinceByte`, which
+ * slices bytes to match. */
 export function logFileSize(): number {
   const p = process.env.DVPT_TEST_LOG_FILE;
   try {
@@ -422,7 +424,16 @@ export async function waitForLogFile(needle: string | RegExp, opts: { timeoutMs?
   let tail = "";
   for (;;) {
     try {
-      tail = fs.existsSync(p) ? fs.readFileSync(p, "utf8").slice(since) : "";
+      // Slice BYTES, not characters. `sinceByte` comes from logFileSize() → statSync().size, which
+      // is a byte count, but `readFileSync(p, "utf8").slice(n)` slices UTF-16 code units — and the
+      // extension's own log is full of multi-byte characters (✅, —, …, ✓, ✗), each 3 bytes but 1
+      // unit. So the character slice skipped FURTHER than intended, by one character per extra byte,
+      // and silently discarded the very lines being waited for. That is a whole class of phantom
+      // "timed out waiting for X" failures — X had been logged, just before the mis-computed offset.
+      // It was read as product slowness for a long time (#261): a 165-line log already drifts 30
+      // characters, and a full run's log drifts far more.
+      const buffer = fs.existsSync(p) ? fs.readFileSync(p) : Buffer.alloc(0);
+      tail = buffer.subarray(Math.min(since, buffer.length)).toString("utf8");
     } catch {
       /* the extension is mid-append; retry */
     }
@@ -799,6 +810,101 @@ export async function waitForFile(filePath: string, timeoutMs: number, intervalM
  * can't resolve them. Using the OS temp dir isolates the project (test/live does the
  * same, via os.tmpdir()).
  */
+/**
+ * Open a workspace FOLDER and prove it actually attached to the window Selenium drives.
+ *
+ * `VSBrowser.openResources` shells out to a reuse-window call, and on Linux that call used to do
+ * NOTHING (#268): ExTester ran it through VS Code's Node CLI entry point
+ * (`ELECTRON_RUN_AS_NODE=1 <code> cli.js -r <folder> …`), which exits 0, prints nothing, spawns no
+ * lasting process — and never opens the folder. Bisected against invoking the Code binary directly
+ * with the same arguments and the same user-data-dir, which reuses the window correctly; that fix
+ * is applied to ExTester by scripts/patchExtester.mjs.
+ *
+ * The failure was silent in every layer, which is why this assertion still exists after the fix.
+ * `execSync` saw exit 0, `waitForWorkbench()` succeeded because the workbench IS up (just
+ * folder-less), the extension activated, the panel rendered and the connection wizard completed —
+ * and then every path guarded on `vscode.workspace.workspaceFolders` no-opped. The first visible
+ * symptom was "No input box appeared" three steps later, in a different function, because
+ * generateTemplates and both restoreDependencies calls had bailed (two logging "No Template
+ * Found", one only showing a toast).
+ *
+ * The window TITLE is the cheap, reliable signal — VS Code puts the folder name in it, and a
+ * folder-less window is titled just "Visual Studio Code". So: open, then wait for the title to
+ * carry the folder name, retrying the open once before failing with a message that names the
+ * actual problem rather than letting a later step die of a missing prompt. Measured on Linux with
+ * the patch in place, the title carries the folder within ~6s.
+ *
+ * This POLLS on every platform — it is not a Windows no-op. Measured on the Windows e2e host, the
+ * driven window is titled exactly "Visual Studio Code" for the first ~8 SECONDS before the folder
+ * attaches, i.e. transiently indistinguishable from the Linux failure. So the wait earns its keep
+ * twice: it protects Linux against an attach that never happens, and Windows against one that is
+ * merely slow (which a bare `waitForWorkbench()` would have sailed straight past). Cost there is
+ * below measurement noise. Match with `includes`, never a prefix — the title carries an optional
+ * leading editor segment ("file — folder — Visual Studio Code").
+ */
+export async function openWorkspaceFolder(dir: string, timeoutMs: number = 60000): Promise<void> {
+  const folderName = path.basename(dir);
+  const deadline = Date.now() + timeoutMs;
+  let reopened = false;
+  await VSBrowser.instance.openResources(dir);
+  await VSBrowser.instance.waitForWorkbench();
+  for (;;) {
+    let title = "";
+    try {
+      title = await VSBrowser.instance.driver.getTitle();
+    } catch {
+      /* window not ready yet */
+    }
+    if (title.includes(folderName)) {
+      return;
+    }
+    // The folder may have landed in a SECOND window (that is what `code -r` does when it can't
+    // reach the running instance over IPC). Selenium can see those as extra window handles, so
+    // look for one whose title carries the folder name and drive THAT window instead.
+    const driver = VSBrowser.instance.driver;
+    let handles: string[] = [];
+    try {
+      handles = await driver.getAllWindowHandles();
+    } catch {
+      /* session not ready */
+    }
+    if (handles.length > 1) {
+      const current = await driver.getWindowHandle().catch(() => "");
+      for (const handle of handles) {
+        try {
+          await driver.switchTo().window(handle);
+          if ((await driver.getTitle()).includes(folderName)) {
+            await VSBrowser.instance.waitForWorkbench();
+            return;
+          }
+        } catch {
+          /* handle went away */
+        }
+      }
+      if (current) {
+        await driver
+          .switchTo()
+          .window(current)
+          .catch(() => undefined);
+      }
+    }
+    if (Date.now() > deadline) {
+      throw new Error(
+        `Workspace folder "${folderName}" never attached to the driven window (title: "${title}", ${handles.length} window handle(s)). ` +
+          `The reuse-window call did not open it. On Linux that is #268 — check scripts/patchExtester.mjs still applies ` +
+          `(it warns loudly when vscode-extension-tester changes shape and it can no longer patch \`CodeUtil.open\`).`,
+      );
+    }
+    // One re-issue: the IPC may simply have lost the race with the workbench coming up.
+    if (!reopened && Date.now() > deadline - timeoutMs / 2) {
+      reopened = true;
+      await VSBrowser.instance.openResources(dir);
+      await VSBrowser.instance.waitForWorkbench();
+    }
+    await sleep(1000);
+  }
+}
+
 export function freshWorkspace(name: string): string {
   const base = path.join(os.tmpdir(), "dvpt-e2e");
   let dir = path.join(base, name);

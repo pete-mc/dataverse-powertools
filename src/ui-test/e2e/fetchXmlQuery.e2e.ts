@@ -3,6 +3,8 @@ import * as fs from "fs";
 import { expect } from "chai";
 import { By, Key, TextEditor, VSBrowser, WebElement, WebView } from "vscode-extension-tester";
 import {
+  runCommandResilient,
+  openWorkspaceFolder,
   loadE2EEnv,
   freshWorkspace,
   answerText,
@@ -225,7 +227,7 @@ namespace DvptQueryProbe
     fs.writeFileSync(csharpPath(), CSHARP_SOURCE, "utf8");
     fs.writeFileSync(tsPath(), TS_SOURCE, "utf8");
 
-    await VSBrowser.instance.openResources(workspace);
+    await openWorkspaceFolder(workspace);
     await VSBrowser.instance.waitForWorkbench();
     await sleep(3500);
     await dismissOverlays();
@@ -401,8 +403,25 @@ namespace DvptQueryProbe
   });
 
   it("clears the metadata cache", async () => {
+    // Close everything FIRST. This is the last step in the suite, and it inherits an editor holding
+    // the generator webview plus a C# file thick with CodeLenses. With those open the command
+    // palette never becomes visible: runCommandResilient burned all four attempts, each dying on
+    // Selenium's "Waiting until element is visible" after ~5s, so the command never ran at all.
+    // pluginProfilerReplay hit precisely this and documents the same remedy — close everything, then
+    // act. `dismissOverlays()` alone is not enough; the editors themselves are the problem.
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    const { EditorView } = require("vscode-extension-tester");
+    await new EditorView().closeAllEditors().catch(() => undefined);
+    await sleep(1500);
+    await dismissOverlays();
     await clearOutput();
-    await runCommand("Dataverse PowerTools: Clear Dataverse Metadata Cache");
+    // Resilient, not bare: this is the LAST step, and everything before it — the generator
+    // round-trip, the CodeLens reads, the re-detection — leaves the window without keyboard focus
+    // often enough that the palette keystroke lands nowhere and executeCommand dies with
+    // "element not visible" after 5s. That is the exact failure runCommandResilient documents and
+    // retries (focus the workbench, dismiss overlays, try again); a bare runCommand has no answer
+    // to it, and this step failed that way on two consecutive full Linux runs.
+    await runCommandResilient("Dataverse PowerTools: Clear Dataverse Metadata Cache");
     await expectOutput(["[Query] Metadata cache cleared."], { step: "clear metadata cache", timeoutMs: 60000 });
     await assertCommandDidNotError("clear metadata cache");
   });

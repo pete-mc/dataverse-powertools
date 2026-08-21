@@ -2,7 +2,20 @@ import * as path from "path";
 import * as fs from "fs";
 import { expect } from "chai";
 import { Key, VSBrowser } from "vscode-extension-tester";
-import { runScopedName, loadE2EEnv, freshWorkspace, answerText, pickByLabel, waitForFile, dismissOverlays, sleep, expectOutput, clearOutput, E2EClient } from "./lib";
+import {
+  openWorkspaceFolder,
+  runScopedName,
+  loadE2EEnv,
+  freshWorkspace,
+  answerText,
+  pickByLabel,
+  waitForFile,
+  dismissOverlays,
+  sleep,
+  expectOutput,
+  clearOutput,
+  E2EClient,
+} from "./lib";
 import { clickPanelButton, clickOverflowItem, expandComponentCards } from "../supervised/supervisedLib";
 import { initProject, step, showLog } from "./acceptanceLib";
 
@@ -89,7 +102,7 @@ describe("ACCEPTANCE: Custom API — define, deploy and execute via panel button
     await client.connect();
     solutionFriendlyName = (await client.getSolutionFriendlyName(env!.solutionName)) ?? env!.solutionName;
     workspace = freshWorkspace("acc-customapi");
-    await VSBrowser.instance.openResources(workspace);
+    await openWorkspaceFolder(workspace);
     await VSBrowser.instance.waitForWorkbench();
     await sleep(3500);
     await dismissOverlays();

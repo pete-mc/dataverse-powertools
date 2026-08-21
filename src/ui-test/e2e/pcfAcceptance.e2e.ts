@@ -2,7 +2,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
-import { loadE2EEnv, freshWorkspace, pickByLabel, dismissOverlays, sleep, E2EClient } from "./lib";
+import { openWorkspaceFolder, loadE2EEnv, freshWorkspace, pickByLabel, dismissOverlays, sleep, E2EClient } from "./lib";
 import { clickPanelButton, clickOverflowItem, expandComponentCards } from "../supervised/supervisedLib";
 import { initProject, step, showLog } from "./acceptanceLib";
 
@@ -75,7 +75,7 @@ describe("ACCEPTANCE: PCF — build, code, publish via panel buttons", function 
     await client.connect();
     solutionFriendlyName = (await client.getSolutionFriendlyName(env!.solutionName)) ?? env!.solutionName;
     workspace = freshWorkspace("acc-pcf");
-    await VSBrowser.instance.openResources(workspace);
+    await openWorkspaceFolder(workspace);
     await VSBrowser.instance.waitForWorkbench();
     await sleep(3500);
     await dismissOverlays();

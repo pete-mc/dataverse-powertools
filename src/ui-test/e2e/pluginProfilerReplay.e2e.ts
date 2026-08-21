@@ -4,6 +4,7 @@ import { spawnSync } from "child_process";
 import { expect } from "chai";
 import { VSBrowser } from "vscode-extension-tester";
 import {
+  openWorkspaceFolder,
   loadE2EEnv,
   freshWorkspace,
   answerText,
@@ -42,10 +43,16 @@ import { initProject, step, showLog } from "./acceptanceLib";
 //                       This end-to-end proves profiling now works for the extension's PACKAGE plugins
 //                       (#208) AND that a captured run replays back through the plugin (#210).
 // The click window is gated on the extension's log FILE (waitForLogFile), not Selenium polling, so
-// the session survives on the 8GB VM. Self-skips off Windows and without live creds. See TESTING.md.
+// the session survives on a small box. Self-skips without live creds. See TESTING.md.
+//
+// This suite used to self-skip off Windows too, because the scaffolded test project targeted .NET
+// Framework: `dotnet test` needed a Framework test host, and the debugger had to attach with `clr`.
+// #269 removed both — the plug-in multi-targets net462;net8.0, so the test project is net8.0 and
+// `debugTypeForFramework` resolves to `coreclr`. The DEBUG steps still self-skip without the C#
+// extension (`npm run test:e2e:debugger` installs it), on every OS, because `coreclr` is the type
+// IT contributes.
 const COMPONENT = "Plugin";
 let breakpointLine = 0;
-const isWindows = process.platform === "win32";
 
 /** First file anywhere under dir (recursive, skips obj) whose name matches, polled until found. */
 async function waitForMatchDeep(dir: string, predicate: (name: string) => boolean, timeoutMs: number): Promise<string | undefined> {
@@ -192,14 +199,14 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
   }
 
   before(async function () {
-    if (!env || !isWindows) {
+    if (!env) {
       this.skip();
     }
     client = new E2EClient(env!);
     await client.connect();
     solutionFriendlyName = (await client.getSolutionFriendlyName(env!.solutionName)) ?? env!.solutionName;
     workspace = freshWorkspace("dbg-profiler");
-    await VSBrowser.instance.openResources(workspace);
+    await openWorkspaceFolder(workspace);
     await VSBrowser.instance.waitForWorkbench();
     await sleep(3500);
     await dismissOverlays();
@@ -772,11 +779,20 @@ describe("DEBUGGING: Plugin — profile capture → replay → execute via panel
 
       const startBaseline = logFileSize();
       const beforeText = await clickProfileLens();
+      // TWO gates, not one (#261). The toggle now logs the moment it begins, so a click that never
+      // landed fails here in seconds with an unambiguous message — instead of being indistinguishable
+      // from a slow org for six minutes and then failing on the completion gate, which is exactly how
+      // #261 read. Only once we KNOW the command started do we wait out the org.
+      // Both gates are modest on purpose. The 360s/300s budgets this step used to carry were
+      // chasing a phantom: waitForLogFile was slicing UTF-16 units off a BYTE offset, so it read
+      // past lines that were already in the file, and no budget could ever have been large enough.
+      // With that fixed (see waitForLogFile), the real numbers are small — measured here, the
+      // command is acknowledged immediately and a full toggle finishes in 1-2s.
+      await waitForLogFile("[Profiler] Toggle requested on line", { timeoutMs: 60000, sinceByte: startBaseline });
       // The TOGGLE path logs "Profiling ON" — "Started profiling" belongs to the capture path, and
       // waiting for it timed out while profiling was in fact on (the #240 lesson, again).
-      // See the note on the trace-level wait above: at the tail of a full run this line arrived at ~3
-      // minutes, just past the old 180s deadline.
-      await waitForLogFile("[Profiler] Profiling ON for", { timeoutMs: 360000, sinceByte: startBaseline });
+      // `[Profiler] Toggle finished in Ns.` in the log is what to read if this ever needs revisiting.
+      await waitForLogFile("[Profiler] Profiling ON for", { timeoutMs: 120000, sinceByte: startBaseline });
       // The LABEL must flip, not just the org state: a lens that still reads "Profile: Off" while
       // profiling is on is the half of #251 you could actually see, and it needed the provider to fire
       // onDidChangeCodeLenses after the toggle settles. Assert it before the screenshot — the previous

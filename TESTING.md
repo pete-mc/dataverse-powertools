@@ -111,22 +111,39 @@ to confirm the two flows actually work; run before every release.
 
 `src/ui-test/e2e/*.e2e.ts` drives the **real VS Code window** (wizard clicks, quick
 picks, commands) via Selenium. Because Selenium types into whatever window has focus,
-this must run on a desktop nothing else is using — otherwise stray keystrokes corrupt
-the run (a client id lands in the URL field, etc.). **Run it in an isolated Windows VM**,
-never on your working desktop:
+this must run on a display nothing else is using — otherwise stray keystrokes corrupt
+the run (a client id lands in the URL field, etc.).
 
-1. Fresh Windows VM (VMware/Hyper-V). Install the toolchain once:
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File scripts\setup-vm-e2e.ps1
+**On Linux, `xvfb` gives the run its own X display, so no dedicated machine is needed** —
+this is the supported path, and you can keep working on your desktop while it runs:
+
+1. Install the toolchain once (Node, .NET SDK, pac, Edge, xvfb, unzip):
+   ```bash
+   bash scripts/setup-linux-e2e.sh
    ```
-   (Node, .NET SDK, .NET Framework 4.x dev pack, Git, pac.) webpack/jest/typescript are
-   **not** needed globally — every project installs them locally and the extension runs
-   them via `npx`.
-2. Clone this repo in the VM and copy your gitignored `sandbox/.env` into it (never
-   commit it). For the interactive suites, also set `DVPT_TEST_USERNAME` /
-   `DVPT_TEST_PASSWORD` to an **MFA-exempt** test user in `sandbox/.env`.
-3. `npm install`, then `npm run test:e2e`. Keep the VM logged in and the console visible
-   — Selenium needs an interactive desktop. Self-skips without `sandbox/.env`.
+   webpack/jest/typescript are **not** needed globally — every project installs them
+   locally and the extension runs them via `npx`.
+2. Copy your gitignored `sandbox/.env` into the repo (never commit it). For the
+   interactive suites, also set `DVPT_TEST_USERNAME` / `DVPT_TEST_PASSWORD` to an
+   **MFA-exempt** test user in `sandbox/.env`.
+3. `npm install`, then **`npm run test:e2e:headless`** (`test:e2e` under `xvfb-run`).
+   Self-skips without `sandbox/.env`.
+
+`npm run test:ui:headless` and `npm run test:integration:headless` do the same for the
+other two display-bound suites.
+
+**Windows still works** — `scripts/setup-vm-e2e.ps1` provisions a VM and `npm run test:e2e`
+runs there — but it needs a machine nobody else is using, which is the only reason the VM
+ever existed. Prefer Linux + `xvfb`.
+
+> **Two Linux-only traps, both fixed in `scripts/patchExtester.mjs` (applied on postinstall).**
+> ExTester's `openResources()` went through VS Code's Node CLI entry point, which on Linux exits 0
+> and silently does **nothing** — leaving Selenium driving a folder-less window, so every
+> extension path guarded on `workspace.workspaceFolders` no-opped and the first symptom was a
+> missing prompt three steps later (#268). And its ChromeDriver version lookup fetched from
+> `raw.githubusercontent.com` outside the try/catch holding its own offline fallback, so a GitHub
+> outage failed runs that had everything already cached (#270). Both patches shout if
+> vscode-extension-tester changes shape and they no longer apply — do not ignore that warning.
 
 The suite is `*.e2e.ts` (not the CI `*.test.js` glob), so it stays out of CI.
 
@@ -158,7 +175,7 @@ The suite is `*.e2e.ts` (not the CI `*.test.js` glob), so it stays out of CI.
   → open the live app in a browser and confirm the DEPLOYED code runs → **Debug Web Resources**
   locally + edit source and confirm hot reload. Steps 7–8 drive a real browser (CDP) and need
   the interactive user; they self-skip without it.
-- `pluginProfilerReplay` (Windows-only — the *debugger attach* is `clr`) — the plug-in **Debugging** block end to end: scaffold a
+- `pluginProfilerReplay` — the plug-in **Debugging** block end to end: scaffold a
   Plugins project + xUnit test project, write a plug-in registered on **Create of territory**, Build
   & deploy it, assert the step is discoverable as **profilable** live (guards the
   `getProfilableSteps` server-side assembly filter — a busy org has 200+ system steps), then
@@ -185,7 +202,7 @@ same five steps with ten log gates instead of none.
 | `webresourceInteractiveLifecycle` | The web-resource flow under **OAuth** | MSAL cache |
 | `pluginAcceptance` | Plugin scaffold → **early-bound** → build → deploy via buttons (#129/#130) | — |
 | `pluginInteractiveLifecycle` | The plugin flow under **OAuth** | MSAL cache |
-| `pluginProfilerReplay` | Capture → replay → **debugger pause**, trace log | Windows, C# ext |
+| `pluginProfilerReplay` | Capture → replay → **debugger pause**, trace log | C# ext |
 | `pcfAcceptance` | PCF scaffold → build → push | — |
 | `pcfInteractiveLifecycle` | PCF under **OAuth**, incl. the pac **device-code** sign-in (#227) | MSAL cache, browser |
 | `customApiLifecycle` | Custom API define → deploy → **execute** → update/delete reconcile | — |
@@ -194,11 +211,17 @@ same five steps with ten log gates instead of none.
 | `solutionAcceptance` | Solution pack/import | — |
 | `configRefresh` | Stale-config detection and refresh | — |
 
-Only `pluginProfilerReplay` is genuinely Windows-only, and only for the **replay/debugger** half —
-it attaches with `clr`. Profile *capture* stopped being Windows-only in #264 (it is Web API calls
-now, not a net48 tool). Everything else is cross-platform and is a candidate for a Linux CI
-job under `xvfb` — the ones marked "MSAL cache" need `DVPT_TEST_USERNAME`/`PASSWORD` for the seeding
-launcher, and self-skip without them.
+**No suite is Windows-only any more.** Profile *capture* stopped being Windows-only in #264 (Web API
+calls, not a net48 tool), and *replay* stopped in #269: the plug-in project multi-targets
+`net462;net8.0`, so the generated test runs under `dotnet test` with no .NET Framework test host and
+`debugTypeForFramework` resolves to `coreclr` — which is what lets `pluginProfilerReplay` attach off
+Windows. Every suite is a candidate for a Linux CI job under `xvfb`; the ones marked "MSAL cache"
+need `DVPT_TEST_USERNAME`/`PASSWORD` for the seeding launcher and self-skip without them.
+
+The one thing still genuinely Windows-only is a **cross-check**, not a product path: the replay step
+in `test/live/pluginProfilerCaptureLifecycle.spec.ts` executes *Microsoft's* net462 profiler engine
+directly. The product's own replay path is covered on any OS, with no org, by
+`test/live/replayHarnessNet8.spec.ts`.
 
 ### Name anything you create in the shared org
 
@@ -209,10 +232,10 @@ The same trap already bit *within* a run: every web-resource suite deploys `{pre
 "the web resource exists" was satisfied by another suite's row and proved nothing (#249).
 
 **Known limit.** A web resource's name comes from the publisher prefix in the project settings, not
-from the suite, so `runScopedName` cannot reach it — those suites stay VM-only until a per-run prefix
-is plumbed through the wizard, and the CI workflow excludes them for that reason.
+from the suite, so `runScopedName` cannot reach it — those suites stay developer-machine-only until a
+per-run prefix is plumbed through the wizard, and the CI workflow excludes them for that reason.
 
-**VM hygiene (the box is ~8GB).** ExTester + the net8 typings fetch + webpack + a browser is
+**Host hygiene (matters most on a small box, ~8GB).** ExTester + the net8 typings fetch + webpack + a browser is
 near the memory ceiling, and orphans accumulate across runs. If a run starts cascading
 (`ECONNREFUSED` to the webdriver, a blank Debug step, or a typings/build timeout that normally
 passes), suspect memory — **reap orphaned processes and re-run**:
