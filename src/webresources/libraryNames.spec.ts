@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { webresourceLibraryName, candidateLibraryNames, defaultLibraryBaseName, libraryBaseFor, DEFAULT_LIBRARY_BASE } from "./libraryNames";
+import { webresourceLibraryName, candidateLibraryNames, defaultLibraryBaseName, libraryBaseFor, isValidLibraryBase, DEFAULT_LIBRARY_BASE } from "./libraryNames";
 
 describe("webresourceLibraryName", () => {
   it("bundle mode maps every source file to the bundled library", () => {
@@ -66,6 +66,31 @@ describe("configurable bundle name (#258)", () => {
     it("strips what a web-resource name cannot carry, and falls back if nothing survives", () => {
       expect(defaultLibraryBaseName("my-forms")).toBe("myforms");
       expect(defaultLibraryBaseName("---")).toBe("library");
+    });
+  });
+
+  // Backs the scaffold prompt's validateInput: reject as the user types rather than silently
+  // sanitising into a name they didn't choose and won't recognise in the maker portal.
+  describe("isValidLibraryBase", () => {
+    it("accepts what survives sanitising unchanged", () => {
+      expect(isValidLibraryBase("library")).toBe(true);
+      expect(isValidLibraryBase("account_forms")).toBe(true);
+      expect(isValidLibraryBase("Grid2")).toBe(true);
+    });
+
+    it("rejects anything that would be silently rewritten", () => {
+      expect(isValidLibraryBase("")).toBe(false);
+      expect(isValidLibraryBase("my grid")).toBe(false);
+      expect(isValidLibraryBase("my-grid")).toBe(false);
+      expect(isValidLibraryBase("grid.js")).toBe(false);
+    });
+
+    it("accepts every name the scaffold would suggest", () => {
+      // The prompt is prefilled with the suggestion, so a suggestion its own validator rejects
+      // would present as an error box the user has to fix before they can continue.
+      for (const folder of ["", "controls", "account-forms", "2fast", "---", "src/deep/nested"]) {
+        expect(isValidLibraryBase(defaultLibraryBaseName(folder)), folder).toBe(true);
+      }
     });
   });
 

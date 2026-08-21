@@ -5,7 +5,7 @@ import { ProjectTypes, getProjectTypeDescriptor, projectTypeRegistry } from "./r
 import { runForComponent } from "../components/componentDiscovery";
 import { runTracked } from "../panel/operationTracker";
 import { initialiseWebresources } from "../webresources/initialiseWebresources";
-import { defaultLibraryBaseName } from "../webresources/libraryNames";
+import { defaultLibraryBaseName, isValidLibraryBase } from "../webresources/libraryNames";
 import { initialiseSolutions } from "../solution/initialiseSolutions";
 import { initialisePortals } from "../portals/initialisePortals";
 import { initialisePlugins } from "../plugins/initialisePlugins";
@@ -217,7 +217,24 @@ export const projectTypeActivations: Record<ProjectTypes, ProjectTypeActivation>
       // root keeps "library" so existing projects are untouched, while a sub-component takes its
       // folder name so two web-resource components stop deploying over each other's
       // {prefix}_library.js. Renaming an existing component's would orphan a deployed resource.
-      context.projectSettings.webresourceLibraryName = defaultLibraryBaseName(context.activeComponent?.relativeRoot ?? "");
+      const suggested = defaultLibraryBaseName(context.activeComponent?.relativeRoot ?? "");
+      // Only worth asking in bundle mode — per-file names come from the source filenames. The
+      // setting is still recorded either way, so it's already right if the user switches modes.
+      if (context.projectSettings.webresourceOutput === "bundle") {
+        const prefix = context.projectSettings.prefix ?? "<prefix>";
+        const answer = await vscode.window.showInputBox({
+          title: "Web resource bundle name",
+          prompt: `The built library deploys as ${prefix}_<name>.js. Give each component its own name so they don't overwrite each other.`,
+          value: suggested,
+          ignoreFocusOut: true,
+          validateInput: (v) => (isValidLibraryBase(v.trim()) ? undefined : "Letters, digits and underscores only."),
+        });
+        // Escaping keeps the suggestion rather than falling back to the shared "library" — the
+        // value is shown prefilled, and reverting would reintroduce the collision.
+        context.projectSettings.webresourceLibraryName = answer?.trim() || suggested;
+      } else {
+        context.projectSettings.webresourceLibraryName = suggested;
+      }
       await context.writeSettings();
     },
     commands: {

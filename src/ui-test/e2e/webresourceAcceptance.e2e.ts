@@ -16,7 +16,6 @@ import {
   waitForLogFile,
   logFileSize,
   runScopedName,
-  setComponentSetting,
 } from "./lib";
 import { clickPanelButton, clickOverflowItem, expandComponentCards } from "../supervised/supervisedLib";
 import { initProject, step, showLog } from "./acceptanceLib";
@@ -66,12 +65,10 @@ describe("ACCEPTANCE: Web Resource — build, code, register, publish via panel 
     await step(COMPONENT, "Start project (Initialise button)", async () => {
       await initProject("Web Resources", env!, solutionFriendlyName, async () => {
         await pickByLabel("Single bundled library (recommended)", 600000); // output mode (restores run first)
+        await answerText(LIBRARY_BASE); // bundle name (#258) — run-scoped so suites/runs don't share a resource
         await pickByLabel("No", 600000); // "create a new webresource?" — restores + typings run first
       });
       expect(await waitForFile(path.join(workspace, "dataverse-powertools.json"), 300000), "project scaffolded").to.equal(true);
-      // Give this run its own bundle name before anything builds (#258) — webpack.common.js reads
-      // it from dataverse-powertools.json at build time, so this is the only step needed.
-      setComponentSetting(workspace, "webresourceLibraryName", LIBRARY_BASE);
       return "Web Resources project scaffolded + connected (service principal)";
     });
   });
