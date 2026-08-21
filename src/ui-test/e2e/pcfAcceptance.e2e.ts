@@ -55,6 +55,10 @@ describe("ACCEPTANCE: PCF — build, code, publish via panel buttons", function 
   let solutionFriendlyName: string;
   let client: E2EClient;
 
+  // NOT run-scoped (#258). `pac pcf init` is invoked without --namespace/--name
+  // (src/pcf/pcfArgs.ts), so EVERY control the extension scaffolds is SampleNamespace.SampleControl
+  // — which means the two PCF suites collide with each other within a single run, not just across
+  // runs. Scoping needs the product to pass those flags.
   /** Namespace + constructor from the scaffolded control manifest (for the deployed bundle name). */
   function manifest(): { namespace: string; constructor: string } {
     const file = findDeep(workspace, (name) => name === "ControlManifest.Input.xml");

@@ -17,6 +17,7 @@ import {
   dismissOverlays,
   sleep,
   E2EClient,
+  runScopedIdentifier,
 } from "./lib";
 import { resetAllCredentials, assertSourceMapBindsBreakpoints } from "./lib";
 
@@ -31,7 +32,10 @@ import { resetAllCredentials, assertSourceMapBindsBreakpoints } from "./lib";
 describe("Web resources lifecycle — per-file output (e2e)", function () {
   this.timeout(900000);
   const env = loadE2EEnv();
-  const className = "E2EPerFile";
+  // Scoped per run (#258): in per-file output mode the deployed web resource is
+  // `{prefix}_{className}.js`, so the class name is what keeps two overlapping runs from
+  // deploying over each other's row — and from each cleaning up the other's.
+  const className = runScopedIdentifier("E2EPerFile");
   let workspace: string;
   let solutionFriendlyName: string;
   let formId = "";

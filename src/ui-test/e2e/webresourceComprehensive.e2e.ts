@@ -67,6 +67,11 @@ describe("Web resources — comprehensive UI lifecycle (e2e)", function () {
   function libraryName(): string {
     try {
       const settings = JSON.parse(fs.readFileSync(path.join(workspace, "dataverse-powertools.json"), "utf8"));
+      // NOT run-scoped (#258). In bundle output mode the deployed name is `{prefix}_library.js`, and
+      // BOTH halves are fixed: the prefix is inferred from the chosen solution's publisher (an invented
+      // one would be rejected by Dataverse), and "library" is hardcoded by the product — in
+      // src/webresources/libraryNames.ts and in templates/webresources/webpack.common.js. Scoping this
+      // therefore needs a configurable bundle name in the product, not a change here.
       return `${settings.prefix}_library.js`;
     } catch {
       return `${env?.prefix}_library.js`;

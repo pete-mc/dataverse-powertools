@@ -10,6 +10,7 @@ import { VSBrowser, Workbench, InputBox, BottomBarPanel, Key, ModalDialog } from
 // The SAME lookups the product uses. Keeping a second copy here is what let the product and the test
 // agree on a wrong assumption about how Dataverse stores a name, so a working push read as broken.
 import { customControlLookup, pluginTraceLogLookup, pickMatchingRow } from "../../general/dataverse/rowLookups";
+import { scopedName, scopedIdentifier, profilerStepDisposition } from "./fixtureNames";
 
 export const repoRoot = path.resolve(__dirname, "..", "..", "..");
 
@@ -76,10 +77,16 @@ export function runId(): string {
   return process.env.DVPT_E2E_RUN_ID || "local";
 }
 
-/** `base` with this run's id appended, for fixtures that live in the shared environment. */
+/** `base` with this run's id appended, for fixtures that live in the shared environment.
+ * The rules live in fixtureNames.ts so they can be unit-tested outside an ExTester run (#258). */
 export function runScopedName(base: string): string {
-  const id = runId();
-  return id === "local" ? base : `${base}${id}`;
+  return scopedName(base, runId());
+}
+
+/** As `runScopedName`, for a fixture whose name also has to compile as a C#/TypeScript
+ * identifier — a plug-in project/namespace/class, or a web-resource class (#258). */
+export function runScopedIdentifier(base: string): string {
+  return scopedIdentifier(base, runId());
 }
 
 /** Remove onboarding/notification/modal overlays that intercept clicks. */
@@ -1132,25 +1139,42 @@ export class E2EClient {
     return reactivated;
   }
 
-  async cleanupProfilerSteps(entityLogicalName: string): Promise<number> {
+  /**
+   * Delete the profiler's clone steps on an entity.
+   *
+   * `ownedMarker` scopes the sweep to THIS run (#258): the clone's name is the original step's
+   * name plus " (Profiler)", so a run id in the registered step name is still there on the clone.
+   * Without it this deleted every profiler step on the entity whoever created it — so a run
+   * finishing would delete a concurrent run's live clone mid-capture.
+   *
+   * Foreign clones are counted and returned rather than silently ignored: one left behind keeps
+   * firing on every create in the shared org, so it needs to be VISIBLE in the log even though
+   * deleting it is not this run's business.
+   */
+  async cleanupProfilerSteps(entityLogicalName: string, ownedMarker?: string): Promise<{ deleted: number; foreign: number }> {
     const filter = `sdkmessagefilterid/primaryobjecttypecode eq '${entityLogicalName.replace(/'/g, "''")}'`;
     const res = await this.request("GET", `sdkmessageprocessingsteps?$select=name,sdkmessageprocessingstepid&$expand=plugintypeid($select=typename)&$filter=${filter}`);
     if (!res.ok) {
-      return 0;
+      return { deleted: 0, foreign: 0 };
     }
     const rows: any[] = ((await res.json()) as any).value ?? [];
     let deleted = 0;
+    let foreign = 0;
     for (const s of rows) {
-      const typeName = (s.plugintypeid?.typename as string) ?? "";
-      const name = (s.name as string) ?? "";
-      if (/ProfilerPlugin/.test(typeName) || /\((Profiler|Profiled)\)\s*$/.test(name)) {
-        const del = await this.request("DELETE", `sdkmessageprocessingsteps(${s.sdkmessageprocessingstepid})`);
-        if (del.ok || del.status === 204) {
-          deleted++;
-        }
+      const disposition = profilerStepDisposition((s.name as string) ?? "", (s.plugintypeid?.typename as string) ?? "", ownedMarker);
+      if (disposition === "keep") {
+        continue;
+      }
+      if (disposition === "foreign") {
+        foreign++;
+        continue;
+      }
+      const del = await this.request("DELETE", `sdkmessageprocessingsteps(${s.sdkmessageprocessingstepid})`);
+      if (del.ok || del.status === 204) {
+        deleted++;
       }
     }
-    return deleted;
+    return { deleted, foreign };
   }
 
   /**
