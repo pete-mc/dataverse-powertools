@@ -73,6 +73,7 @@ describe("Config refresh (#113) — repairs stale config and rebuilds (e2e)", fu
     await answerFlexible(env!.url);
     await pickByLabel(solutionFriendlyName);
     await pickByLabel("Single bundled library (recommended)", 600000);
+    await answerText("library"); // bundle name (#258) — this suite never deploys, so the default is fine
     await pickByLabel("No", 600000); // create a webresource? — restores run first
     await sleep(4000);
     await dismissOverlays();

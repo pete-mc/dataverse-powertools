@@ -20,7 +20,6 @@ import {
   sleep,
   E2EClient,
   runScopedName,
-  setComponentSetting,
 } from "./lib";
 import { resetAllCredentials, shot, shotEditorHalf, SIDE_BY_SIDE_HALF } from "./lib";
 import {
@@ -140,15 +139,13 @@ describe("Web resources — comprehensive UI lifecycle (e2e)", function () {
     await pickByLabel(solutionFriendlyName);
     log("output mode prompt");
     await pickByLabel("Single bundled library (recommended)", 600000); // output mode (#88) — restores run first
+    await answerText(LIBRARY_BASE); // bundle name (#258) — run-scoped so suites/runs don't share a resource
     log("waiting for restore + create-webresource prompt");
     await pickByLabel("No", 600000); // "create a new webresource?" — npm restore runs first
     await sleep(4000);
     await dismissOverlays();
 
     expect(await waitForFile(path.join(workspace, "dataverse-powertools.json"), 60000), "dataverse-powertools.json").to.equal(true);
-    // Give this run its own bundle name before anything builds (#258) — webpack.common.js reads
-    // it from dataverse-powertools.json at build time, so this is the only step needed.
-    setComponentSetting(workspace, "webresourceLibraryName", LIBRARY_BASE);
     // #78: the old Windows-only nuget XrmDefinitelyTyped.exe must NOT be restored any more.
     expect(fs.existsSync(path.join(workspace, "packages", "Delegate.XrmDefinitelyTyped")), "old XrmDefinitelyTyped nuget should be gone").to.equal(false);
   });

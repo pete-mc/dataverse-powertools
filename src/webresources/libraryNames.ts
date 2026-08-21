@@ -35,6 +35,13 @@ export function defaultLibraryBaseName(relativeRoot: string): string {
   return sanitised || DEFAULT_LIBRARY_BASE;
 }
 
+/** Whether `value` is usable as a bundle base name — i.e. survives sanitising unchanged.
+ * Used by the scaffold prompt's `validateInput` so a name is rejected while it is being typed
+ * rather than silently sanitised into something else at build time. */
+export function isValidLibraryBase(value: string): boolean {
+  return value.length > 0 && sanitiseLibraryBase(value) === value;
+}
+
 /** The configured bundle base for a component, falling back to the historical `library`. */
 export function libraryBaseFor(settings: { webresourceLibraryName?: string } | undefined): string {
   const configured = sanitiseLibraryBase(settings?.webresourceLibraryName ?? "");
