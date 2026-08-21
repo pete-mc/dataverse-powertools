@@ -5,6 +5,7 @@ import { DataverseWebresource } from "../general/dataverse/DataverseWebresource"
 import { runWebresourceBuild } from "./webpackBuild";
 import { saveFormDataExec } from "./saveFormData";
 import { activeComponentRoot } from "../components/componentDiscovery";
+import { webresourceCollisionsInWorkspace } from "./switchLibraryName";
 
 export async function deployWebresources(context: DataversePowerToolsContext) {
   await vscode.window.withProgress(
@@ -100,6 +101,25 @@ export async function deploy(context: DataversePowerToolsContext, options?: { pu
         if (filesToDeploy.length === 0) {
           vscode.window.showWarningMessage("No built webresources found in the bin folder.");
           return;
+        }
+
+        // Two components deploying the same name means whichever runs second silently replaces the
+        // first — no error, and the loser only notices when their code stops running (#258). New
+        // components get distinct names at scaffold, but anything created before that doesn't, so
+        // say something at the point the overwrite would actually happen.
+        const prefix = context.projectSettings.prefix;
+        if (prefix) {
+          const collisions = webresourceCollisionsInWorkspace(context, prefix);
+          for (const collision of collisions) {
+            context.channel.appendLine(
+              `Warning: ${collision.name} is deployed by more than one component in this workspace (${collision.components.map((c) => c || "<root>").join(", ")}) — they overwrite each other.`,
+            );
+          }
+          if (collisions.length > 0) {
+            vscode.window.showWarningMessage(
+              `${collisions.length} web resource name(s) are claimed by more than one component and will overwrite each other. Use "Change Web Resource Bundle Name" to give each its own.`,
+            );
+          }
         }
 
         let deployedCount = 0;

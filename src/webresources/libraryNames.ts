@@ -63,13 +63,116 @@ export function webresourceLibraryName(prefix: string, output: "bundle" | "perFi
  * The registration cleanup may only delete handlers whose library is in this
  * set — never another solution's — and covering both modes means leftovers
  * from a mode switch are cleaned up too. */
-export function candidateLibraryNames(prefix: string, sourceFilePaths: string[], bundleBase: string = DEFAULT_LIBRARY_BASE): Set<string> {
-  // Both the CONFIGURED bundle name and the historical `library`: a project that renames its
-  // bundle still has handlers pointing at the old name, and those are ours to clean up. Missing
-  // the old name would strand them on a web resource that no longer gets deployed.
-  const names = new Set([`${prefix}_${sanitiseLibraryBase(bundleBase) || DEFAULT_LIBRARY_BASE}.js`, `${prefix}_${DEFAULT_LIBRARY_BASE}.js`]);
+export function candidateLibraryNames(prefix: string, sourceFilePaths: string[], bundleBase: string = DEFAULT_LIBRARY_BASE, previousBases: string[] = []): Set<string> {
+  // The CONFIGURED bundle name, the historical `library`, and any name this component previously
+  // deployed under: a renamed bundle still has handlers pointing at the old name, and those are
+  // ours to clean up. Missing one strands its handlers on a web resource nobody deploys.
+  const names = new Set([
+    `${prefix}_${sanitiseLibraryBase(bundleBase) || DEFAULT_LIBRARY_BASE}.js`,
+    `${prefix}_${DEFAULT_LIBRARY_BASE}.js`,
+    ...previousBases.map((base) => `${prefix}_${sanitiseLibraryBase(base) || DEFAULT_LIBRARY_BASE}.js`),
+  ]);
   for (const file of sourceFilePaths) {
     names.add(webresourceLibraryName(prefix, "perFile", file));
   }
   return names;
+}
+
+/**
+ * The part of a source path below `webresources_src` — `Account.ts`, `sub/Thing.ts`.
+ *
+ * Falls back to the bare filename when there is no `webresources_src` segment, so a path we can't
+ * place is treated as top-level (i.e. buildable). The callers use this to decide what to SKIP, and
+ * skipping a registration we merely failed to classify would be worse than processing it.
+ */
+export function pathBelowSourceRoot(sourceFilePath: string): string {
+  const normalised = sourceFilePath.replace(/\\/g, "/");
+  const marker = "/webresources_src/";
+  const index = normalised.lastIndexOf(marker);
+  return index === -1 ? (normalised.split("/").pop() ?? "") : normalised.slice(index + marker.length);
+}
+
+/**
+ * Whether per-file output mode actually BUILDS this source file.
+ *
+ * Mirrors the filter in templates/webresources/webpack.common.js exactly: per-file entries are the
+ * TOP-LEVEL `webresources_src/*.ts`, excluding `.d.ts` and the `library.ts` barrel. A file that
+ * isn't an entry produces no output, so a form registration inside one would bind a handler to a
+ * web resource that is never deployed — the `<Library>` names something that isn't there.
+ *
+ * `relativeToSourceRoot` is the path BELOW `webresources_src`, e.g. `Account.ts` or `sub/Thing.ts`.
+ */
+export function isPerFileEntry(relativeToSourceRoot: string): boolean {
+  const normalised = relativeToSourceRoot.replace(/\\/g, "/").replace(/^\/+/, "");
+  if (normalised.includes("/")) {
+    return false; // nested — perFileEntries() only reads the top level
+  }
+  if (!normalised.endsWith(".ts") || normalised.endsWith(".d.ts")) {
+    return false;
+  }
+  return normalised !== "library.ts";
+}
+
+/**
+ * Every web resource a component would DEPLOY, in whichever mode it is in.
+ *
+ * `deployWebresources` upserts each file in `bin/` by name, so this is the component's claim on
+ * the shared namespace — bundle mode claims one name, per-file mode claims one per buildable
+ * source file. Used to find collisions between components (#258); two components claiming the
+ * same name means whichever deploys second silently replaces the first.
+ */
+export function deployedWebresourceNames(
+  prefix: string,
+  settings: { webresourceLibraryName?: string; webresourceOutput?: "bundle" | "perFile" } | undefined,
+  sourceFilesRelativeToSourceRoot: string[],
+): string[] {
+  if (settings?.webresourceOutput !== "perFile") {
+    return [webresourceLibraryName(prefix, "bundle", "library.ts", libraryBaseFor(settings))];
+  }
+  const names = sourceFilesRelativeToSourceRoot.filter(isPerFileEntry).map((f) => webresourceLibraryName(prefix, "perFile", f));
+  return [...new Set(names)];
+}
+
+/** A component's claim on the deployed-name namespace. */
+export interface WebresourceClaim {
+  /** Component path relative to the workspace root; "" for the root component. */
+  relativeRoot: string;
+  /** What that component would deploy — from `deployedWebresourceNames`. */
+  names: string[];
+}
+
+/**
+ * Deployed names claimed by more than one component (#258).
+ *
+ * Covers BOTH modes deliberately. It would be easy to assume only bundle-mode components can
+ * collide, since per-file names come from source filenames — but two per-file components that
+ * both contain `Account.ts` both deploy `{prefix}_Account.js`, which is the same silent overwrite.
+ * Returns one entry per contested name, listing every component claiming it; empty when clean.
+ */
+export function findWebresourceNameCollisions(claims: WebresourceClaim[]): Array<{ name: string; components: string[] }> {
+  const byName = new Map<string, string[]>();
+  for (const claim of claims) {
+    for (const name of new Set(claim.names)) {
+      byName.set(name, [...(byName.get(name) ?? []), claim.relativeRoot]);
+    }
+  }
+  return [...byName.entries()]
+    .filter(([, components]) => components.length > 1)
+    .map(([name, components]) => ({ name, components }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** A bundle base name not already claimed — `base`, else `base2`, `base3`… */
+export function freeLibraryBase(base: string, taken: Iterable<string>): string {
+  const used = new Set([...taken].map((t) => t.toLowerCase()));
+  const start = sanitiseLibraryBase(base) || DEFAULT_LIBRARY_BASE;
+  if (!used.has(start.toLowerCase())) {
+    return start;
+  }
+  for (let n = 2; ; n++) {
+    const candidate = `${start}${n}`;
+    if (!used.has(candidate.toLowerCase())) {
+      return candidate;
+    }
+  }
 }
