@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { webresourceLibraryName, candidateLibraryNames, defaultLibraryBaseName, libraryBaseFor, isValidLibraryBase, DEFAULT_LIBRARY_BASE } from "./libraryNames";
+import {
+  webresourceLibraryName,
+  candidateLibraryNames,
+  defaultLibraryBaseName,
+  libraryBaseFor,
+  isValidLibraryBase,
+  isPerFileEntry,
+  pathBelowSourceRoot,
+  deployedWebresourceNames,
+  findWebresourceNameCollisions,
+  freeLibraryBase,
+  DEFAULT_LIBRARY_BASE,
+} from "./libraryNames";
 
 describe("webresourceLibraryName", () => {
   it("bundle mode maps every source file to the bundled library", () => {
@@ -121,5 +133,147 @@ describe("configurable bundle name (#258)", () => {
       const names = candidateLibraryNames("dvpt", ["/p/webresources_src/Account.ts"]);
       expect([...names].sort()).toEqual(["dvpt_Account.js", "dvpt_library.js"]);
     });
+  });
+});
+
+// Per-file mode builds only the TOP-LEVEL webresources_src/*.ts (not library.ts) — but the form
+// registration scan is recursive and includes the barrel, so a registration in a file that mode
+// never builds used to bind a handler to a web resource that doesn't exist.
+describe("isPerFileEntry — what per-file mode actually builds", () => {
+  it("matches the webpack template's filter for top-level sources", () => {
+    expect(isPerFileEntry("Account.ts")).toBe(true);
+    expect(isPerFileEntry("Contact.ts")).toBe(true);
+  });
+
+  it("excludes the barrel, type declarations and nested files", () => {
+    expect(isPerFileEntry("library.ts")).toBe(false);
+    expect(isPerFileEntry("PowerTools.d.ts")).toBe(false);
+    expect(isPerFileEntry("sub/Thing.ts")).toBe(false);
+    expect(isPerFileEntry("lib/dg.xrmquery.web.min.ts")).toBe(false);
+  });
+
+  it("excludes non-TypeScript files", () => {
+    expect(isPerFileEntry("Account.js")).toBe(false);
+    expect(isPerFileEntry("")).toBe(false);
+  });
+});
+
+describe("pathBelowSourceRoot", () => {
+  it("returns the path below webresources_src, on either separator", () => {
+    expect(pathBelowSourceRoot("/p/webresources_src/Account.ts")).toBe("Account.ts");
+    expect(pathBelowSourceRoot("C:\\p\\webresources_src\\sub\\Thing.ts")).toBe("sub/Thing.ts");
+  });
+
+  it("falls back to the filename when it can't place the path", () => {
+    // Treated as top-level, i.e. buildable — skipping a registration we merely failed to classify
+    // would be worse than processing it.
+    expect(pathBelowSourceRoot("/somewhere/else/Account.ts")).toBe("Account.ts");
+    expect(isPerFileEntry(pathBelowSourceRoot("/somewhere/else/Account.ts"))).toBe(true);
+  });
+});
+
+describe("deployedWebresourceNames — a component's claim on the shared namespace", () => {
+  it("bundle mode claims exactly one name", () => {
+    expect(deployedWebresourceNames("dvpt", undefined, ["Account.ts", "Contact.ts"])).toEqual(["dvpt_library.js"]);
+    expect(deployedWebresourceNames("dvpt", { webresourceLibraryName: "grid" }, ["Account.ts"])).toEqual(["dvpt_grid.js"]);
+  });
+
+  it("per-file mode claims one name per BUILDABLE source file", () => {
+    const names = deployedWebresourceNames("dvpt", { webresourceOutput: "perFile" }, ["Account.ts", "Contact.ts", "library.ts", "sub/Thing.ts", "PowerTools.d.ts"]);
+    expect(names.sort()).toEqual(["dvpt_Account.js", "dvpt_Contact.js"]);
+  });
+
+  it("per-file mode ignores the configured bundle name — it deploys no bundle", () => {
+    expect(deployedWebresourceNames("dvpt", { webresourceOutput: "perFile", webresourceLibraryName: "grid" }, ["Account.ts"])).toEqual(["dvpt_Account.js"]);
+  });
+});
+
+describe("findWebresourceNameCollisions", () => {
+  it("finds two bundle components claiming the same name", () => {
+    const collisions = findWebresourceNameCollisions([
+      { relativeRoot: "", names: ["dvpt_library.js"] },
+      { relativeRoot: "controls", names: ["dvpt_library.js"] },
+    ]);
+    expect(collisions).toEqual([{ name: "dvpt_library.js", components: ["", "controls"] }]);
+  });
+
+  it("finds two PER-FILE components sharing a source filename", () => {
+    // The case a bundle-only detector would miss: both components have an Account.ts, so both
+    // deploy dvpt_Account.js and the second silently replaces the first.
+    const collisions = findWebresourceNameCollisions([
+      { relativeRoot: "a", names: ["dvpt_Account.js", "dvpt_Lead.js"] },
+      { relativeRoot: "b", names: ["dvpt_Account.js", "dvpt_Case.js"] },
+    ]);
+    expect(collisions).toEqual([{ name: "dvpt_Account.js", components: ["a", "b"] }]);
+  });
+
+  it("finds a bundle name colliding with a per-file name", () => {
+    // A per-file component with library.ts renamed, or a bundle named after a class — same clash.
+    const collisions = findWebresourceNameCollisions([
+      { relativeRoot: "a", names: ["dvpt_Account.js"] },
+      { relativeRoot: "b", names: ["dvpt_Account.js"] },
+    ]);
+    expect(collisions.map((c) => c.name)).toEqual(["dvpt_Account.js"]);
+  });
+
+  it("is quiet when every component claims distinct names", () => {
+    expect(
+      findWebresourceNameCollisions([
+        { relativeRoot: "", names: ["dvpt_library.js"] },
+        { relativeRoot: "controls", names: ["dvpt_controls.js"] },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("does not report a component colliding with itself", () => {
+    expect(findWebresourceNameCollisions([{ relativeRoot: "a", names: ["dvpt_Account.js", "dvpt_Account.js"] }])).toEqual([]);
+  });
+
+  it("reports every contested name, not just the first", () => {
+    const collisions = findWebresourceNameCollisions([
+      { relativeRoot: "a", names: ["dvpt_Account.js", "dvpt_Lead.js"] },
+      { relativeRoot: "b", names: ["dvpt_Account.js", "dvpt_Lead.js"] },
+    ]);
+    expect(collisions.map((c) => c.name)).toEqual(["dvpt_Account.js", "dvpt_Lead.js"]);
+  });
+});
+
+describe("freeLibraryBase", () => {
+  it("keeps the preferred name when it is free", () => {
+    expect(freeLibraryBase("controls", ["library"])).toBe("controls");
+  });
+
+  it("suffixes until it finds a free one", () => {
+    expect(freeLibraryBase("library", ["library"])).toBe("library2");
+    expect(freeLibraryBase("library", ["library", "library2"])).toBe("library3");
+  });
+
+  it("compares case-insensitively, since Dataverse names are", () => {
+    expect(freeLibraryBase("Library", ["library"])).toBe("Library2");
+  });
+
+  it("always returns something the naming rules accept", () => {
+    expect(freeLibraryBase("", [])).toBe("library");
+    expect(freeLibraryBase("!!!", ["library"])).toBe("library2");
+  });
+});
+
+// Renaming a bundle leaves handlers on forms bound to the OLD name. Those are ours; if they drop
+// out of the owned set they can never be cleaned up and stay pointed at a resource nobody deploys.
+describe("candidateLibraryNames keeps previous names owned after a rename (#258)", () => {
+  it("owns the current name, the historical library, and every previous name", () => {
+    const names = candidateLibraryNames("dvpt", ["/p/webresources_src/Account.ts"], "grid3", ["grid", "grid2"]);
+    expect([...names].sort()).toEqual(["dvpt_Account.js", "dvpt_grid.js", "dvpt_grid2.js", "dvpt_grid3.js", "dvpt_library.js"]);
+  });
+
+  it("is unchanged when a component has never been renamed", () => {
+    const names = candidateLibraryNames("dvpt", ["/p/webresources_src/Account.ts"], "grid", []);
+    expect([...names].sort()).toEqual(["dvpt_Account.js", "dvpt_grid.js", "dvpt_library.js"]);
+  });
+
+  it("sanitises previous names rather than emitting a nameless library", () => {
+    const names = candidateLibraryNames("dvpt", [], "grid", ["!!!"]);
+    expect(names.has("dvpt_library.js")).toBe(true);
+    expect([...names].every((n) => n !== "dvpt_.js")).toBe(true);
   });
 });

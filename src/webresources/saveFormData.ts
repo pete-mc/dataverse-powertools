@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 import { DataverseForm } from "../general/dataverse/DataverseForm";
 import { randomUUID } from "crypto";
 import { parseRegisterEvents, validateRegisterEvent, RegisterEventDecoration } from "./registerEventParser";
-import { webresourceLibraryName, candidateLibraryNames, libraryBaseFor } from "./libraryNames";
+import { webresourceLibraryName, candidateLibraryNames, libraryBaseFor, isPerFileEntry, pathBelowSourceRoot } from "./libraryNames";
 import { applyFormRegistrations, ResolvedRegistration } from "./formRegistrationXml";
 import { activeComponentRoot } from "../components/componentDiscovery";
 
@@ -43,7 +43,21 @@ export async function saveFormDataExec(context: DataversePowerToolsContext, opti
     : await vscode.workspace.findFiles("webresources_src/**/*.ts");
   const registerEvents: SourcedRegisterEvent[] = [];
   let malformedBlocks = 0;
+  const unbuildable: string[] = [];
+  // In per-file mode only the TOP-LEVEL webresources_src/*.ts are webpack entries, but this scan
+  // is recursive and includes library.ts — so a registration in a nested file, or in the barrel,
+  // used to bind a handler to a web resource that mode never builds or deploys. The form then
+  // referenced a <Library> that isn't in the environment. Skip those and say which, rather than
+  // writing a registration that cannot work.
+  const perFileMode = context.projectSettings.webresourceOutput === "perFile";
   for (const file of files) {
+    if (perFileMode && !isPerFileEntry(pathBelowSourceRoot(file.fsPath))) {
+      const document = await vscode.workspace.openTextDocument(file);
+      if (parseRegisterEvents(document.getText()).events.length > 0) {
+        unbuildable.push(vscode.workspace.asRelativePath(file));
+      }
+      continue;
+    }
     const document = await vscode.workspace.openTextDocument(file);
     const parsed = parseRegisterEvents(document.getText());
     malformedBlocks += parsed.malformedBlocks;
@@ -52,6 +66,13 @@ export async function saveFormDataExec(context: DataversePowerToolsContext, opti
   }
   if (malformedBlocks > 0) {
     context.channel.appendLine(`Warning: skipped ${malformedBlocks} malformed RegisterEvent decoration block(s).`);
+  }
+  if (unbuildable.length > 0) {
+    context.channel.appendLine(
+      `Warning: skipped form registrations in ${unbuildable.length} file(s) that per-file output mode does not build, so no web resource would exist to bind to: ${unbuildable.join(", ")}. ` +
+        `Per-file mode builds only the top-level webresources_src/*.ts (not library.ts) — move the registration into one of those, or switch to the bundled output mode.`,
+    );
+    vscode.window.showWarningMessage(`${unbuildable.length} form registration file(s) are not built in per-file mode and were skipped — see the log.`);
   }
 
   if (registerEvents.length === 0) {
@@ -98,6 +119,7 @@ export async function saveFormDataExec(context: DataversePowerToolsContext, opti
     prefix,
     files.map((file) => file.fsPath),
     bundleBase,
+    context.projectSettings.webresourcePreviousLibraryNames ?? [],
   );
 
   let totalForms = 0;
