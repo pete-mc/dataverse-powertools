@@ -14,6 +14,7 @@ import {
 } from "./settingsFile";
 import { configureEditableSettings, editSingleSetting, ModelBuilderSettingKey } from "./ui";
 import { activeComponentRoot } from "../../components/componentDiscovery";
+import { buildModelBuilderArgs } from "./args";
 
 /** Run pac; if it fails with a pac AUTH error, re-establish the extension's pac
  * profile and retry ONCE before giving up. runPac (commandRunner) rejects with
@@ -245,68 +246,8 @@ export async function generateEarlyBoundV3(context: DataversePowerToolsContext) 
   }
 
   const workspacePath = activeComponentRoot(context)!;
-  const args = [
-    "modelbuilder",
-    "build",
-    "--namespace",
-    activeSettings.namespace,
-    "--serviceContextName",
-    activeSettings.serviceContextName,
-    "--outdirectory",
-    activeSettings.outputDirectory,
-  ];
-
-  if (activeSettings.entityNamesFilter && activeSettings.entityNamesFilter.length > 0) {
-    args.push("--entityNamesFilter", activeSettings.entityNamesFilter.join(","));
-  }
-
-  if (activeSettings.entityTypesFolder) {
-    args.push("--entityTypesFolder", activeSettings.entityTypesFolder);
-  }
-
-  if (activeSettings.messageNamesFilter && activeSettings.messageNamesFilter.length > 0) {
-    args.push("--messageNamesFilter", activeSettings.messageNamesFilter.join(","));
-  }
-
-  if (activeSettings.messagesTypesFolder) {
-    args.push("--messagesTypesFolder", activeSettings.messagesTypesFolder);
-  }
-
-  if (activeSettings.optionSetsTypesFolder) {
-    args.push("--optionSetsTypesFolder", activeSettings.optionSetsTypesFolder);
-  }
-
-  if (activeSettings.emitEntityEtc) {
-    args.push("--emitEntityETC");
-  }
-
-  if (activeSettings.emitFieldsClasses) {
-    args.push("--emitFieldsClasses");
-  }
-
-  if (activeSettings.emitVirtualAttributes) {
-    args.push("--emitVirtualAttributes");
-  }
-
-  if (activeSettings.generateGlobalOptionSets) {
-    args.push("--generateGlobalOptionSets");
-  }
-
-  if (activeSettings.generateSdkMessages) {
-    args.push("--generateSdkMessages");
-  }
-
-  if (activeSettings.logLevel) {
-    args.push("--logLevel", activeSettings.logLevel);
-  }
-
-  if (activeSettings.suppressGeneratedCodeAttribute) {
-    args.push("--suppressGeneratedCodeAttribute");
-  }
-
-  if (activeSettings.suppressINotifyPattern) {
-    args.push("--suppressINotifyPattern");
-  }
+  // Flags (and the semicolon-separated filter delimiter pac requires) live in the pure builder.
+  const args = buildModelBuilderArgs(activeSettings);
 
   await vscode.window.withProgress(
     {
