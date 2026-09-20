@@ -35,14 +35,17 @@ processes:
       - the project wiki checked out beside this repo
     effects:
       - kind: git-push
+        stance: owner-approves
         to: origin (github.com/pete-mc/dataverse-powertools), a feature branch
         via: git
         action: push the branch the change was made on - never straight to main
       - kind: site-write
+        stance: owner-approves
         to: github.com/pete-mc/dataverse-powertools
         via: gh CLI
         action: open or comment on issues and pull requests
       - kind: money
+        stance: never
         action: never - this project spends nothing, anywhere
     guardrails:
       approvals: owner
@@ -117,10 +120,12 @@ processes:
       - github (the open pull requests and their check results)
     effects:
       - kind: git-push
+        stance: owner-approves
         to: origin (github.com/pete-mc/dataverse-powertools), main via a merged pull request
         via: git and the gh CLI
         action: land the release commit on the default branch
       - kind: money
+        stance: never
         action: never - publishing to the Marketplace costs nothing
     guardrails:
       approvals: owner
@@ -151,6 +156,7 @@ processes:
         via: GitHub Actions publishing token
         action: publish a new version of the extension to every user who has it installed
       - kind: money
+        stance: never
         action: never - the Marketplace listing is free
     guardrails:
       approvals: none
@@ -177,10 +183,12 @@ processes:
       - the shared Dataverse test environment
     effects:
       - kind: site-write
+        stance: owner-approves
         to: the shared Dataverse test environment (a disposable dev org)
         via: the extension's own Dataverse Web API calls and the pac CLI
         action: create, update and delete web resources, plug-in assemblies, steps and solution rows
       - kind: money
+        stance: never
         action: never - the test environment is a developer org and nothing here buys anything
     guardrails:
       approvals: owner
@@ -234,6 +242,7 @@ processes:
       - the project wiki checked out beside this repo
     effects:
       - kind: git-push
+        stance: owner-approves
         to: the public GitHub wiki of pete-mc/dataverse-powertools
         via: git
         action: publish the edited documentation pages
@@ -258,6 +267,7 @@ processes:
       - npm registry and the typings tool's public download location
     effects:
       - kind: money
+        stance: never
         action: never - everything it fetches is public and free
     guardrails:
       approvals: none
