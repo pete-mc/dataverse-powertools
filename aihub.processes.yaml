@@ -1,0 +1,268 @@
+# aihub.processes.yaml - what this project DOES, as processes.
+#
+# Written by hand from the repository's own rules (AGENTS.md, CLAUDE.md,
+# TESTING.md, .github/workflows/, scripts/, package.json). 'aihub processes
+# draft' had nothing to draft here: this project has no manifest, no schedule
+# entries and no systemd units, so every process below is an interactive one
+# or runs on GitHub's runners rather than on this machine.
+#
+# Schema: platform/schema/aihub.processes.schema.json
+# Checked by: aihub processes check   (and by aihub doctor)
+
+schemaVersion: 1
+project: dataverse-powertools
+note: >-
+  A VS Code extension for Dataverse / Power Platform development. Nothing here runs on a
+  timer on this machine; the work is interactive and the automation lives in GitHub
+  Actions. What leaves the machine: pushes to the public GitHub repository, a Marketplace
+  publish when a version bump lands on main, and writes to a shared Dataverse test org.
+
+processes:
+  - id: dev-session
+    title: Work on the extension with Peter
+    trigger:
+      type: manual
+      detail: Peter opens a session in this repository and asks for a change
+    steps:
+      - Read the issue or the request, and the repo rules in AGENTS.md / CLAUDE.md.
+      - Change the code and the tests under src/ and test/.
+      - Run the verify loop - lint, webpack build, unit tests, integration tests.
+      - Update the pre-release changelog entry for the change.
+      - Commit on a branch, push it, and open a pull request for review.
+    reads:
+      - repo
+      - github (issues and pull requests, via the gh CLI)
+      - the project wiki checked out beside this repo
+    effects:
+      - kind: git-push
+        to: origin (github.com/pete-mc/dataverse-powertools), a feature branch
+        via: git
+        action: push the branch the change was made on - never straight to main
+      - kind: site-write
+        to: github.com/pete-mc/dataverse-powertools
+        via: gh CLI
+        action: open or comment on issues and pull requests
+      - kind: money
+        action: never - this project spends nothing, anywhere
+    guardrails:
+      approvals: owner
+      spend: none
+    model: per-run
+    owner: main-agent
+    confidence: declared
+    note: >-
+      Attended work: Peter is in the session. The repository's rule is that changes land on
+      main through a pull request, so this process never pushes to main itself.
+
+  - id: code-review
+    title: Have a second agent check a change before it is proposed
+    trigger:
+      type: subagent
+      ref: dev-session
+      detail: started from a dev session, before a pull request is opened
+    steps:
+      - Read the diff and the tests that are claimed to cover it.
+      - Re-run the checks the change claims to pass.
+      - Report what it actually found back into the session.
+    reads:
+      - repo
+    effects: []
+    guardrails:
+      approvals: owner
+      spend: none
+    model: per-run
+    owner: picky-reviewer (or the built-in code review agent)
+    confidence: declared
+    note: Read-only. It reports back into the session; it changes nothing and sends nothing.
+
+  - id: ci-checks
+    title: Check every branch and pull request on GitHub
+    trigger:
+      type: process
+      ref: dev-session
+      detail: a push to any branch except main, or a pull request
+    steps:
+      - GitHub checks out the branch and installs dependencies.
+      - Lint, build the webpack bundle, run the unit tests against a coverage floor.
+      - Run the integration tests in a headless VS Code, also against a coverage floor.
+      - Run the ExTester UI tests headless.
+      - Report the result on the pull request.
+    reads:
+      - repo
+      - npm registry and the VS Code download service (on GitHub's runner)
+    effects:
+      - kind: site-write
+        to: github.com/pete-mc/dataverse-powertools
+        via: GitHub Actions
+        action: write the check result and run logs onto the branch or pull request
+    guardrails:
+      approvals: none
+      spend: none
+    model: none
+    owner: main-agent
+    confidence: declared
+    note: Runs on GitHub's runners, not on this machine. No model, no credits.
+
+  - id: cut-release
+    title: Cut a release and land it on main
+    trigger:
+      type: manual
+      detail: Peter asks for a release
+    steps:
+      - Bump the version in package.json.
+      - For a full release, fold the accumulated pre-release notes into CHANGELOG.md.
+      - Open a pull request to main and, once CI is green, merge it.
+    reads:
+      - repo
+      - github (the open pull requests and their check results)
+    effects:
+      - kind: git-push
+        to: origin (github.com/pete-mc/dataverse-powertools), main via a merged pull request
+        via: git and the gh CLI
+        action: land the release commit on the default branch
+      - kind: money
+        action: never - publishing to the Marketplace costs nothing
+    guardrails:
+      approvals: owner
+      spend: none
+    model: per-run
+    owner: main-agent
+    confidence: declared
+    note: >-
+      Merging to main is what starts publish-marketplace, so this is the step that puts a
+      build in front of the public.
+
+  - id: publish-marketplace
+    title: Publish the extension to the Visual Studio Marketplace
+    trigger:
+      type: process
+      ref: cut-release
+      detail: a push to main whose package.json version differs from the previous commit
+    steps:
+      - GitHub checks whether the version actually changed; if not, it stops here.
+      - Lint, build and run the unit and integration tests again.
+      - Build the VSIX and upload it to the Visual Studio Marketplace.
+    reads:
+      - repo
+      - npm registry and the .NET SDK feed (on GitHub's runner)
+    effects:
+      - kind: site-write
+        to: marketplace.visualstudio.com (the published dataverse-powertools extension)
+        via: GitHub Actions publishing token
+        action: publish a new version of the extension to every user who has it installed
+      - kind: money
+        action: never - the Marketplace listing is free
+    guardrails:
+      approvals: none
+      spend: none
+    model: none
+    owner: main-agent
+    confidence: declared
+    note: >-
+      The single most outward-facing thing this project does. It is gated on the tests
+      passing and on the version having changed; a docs-only push to main publishes nothing.
+
+  - id: live-tests
+    title: Run the live tests against the shared Dataverse test environment
+    trigger:
+      type: manual
+      detail: Peter or a session runs the live or end-to-end test scripts
+    steps:
+      - Sign in to the shared Dataverse test environment with the test credentials.
+      - Scaffold a sample project, generate typings, build it and deploy it.
+      - Check the deployed code and the registered steps came back as expected.
+      - Tear the fixtures down and report what passed.
+    reads:
+      - repo
+      - the shared Dataverse test environment
+    effects:
+      - kind: site-write
+        to: the shared Dataverse test environment (a disposable dev org)
+        via: the extension's own Dataverse Web API calls and the pac CLI
+        action: create, update and delete web resources, plug-in assemblies, steps and solution rows
+      - kind: money
+        action: never - the test environment is a developer org and nothing here buys anything
+    guardrails:
+      approvals: owner
+      spend: none
+    model: none
+    owner: main-agent
+    confidence: declared
+    note: >-
+      Credentials come from the environment, never from this repository. The suites use
+      fixed fixture names in one shared environment, which is why the deploying ones are
+      deliberately kept out of CI - two runs at once would delete each other's fixtures.
+
+  - id: live-e2e-weekly
+    title: Re-run the safe part of the live test suite every week
+    trigger:
+      type: schedule
+      detail: GitHub Actions cron, Mondays 06:00 UTC - runs on GitHub, not on this machine
+    steps:
+      - GitHub checks out main and installs dependencies.
+      - Run only the suites that do not fight over shared test data.
+      - Report the result; a failure shows up as a red workflow run.
+    reads:
+      - repo
+      - the shared Dataverse test environment (read-only queries)
+    effects:
+      - kind: site-write
+        to: github.com/pete-mc/dataverse-powertools
+        via: GitHub Actions
+        action: record the workflow run and its logs
+    guardrails:
+      approvals: none
+      spend: none
+    model: none
+    owner: main-agent
+    confidence: declared
+    note: >-
+      Weekly and narrow on purpose - a nightly job that failed every day was deleted because
+      nobody watched it. Its Dataverse calls are read-only; the deploying suites stay manual.
+
+  - id: wiki-update
+    title: Update the project's public wiki
+    trigger:
+      type: manual
+      detail: Peter asks for the documentation to match a change
+    steps:
+      - Edit the wiki, which is checked out as a separate repository beside this one.
+      - Commit the pages that changed.
+      - Push them to the wiki's own remote.
+    reads:
+      - repo
+      - the project wiki checked out beside this repo
+    effects:
+      - kind: git-push
+        to: the public GitHub wiki of pete-mc/dataverse-powertools
+        via: git
+        action: publish the edited documentation pages
+    guardrails:
+      approvals: owner
+      spend: none
+    model: per-run
+    owner: main-agent
+    confidence: declared
+
+  - id: setup-toolchain
+    title: Install the tools the build needs
+    trigger:
+      type: manual
+      detail: npm install / npm ci in this repository
+    steps:
+      - Install the npm dependencies.
+      - Download the bundled typings tool into a local tools folder - it is not committed.
+      - Patch two known bugs in the UI test runner so it works on Linux.
+    reads:
+      - repo
+      - npm registry and the typings tool's public download location
+    effects:
+      - kind: money
+        action: never - everything it fetches is public and free
+    guardrails:
+      approvals: none
+      spend: none
+    model: none
+    owner: main-agent
+    confidence: declared
+    note: Downloads only. Nothing about this project's state leaves the machine here.
