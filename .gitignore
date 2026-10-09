@@ -48,7 +48,3 @@ coverage-integration/
 
 # Scratch project the webpack-template contract spec builds (see webpackTemplateOutput.spec.ts)
 .tmp-webpack-spec-*/
-
-# Agent Ops (the owner's automation): its run memory and hand-back files stay on that machine
-state/
-.agentops-out/
