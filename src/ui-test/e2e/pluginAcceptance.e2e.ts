@@ -69,6 +69,8 @@ describe("ACCEPTANCE: Plugin — build, code, register, publish via panel button
   let client: E2EClient;
   const projectName = "AcceptancePlugin";
   const packageName = runScopedName("AcceptancePlugin");
+  // Two steps stacked on ONE class: Build & deploy once registered only the first (#295).
+  const stackedStepNames = [runScopedName("AcceptanceStackedCreate"), runScopedName("AcceptanceStackedUpdate")];
 
   function pkgUnique(): string {
     const settings = JSON.parse(fs.readFileSync(path.join(workspace, "dataverse-powertools.json"), "utf8"));
@@ -102,6 +104,25 @@ describe("ACCEPTANCE: Plugin — build, code, register, publish via panel button
       const cs = path.join(workspace, projectName, "AcceptancePluginClass.cs");
       expect(await waitForFile(cs, 120000), "plugin class scaffolded").to.equal(true);
       return `wrote ${projectName}/AcceptancePluginClass.cs (scaffolded with a [CrmPluginRegistration] step)`;
+    });
+  });
+
+  it("adds a class with two stacked [CrmPluginRegistration] attributes (#295)", async () => {
+    await step(COMPONENT, "Write code (class with two stacked step registrations)", async () => {
+      // Start from the scaffolded class so the copy compiles exactly as it does.
+      const scaffold = fs.readFileSync(path.join(workspace, projectName, "AcceptancePluginClass.cs"), "utf8");
+      const attributes = [
+        `[CrmPluginRegistration(MessageNameEnum.Create, "account", StageEnum.PostOperation, ExecutionModeEnum.Asynchronous, "", "${stackedStepNames[0]}", 1, IsolationModeEnum.Sandbox)]`,
+        `[CrmPluginRegistration(MessageNameEnum.Update, "account", StageEnum.PostOperation, ExecutionModeEnum.Asynchronous, "name", "${stackedStepNames[1]}", 1, IsolationModeEnum.Sandbox)]`,
+      ];
+      const stacked = scaffold
+        .replace(/AcceptancePluginClass/g, "AcceptanceStackedClass")
+        .replace(/^(\s*)public class AcceptanceStackedClass/m, (declaration, indent: string) => `${attributes.map((a) => indent + a).join("\n")}\n${declaration}`);
+      if (!stacked.includes(attributes[1])) {
+        throw new Error("could not place the attributes above the scaffolded class declaration");
+      }
+      fs.writeFileSync(path.join(workspace, projectName, "AcceptanceStackedClass.cs"), stacked, "utf8");
+      return `wrote ${projectName}/AcceptanceStackedClass.cs with steps ${stackedStepNames.join(", ")}`;
     });
   });
 
@@ -182,11 +203,34 @@ describe("ACCEPTANCE: Plugin — build, code, register, publish via panel button
       if (!id) {
         throw new Error(`plugin package ${pkgUnique()} not found in Dataverse after deploy`);
       }
-      return `plugin package ${pkgUnique()} present in Dataverse (id ${id})`;
+      // Every stacked registration must become its own step, not just the first (#295).
+      let steps = new Map<string, string>();
+      const stepDeadline = Date.now() + 300000;
+      do {
+        try {
+          steps = await client.findStepIdsByName(stackedStepNames);
+        } catch {
+          /* transient network */
+        }
+        if (steps.size === stackedStepNames.length) {
+          break;
+        }
+        await sleep(6000);
+      } while (Date.now() < stepDeadline);
+      const missing = stackedStepNames.filter((name) => !steps.has(name));
+      if (missing.length > 0) {
+        throw new Error(`stacked step(s) not registered in Dataverse after deploy: ${missing.join(", ")}`);
+      }
+      return `plugin package ${pkgUnique()} present in Dataverse (id ${id}); both stacked steps registered`;
     });
   });
 
   after(async function () {
+    try {
+      await client.deleteStepsByName(stackedStepNames);
+    } catch {
+      /* best-effort cleanup */
+    }
     try {
       await client.deletePluginPackage(pkgUnique());
     } catch {
