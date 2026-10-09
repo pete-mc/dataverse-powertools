@@ -3,7 +3,7 @@
 // The extension's interactive sign-in opens a system browser (MSAL loopback flow), which cannot be
 // driven inside ExTester's VS Code host. Instead, these tests point DVPT_TEST_MSAL_CACHE_FILE at a
 // cache this script pre-populates headlessly, using the ROPC (username/password) flow with the
-// MFA-exempt test user from sandbox/.env. The extension's cache plugin (src/general/dataverse/
+// MFA-exempt test user from sandbox/.env or the environment. The extension's cache plugin (src/general/dataverse/
 // tokenAcquisition.ts) then deserializes it and acquires tokens *silently* — no browser.
 //
 // This must stay in sync with the extension's public client + authority (below). Best-effort: if
@@ -20,8 +20,14 @@ const DEFAULT_INTERACTIVE_CLIENT_ID = "51f81489-12ee-4a9e-aaae-a2591f45987d";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
+// DVPT_TEST_* values from the environment, overridden by sandbox/.env where it sets them.
 function loadEnv() {
   const env = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (key.startsWith("DVPT_TEST_") && value) {
+      env[key] = value.trim();
+    }
+  }
   const file = path.join(root, "sandbox", ".env");
   if (!fs.existsSync(file)) {
     return env;
@@ -45,7 +51,7 @@ async function main() {
   const cacheFile = process.env.DVPT_TEST_MSAL_CACHE_FILE || path.join(root, "sandbox", ".msal-test-cache.json");
 
   if (!username || !password || !tenantId || !orgUrl) {
-    console.error("[seed-msal] missing DVPT_TEST_USERNAME/PASSWORD/TENANT_ID/URL in sandbox/.env — cannot seed; interactive suites will skip.");
+    console.error("[seed-msal] missing DVPT_TEST_USERNAME/PASSWORD/TENANT_ID/URL in sandbox/.env or the environment — cannot seed; interactive suites will skip.");
     process.exit(1);
   }
 
