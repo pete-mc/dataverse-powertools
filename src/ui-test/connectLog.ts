@@ -6,14 +6,20 @@ import { VSBrowser, Workbench, InputBox } from "vscode-extension-tester";
 // environment via the service-principal wizard (headless — no browser), deploys the
 // bin/dvpt_library.js webresource bundle, then opens the Dataverse PowerTools output
 // channel and screenshots it — real logs, real connection. Reads creds from the
-// gitignored sandbox/.env; skips if absent.
+// gitignored sandbox/.env or the environment; skips if absent.
 const repoRoot = path.resolve(__dirname, "..", "..");
 const outDir = path.resolve(repoRoot, "sandbox", "screenshots-out");
 const fixture = path.resolve(repoRoot, "sandbox", "screens", "connect");
 
+/** DVPT_TEST_* values from the environment, overridden by the gitignored sandbox/.env where it sets them. */
 function loadEnv(): Record<string, string> {
   const p = path.resolve(repoRoot, "sandbox", ".env");
   const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (key.startsWith("DVPT_TEST_") && value) {
+      out[key] = value.trim();
+    }
+  }
   if (!fs.existsSync(p)) {
     return out;
   }
