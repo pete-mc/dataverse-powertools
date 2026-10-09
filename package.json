@@ -950,7 +950,7 @@
     "ts-jest": "^29.4.11",
     "ts-loader": "^9.6.2",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.10",
+    "vitest": "^4.1.11",
     "vscode-extension-tester": "^8.23.0",
     "webpack": "^5.108.4",
     "webpack-cli": "^4.10.0",
