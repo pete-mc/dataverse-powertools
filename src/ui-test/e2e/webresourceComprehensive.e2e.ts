@@ -388,6 +388,16 @@ describe("Web resources — comprehensive UI lifecycle (e2e)", function () {
     }
     const client = new E2EClient(env);
     await client.connect();
-    await client.deleteWebresource(libraryName());
+    // Order matters: the form handlers this suite registered are a DEPENDENCY of the web resource,
+    // so deleting the resource first fails with 0x8004f01f. That failure used to be swallowed, and
+    // once names became run-scoped (#258) every run left a resource and a handler behind on the
+    // shared org for good. Deregister, then delete, then say so if it still didn't go.
+    const handlers = await client.deregisterFormHandlers([libraryName()]);
+    if (handlers > 0) {
+      console.log(`    [e2e] [cleanup] removed ${handlers} form handler(s) bound to ${libraryName()}`);
+    }
+    if (!(await client.deleteWebresource(libraryName()))) {
+      console.log(`    [e2e] [cleanup] WARNING: ${libraryName()} is still deployed — delete it by hand`);
+    }
   });
 });

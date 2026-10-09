@@ -7,6 +7,7 @@ import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
 import { VSBrowser, Workbench, InputBox, BottomBarPanel, Key, ModalDialog } from "vscode-extension-tester";
+import { XMLParser, XMLBuilder } from "fast-xml-parser";
 // The SAME lookups the product uses. Keeping a second copy here is what let the product and the test
 // agree on a wrong assumption about how Dataverse stores a name, so a working push read as broken.
 import { customControlLookup, pluginTraceLogLookup, pickMatchingRow } from "../../general/dataverse/rowLookups";
@@ -1004,11 +1005,101 @@ export class E2EClient {
     return data.value?.[0]?.webresourceid;
   }
 
-  async deleteWebresource(name: string): Promise<void> {
+  /**
+   * Delete a web resource, reporting whether it actually went.
+   *
+   * This used to ignore the response, which hid a real problem for as long as it existed: a web
+   * resource still referenced by a form handler cannot be deleted (0x8004f01f), so the delete
+   * failed every time a suite had registered form events — silently, because nothing checked.
+   * While fixture names were fixed that was invisible (the next run reused the same row); once
+   * names became run-scoped (#258) it meant every run left one behind forever. Deregister the
+   * handlers FIRST (see `deregisterFormHandlers`), and read this return value.
+   */
+  async deleteWebresource(name: string): Promise<boolean> {
     const id = await this.findWebresourceId(name);
-    if (id) {
-      await this.request("DELETE", `webresourceset(${id})`);
+    if (!id) {
+      return true; // nothing to delete is the state we wanted
     }
+    const res = await this.request("DELETE", `webresourceset(${id})`);
+    if (res.ok || res.status === 204) {
+      return true;
+    }
+    const body = await res.text().catch(() => "");
+    console.log(`    [e2e] WARNING: could not delete web resource ${name} (${res.status}): ${body.slice(0, 300)}`);
+    return false;
+  }
+
+  /**
+   * Strip every form handler bound to one of `libraryNames`, across all forms, then publish.
+   *
+   * A suite that registers form events must undo that before deleting its web resource — the
+   * handler is a dependency and blocks the delete. Only handlers naming one of OUR libraries are
+   * touched; anything else on the same form is left alone.
+   */
+  async deregisterFormHandlers(libraryNames: string[]): Promise<number> {
+    const owned = new Set(libraryNames.map((n) => n.toLowerCase()));
+    if (owned.size === 0) {
+      return 0;
+    }
+    // The SAME parser options the extension uses (DataverseForm.parsingOptions) — a mismatch would
+    // rewrite the form differently from the product and could corrupt it.
+    const parsingOptions = {
+      ignoreAttributes: false,
+      attributeNamePrefix: "@_",
+      suppressBooleanAttributes: false,
+      suppressEmptyNode: true,
+      isArray: (_name: string, jPath: unknown) =>
+        ["form.formLibraries.Library", "form.events.event", "form.events.event.Handlers.Handler"].includes(typeof jPath === "string" ? jPath : ""),
+    };
+    const res = await this.request("GET", "systemforms?$select=name,formxml,formid,objecttypecode");
+    if (!res.ok) {
+      return 0;
+    }
+    const forms: any[] = ((await res.json()) as any).value ?? [];
+    const isOurs = (name: unknown) => typeof name === "string" && owned.has(name.toLowerCase());
+    let removed = 0;
+    for (const form of forms) {
+      if (!form.formxml || !libraryNames.some((n) => form.formxml.includes(n))) {
+        continue;
+      }
+      const doc = new XMLParser(parsingOptions).parse(form.formxml);
+      const root = doc.form;
+      let removedHere = 0;
+      for (const event of root?.events?.event ?? []) {
+        const handlers = event?.Handlers?.Handler;
+        if (!Array.isArray(handlers)) {
+          continue;
+        }
+        const kept = handlers.filter((h: any) => !isOurs(h["@_libraryName"]));
+        removedHere += handlers.length - kept.length;
+        event.Handlers.Handler = kept;
+      }
+      if (removedHere === 0) {
+        continue;
+      }
+      // Prune what the product prunes: events with no handlers, and our <Library> entries.
+      if (Array.isArray(root?.events?.event)) {
+        root.events.event = root.events.event.filter((e: any) => (e?.Handlers?.Handler ?? []).length > 0);
+        if (root.events.event.length === 0) {
+          delete root.events;
+        }
+      }
+      if (Array.isArray(root?.formLibraries?.Library)) {
+        root.formLibraries.Library = root.formLibraries.Library.filter((l: any) => !isOurs(l["@_name"]));
+        if (root.formLibraries.Library.length === 0) {
+          delete root.formLibraries;
+        }
+      }
+      const formxml = new XMLBuilder(parsingOptions).build(doc).replace(/&quot;/g, '"');
+      const patch = await this.request("PATCH", `systemforms(${form.formid})`, { formxml });
+      if (patch.ok || patch.status === 204) {
+        removed += removedHere;
+      }
+    }
+    if (removed > 0) {
+      await this.request("POST", "PublishAllXml", {});
+    }
+    return removed;
   }
 
   /** The DEPLOYED JavaScript of a webresource (base64-decoded), or undefined. */

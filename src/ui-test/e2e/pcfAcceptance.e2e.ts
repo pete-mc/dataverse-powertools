@@ -165,7 +165,16 @@ describe("ACCEPTANCE: PCF — build, code, publish via panel buttons", function 
   after(async function () {
     try {
       const m = manifest();
-      await client.deleteWebresource(`cc_${m.namespace}.${m.constructor}/bundle.js`);
+      // The customcontrol row REFERENCES its bundle web resource, so the resource can't go until
+      // the control does — and the control was never deleted at all, so a run-scoped control (#258)
+      // accumulated one per run. pcfInteractiveLifecycle already did this; this suite didn't.
+      const control = `${m.namespace}.${m.constructor}`;
+      if (await client.deleteCustomControl(control)) {
+        console.log(`    [e2e] [cleanup] removed custom control ${control}`);
+      }
+      if (!(await client.deleteWebresource(`cc_${control}/bundle.js`))) {
+        console.log(`    [e2e] [cleanup] WARNING: cc_${control}/bundle.js is still deployed — delete it by hand`);
+      }
     } catch {
       /* best-effort cleanup */
     }
