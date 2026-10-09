@@ -291,6 +291,15 @@ interface PageState {
   err: string | null;
 }
 
+/**
+ * `value` as a JavaScript string literal that is safe to splice into a script evaluated in the page.
+ * JSON.stringify alone leaves `<`, `>`, `/` and the U+2028/U+2029 line separators as they are, which can
+ * end a script block or a line early; escape those too.
+ */
+function jsString(value: string): string {
+  return JSON.stringify(value).replace(/[<>\/\u2028\u2029]/g, (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`);
+}
+
 async function evalOn(client: CDP.Client, expression: string, awaitPromise = false): Promise<unknown> {
   const { result } = await client.Runtime.evaluate({ expression, awaitPromise, returnByValue: true });
   return result.value;
@@ -361,7 +370,7 @@ async function probe(client: CDP.Client): Promise<PageState> {
  * keystroke otherwise wedges the whole sign-in at the email step).
  */
 async function typeInto(client: CDP.Client, selector: string, text: string): Promise<boolean> {
-  const sel = JSON.stringify(selector);
+  const sel = jsString(selector);
   const readValue = () => evalOn(client, `(() => { const e=document.querySelector(${sel}); return e?e.value:null; })()`);
   for (let attempt = 0; attempt < 8; attempt++) {
     // Focus + clear the field first.
@@ -389,7 +398,7 @@ async function typeInto(client: CDP.Client, selector: string, text: string): Pro
       client,
       `(() => { const e=document.querySelector(${sel}); if(!e) return null; e.focus();
         const setter=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
-        setter.call(e, ${JSON.stringify(text)});
+        setter.call(e, ${jsString(text)});
         e.dispatchEvent(new Event('input',{bubbles:true}));
         e.dispatchEvent(new Event('change',{bubbles:true})); return true; })()`,
     );
@@ -408,7 +417,7 @@ async function typeInto(client: CDP.Client, selector: string, text: string): Pro
  *  the AADSTS90100 that a native `form.submit()` would. `fieldSelector` is re-focused first so Enter
  *  lands on the input. */
 async function submitStep(client: CDP.Client, fieldSelector: string): Promise<void> {
-  await evalOn(client, `(() => { const f=document.querySelector(${JSON.stringify(fieldSelector)}); if(f){f.focus();} return true; })()`);
+  await evalOn(client, `(() => { const f=document.querySelector(${jsString(fieldSelector)}); if(f){f.focus();} return true; })()`);
   try {
     await client.Input.dispatchKeyEvent({ type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 });
     await client.Input.dispatchKeyEvent({ type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 });
@@ -570,7 +579,7 @@ export async function completeDeviceCodeLogin(
           `(() => { const el = document.querySelector('#otc') || document.querySelector('input[name=otc]');
              if (!el) { return false; }
              const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-             set.call(el, ${JSON.stringify(code)});
+             set.call(el, ${jsString(code)});
              el.dispatchEvent(new Event('input', { bubbles: true }));
              el.dispatchEvent(new Event('change', { bubbles: true }));
              const next = document.querySelector('#idSIButton9') || document.querySelector('input[type=submit]');
@@ -595,10 +604,10 @@ export async function completeDeviceCodeLogin(
     const fill = async (selector: string, value: string): Promise<boolean> =>
       (await evalOn(
         client!,
-        `(() => { const el = document.querySelector(${JSON.stringify(selector)});
+        `(() => { const el = document.querySelector(${jsString(selector)});
            if (!el || el.offsetParent === null) { return false; }
            const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-           set.call(el, ${JSON.stringify(value)});
+           set.call(el, ${jsString(value)});
            el.dispatchEvent(new Event('input', { bubbles: true }));
            const b = document.querySelector('#idSIButton9') || document.querySelector('input[type=submit]');
            if (b) { b.click(); }
