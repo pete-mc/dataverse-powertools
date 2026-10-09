@@ -1,0 +1,71 @@
+# Agent Ops process definition -- full field reference. This file is disabled
+# (enabled: false) and is never scheduled or run; copy it to a new file under
+# .agent/processes/ and edit it to add a real process. The dispatcher reads
+# definitions ONLY from origin/main (commit and merge to main; it fetches every
+# defsFetchSeconds, default 5 minutes, or "Fetch definitions now" on the
+# panel's Projects page). An invalid file is shown in the panel with its error
+# and never runs. (agentops-add-project fills in dataverse-powertools when it seeds a repo.)
+id: dataverse-powertools.example               # required; must start with "dataverse-powertools."
+name: Short human name                 # required
+enabled: false                         # set true when this is a real process
+
+triggers:                              # required; one or more of the following
+  - schedule: "15 8 * * 1"             # 5-field cron, local time (here: Mondays 08:15)
+  # - ado:
+  #     where: "[System.AssignedTo] = @agent AND [System.Tags] CONTAINS 'my-tag'"
+  #     # "@agent" expands to the agent's identity; matches poll every adoPollSeconds
+  # - email:
+  #     subject_contains: "[my-tag]"   # optional filter on mail to the agent inbox
+  #     # (only mail from email.allowFrom that passes DKIM/SPF; its text reaches Claude
+  #     # inside UNTRUSTED CONTENT markers as data, never as instructions; a reply in the
+  #     # same thread resumes the conversation)
+  # - manual: true                     # lets you fire this process by hand from the panel
+
+run:
+  prompt: >                            # required
+    What Claude should do, in plain words. Say what "done" looks like.
+    If you need a decision from the owner, start your final reply with QUESTION:
+  model: sonnet                        # sonnet by default; opus only when clearly needed
+  max_turns: 15
+  tools: "mcp__ado,Read,Grep,Glob"      # required; least privilege for this process only
+    # (anything that changes files, state/ included, also needs Edit,Write; no git
+    # tools -- Agent Ops commits for Claude)
+  # precheck: "test -n \"$(git status --porcelain)\""  # optional: exit 0 = work to do,
+  #   # 1 = nothing to do (Claude is not started), anything else = error
+  workspace: project                   # project | clone (default: project)
+    # project: runs directly in this project's working copy (main, rebased onto
+    #   origin/main before each run). After a clean exit Agent Ops commits changes
+    #   under state/ to main and pushes them; any other changed files go to branch
+    #   agent/<run-id> and a PR to main with you as required reviewer.
+    # clone: fetches origin/main, clones it into the run's own directory and
+    #   checks out branch agent/<run-id> -- an isolated copy, best when the point
+    #   of the run is changing files. After a clean exit Agent Ops commits all the
+    #   changes (state/ included) to agent/<run-id>, pushes it and opens a PR to
+    #   main with you as required reviewer.
+    # Either way Claude only edits files (its sandbox keeps .git read-only), and a
+    # failed run commits nothing.
+  notify: none                         # none | ado | email (default: none)
+    # Applies to schedule/manual runs that end done or needs-you. (Runs started
+    # from an ADO item or an email always report back on that item / thread.)
+    # ado: creates a work item (project's notifyWorkItemType, default Issue)
+    #   assigned to you; comment and assign it back to the agent to reply.
+    # email: emails the final message to you; reply to the email to continue.
+  # email_to: [a@example.com, b@example.com]   # optional notify recipients (each must be on the
+  #   # dispatcher's email.allowFrom). For an HTML mail, write .agentops-out/email.html (inline CSS)
+  #   # and optionally .agentops-out/subject.txt; the final reply becomes the plain-text part.
+  # auth: token                        # token (default) | login: use the agent's claude.ai login,
+  #   # which brings the account's connectors (for example mcp__claude_ai_Google_Calendar__list_events);
+  #   # only connectors named in tools are usable, all others are disallowed.
+  # browser: my-site                   # optional: headed Chrome (display :80; the owner can watch it
+  #   # through noVNC with agentops-browser watch) driven by Playwright MCP with the persistent profile
+  #   # ~/browser/my-site. Name only the Playwright tools the process needs in tools, not the whole
+  #   # "mcp__playwright" server, e.g. mcp__playwright__browser_navigate,mcp__playwright__browser_snapshot,
+  #   # mcp__playwright__browser_click,mcp__playwright__browser_type,mcp__playwright__browser_wait_for,
+  #   # mcp__playwright__browser_tabs,mcp__playwright__browser_close
+  #   # The owner signs the profile in first (agentops-browser open my-site, then open the login page
+  #   # inside noVNC). See wsl/browser/sites.yaml in Agent Ops for what is known about each site.
+  # Memory: write run-to-run notes under state/. In a project run they are committed to
+  #   main after every clean run (a failed run's edits wait for the next clean run), so
+  #   git history shows every change and any one can be reverted. Never put a secret there.
+
+limits: { daily_runs: 3, timeout_min: 20 }   # required

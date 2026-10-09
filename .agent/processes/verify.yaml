@@ -1,0 +1,25 @@
+# Manual: run the verify loop on the working copy as it stands and report. Any change waiting there
+# (from a phone session) is then proposed by Agent Ops as a pull request on GitHub, where CI runs.
+id: dataverse-powertools.verify
+name: Verify and propose (manual)
+enabled: true
+
+triggers:
+  - manual: true
+
+run:
+  prompt: >
+    Run this repository's verify loop (AGENTS.md) on the working copy as it is, and change no
+    tracked file yourself. If node_modules is missing or older than package-lock.json, run
+    `npm ci` first. Then run `npm run lint`, `npm run compile` and `npm run test:coverage`; skip
+    the integration, UI, end-to-end and live suites. Reply with: what `git status --short` shows
+    (the changes Agent Ops will propose as a pull request when this run ends), a one-line summary
+    of those changes if there are any, and each check's result, quoting the first error of any
+    that failed.
+  model: sonnet
+  max_turns: 30
+  tools: "Bash,Read,Grep,Glob"
+  workspace: project
+  notify: email
+
+limits: { daily_runs: 6, timeout_min: 30 }
