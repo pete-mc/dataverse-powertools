@@ -30,5 +30,5 @@ AGENTS.md
 CLAUDE.md
 CONTRIBUTING.md
 **/*.map
-**/*.tstest-resources/**
+test-resources/**
 .agent/**

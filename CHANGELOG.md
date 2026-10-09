@@ -5,6 +5,17 @@ All notable changes to the "dataverse-powertools" extension will be documented i
 Pre-release builds get a per-version entry in [CHANGELOG-prerelease.md](CHANGELOG-prerelease.md);
 those entries are rolled up into one section here when a full release ships.
 
+## 1.0.10
+
+Build & deploy now registers every step on a plug-in class with several `[CrmPluginRegistration]` attributes, not just the first.
+
+**Fixed: a plug-in class with several `[CrmPluginRegistration]` attributes only registered the first step**
+
+Stacking two or more step registrations on one class (say a `Book` step and a `Reschedule` step on
+the same validation plug-in) compiles fine, but *Build Package & Deploy* only created or updated the
+first one. The rest were skipped without a word in the output channel. Every attribute now registers
+its own step against the class it decorates (#295).
+
 ## 1.0.9
 
 Fixes Generate Early Bound Classes silently generating nothing when a table filter was configured.

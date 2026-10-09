@@ -26,32 +26,32 @@ export interface E2EEnv {
   password?: string;
 }
 
-/** Load credentials from the gitignored sandbox/.env. Returns undefined if incomplete. */
+/** Load credentials from the gitignored sandbox/.env, falling back to the process environment for any
+ * value the file doesn't set (as the live suites do). Returns undefined if incomplete. */
 export function loadE2EEnv(): E2EEnv | undefined {
   const p = path.resolve(repoRoot, "sandbox", ".env");
-  if (!fs.existsSync(p)) {
-    return undefined;
-  }
-  const raw: Record<string, string> = {};
-  for (const line of fs.readFileSync(p, "utf8").split(/\r?\n/)) {
+  const lines = fs.existsSync(p) ? fs.readFileSync(p, "utf8").split(/\r?\n/) : [];
+  const fromFile: Record<string, string> = {};
+  for (const line of lines) {
     const t = line.trim();
     if (!t || t.startsWith("#")) {
       continue;
     }
     const i = t.indexOf("=");
     if (i > 0) {
-      raw[t.slice(0, i).trim()] = t.slice(i + 1).trim();
+      fromFile[t.slice(0, i).trim()] = t.slice(i + 1).trim();
     }
   }
+  const raw = (name: string): string | undefined => fromFile[name] || process.env[name]?.trim() || undefined;
   const env: E2EEnv = {
-    url: raw.DVPT_TEST_URL ?? "",
-    tenantId: raw.DVPT_TEST_TENANT_ID ?? "",
-    clientId: raw.DVPT_TEST_CLIENT_ID ?? "",
-    clientSecret: raw.DVPT_TEST_CLIENT_SECRET ?? "",
-    solutionName: raw.DVPT_TEST_SOLUTION_NAME || "dvpttests",
-    prefix: raw.DVPT_TEST_PREFIX || "dvpt",
-    username: raw.DVPT_TEST_USERNAME || process.env.DVPT_TEST_USERNAME || undefined,
-    password: raw.DVPT_TEST_PASSWORD || process.env.DVPT_TEST_PASSWORD || undefined,
+    url: raw("DVPT_TEST_URL") ?? "",
+    tenantId: raw("DVPT_TEST_TENANT_ID") ?? "",
+    clientId: raw("DVPT_TEST_CLIENT_ID") ?? "",
+    clientSecret: raw("DVPT_TEST_CLIENT_SECRET") ?? "",
+    solutionName: raw("DVPT_TEST_SOLUTION_NAME") || "dvpttests",
+    prefix: raw("DVPT_TEST_PREFIX") || raw("DVPT_TEST_PUBLISHER_PREFIX") || "dvpt",
+    username: raw("DVPT_TEST_USERNAME"),
+    password: raw("DVPT_TEST_PASSWORD"),
   };
   if (!env.url || !env.tenantId || !env.clientId || !env.clientSecret) {
     return undefined;
@@ -1338,6 +1338,29 @@ export class E2EClient {
     }
     const data: any = await res.json();
     return data?.value?.[0]?.plugintypeid;
+  }
+
+  /** The plug-in step ids registered under each name, keyed by name (a missing name has no entry). */
+  async findStepIdsByName(names: string[]): Promise<Map<string, string>> {
+    const found = new Map<string, string>();
+    for (const name of names) {
+      const res = await this.request("GET", `sdkmessageprocessingsteps?$select=sdkmessageprocessingstepid&$filter=name eq '${name.replace(/'/g, "''")}'`);
+      if (!res.ok) {
+        continue;
+      }
+      const id = ((await res.json()) as { value?: { sdkmessageprocessingstepid: string }[] }).value?.[0]?.sdkmessageprocessingstepid;
+      if (id) {
+        found.set(name, id);
+      }
+    }
+    return found;
+  }
+
+  /** Delete the plug-in steps registered under these names — a step blocks deleting its package. */
+  async deleteStepsByName(names: string[]): Promise<void> {
+    for (const id of (await this.findStepIdsByName(names)).values()) {
+      await this.request("DELETE", `sdkmessageprocessingsteps(${id})`);
+    }
   }
 
   /** Delete a Custom API and its members. Members go first — the API cannot be deleted under them. */
