@@ -59,8 +59,19 @@ jobs:
     # net48 (Windows-only to compile) and is gone — capture is now Web API calls in the
     # extension itself. Everything left (webpack/vsce/the net8 typings tool) is portable.
     runs-on: ubuntu-latest
+    # Each publish is recorded as a deployment to the `marketplace` environment.
+    environment:
+      name: marketplace
+      url: https://marketplace.visualstudio.com/items?itemName=dataversepowertools.dataverse-powertools
     permissions:
-      contents: read
+      contents: write # create the GitHub Release + tag for the published version
+    env:
+      # Channel switch. `false` ships a STABLE release to everyone; `true` ships to the
+      # pre-release channel only. 1.0.0 (GA) is the first stable since 0.7.0 — flip this
+      # back to `true` for the pre-release builds that follow it (each one still needs a
+      # version higher than the last published one, stable or pre-release). The GitHub
+      # Release below follows the same switch.
+      PRE_RELEASE: "false"
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -71,12 +82,29 @@ jobs:
           dotnet-version: "8.0.x"
       - run: npm ci
       - name: Publish to Visual Studio Marketplace
+        id: publish
         uses: HaaLeo/publish-vscode-extension@v2
         with:
           pat: ${{ secrets.VSCE_PAT }}
           registryUrl: https://marketplace.visualstudio.com
-          # Channel switch. `false` ships a STABLE release to everyone; `true` ships to the
-          # pre-release channel only. 1.0.0 (GA) is the first stable since 0.7.0 — flip this
-          # back to `true` for the pre-release builds that follow it (each one still needs a
-          # version higher than the last published one, stable or pre-release).
-          preRelease: false
+          preRelease: ${{ env.PRE_RELEASE == 'true' }}
+      # A GitHub Release per published version: tag v<version>, that version's changelog section as
+      # the notes, and the exact VSIX that went to the Marketplace attached. Skipped when the release
+      # already exists, so re-running a deploy can't fail on it.
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VSIX: ${{ steps.publish.outputs.vsixPath }}
+        shell: bash
+        run: |
+          version=$(jq -r .version package.json)
+          if gh release view "v$version" >/dev/null 2>&1; then
+            echo "Release v$version already exists — nothing to do."
+            exit 0
+          fi
+          node scripts/releaseNotes.mjs "$version" > "$RUNNER_TEMP/notes.md"
+          flags=(--latest)
+          if [ "$PRE_RELEASE" = "true" ]; then flags=(--prerelease); fi
+          assets=()
+          if [ -n "$VSIX" ] && [ -f "$VSIX" ]; then assets=("$VSIX"); else echo "::warning::No VSIX path from the publish step; creating the release without it."; fi
+          gh release create "v$version" "${assets[@]}" --target "$GITHUB_SHA" --title "VS Code v$version" --notes-file "$RUNNER_TEMP/notes.md" "${flags[@]}"
