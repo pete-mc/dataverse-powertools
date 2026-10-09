@@ -4,6 +4,10 @@
 
 # Dataverse PowerTools
 
+[![CI](https://img.shields.io/github/actions/workflow/status/pete-mc/dataverse-powertools/main.yml?branch=main&label=CI&logo=github)](https://github.com/pete-mc/dataverse-powertools/actions/workflows/main.yml)
+[![VS Code](https://img.shields.io/badge/VS%20Code-Dataverse%20PowerTools-007ACC)](https://marketplace.visualstudio.com/items?itemName=dataversepowertools.dataverse-powertools)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE.md)
+
 **Build, test, and ship Dataverse & Dynamics 365 — without leaving VS Code.**
 
 Solutions, web resources, and plugins. Scaffold, build, deploy, and unit test from

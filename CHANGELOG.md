@@ -5,6 +5,36 @@ All notable changes to the "dataverse-powertools" extension will be documented i
 Pre-release builds get a per-version entry in [CHANGELOG-prerelease.md](CHANGELOG-prerelease.md);
 those entries are rolled up into one section here when a full release ships.
 
+## 1.0.10
+
+Build & deploy now registers every step on a plug-in class with several `[CrmPluginRegistration]` attributes, not just the first.
+
+**Fixed: a plug-in class with several `[CrmPluginRegistration]` attributes only registered the first step**
+
+Stacking two or more step registrations on one class (say a `Book` step and a `Reschedule` step on
+the same validation plug-in) compiles fine, but *Build Package & Deploy* only created or updated the
+first one. The rest were skipped without a word in the output channel. Every attribute now registers
+its own step against the class it decorates (#295).
+
+## 1.0.9
+
+Fixes Generate Early Bound Classes silently generating nothing when a table filter was configured.
+
+**Fixed: Generate Early Bound Classes silently generated nothing when a table filter was set**
+
+If you had configured an entity filter, the generated folder came back empty — and the run looked
+like it had succeeded. `pac modelbuilder` takes its `--entitynamesfilter` and `--messagenamesfilter`
+as **semicolon**-separated lists; we were passing commas, so pac read the whole thing as one table
+name, matched nothing, wrote no classes and still exited successfully. Nothing surfaced the
+failure, so a later *Build & deploy* would ship a package with none of the expected early-bound
+classes in it.
+
+Both filters are now joined the way pac documents. If you worked around this by entering your
+tables with semicolons, switch back to the normal comma-separated list — the settings format is
+unchanged, only what we hand to pac was wrong.
+
+Reported from a pilot running 0.14.48; the bug was still present in 1.0.8.
+
 ## 1.0.8
 
 Fixes Debug Web Resources for components with their own bundle name, adds a command to rename a bundle, and warns when two components would deploy over each other.
