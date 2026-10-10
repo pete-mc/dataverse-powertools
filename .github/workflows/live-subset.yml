@@ -31,6 +31,10 @@ on:
     # Mondays, 06:00 UTC. Weekly rather than nightly on purpose — see above.
     - cron: "0 6 * * 1"
 
+# Read-only token: the job checks out, runs the suites and uploads artifacts; it writes nothing back.
+permissions:
+  contents: read
+
 # One at a time: these talk to a single shared Dataverse environment.
 concurrency:
   group: live-e2e

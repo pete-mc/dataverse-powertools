@@ -71,6 +71,11 @@ Short form of the e2e rules that bite:
   Marketplace shows). At a full release run `node scripts/rollupChangelog.mjs <version> --summary "…"`:
   it folds every accumulated pre-release section under one `## <version>` heading and resets the
   pre-release file. `--dry-run` prints what it would move.
+- **Publishing** happens when a version bump reaches `main`
+  ([main.yml](.github/workflows/main.yml)): the deploy job publishes to the Marketplace, then creates a
+  GitHub Release `v<version>` with the published VSIX attached and that version's changelog section as
+  its notes ([scripts/releaseNotes.mjs](scripts/releaseNotes.mjs) — it fails the job if the section is
+  missing). Stable vs pre-release channel is the job's `PRE_RELEASE` variable; the release follows it.
 
 ## Preview features (release gating)
 
