@@ -288,6 +288,7 @@ async function discoverRegistrations(workspacePath: string, log: (line: string) 
   const pluginSteps: PluginStepRegistration[] = [];
   const workflowActivities: WorkflowActivityRegistration[] = [];
   const unrecognised: ParsedDecorationResult["unrecognised"] = [];
+  const warnings: string[] = [];
 
   for (const filePath of sourceFiles) {
     const content = await fs.promises.readFile(filePath, "utf8");
@@ -295,12 +296,16 @@ async function discoverRegistrations(workspacePath: string, log: (line: string) 
     pluginSteps.push(...parsed.pluginSteps);
     workflowActivities.push(...parsed.workflowActivities);
     unrecognised.push(...parsed.unrecognised);
+    warnings.push(...parsed.warnings);
     for (const skipped of parsed.unrecognised) {
       log(`Skipping a [CrmPluginRegistration] in ${path.relative(workspacePath, filePath)} — ${skipped.reason}: ${skipped.attribute}`);
     }
+    for (const warning of parsed.warnings) {
+      log(`${path.relative(workspacePath, filePath)}: ${warning}`);
+    }
   }
 
-  return { pluginSteps, workflowActivities, unrecognised };
+  return { pluginSteps, workflowActivities, unrecognised, warnings };
 }
 
 export async function buildAndDeploy(context: DataversePowerToolsContext): Promise<void> {
@@ -490,6 +495,12 @@ export async function buildAndDeploy(context: DataversePowerToolsContext): Promi
       context.channel.appendLine(
         `Plugin step sync complete. Created: ${registrationResult.created}, Updated: ${registrationResult.updated}, Unchanged: ${registrationResult.unchanged}, Skipped: ${registrationResult.skipped}.`,
       );
+      if (registrationResult.images.created + registrationResult.images.updated + registrationResult.images.unchanged + registrationResult.images.skipped > 0) {
+        const images = registrationResult.images;
+        context.channel.appendLine(
+          `Plugin step image sync complete. Created: ${images.created}, Updated: ${images.updated}, Unchanged: ${images.unchanged}, Skipped: ${images.skipped}.`,
+        );
+      }
 
       const workflowResult = await registerWorkflowActivities(context, assemblyId, discovered.workflowActivities, context.projectSettings.solutionName);
       context.channel.appendLine(

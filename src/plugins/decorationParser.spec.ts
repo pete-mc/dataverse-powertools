@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseDecorationsFromContent, stripCSharpComments } from "./decorationParser";
+import { StepImageType } from "../general/dataverse/stepPayloads";
 
 describe("parseDecorationsFromContent", () => {
   it("returns every stacked [CrmPluginRegistration] on one class as its own step (#295)", () => {
@@ -103,5 +104,51 @@ namespace Contoso.Plugins
     expect(stripCSharpComments('var a = "http://x"; // gone\nvar b = @"C:\\a ""//"" b"; /* gone */ var c = \'/\';')).toBe(
       'var a = "http://x"; \nvar b = @"C:\\a ""//"" b";   var c = \'/\';',
     );
+  });
+});
+
+describe("parseDecorationsFromContent — step images", () => {
+  const parse = (namedArgs: string) =>
+    parseDecorationsFromContent(`
+namespace Contoso.Plugins
+{
+    [CrmPluginRegistration(MessageNameEnum.Update, "contact", StageEnum.PostOperation, ExecutionModeEnum.Synchronous, "emailaddress1", "PostUpdateContact", 1, IsolationModeEnum.Sandbox${namedArgs})]
+    public class PostUpdateContact : PluginBase { }
+}`);
+
+  it("reads Image1 and Image2 with their types and attributes", () => {
+    const { pluginSteps, warnings } = parse(
+      ', Id = "0c93bd74-909b-4c51-8d64-f3d55714bd94", Image1Type = ImageTypeEnum.PreImage, Image1Name = "PreImage", Image1Attributes = "emailaddress1,firstname", Image2Type = ImageTypeEnum.PostImage, Image2Name = "PostImage"',
+    );
+    expect(warnings).toEqual([]);
+    expect(pluginSteps[0].stepId).toBe("0c93bd74-909b-4c51-8d64-f3d55714bd94");
+    expect(pluginSteps[0].images).toEqual([
+      { name: "PreImage", imageType: StepImageType.preImage, attributes: "emailaddress1,firstname" },
+      { name: "PostImage", imageType: StepImageType.postImage, attributes: undefined },
+    ]);
+  });
+
+  it("defaults the image type to PreImage and accepts Both", () => {
+    expect(parse(', Image1Name = "Snapshot"').pluginSteps[0].images).toEqual([{ name: "Snapshot", imageType: StepImageType.preImage, attributes: undefined }]);
+    expect(parse(', Image1Name = "Snapshot", Image1Type = ImageTypeEnum.Both').pluginSteps[0].images?.[0].imageType).toBe(StepImageType.both);
+  });
+
+  it("omits images when none are declared", () => {
+    expect(parse("").pluginSteps[0]).not.toHaveProperty("images");
+  });
+
+  it("still registers the step but warns when an image name is not a string literal", () => {
+    const { pluginSteps, warnings } = parse(', Image1Type = ImageTypeEnum.PreImage, Image1Name = PreImageAlias, Image1Attributes = "emailaddress1"');
+    expect(pluginSteps).toHaveLength(1);
+    expect(pluginSteps[0]).not.toHaveProperty("images");
+    expect(warnings).toEqual([expect.stringContaining("Image1Name and Image1Attributes must be string literals")]);
+  });
+
+  it("warns when image properties are set without a name", () => {
+    expect(parse(', Image1Attributes = "emailaddress1"').warnings).toEqual([expect.stringContaining("Image1Name is not set")]);
+  });
+
+  it("warns on an unknown image type", () => {
+    expect(parse(', Image1Name = "PreImage", Image1Type = (ImageTypeEnum)7').warnings).toEqual([expect.stringContaining("is not an ImageTypeEnum value")]);
   });
 });

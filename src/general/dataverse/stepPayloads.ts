@@ -17,6 +17,32 @@ export interface PluginStepRegistration {
   stepName: string;
   executionOrder: number;
   stepId?: string;
+  images?: PluginStepImageRegistration[];
+}
+
+/** Mirrors `ImageTypeEnum` in CrmPluginRegistrationAttribute.generated.cs and `sdkmessageprocessingstepimage.imagetype`. */
+export enum StepImageType {
+  preImage = 0,
+  postImage = 1,
+  both = 2,
+}
+
+/** A pre/post entity image declared with `Image1*` / `Image2*` on a `[CrmPluginRegistration]`. */
+export interface PluginStepImageRegistration {
+  /** Used as both the image name and the entity alias the plug-in reads from `PreEntityImages` / `PostEntityImages`. */
+  name: string;
+  imageType: StepImageType;
+  /** Comma-separated columns; empty means all columns. */
+  attributes?: string;
+}
+
+export interface ExistingStepImageSnapshot {
+  sdkmessageprocessingstepimageid: string;
+  name?: string;
+  entityalias?: string;
+  imagetype?: number;
+  attributes?: string | null;
+  messagepropertyname?: string;
 }
 
 export interface ExistingStepSnapshot {
@@ -95,6 +121,66 @@ export function buildStepPayload(step: PluginStepRegistration, pluginTypeId: str
   }
 
   return payload;
+}
+
+// ─── Plugin step images ──────────────────────────────────────────────────────
+
+/** The request property Dataverse snapshots for an image on this message (`messagepropertyname`). */
+export function imageMessagePropertyName(messageName: string): string {
+  switch (messageName.trim().toLowerCase()) {
+    case "create":
+      return "Id";
+    case "setstate":
+    case "setstatedynamicentity":
+      return "EntityMoniker";
+    default:
+      return "Target";
+  }
+}
+
+/** Why Dataverse would reject this image on this step, or undefined when it is valid. */
+export function getStepImageValidationError(step: PluginStepRegistration, image: PluginStepImageRegistration): string | undefined {
+  const message = step.messageName.trim().toLowerCase();
+  const wantsPre = image.imageType === StepImageType.preImage || image.imageType === StepImageType.both;
+  const wantsPost = image.imageType === StepImageType.postImage || image.imageType === StepImageType.both;
+
+  if (!image.name.trim()) {
+    return "an image needs a name";
+  }
+  if (wantsPre && message === "create") {
+    return "a Create step cannot have a pre-image";
+  }
+  if (wantsPost && message === "delete") {
+    return "a Delete step cannot have a post-image";
+  }
+  if (wantsPost && step.stage !== 40) {
+    return "a post-image is only available on a PostOperation step";
+  }
+  return undefined;
+}
+
+/** Build the create/update body for an `sdkmessageprocessingstepimage` bound to its step. */
+export function buildStepImagePayload(image: PluginStepImageRegistration, messageName: string, stepId: string): Record<string, unknown> {
+  const attributes = normalizeFilteringAttributes(image.attributes);
+  const payload: Record<string, unknown> = {
+    name: image.name,
+    entityalias: image.name,
+    imagetype: image.imageType,
+    attributes: attributes || null,
+    messagepropertyname: imageMessagePropertyName(messageName),
+  };
+  payload["sdkmessageprocessingstepid@odata.bind"] = `/sdkmessageprocessingsteps(${stepId})`;
+  return payload;
+}
+
+/** True when the live image differs from what we want to register (so we PATCH). */
+export function stepImageNeedsUpdate(existing: ExistingStepImageSnapshot, image: PluginStepImageRegistration, messageName: string): boolean {
+  return (
+    (existing.name || "") !== image.name ||
+    (existing.imagetype ?? -1) !== image.imageType ||
+    normalizeFilteringAttributes(existing.attributes ?? undefined) !== normalizeFilteringAttributes(image.attributes) ||
+    (existing.messagepropertyname || "") !== imageMessagePropertyName(messageName)
+  );
 }
 
 // ─── Workflow activities ─────────────────────────────────────────────────────
