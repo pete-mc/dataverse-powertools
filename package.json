@@ -958,7 +958,7 @@
     "xrm-mock": "^3.6.2"
   },
   "dependencies": {
-    "@azure/msal-node": "^5.4.0",
+    "@azure/msal-node": "^7.1.1",
     "adm-zip": "^0.6.1",
     "chrome-remote-interface": "^0.34.0",
     "fast-xml-parser": "^5.10.1",
