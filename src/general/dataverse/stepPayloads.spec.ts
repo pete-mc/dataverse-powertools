@@ -10,6 +10,13 @@ import {
   PluginStepRegistration,
   ExistingStepSnapshot,
   WorkflowActivityRegistration,
+  imageMessagePropertyName,
+  getStepImageValidationError,
+  buildStepImagePayload,
+  stepImageNeedsUpdate,
+  StepImageType,
+  PluginStepImageRegistration,
+  ExistingStepImageSnapshot,
 } from "./stepPayloads";
 
 function step(overrides: Partial<PluginStepRegistration> = {}): PluginStepRegistration {
@@ -107,6 +114,88 @@ describe("buildStepPayload", () => {
 
   it("defaults filteringattributes to empty string", () => {
     expect(buildStepPayload(step({ filteringAttributes: undefined }), "t", "m").filteringattributes).toBe("");
+  });
+});
+
+describe("imageMessagePropertyName", () => {
+  it.each([
+    ["Create", "Id"],
+    ["Update", "Target"],
+    ["Delete", "Target"],
+    ["Assign", "Target"],
+    ["SetState", "EntityMoniker"],
+    ["SetStateDynamicEntity", "EntityMoniker"],
+  ])("%s uses %s", (message, expected) => {
+    expect(imageMessagePropertyName(message)).toBe(expected);
+  });
+});
+
+describe("getStepImageValidationError", () => {
+  const image = (imageType: StepImageType): PluginStepImageRegistration => ({ name: "Image", imageType });
+
+  it("accepts a pre-image on Update and a post-image on a PostOperation Create", () => {
+    expect(getStepImageValidationError(step(), image(StepImageType.preImage))).toBeUndefined();
+    expect(getStepImageValidationError(step({ messageName: "Create" }), image(StepImageType.postImage))).toBeUndefined();
+  });
+
+  it.each([
+    ["a pre-image on Create", { messageName: "Create" }, StepImageType.preImage, "Create step cannot have a pre-image"],
+    ["Both on Create", { messageName: "Create" }, StepImageType.both, "Create step cannot have a pre-image"],
+    ["a post-image on Delete", { messageName: "Delete" }, StepImageType.postImage, "Delete step cannot have a post-image"],
+    ["a post-image before PostOperation", { stage: 20 }, StepImageType.postImage, "only available on a PostOperation step"],
+  ])("rejects %s", (_label, overrides, imageType, reason) => {
+    expect(getStepImageValidationError(step(overrides as Partial<PluginStepRegistration>), image(imageType))).toContain(reason);
+  });
+
+  it("rejects a blank name", () => {
+    expect(getStepImageValidationError(step(), { name: " ", imageType: StepImageType.preImage })).toContain("needs a name");
+  });
+});
+
+describe("buildStepImagePayload", () => {
+  it("uses the name as the alias, normalises attributes and binds the step", () => {
+    expect(buildStepImagePayload({ name: "PreImage", imageType: StepImageType.preImage, attributes: " EmailAddress1 , name" }, "Update", "step-1")).toEqual({
+      name: "PreImage",
+      entityalias: "PreImage",
+      imagetype: 0,
+      attributes: "emailaddress1,name",
+      messagepropertyname: "Target",
+      // eslint-disable-next-line @typescript-eslint/naming-convention -- Dataverse nav-property key
+      "sdkmessageprocessingstepid@odata.bind": "/sdkmessageprocessingsteps(step-1)",
+    });
+  });
+
+  it("sends null attributes (all columns) when none are given", () => {
+    expect(buildStepImagePayload({ name: "PostImage", imageType: StepImageType.postImage }, "Create", "step-1")).toMatchObject({ attributes: null, messagepropertyname: "Id" });
+  });
+});
+
+describe("stepImageNeedsUpdate", () => {
+  const image: PluginStepImageRegistration = { name: "PreImage", imageType: StepImageType.preImage, attributes: "name,telephone1" };
+  const live: ExistingStepImageSnapshot = {
+    sdkmessageprocessingstepimageid: "i1",
+    name: "PreImage",
+    entityalias: "PreImage",
+    imagetype: 0,
+    attributes: "telephone1,name",
+    messagepropertyname: "Target",
+  };
+
+  it("is false when everything matches (including reordered attributes)", () => {
+    expect(stepImageNeedsUpdate(live, image, "Update")).toBe(false);
+  });
+
+  it.each([
+    ["name", { name: "Other" }],
+    ["imagetype", { imagetype: 2 }],
+    ["attributes", { attributes: "name" }],
+    ["messagepropertyname", { messagepropertyname: "Id" }],
+  ])("is true when %s differs", (_label, overrides) => {
+    expect(stepImageNeedsUpdate({ ...live, ...overrides }, image, "Update")).toBe(true);
+  });
+
+  it("treats null and empty attributes as all columns", () => {
+    expect(stepImageNeedsUpdate({ ...live, attributes: null }, { ...image, attributes: "" }, "Update")).toBe(false);
   });
 });
 

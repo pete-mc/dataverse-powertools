@@ -4,7 +4,16 @@ import { addDataverseSolutionComponent } from "./addDataverseSolutionComponent";
 import { DataverseContext, Options } from "./dataverseContext";
 import { dataverseApiUrl, entityIdFromODataHeader, logDataverseHttpError } from "./webApi";
 import { escapeODataString } from "./odata";
-import { PluginStepRegistration, ExistingStepSnapshot, buildStepPayload, stepNeedsUpdate } from "./stepPayloads";
+import {
+  PluginStepRegistration,
+  ExistingStepSnapshot,
+  ExistingStepImageSnapshot,
+  buildStepPayload,
+  stepNeedsUpdate,
+  buildStepImagePayload,
+  getStepImageValidationError,
+  stepImageNeedsUpdate,
+} from "./stepPayloads";
 
 export type { PluginStepRegistration } from "./stepPayloads";
 
@@ -207,11 +216,74 @@ async function getExistingStepSnapshot(context: DataversePowerToolsContext, step
   };
 }
 
+export interface RegisterStepImagesResult {
+  created: number;
+  updated: number;
+  unchanged: number;
+  skipped: number;
+}
+
 export interface RegisterPluginStepsResult {
   created: number;
   updated: number;
   unchanged: number;
   skipped: number;
+  images: RegisterStepImagesResult;
+}
+
+async function getExistingStepImages(context: DataversePowerToolsContext, stepId: string): Promise<ExistingStepImageSnapshot[] | undefined> {
+  const data = await getJson(
+    context,
+    `sdkmessageprocessingstepimages?$select=sdkmessageprocessingstepimageid,name,entityalias,imagetype,attributes,messagepropertyname&$filter=_sdkmessageprocessingstepid_value eq ${stepId}`,
+  );
+  return Array.isArray(data?.value) ? (data.value as ExistingStepImageSnapshot[]) : undefined;
+}
+
+/** Create or update the images declared on the step, matched by entity alias. Images not declared in code are left alone. */
+async function registerStepImages(context: DataversePowerToolsContext, step: PluginStepRegistration, stepId: string, result: RegisterStepImagesResult): Promise<void> {
+  if (!step.images?.length) {
+    return;
+  }
+
+  const existingImages = await getExistingStepImages(context, stepId);
+  if (!existingImages) {
+    context.channel.appendLine(`Skipping images on step '${step.stepName}' because its existing images could not be read.`);
+    result.skipped += step.images.length;
+    return;
+  }
+
+  for (const image of step.images) {
+    const validationError = getStepImageValidationError(step, image);
+    if (validationError) {
+      context.channel.appendLine(`Skipping image '${image.name}' on step '${step.stepName}': ${validationError}.`);
+      result.skipped++;
+      continue;
+    }
+
+    const payload = buildStepImagePayload(image, step.messageName, stepId);
+    const existing = existingImages.find((candidate) => (candidate.entityalias || "").toLowerCase() === image.name.toLowerCase());
+    if (!existing) {
+      const response = await sendJson(context, "POST", "sdkmessageprocessingstepimages", payload);
+      if (response !== undefined) {
+        result.created++;
+      } else {
+        result.skipped++;
+      }
+      continue;
+    }
+
+    if (!stepImageNeedsUpdate(existing, image, step.messageName)) {
+      result.unchanged++;
+      continue;
+    }
+
+    const response = await sendJson(context, "PATCH", `sdkmessageprocessingstepimages(${existing.sdkmessageprocessingstepimageid})`, payload);
+    if (response !== undefined) {
+      result.updated++;
+    } else {
+      result.skipped++;
+    }
+  }
 }
 
 export async function registerPluginSteps(
@@ -224,6 +296,7 @@ export async function registerPluginSteps(
   let updated = 0;
   let unchanged = 0;
   let skipped = 0;
+  const images: RegisterStepImagesResult = { created: 0, updated: 0, unchanged: 0, skipped: 0 };
 
   for (const step of steps) {
     const pluginTypeId = await resolvePluginTypeId(context, assemblyId, step.fullTypeName);
@@ -265,6 +338,8 @@ export async function registerPluginSteps(
         unchanged++;
       }
 
+      await registerStepImages(context, step, existingStepId, images);
+
       if (solutionUniqueName) {
         const associated = await addDataverseSolutionComponent(context, solutionUniqueName, 92, existingStepId);
         if (!associated) {
@@ -279,6 +354,7 @@ export async function registerPluginSteps(
     const createdStepId = createResponse?.id ?? createResponse?.sdkmessageprocessingstepid;
     if (createResponse !== undefined && createdStepId) {
       created++;
+      await registerStepImages(context, step, createdStepId, images);
 
       if (solutionUniqueName) {
         const associated = await addDataverseSolutionComponent(context, solutionUniqueName, 92, createdStepId);
@@ -291,5 +367,5 @@ export async function registerPluginSteps(
     }
   }
 
-  return { created, updated, unchanged, skipped };
+  return { created, updated, unchanged, skipped, images };
 }

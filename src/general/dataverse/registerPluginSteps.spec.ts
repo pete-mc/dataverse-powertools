@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("node-fetch", () => ({ default: vi.fn() }));
 import fetch from "node-fetch";
 import { registerPluginSteps } from "./registerPluginSteps";
-import { PluginStepRegistration } from "./stepPayloads";
+import { PluginStepRegistration, StepImageType } from "./stepPayloads";
 import { fakeDataverseContext, okJson } from "../../../test/dataverseTestUtils";
 
 // #143 Move 2 — verify the plugin-step registration orchestration (used by plugin
@@ -36,12 +36,19 @@ interface Routes {
   filter?: unknown[];
   existingStep?: unknown[];
   snapshot?: unknown;
+  images?: unknown[];
 }
 
 function route(routes: Routes) {
   fetchMock.mockImplementation((url: string, opts: { method?: string } = {}) => {
     const method = opts.method ?? "GET";
     const u = String(url);
+    if (method === "GET" && u.includes("sdkmessageprocessingstepimages?")) {
+      return Promise.resolve(okJson({ value: routes.images ?? [] }));
+    }
+    if (method === "POST" && u.includes("sdkmessageprocessingstepimages")) {
+      return Promise.resolve(jsonPost({ sdkmessageprocessingstepimageid: "img-new" }));
+    }
     if (method === "GET" && u.includes("plugintypes")) {
       return Promise.resolve(okJson({ value: routes.pluginType ?? [{ plugintypeid: "pt-1" }] }));
     }
@@ -105,5 +112,100 @@ describe("registerPluginSteps — orchestration vs mocked Web API (#143 Move 2)"
     const result = await registerPluginSteps(context, "asm-1", [step]);
     expect(result).toMatchObject({ skipped: 1, created: 0 });
     expect(methodCalls("POST", "sdkmessageprocessingsteps")).toBe(0);
+  });
+});
+
+describe("registerPluginSteps — step images", () => {
+  const unchangedSnapshot = {
+    sdkmessageprocessingstepid: "s1",
+    name: step.stepName,
+    rank: 1,
+    stage: 40,
+    mode: 0,
+    filteringattributes: "name",
+    _sdkmessagefilterid_value: "filt-1",
+  };
+  const stepWithImage: PluginStepRegistration = { ...step, images: [{ name: "PreImage", imageType: StepImageType.preImage, attributes: "name" }] };
+
+  function postedBody(urlPart: string): Record<string, unknown> {
+    const call = fetchMock.mock.calls.find((c) => c[1]?.method === "POST" && String(c[0]).includes(urlPart));
+    return JSON.parse(call?.[1]?.body as string);
+  }
+
+  it("creates a declared image on a newly created step", async () => {
+    route({ existingStep: [] });
+    const { context } = fakeDataverseContext();
+
+    const result = await registerPluginSteps(context, "asm-1", [stepWithImage]);
+
+    expect(result.images).toEqual({ created: 1, updated: 0, unchanged: 0, skipped: 0 });
+    expect(postedBody("sdkmessageprocessingstepimages")).toEqual({
+      name: "PreImage",
+      entityalias: "PreImage",
+      imagetype: 0,
+      attributes: "name",
+      messagepropertyname: "Target",
+      "sdkmessageprocessingstepid@odata.bind": "/sdkmessageprocessingsteps(step-new)",
+    });
+  });
+
+  it("creates a declared image missing from an existing step", async () => {
+    route({ existingStep: [{ sdkmessageprocessingstepid: "s1", name: step.stepName }], snapshot: unchangedSnapshot, images: [] });
+    const { context } = fakeDataverseContext();
+
+    const result = await registerPluginSteps(context, "asm-1", [stepWithImage]);
+
+    expect(result).toMatchObject({ unchanged: 1, images: { created: 1 } });
+    expect(postedBody("sdkmessageprocessingstepimages")["sdkmessageprocessingstepid@odata.bind"]).toBe("/sdkmessageprocessingsteps(s1)");
+  });
+
+  it("leaves an identical image unchanged", async () => {
+    route({
+      existingStep: [{ sdkmessageprocessingstepid: "s1", name: step.stepName }],
+      snapshot: unchangedSnapshot,
+      images: [{ sdkmessageprocessingstepimageid: "i1", name: "PreImage", entityalias: "PreImage", imagetype: 0, attributes: "name", messagepropertyname: "Target" }],
+    });
+    const { context } = fakeDataverseContext();
+
+    const result = await registerPluginSteps(context, "asm-1", [stepWithImage]);
+
+    expect(result.images).toEqual({ created: 0, updated: 0, unchanged: 1, skipped: 0 });
+    expect(methodCalls("PATCH", "sdkmessageprocessingstepimages")).toBe(0);
+  });
+
+  it("updates an image whose attributes differ, matched by alias", async () => {
+    route({
+      existingStep: [{ sdkmessageprocessingstepid: "s1", name: step.stepName }],
+      snapshot: unchangedSnapshot,
+      images: [{ sdkmessageprocessingstepimageid: "i1", name: "PreImage", entityalias: "preimage", imagetype: 0, attributes: "telephone1", messagepropertyname: "Target" }],
+    });
+    const { context } = fakeDataverseContext();
+
+    const result = await registerPluginSteps(context, "asm-1", [stepWithImage]);
+
+    expect(result.images).toMatchObject({ updated: 1, created: 0 });
+    expect(methodCalls("PATCH", "sdkmessageprocessingstepimages(i1)")).toBe(1);
+  });
+
+  it("skips an image Dataverse would reject and logs why", async () => {
+    route({ existingStep: [{ sdkmessageprocessingstepid: "s1", name: step.stepName }], snapshot: unchangedSnapshot, images: [] });
+    const { context, lines } = fakeDataverseContext();
+    const invalid: PluginStepRegistration = { ...step, stage: 20, images: [{ name: "PostImage", imageType: StepImageType.postImage }] };
+
+    const result = await registerPluginSteps(context, "asm-1", [invalid]);
+
+    expect(result.images).toMatchObject({ skipped: 1, created: 0 });
+    expect(methodCalls("POST", "sdkmessageprocessingstepimages")).toBe(0);
+    expect(lines.some((line) => line.includes("post-image is only available on a PostOperation step"))).toBe(true);
+  });
+
+  it("does not query images for a step that declares none", async () => {
+    route({ existingStep: [{ sdkmessageprocessingstepid: "s1", name: step.stepName }], snapshot: unchangedSnapshot });
+    const { context } = fakeDataverseContext();
+
+    const result = await registerPluginSteps(context, "asm-1", [step]);
+
+    expect(result.images).toEqual({ created: 0, updated: 0, unchanged: 0, skipped: 0 });
+    expect(methodCalls("GET", "sdkmessageprocessingstepimages")).toBe(0);
   });
 });

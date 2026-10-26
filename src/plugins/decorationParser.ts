@@ -1,12 +1,14 @@
 // Pure parsing of the [CrmPluginRegistration(...)] attributes in a C# source file into the plugin
 // steps and workflow activities Build & Deploy registers. Kept `vscode`-free so it is unit-testable.
-import { PluginStepRegistration, WorkflowActivityRegistration } from "../general/dataverse/stepPayloads";
+import { PluginStepImageRegistration, PluginStepRegistration, StepImageType, WorkflowActivityRegistration } from "../general/dataverse/stepPayloads";
 
 export interface ParsedDecorationResult {
   pluginSteps: PluginStepRegistration[];
   workflowActivities: WorkflowActivityRegistration[];
   /** Attributes found but not registered, with why — so Build & Deploy can say so instead of dropping them silently. */
   unrecognised: UnrecognisedDecoration[];
+  /** Parts of a registered attribute that were ignored (e.g. an image whose name is not a string literal). */
+  warnings: string[];
 }
 
 export interface UnrecognisedDecoration {
@@ -159,6 +161,69 @@ function parseStepId(argumentsList: string[]): string | undefined {
   return idMatch?.[1];
 }
 
+/** The raw value of a named attribute argument (`Name = value`), or undefined when absent. */
+function getNamedArgument(argumentsList: string[], name: string): string | undefined {
+  const pattern = new RegExp(`^${name}\\s*=\\s*([\\s\\S]+)$`);
+  for (const argument of argumentsList) {
+    const match = argument.match(pattern);
+    if (match) {
+      return match[1].trim();
+    }
+  }
+  return undefined;
+}
+
+function isStringLiteral(value: string): boolean {
+  return value.startsWith('"') && value.endsWith('"') && value.length >= 2;
+}
+
+function parseImageType(value: string | undefined): StepImageType | undefined {
+  if (value === undefined) {
+    return StepImageType.preImage;
+  }
+  switch (value.replace("ImageTypeEnum.", "").trim()) {
+    case "PreImage":
+      return StepImageType.preImage;
+    case "PostImage":
+      return StepImageType.postImage;
+    case "Both":
+      return StepImageType.both;
+    default:
+      return undefined;
+  }
+}
+
+/** Read `Image1*` and `Image2*`. An image is declared by its name; the type defaults to PreImage, as the attribute's does. */
+function parseStepImages(argumentsList: string[], stepName: string, warnings: string[]): PluginStepImageRegistration[] {
+  const images: PluginStepImageRegistration[] = [];
+  for (const slot of ["Image1", "Image2"]) {
+    const nameValue = getNamedArgument(argumentsList, `${slot}Name`);
+    const typeValue = getNamedArgument(argumentsList, `${slot}Type`);
+    const attributesValue = getNamedArgument(argumentsList, `${slot}Attributes`);
+    if (nameValue === undefined) {
+      if (typeValue !== undefined || attributesValue !== undefined) {
+        warnings.push(`Step '${stepName}': ${slot} ignored because ${slot}Name is not set.`);
+      }
+      continue;
+    }
+    if (!isStringLiteral(nameValue) || (attributesValue !== undefined && !isStringLiteral(attributesValue))) {
+      warnings.push(`Step '${stepName}': ${slot} ignored because ${slot}Name and ${slot}Attributes must be string literals.`);
+      continue;
+    }
+    const imageType = parseImageType(typeValue);
+    if (imageType === undefined) {
+      warnings.push(`Step '${stepName}': ${slot} ignored because ${slot}Type '${typeValue}' is not an ImageTypeEnum value.`);
+      continue;
+    }
+    images.push({
+      name: getQuotedStringValue(nameValue),
+      imageType,
+      attributes: attributesValue === undefined ? undefined : getQuotedStringValue(attributesValue),
+    });
+  }
+  return images;
+}
+
 function extractNamespace(content: string): string {
   const namespaceMatch = content.match(/namespace\s+([A-Za-z0-9_.]+)/);
   return namespaceMatch?.[1] || "Plugin";
@@ -174,6 +239,7 @@ export function parseDecorationsFromContent(source: string): ParsedDecorationRes
   const pluginSteps: PluginStepRegistration[] = [];
   const workflowActivities: WorkflowActivityRegistration[] = [];
   const unrecognised: UnrecognisedDecoration[] = [];
+  const warnings: string[] = [];
 
   // Each attribute is matched on its own and its owning class found AFTER it without consuming
   // anything — otherwise a second stacked [CrmPluginRegistration] on the same class is swallowed by
@@ -219,6 +285,7 @@ export function parseDecorationsFromContent(source: string): ParsedDecorationRes
     const stepName = getQuotedStringValue(args[5]);
     const executionOrder = Number(args[6]);
     const stepId = parseStepId(args);
+    const images = parseStepImages(args, stepName, warnings);
 
     pluginSteps.push({
       className,
@@ -231,8 +298,9 @@ export function parseDecorationsFromContent(source: string): ParsedDecorationRes
       stepName,
       executionOrder: Number.isFinite(executionOrder) ? executionOrder : 1,
       stepId,
+      ...(images.length > 0 ? { images } : {}),
     });
   }
 
-  return { pluginSteps, workflowActivities, unrecognised };
+  return { pluginSteps, workflowActivities, unrecognised, warnings };
 }

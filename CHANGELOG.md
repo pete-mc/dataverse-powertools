@@ -5,6 +5,17 @@ All notable changes to the "dataverse-powertools" extension will be documented i
 Pre-release builds get a per-version entry in [CHANGELOG-prerelease.md](CHANGELOG-prerelease.md);
 those entries are rolled up into one section here when a full release ships.
 
+## Unreleased
+
+**Added: Build & Deploy registers step images declared on `[CrmPluginRegistration]`**
+
+`Image1Name` / `Image1Type` / `Image1Attributes` (and the `Image2*` set) were generated on the attribute but
+ignored at deploy, so pre/post images had to be added by hand in the Plugin Registration Tool. Each
+declared image is now created or updated on its step, matched by alias (the image name). The image type
+defaults to `PreImage`; names and attributes must be string literals. Images Dataverse would reject (a
+pre-image on Create, a post-image on Delete or before PostOperation) are skipped with the reason in the
+output channel. Images not declared in code are left alone.
+
 ## 1.0.10
 
 Build & deploy now registers every step on a plug-in class with several `[CrmPluginRegistration]` attributes, not just the first.
