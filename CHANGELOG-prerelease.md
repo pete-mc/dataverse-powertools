@@ -9,6 +9,15 @@ Everything below has shipped to the pre-release channel and is not yet in a full
 
 ## 1.0.11 (pre-release)
 
+**Added: Build & Deploy registers step images declared on `[CrmPluginRegistration]`**
+
+`Image1Name` / `Image1Type` / `Image1Attributes` (and the `Image2*` set) were generated on the attribute but
+ignored at deploy, so pre/post images had to be added by hand in the Plugin Registration Tool. Each
+declared image is now created or updated on its step, matched by alias (the image name). The image type
+defaults to `PreImage`; names and attributes must be string literals. Images Dataverse would reject (a
+pre-image on Create, a post-image on Delete or before PostOperation) are skipped with the reason in the
+output channel. Images not declared in code are left alone.
+
 **Build & deploy: step registrations are read more carefully**
 
 - A commented-out `[CrmPluginRegistration]` (`// …` or `/* … */`) is no longer registered as a step.
