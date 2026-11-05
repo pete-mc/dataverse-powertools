@@ -107,13 +107,13 @@ describe("ACCEPTANCE: Plugin — build, code, register, publish via panel button
     });
   });
 
-  it("adds a class with two stacked [CrmPluginRegistration] attributes (#295)", async () => {
+  it("adds a class with two stacked [CrmPluginRegistration] attributes (#295), one with step images", async () => {
     await step(COMPONENT, "Write code (class with two stacked step registrations)", async () => {
       // Start from the scaffolded class so the copy compiles exactly as it does.
       const scaffold = fs.readFileSync(path.join(workspace, projectName, "AcceptancePluginClass.cs"), "utf8");
       const attributes = [
         `[CrmPluginRegistration(MessageNameEnum.Create, "account", StageEnum.PostOperation, ExecutionModeEnum.Asynchronous, "", "${stackedStepNames[0]}", 1, IsolationModeEnum.Sandbox)]`,
-        `[CrmPluginRegistration(MessageNameEnum.Update, "account", StageEnum.PostOperation, ExecutionModeEnum.Asynchronous, "name", "${stackedStepNames[1]}", 1, IsolationModeEnum.Sandbox)]`,
+        `[CrmPluginRegistration(MessageNameEnum.Update, "account", StageEnum.PostOperation, ExecutionModeEnum.Asynchronous, "name", "${stackedStepNames[1]}", 1, IsolationModeEnum.Sandbox, Image1Type = ImageTypeEnum.PreImage, Image1Name = "PreImage", Image1Attributes = "name,accountnumber", Image2Type = ImageTypeEnum.PostImage, Image2Name = "PostImage")]`,
       ];
       const stacked = scaffold
         .replace(/AcceptancePluginClass/g, "AcceptanceStackedClass")
@@ -222,7 +222,14 @@ describe("ACCEPTANCE: Plugin — build, code, register, publish via panel button
       if (missing.length > 0) {
         throw new Error(`stacked step(s) not registered in Dataverse after deploy: ${missing.join(", ")}`);
       }
-      return `plugin package ${pkgUnique()} present in Dataverse (id ${id}); both stacked steps registered`;
+      // The images declared on the Update step must be registered on it, not left to the Plugin Registration Tool.
+      const images = await client.getStepImages(steps.get(stackedStepNames[1])!);
+      const byAlias = new Map(images.map((image) => [image.entityalias, image]));
+      expect(byAlias.get("PreImage")?.imagetype, "pre-image registered on the Update step").to.equal(0);
+      expect((byAlias.get("PreImage")?.attributes ?? "").split(",").sort(), "pre-image columns").to.deep.equal(["accountnumber", "name"]);
+      expect(byAlias.get("PostImage")?.imagetype, "post-image registered on the Update step").to.equal(1);
+      expect(byAlias.get("PostImage")?.attributes ?? null, "post-image has all columns").to.equal(null);
+      return `plugin package ${pkgUnique()} present in Dataverse (id ${id}); both stacked steps registered; Update step has its pre- and post-image`;
     });
   });
 

@@ -1447,6 +1447,15 @@ export class E2EClient {
     return found;
   }
 
+  /** The images registered on a plug-in step, as Dataverse stored them. */
+  async getStepImages(stepId: string): Promise<{ entityalias: string; imagetype: number; attributes: string | null }[]> {
+    const res = await this.request("GET", `sdkmessageprocessingstepimages?$select=entityalias,imagetype,attributes&$filter=_sdkmessageprocessingstepid_value eq ${stepId}`);
+    if (!res.ok) {
+      return [];
+    }
+    return ((await res.json()) as { value?: { entityalias: string; imagetype: number; attributes: string | null }[] }).value ?? [];
+  }
+
   /** Delete the plug-in steps registered under these names — a step blocks deleting its package. */
   async deleteStepsByName(names: string[]): Promise<void> {
     for (const id of (await this.findStepIdsByName(names)).values()) {
