@@ -21,6 +21,7 @@ TESTING.md
 .env.example
 .mocharc-ui.json
 .mocharc-e2e.json
+.mocharc-supervised.json
 .prettierrc.json
 vsc-extension-quickstart.md
 tsconfig.json
@@ -28,6 +29,8 @@ eslint.config.mjs
 *.vsix
 AGENTS.md
 CLAUDE.md
+CLAUDE.local.md
+state/**
 CONTRIBUTING.md
 **/*.map
 test-resources/**
