@@ -103,7 +103,7 @@ describe("ACCEPTANCE: Plugin — build, code, register, publish via panel button
       });
       const cs = path.join(workspace, projectName, "AcceptancePluginClass.cs");
       expect(await waitForFile(cs, 120000), "plugin class scaffolded").to.equal(true);
-      return `wrote ${projectName}/AcceptancePluginClass.cs (scaffolded with a [CrmPluginRegistration] step)`;
+      return `wrote ${projectName}/AcceptancePluginClass.cs (scaffolded plug-in class; the template carries no step registration)`;
     });
   });
 
@@ -133,10 +133,11 @@ describe("ACCEPTANCE: Plugin — build, code, register, publish via panel button
   it("generates early-bound classes — Generate Earlybound button (#129/#130)", async () => {
     await step(COMPONENT, "Generate early-bound classes", async () => {
       // Seed modelbuilder.json so the command runs `pac modelbuilder` directly instead of opening the
-      // config wizard, which has no business being in an acceptance path.
+      // config wizard, which has no business being in an acceptance path. One table is enough to prove
+      // generation + compilation; generating the whole org overran the step's time limit.
       fs.writeFileSync(
         path.join(workspace, "modelbuilder.json"),
-        JSON.stringify({ namespace: "Dataverse.Plugins", serviceContextName: "XrmSvc", outputDirectory: "generated" }, null, 2),
+        JSON.stringify({ namespace: "Dataverse.Plugins", serviceContextName: "XrmSvc", outputDirectory: "generated", entityNamesFilter: ["account"] }, null, 2),
         "utf8",
       );
 

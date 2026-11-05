@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseDecorationsFromContent } from "./decorationParser";
+import { parseDecorationsFromContent, stripCSharpComments } from "./decorationParser";
 
 describe("parseDecorationsFromContent", () => {
   it("returns every stacked [CrmPluginRegistration] on one class as its own step (#295)", () => {
@@ -52,5 +52,56 @@ namespace Contoso.Plugins
     expect(workflowActivities).toEqual([
       { className: "MyActivity", fullTypeName: "Contoso.Plugins.MyActivity", workflowName: "My Activity", workflowDescription: "Does a thing", workflowGroup: "My Group" },
     ]);
+  });
+
+  it("ignores commented-out registrations, line and block", () => {
+    const source = `
+namespace Contoso.Plugins
+{
+    // [CrmPluginRegistration(MessageNameEnum.Delete, "account", StageEnum.PreValidation, ExecutionModeEnum.Synchronous, "", "Disabled delete", 1, IsolationModeEnum.Sandbox)]
+    /* [CrmPluginRegistration(MessageNameEnum.Assign, "account", StageEnum.PreValidation, ExecutionModeEnum.Synchronous, "", "Disabled assign", 1, IsolationModeEnum.Sandbox)] */
+    [CrmPluginRegistration(MessageNameEnum.Create, "account", StageEnum.PostOperation, ExecutionModeEnum.Synchronous, "", "Live create", 1, IsolationModeEnum.Sandbox)]
+    public class AccountPlugin : PluginBase { }
+}`;
+    const { pluginSteps, unrecognised } = parseDecorationsFromContent(source);
+    expect(pluginSteps.map((step) => step.stepName)).toEqual(["Live create"]);
+    expect(unrecognised).toEqual([]);
+  });
+
+  it("registers steps on sealed and partial classes", () => {
+    const source = `
+namespace Contoso.Plugins
+{
+    [CrmPluginRegistration(MessageNameEnum.Create, "account", StageEnum.PostOperation, ExecutionModeEnum.Synchronous, "", "Sealed create", 1, IsolationModeEnum.Sandbox)]
+    public sealed class SealedPlugin : PluginBase { }
+
+    [CrmPluginRegistration(MessageNameEnum.Update, "account", StageEnum.PostOperation, ExecutionModeEnum.Synchronous, "", "Partial update", 1, IsolationModeEnum.Sandbox)]
+    public partial class PartialPlugin : PluginBase { }
+}`;
+    expect(parseDecorationsFromContent(source).pluginSteps.map((step) => [step.className, step.stepName])).toEqual([
+      ["SealedPlugin", "Sealed create"],
+      ["PartialPlugin", "Partial update"],
+    ]);
+  });
+
+  it("reports attributes it cannot register instead of dropping them silently", () => {
+    const source = `
+namespace Contoso.Plugins
+{
+    [CrmPluginRegistration(MessageNameEnum.Create, "account")]
+    public class Incomplete : PluginBase { }
+
+    [CrmPluginRegistration(MessageNameEnum.Update, "account", StageEnum.PostOperation, ExecutionModeEnum.Synchronous, "", "Orphan", 1, IsolationModeEnum.Sandbox)]
+    internal class NotPublic : PluginBase { }
+}`;
+    const { pluginSteps, unrecognised } = parseDecorationsFromContent(source);
+    expect(pluginSteps).toEqual([]);
+    expect(unrecognised.map((entry) => entry.reason)).toEqual([expect.stringContaining("not a plug-in step"), "no public class declaration follows it"]);
+  });
+
+  it("keeps // and /* inside string literals when stripping comments", () => {
+    expect(stripCSharpComments('var a = "http://x"; // gone\nvar b = @"C:\\a ""//"" b"; /* gone */ var c = \'/\';')).toBe(
+      'var a = "http://x"; \nvar b = @"C:\\a ""//"" b";   var c = \'/\';',
+    );
   });
 });

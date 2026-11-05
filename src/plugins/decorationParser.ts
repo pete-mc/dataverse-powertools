@@ -5,6 +5,63 @@ import { PluginStepRegistration, WorkflowActivityRegistration } from "../general
 export interface ParsedDecorationResult {
   pluginSteps: PluginStepRegistration[];
   workflowActivities: WorkflowActivityRegistration[];
+  /** Attributes found but not registered, with why — so Build & Deploy can say so instead of dropping them silently. */
+  unrecognised: UnrecognisedDecoration[];
+}
+
+export interface UnrecognisedDecoration {
+  attribute: string;
+  reason: string;
+}
+
+/**
+ * C# source with its comments blanked out, so a commented-out `// [CrmPluginRegistration(...)]` is not
+ * registered. String and char literals (regular, verbatim `@"..."` and interpolated) are kept intact,
+ * so a `//` inside a step name survives. Pure.
+ */
+export function stripCSharpComments(source: string): string {
+  let out = "";
+  let index = 0;
+  while (index < source.length) {
+    const char = source[index];
+    const next = source[index + 1];
+    if (char === "/" && next === "/") {
+      while (index < source.length && source[index] !== "\n") {
+        index++;
+      }
+      continue;
+    }
+    if (char === "/" && next === "*") {
+      const end = source.indexOf("*/", index + 2);
+      index = end < 0 ? source.length : end + 2;
+      out += " ";
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      const verbatim = source[index - 1] === "@" || (source[index - 1] === "$" && source[index - 2] === "@");
+      let end = index + 1;
+      while (end < source.length) {
+        if (verbatim && source[end] === '"' && source[end + 1] === '"') {
+          end += 2;
+          continue;
+        }
+        if (!verbatim && source[end] === "\\") {
+          end += 2;
+          continue;
+        }
+        if (source[end] === char || (!verbatim && source[end] === "\n")) {
+          break;
+        }
+        end++;
+      }
+      out += source.slice(index, end + 1);
+      index = end + 1;
+      continue;
+    }
+    out += char;
+    index++;
+  }
+  return out;
 }
 
 function splitTopLevelArguments(argumentsText: string): string[] {
@@ -107,20 +164,30 @@ function extractNamespace(content: string): string {
   return namespaceMatch?.[1] || "Plugin";
 }
 
-export function parseDecorationsFromContent(content: string): ParsedDecorationResult {
+/** A plug-in or workflow class declaration, as the attributes above it must be followed by. Modifiers
+ * a registrable class can carry (`sealed`, `partial`) are allowed in any order. */
+const CLASS_DECLARATION = /^[\s\S]*?public\s+(?:(?:sealed|partial)\s+)*class\s+(\w+)\s*:\s*([^\r\n{]+)/;
+
+export function parseDecorationsFromContent(source: string): ParsedDecorationResult {
+  const content = stripCSharpComments(source);
   const namespaceName = extractNamespace(content);
   const pluginSteps: PluginStepRegistration[] = [];
   const workflowActivities: WorkflowActivityRegistration[] = [];
+  const unrecognised: UnrecognisedDecoration[] = [];
 
-  // Each attribute is its own match; the owning class is found by LOOKAHEAD so it isn't consumed —
-  // otherwise a second stacked [CrmPluginRegistration] on the same class is swallowed by the first
-  // match and silently never registered (#295).
-  const regex = /\[CrmPluginRegistration\(([\s\S]*?)\)\](?=[\s\S]*?public\s+class\s+(\w+)\s*:\s*([^\r\n\{]+))/g;
-  let match = regex.exec(content);
-  while (match) {
+  // Each attribute is matched on its own and its owning class found AFTER it without consuming
+  // anything — otherwise a second stacked [CrmPluginRegistration] on the same class is swallowed by
+  // the first and silently never registered (#295).
+  const regex = /\[CrmPluginRegistration\(([\s\S]*?)\)\]/g;
+  for (let match = regex.exec(content); match; match = regex.exec(content)) {
     const argsText = match[1];
-    const className = match[2];
-    const classInheritance = match[3] || "";
+    const owner = CLASS_DECLARATION.exec(content.slice(match.index + match[0].length));
+    if (!owner) {
+      unrecognised.push({ attribute: match[0], reason: "no public class declaration follows it" });
+      continue;
+    }
+    const className = owner[1];
+    const classInheritance = owner[2] || "";
     const args = splitTopLevelArguments(argsText);
 
     const isWorkflow = argsText.includes('"WorkflowActivity"') || classInheritance.includes("WorkflowBase") || classInheritance.includes("CodeActivity");
@@ -132,13 +199,15 @@ export function parseDecorationsFromContent(content: string): ParsedDecorationRe
         workflowDescription: getQuotedStringValue(args[2] || '""'),
         workflowGroup: getQuotedStringValue(args[3] || '""'),
       });
-      match = regex.exec(content);
       continue;
     }
 
     const isPluginStep = args.length >= 8 && args[0].includes("MessageNameEnum.") && args[2].includes("StageEnum.");
     if (!isPluginStep) {
-      match = regex.exec(content);
+      unrecognised.push({
+        attribute: match[0],
+        reason: "not a plug-in step (MessageNameEnum, entity, StageEnum, mode, filtering attributes, name, order, isolation) or a workflow activity",
+      });
       continue;
     }
 
@@ -163,9 +232,7 @@ export function parseDecorationsFromContent(content: string): ParsedDecorationRe
       executionOrder: Number.isFinite(executionOrder) ? executionOrder : 1,
       stepId,
     });
-
-    match = regex.exec(content);
   }
 
-  return { pluginSteps, workflowActivities };
+  return { pluginSteps, workflowActivities, unrecognised };
 }

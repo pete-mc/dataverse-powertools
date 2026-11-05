@@ -19,11 +19,6 @@ interface ExecResult {
   stderr: string;
 }
 
-interface DecorationInfo {
-  filePath: string;
-  kind: "plugin" | "workflow";
-}
-
 function execFileAsync(file: string, args: string[], cwd?: string): Promise<ExecResult> {
   return new Promise((resolve, reject) => {
     cp.execFile(file, args, { cwd }, (error, stdout, stderr) => {
@@ -280,60 +275,32 @@ function parsePackageMetadata(context: DataversePowerToolsContext, csprojPath: s
   };
 }
 
-async function discoverDecorations(workspacePath: string): Promise<DecorationInfo[]> {
-  const allFiles = await walkDirectory(workspacePath);
-  const sourceFiles = allFiles.filter((filePath) => {
-    const lower = filePath.toLowerCase();
-    if (!lower.endsWith(".cs")) {
-      return false;
-    }
-    return !lower.includes("\\bin\\") && !lower.includes("\\obj\\") && !lower.includes("\\.git\\");
-  });
-
-  const decorations: DecorationInfo[] = [];
-
-  for (const filePath of sourceFiles) {
-    const content = await fs.promises.readFile(filePath, "utf8");
-    const regex = /\[CrmPluginRegistration\(([\s\S]*?)\)\]/g;
-    let match = regex.exec(content);
-    while (match) {
-      const args = match[1];
-      const isWorkflow = args.includes('"WorkflowActivity"');
-      const isPluginStep = args.includes("MessageNameEnum.") && args.includes("StageEnum.");
-
-      if (isWorkflow) {
-        decorations.push({ filePath, kind: "workflow" });
-      } else if (isPluginStep) {
-        decorations.push({ filePath, kind: "plugin" });
-      }
-
-      match = regex.exec(content);
-    }
-  }
-
-  return decorations;
-}
-
-async function discoverRegistrations(workspacePath: string): Promise<ParsedDecorationResult> {
+async function discoverRegistrations(workspacePath: string, log: (line: string) => void): Promise<ParsedDecorationResult> {
   const sourceFiles = (await walkDirectory(workspacePath)).filter((filePath) => {
-    const lower = filePath.toLowerCase();
+    // Separator-agnostic, so bin/obj/.git are skipped on macOS/Linux as well as Windows.
+    const lower = filePath.toLowerCase().replace(/\\/g, "/");
     if (!lower.endsWith(".cs")) {
       return false;
     }
-    return !lower.includes("\\bin\\") && !lower.includes("\\obj\\") && !lower.includes("\\.git\\");
+    return !lower.includes("/bin/") && !lower.includes("/obj/") && !lower.includes("/.git/");
   });
 
   const pluginSteps: PluginStepRegistration[] = [];
   const workflowActivities: WorkflowActivityRegistration[] = [];
+  const unrecognised: ParsedDecorationResult["unrecognised"] = [];
 
   for (const filePath of sourceFiles) {
     const content = await fs.promises.readFile(filePath, "utf8");
     const parsed = parseDecorationsFromContent(content);
     pluginSteps.push(...parsed.pluginSteps);
     workflowActivities.push(...parsed.workflowActivities);
+    unrecognised.push(...parsed.unrecognised);
+    for (const skipped of parsed.unrecognised) {
+      log(`Skipping a [CrmPluginRegistration] in ${path.relative(workspacePath, filePath)} — ${skipped.reason}: ${skipped.attribute}`);
+    }
   }
 
-  return { pluginSteps, workflowActivities };
+  return { pluginSteps, workflowActivities, unrecognised };
 }
 
 export async function buildAndDeploy(context: DataversePowerToolsContext): Promise<void> {
@@ -504,7 +471,7 @@ export async function buildAndDeploy(context: DataversePowerToolsContext): Promi
         }
       }
 
-      const discovered = await discoverRegistrations(workspacePath);
+      const discovered = await discoverRegistrations(workspacePath, (line) => context.channel.appendLine(line));
       const pluginCount = discovered.pluginSteps.length;
       const workflowCount = discovered.workflowActivities.length;
       context.channel.appendLine(`Discovered ${pluginCount} plugin step decorations and ${workflowCount} workflow decorations.`);
